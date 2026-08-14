@@ -1,0 +1,69 @@
+# =========================
+# Android / IntelliJ / Studio
+# =========================
+
+*.iml
+.gradle
+.idea/
+/local.properties
+
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+.kotlin/
+
+# Duplicate safety
+local.properties
+
+# =========================
+# Flutter
+# =========================
+
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+build/
+
+# Flutter generated
+*.dill
+
+# =========================
+# AI / ML Models
+# =========================
+
+*.pt
+*.pth
+*.onnx
+*.bin
+*.tflite
+
+# model_host/ is for local dev testing only - keep the tooling, ignore
+# anything a test run drops in there (models, screenshots, logs)
+model_host/*
+!model_host/serve.py
+!model_host/README.md
+
+# =========================
+# Logs / temp
+# =========================
+
+*.log
+*.tmp
+*.temp
+
+# =========================
+# VSCode
+# =========================
+
+.vscode/
+
+# =========================
+# Windows
+# =========================
+
+Thumbs.db
+desktop.ini
