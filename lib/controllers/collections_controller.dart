@@ -622,7 +622,8 @@ class CollectionsController extends GetxController {
     // a few at a time, in list order, so the top of the grid fills first.
     var sinceUpdate = 0;
     final pending = <Map<String, dynamic>>[];
-    for (final item in members) {
+    // What the latest scan indexed (tagged New) shows first in the grid, so it loads first too.
+    for (final item in Get.find<NativeController>().newFirst(members)) {
       final key = memberKey(item);
       final cached = _thumbCache.remove(key);
       if (cached != null) {

@@ -581,6 +581,8 @@ class EmbeddingEngine(
         store.appendBatch(batch)
         clipTiming.writeNs += System.nanoTime() - writeStartedNs
         val photos = batch.filter { it.videoUri == null }.map { IndexedImage(it.hash, it.imagePath) }
+        // These items are what the latest scan stored (a video's frames all share its uri).
+        LatestScan.add(batch.map { it.imagePath })
         batch.clear()
         handOver(photos)
     }

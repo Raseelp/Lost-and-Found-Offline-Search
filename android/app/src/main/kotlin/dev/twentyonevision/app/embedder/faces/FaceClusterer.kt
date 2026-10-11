@@ -251,6 +251,34 @@ class FaceClusterer(private val context: Context, private val store: FaceStore) 
         return Link(centroid, top[0], top.filter { it > -1f }.sum() / used, pairs)
     }
 
+    /**
+     * How well two people's faces agree, face by face: for each face of one, how well it matches
+     * its closest face of the other; the best three of those (different faces, not one face
+     * counted three times) averaged, for each side, and the lower of the two sides. Null when
+     * either person has fewer than two faces to compare - one face can match by luck.
+     */
+    private fun mutualMatch(a: PersonState, b: PersonState): Float? {
+        fun side(from: PersonState, to: PersonState): Float? {
+            val best = ArrayList<Float>()
+            for (x in from.faceVectors()) {
+                var top = -1f
+                for (y in to.faceVectors()) {
+                    if (x.vector.size != y.vector.size) continue
+                    val sim = dotProduct(x.vector, y.vector)
+                    if (sim > top) top = sim
+                }
+                if (top > -1f) best.add(top)
+            }
+            if (best.size < 2) return null
+            best.sortDescending()
+            val k = minOf(3, best.size)
+            return best.take(k).sum() / k
+        }
+        val ab = side(a, b) ?: return null
+        val ba = side(b, a) ?: return null
+        return minOf(ab, ba)
+    }
+
     private val lock = Any()
     private var people: HashMap<Long, PersonState>? = null
 
@@ -533,6 +561,13 @@ class FaceClusterer(private val context: Context, private val store: FaceStore) 
             it.count > 0 && it.media.size >= FaceStore.MIN_PHOTOS_TO_SHOW && it.id !in hidden
         }
 
+        // Just under what automatic merging needs (see FaceClusterConfig.link), so they follow the
+        // model in use and the strictness the user chose, instead of fixed numbers.
+        val cfg = config
+        val top3Min = cfg.link - SUGGEST_BELOW_LINK
+        val bestMin = cfg.link - SUGGEST_BEST_BELOW_LINK
+        val centroidMin = cfg.join - SUGGEST_CENTROID_BELOW_JOIN
+
         val out = ArrayList<MergeSuggestion>()
         for (i in listed.indices) {
             val a = listed[i]
@@ -544,12 +579,20 @@ class FaceClusterer(private val context: Context, private val store: FaceStore) 
                 if (protoSim(a, b) < PREFILTER) continue
                 if (sharesPhoto(a, b)) continue
 
-                // Both must hold: several faces of one match several of the other
-                // (not a lone lucky pair - look-alikes, and drawings or cartoons,
-                // produce those), and the closest pair is clearly alike.
+                // All must hold: several different faces of one match several of the other, on
+                // both sides (not a lone lucky pair - look-alikes, and drawings or cartoons,
+                // produce those; and not one face of a person that happens to match many), the
+                // closest pair is clearly alike, and the two people's looks are alike overall
+                // (strangers can have a few faces that happen to match, but not their looks).
                 val l = link(a, b) ?: continue
-                if (l.pairs < 3 || l.top3 < SUGGEST_TOP3 || l.best < SUGGEST_BEST) continue
-                out += MergeSuggestion(a.id, b.id, l.top3)
+                if (l.best < bestMin || l.centroid < centroidMin) continue
+                val mutual = mutualMatch(a, b) ?: continue
+                if (mutual < top3Min) continue
+                // The review screen words a pair by its score (0.40 "probably", 0.46 "very
+                // likely"): put on that scale relative to this model's own merge rule, so a pair
+                // that is only nearly what automatic merging wants is never called "probably",
+                // and one it would have merged (but the user's naming kept apart) is "very likely".
+                out += MergeSuggestion(a.id, b.id, mutual - cfg.link + SUGGEST_SCORE_AT_LINK)
             }
         }
         out.sortByDescending { it.score }
@@ -824,15 +867,19 @@ class FaceClusterer(private val context: Context, private val store: FaceStore) 
         // Averages this far apart or less are unrelated people: skip the finer comparison.
         private const val PREFILTER = 0.26f
 
-        // A pair is suggested only when their three best matching faces average at least
-        // SUGGEST_TOP3 and the single best pair is at least SUGGEST_BEST. Measured on a
-        // few thousand of real photos (338 people): the old rule (one good pair, or
-        // similar averages) suggested about 90 pairs, most of them different people;
-        // 0.40 / 0.42 suggested 5, all likely the same person but too few to be useful;
-        // this in between gives about 15 - a review list worth opening, with the odd
-        // wrong one that "Different" removes for good.
-        private const val SUGGEST_TOP3 = 0.36f
-        private const val SUGGEST_BEST = 0.365f
+        // A pair is suggested only when it is nearly what automatic merging would have done: their
+        // three best matching faces average within SUGGEST_BELOW_LINK of the merge rule's `link`,
+        // the single best pair within SUGGEST_BEST_BELOW_LINK, and their looks (averages) are
+        // within SUGGEST_CENTROID_BELOW_JOIN of the joining threshold. These were fixed numbers
+        // (0.36 / 0.365) from the larger model; with the small one they fell below `join`, so
+        // pairs of different people were offered by the dozen. Relative to the model's own
+        // thresholds they stay right for either model and for each strictness.
+        private const val SUGGEST_BELOW_LINK = 0.025f
+        private const val SUGGEST_BEST_BELOW_LINK = 0.01f
+        private const val SUGGEST_CENTROID_BELOW_JOIN = 0.03f
+
+        // What a pair exactly at the merge rule's `link` scores on the review screen's scale.
+        private const val SUGGEST_SCORE_AT_LINK = 0.41f
 
         // Looks kept per person.
         private const val MAX_PROTOS = 6
