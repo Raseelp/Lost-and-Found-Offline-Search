@@ -5,11 +5,13 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:twentyonevision/controllers/collections_controller.dart';
+import 'package:twentyonevision/controllers/export_controller.dart';
 import 'package:twentyonevision/controllers/faces_controller.dart';
 import 'package:twentyonevision/models/collection_model.dart';
 import 'package:twentyonevision/utils/app_colors.dart';
 import 'package:twentyonevision/utils/app_radius.dart';
 import 'package:twentyonevision/utils/app_spacing.dart';
+import 'package:twentyonevision/view/export_zip_screen.dart';
 import 'package:twentyonevision/view/widget/confirm_dialog.dart';
 import 'package:twentyonevision/view/widget/mention_input_field.dart';
 import 'package:twentyonevision/view/widget/mention_text_controller.dart';
@@ -35,7 +37,13 @@ class CollectionCard extends StatefulWidget {
     required this.syncing,
     required this.onTap,
     required this.onLongPress,
+    this.selecting = false,
+    this.selected = false,
   });
+
+  /// While choosing several collections: every card shows a tick circle, ticked ones a ring.
+  final bool selecting;
+  final bool selected;
 
   final SmartCollection collection;
   final CollectionStats stats;
@@ -149,6 +157,37 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
                     ),
                   ),
                 if (widget.syncing) _SyncOverlay(animation: _sweep, onPhoto: hasCover),
+                if (widget.selecting)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(AppRadius.lg),
+                          border: Border.all(color: widget.selected ? AppColors.primary : Colors.transparent, width: 3),
+                          color: widget.selected ? AppColors.primary.withValues(alpha: .12) : Colors.transparent,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (widget.selecting)
+                  Positioned(
+                    top: AppSpacing.sm,
+                    right: AppSpacing.sm,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: widget.selected ? AppColors.primary : Colors.white.withValues(alpha: .85),
+                        border: Border.all(color: widget.selected ? AppColors.primary : AppColors.hairline, width: 1.5),
+                      ),
+                      child: widget.selected
+                          ? const Icon(Icons.check_rounded, size: 18, color: AppColors.onPrimary)
+                          : null,
+                    ),
+                  ),
                 Positioned(
                   left: AppSpacing.md,
                   right: AppSpacing.md,
@@ -630,6 +669,15 @@ void showCollectionMenu(
                 onTap: () {
                   Navigator.of(sheetContext).pop();
                   showEditCollectionSheet(context, collection, controller);
+                },
+              ),
+              const Divider(height: 1, color: AppColors.dividerSoft),
+              _MenuRow(
+                icon: Icons.folder_zip_outlined,
+                label: 'Export as zip',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  openExportZip(context, select: {ExportController.collectionKey(collection.id)});
                 },
               ),
               const Divider(height: 1, color: AppColors.dividerSoft),

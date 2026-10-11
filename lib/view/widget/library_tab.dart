@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:twentyonevision/controllers/export_controller.dart';
 import 'package:twentyonevision/controllers/faces_controller.dart';
 import 'package:twentyonevision/controllers/native_controller.dart';
 import 'package:twentyonevision/models/indexed_folder_model.dart';
@@ -11,6 +12,7 @@ import 'package:twentyonevision/utils/app_colors.dart';
 import 'package:twentyonevision/utils/app_radius.dart';
 import 'package:twentyonevision/utils/app_spacing.dart';
 import 'package:twentyonevision/utils/floating_bar.dart';
+import 'package:twentyonevision/view/export_zip_screen.dart';
 import 'package:twentyonevision/view/widget/confirm_dialog.dart';
 import 'package:twentyonevision/services/native_services.dart';
 import 'package:twentyonevision/view/widget/library_orbit.dart';
@@ -74,6 +76,8 @@ class LibraryTab extends StatelessWidget {
                     ),
             ),
           ),
+          const SizedBox(height: AppSpacing.md),
+          const _ExportZipCard(),
           if (controller.allIndexedFoldersList.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xxl),
             Text(
@@ -103,6 +107,53 @@ Future<void> _startDeviceScan(
   );
   if (!granted) return;
   controller.pickAndScanFolders(isScanEntirePhone: true);
+}
+
+// The way into exporting albums as a zip. While one is being made it says how far it is.
+class _ExportZipCard extends StatelessWidget {
+  const _ExportZipCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return GetBuilder<ExportController>(
+      init: ExportController(),
+      initState: (state) => state.controller?.refreshStatus(),
+      builder: (export) {
+        final status = export.status;
+        final subtitle = status.running
+            ? 'Making a zip · ${(status.fraction * 100).floor()}%'
+            : 'Put collections or people in a zip to keep or send';
+        return Material(
+          color: AppColors.parchment,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            onTap: () => openExportZip(context),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.base, vertical: AppSpacing.md),
+              child: Row(
+                children: [
+                  const Icon(Icons.folder_zip_outlined, color: AppColors.primary),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Export as zip', style: textTheme.titleSmall),
+                        Text(subtitle, style: textTheme.bodySmall?.copyWith(color: AppColors.ink48)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: AppColors.ink48),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 // Before a scan (and after one): the choices under the chip.
