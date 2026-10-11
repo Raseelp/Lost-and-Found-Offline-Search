@@ -24,6 +24,17 @@ class SafPickerActivity : Activity() {
                 }
             }
 
+            // A folder to save a zip in: it has to be writable.
+            MODE_EXPORT_FOLDER -> {
+                Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                    addFlags(
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                                Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                    )
+                }
+            }
+
             else -> {
                 Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
                     addFlags(
@@ -49,9 +60,14 @@ class SafPickerActivity : Activity() {
 
             if (uri != null) {
 
+                val mode = intent.getStringExtra(EXTRA_MODE)
                 contentResolver.takePersistableUriPermission(
                     uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    if (mode == MODE_EXPORT_FOLDER) {
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    } else {
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    }
                 )
 
                 val result = Intent().apply {
@@ -78,5 +94,6 @@ class SafPickerActivity : Activity() {
 
         const val MODE_FOLDER = "folder"
         const val MODE_IMAGE = "image"
+        const val MODE_EXPORT_FOLDER = "export_folder"
     }
 }

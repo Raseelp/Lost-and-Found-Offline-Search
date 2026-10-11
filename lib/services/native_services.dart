@@ -293,6 +293,48 @@ class NativeServices {
     }
   }
 
+  // ---- Zip export ----
+
+  /// A folder to save a zip in (one the app may write to); null if the user gave up.
+  Future<String?> pickExportFolder() async {
+    try {
+      return await _channel.invokeMethod<String>('pickExportFolder');
+    } on PlatformException catch (e) {
+      if (e.code == 'CANCELLED') return null;
+      rethrow;
+    }
+  }
+
+  /// Name, size (bytes, -1 if it cannot be read) and dates (ms, 0 if unknown) of each of [uris].
+  Future<List<ExportItemInfo>> exportItemInfo(List<String> uris) async {
+    final list = await _channel.invokeListMethod<dynamic>('exportItemInfo', {'uris': uris});
+    return (list ?? const []).map((e) => ExportItemInfo.fromMap(e as Map)).toList();
+  }
+
+  /// Room left on the phone's storage in bytes; -1 if it cannot be told.
+  Future<int> exportFreeSpace() async => await _channel.invokeMethod<int>('exportFreeSpace') ?? -1;
+
+  /// Whether a zip can be saved in Downloads without choosing a folder (Android 10 and later).
+  Future<bool> exportDownloadsAvailable() async =>
+      await _channel.invokeMethod<bool>('exportDownloadsAvailable') ?? false;
+
+  /// Starts making the zip described by [job] (see ExportController); false if one is already
+  /// being made.
+  Future<bool> startZipExport(String job) async =>
+      await _channel.invokeMethod<bool>('startZipExport', {'job': job}) ?? false;
+
+  Future<ZipExportStatus> zipExportStatus() async {
+    final map = await _channel.invokeMapMethod<String, dynamic>('zipExportStatus');
+    return ZipExportStatus.fromMap(map ?? const {});
+  }
+
+  Future<void> cancelZipExport() => _channel.invokeMethod<bool>('cancelZipExport');
+
+  Future<bool> shareZips(List<String> uris) async =>
+      await _channel.invokeMethod<bool>('shareZips', {'uris': uris}) ?? false;
+
+  Future<bool> openDownloads() async => await _channel.invokeMethod<bool>('openDownloads') ?? false;
+
   static Future<Map<String, dynamic>?>? _deviceChip;
 
   /// The name of this phone's processor (maker, model, cores, architecture), asked once.
@@ -1390,5 +1432,85 @@ class FaceModels {
     models: (m['models'] as List)
         .map((e) => FaceModelInfo.fromMap(e as Map<dynamic, dynamic>))
         .toList(),
+  );
+}
+
+/// What the zip export needs to know about one photo or video.
+class ExportItemInfo {
+  const ExportItemInfo({required this.name, required this.size, required this.takenMs, required this.modifiedMs});
+
+  final String name;
+
+  /// Bytes; -1 when the file cannot be read.
+  final int size;
+  final int takenMs, modifiedMs;
+
+  bool get readable => size >= 0;
+
+  factory ExportItemInfo.fromMap(Map<dynamic, dynamic> m) => ExportItemInfo(
+    name: m['name'] as String? ?? 'file',
+    size: (m['size'] as num?)?.toInt() ?? -1,
+    takenMs: (m['takenMs'] as num?)?.toInt() ?? 0,
+    modifiedMs: (m['modifiedMs'] as num?)?.toInt() ?? 0,
+  );
+}
+
+/// A zip that has been made.
+class ZipExportResult {
+  const ZipExportResult({required this.name, required this.uri, required this.bytes});
+
+  final String name, uri;
+  final int bytes;
+}
+
+/// What the zip export is doing now (see ZipExportState in the native code).
+class ZipExportStatus {
+  const ZipExportStatus({
+    required this.id,
+    required this.phase,
+    required this.filesTotal,
+    required this.filesDone,
+    required this.bytesTotal,
+    required this.bytesDone,
+    required this.partsTotal,
+    required this.part,
+    required this.skipped,
+    required this.currentName,
+    required this.error,
+    required this.results,
+  });
+
+  final int id;
+
+  /// idle, preparing, writing, done, failed or cancelled.
+  final String phase;
+  final int filesTotal, filesDone, bytesTotal, bytesDone, partsTotal, part, skipped;
+  final String currentName, error;
+  final List<ZipExportResult> results;
+
+  bool get running => phase == 'preparing' || phase == 'writing';
+
+  double get fraction => bytesTotal > 0 ? (bytesDone / bytesTotal).clamp(0.0, 1.0) : 0.0;
+
+  factory ZipExportStatus.fromMap(Map<dynamic, dynamic> m) => ZipExportStatus(
+    id: (m['id'] as num?)?.toInt() ?? 0,
+    phase: m['phase'] as String? ?? 'idle',
+    filesTotal: (m['filesTotal'] as num?)?.toInt() ?? 0,
+    filesDone: (m['filesDone'] as num?)?.toInt() ?? 0,
+    bytesTotal: (m['bytesTotal'] as num?)?.toInt() ?? 0,
+    bytesDone: (m['bytesDone'] as num?)?.toInt() ?? 0,
+    partsTotal: (m['partsTotal'] as num?)?.toInt() ?? 0,
+    part: (m['part'] as num?)?.toInt() ?? 0,
+    skipped: (m['skipped'] as num?)?.toInt() ?? 0,
+    currentName: m['currentName'] as String? ?? '',
+    error: m['error'] as String? ?? '',
+    results: [
+      for (final r in (m['results'] as List? ?? const []))
+        ZipExportResult(
+          name: (r as Map)['name'] as String? ?? '',
+          uri: r['uri'] as String? ?? '',
+          bytes: (r['bytes'] as num?)?.toInt() ?? 0,
+        ),
+    ],
   );
 }

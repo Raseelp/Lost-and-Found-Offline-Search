@@ -99,4 +99,7 @@ dependencies {
     // this - PyTorch Mobile (and the soloader it needed) was dropped once
     // CLIP moved to ONNX too, since nothing else in the app still used it.
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
+
+    // Runs on the computer, not the phone: checks the zip writer (see export/ZipPartWriter.kt).
+    testImplementation("junit:junit:4.13.2")
 }

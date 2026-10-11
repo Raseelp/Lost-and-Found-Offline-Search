@@ -588,6 +588,40 @@ class CollectionsController extends GetxController {
     await _reload(refresh: false);
   }
 
+  // ---- Choosing several (for exporting) ----
+
+  bool selecting = false;
+  final Set<String> selectedIds = {};
+
+  void startSelecting([String? first]) {
+    selecting = true;
+    selectedIds
+      ..clear()
+      ..addAll(first == null ? const <String>[] : [first]);
+    update();
+  }
+
+  void toggleSelected(String id) {
+    if (!selectedIds.remove(id)) selectedIds.add(id);
+    update();
+  }
+
+  void stopSelecting() {
+    selecting = false;
+    selectedIds.clear();
+    update();
+  }
+
+  /// Every member of [collection] (not just the first screenful), for exporting. Empty if the
+  /// models are not ready.
+  Future<List<Map<String, dynamic>>> allMembersOf(SmartCollection collection) async {
+    try {
+      return await NativeServices().collectionMembers(await _specFor(collection), limit: 100000);
+    } on ModelsNotReadyError {
+      return const [];
+    }
+  }
+
   // ---- Opening one ----
 
   Future<void> openCollection(SmartCollection collection) async {

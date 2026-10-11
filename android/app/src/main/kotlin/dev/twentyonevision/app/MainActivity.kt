@@ -116,6 +116,9 @@ class MainActivity : FlutterActivity() {
     // Face pictures get their own threads: a grid of photo thumbnails filling in
     // (or a search) must never make an avatar wait, and the other way round.
     private val faceCropExecutor = Executors.newFixedThreadPool(3)
+
+    // Work for the zip export that is quick but not instant (reading file sizes and dates).
+    private val exportExecutor = Executors.newSingleThreadExecutor()
     // Face detection has its own thread and detector (with its own ONNX
     // session), so it never waits behind - or holds up - search or a scan.
     private val faceExecutor = Executors.newSingleThreadExecutor()
@@ -1619,6 +1622,105 @@ class MainActivity : FlutterActivity() {
                 "cancelEmbedding" -> {
                     embeddingEngine.cancelEmbedding()
                     result.success(true)
+                }
+
+                // ---- zip export (see export/ZipExportWorker.kt) ----
+
+                // A folder to save a zip in.
+                "pickExportFolder" -> {
+                    if (pendingPickResult != null) {
+                        result.error("BUSY", "Picker already open", null)
+                        return@setMethodCallHandler
+                    }
+                    pendingPickResult = result
+                    launchSafPicker(SafPickerActivity.MODE_EXPORT_FOLDER)
+                }
+
+                // Name, size and date of each of the given photos and videos (for the estimate).
+                "exportItemInfo" -> {
+                    val uris = (call.argument<List<String>>("uris") ?: emptyList())
+                    exportExecutor.execute {
+                        try {
+                            val infos = uris.map {
+                                val info = dev.twentyonevision.app.export.ExportItems.resolve(applicationContext, it)
+                                mapOf(
+                                    "name" to info.name,
+                                    "size" to info.size,
+                                    "takenMs" to info.takenMs,
+                                    "modifiedMs" to info.modifiedMs,
+                                )
+                            }
+                            runOnUiThread { result.success(infos) }
+                        } catch (e: Throwable) {
+                            runOnUiThread { result.error("EXPORT_INFO_FAILED", e.message, null) }
+                        }
+                    }
+                }
+
+                // Room left where a zip goes by default (the phone's storage), in bytes.
+                "exportFreeSpace" -> {
+                    result.success(
+                        try {
+                            android.os.StatFs(android.os.Environment.getExternalStorageDirectory().path).availableBytes
+                        } catch (e: Exception) {
+                            -1L
+                        }
+                    )
+                }
+
+                // Zips go to Downloads from Android 10 on; before that a folder has to be chosen.
+                "exportDownloadsAvailable" -> result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+
+                "startZipExport" -> {
+                    val job = call.argument<String>("job")
+                    if (job == null) {
+                        result.error("NO_JOB", "Job missing", null)
+                        return@setMethodCallHandler
+                    }
+                    exportExecutor.execute {
+                        val started = try {
+                            dev.twentyonevision.app.export.ZipExport.start(applicationContext, job)
+                        } catch (e: Throwable) {
+                            null
+                        }
+                        runOnUiThread {
+                            if (started == null) result.error("EXPORT_FAILED", "Could not start", null)
+                            else result.success(started)
+                        }
+                    }
+                }
+
+                "zipExportStatus" -> result.success(dev.twentyonevision.app.export.ZipExportState.toMap())
+
+                "cancelZipExport" -> {
+                    dev.twentyonevision.app.export.ZipExport.cancel()
+                    result.success(true)
+                }
+
+                // The zips that were made, to send on.
+                "shareZips" -> {
+                    val uris = (call.argument<List<String>>("uris") ?: emptyList()).map { android.net.Uri.parse(it) }
+                    if (uris.isEmpty()) {
+                        result.success(false)
+                        return@setMethodCallHandler
+                    }
+                    val send = Intent(if (uris.size == 1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE).apply {
+                        type = "application/zip"
+                        if (uris.size == 1) putExtra(Intent.EXTRA_STREAM, uris[0])
+                        else putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    startActivity(Intent.createChooser(send, "Send the zip").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    result.success(true)
+                }
+
+                "openDownloads" -> {
+                    try {
+                        startActivity(Intent(android.app.DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
                 }
 
                 // The items the latest indexing scan stored (once: the app tags them as new).
