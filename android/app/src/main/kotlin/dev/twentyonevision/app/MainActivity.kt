@@ -1621,6 +1621,18 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
+                // The items the latest indexing scan stored (once: the app tags them as new).
+                "takeLatestScan" -> {
+                    faceCropExecutor.execute {
+                        val items = try {
+                            dev.twentyonevision.app.embedder.LatestScan.take(applicationContext)
+                        } catch (e: Throwable) {
+                            emptyList()
+                        }
+                        runOnUiThread { result.success(items) }
+                    }
+                }
+
                 // Asked by a freshly (re)created Dart layer on init - e.g.
                 // after the app was removed from Recents and reopened,
                 // which recreates the Activity/Flutter engine without

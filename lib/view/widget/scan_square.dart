@@ -2751,15 +2751,15 @@ class _ScanStoryState extends State<_ScanStory> with SingleTickerProviderStateMi
     }
     if (stats.total == 0) {
       return _Channel(
-        label: 'Looking through your folders',
+        label: 'Loading the embedding model into memory',
         color: _photosColor,
         fraction: null,
-        figure: stats.found != null ? '${_count(stats.found!)} found' : null,
+        left: stats.found != null ? '${_count(stats.found!)} items' : null,
       );
     }
     if (stats.indexed == 0) {
       return _Channel(
-        label: 'Loading the search model into memory',
+        label: 'Loading the embedding model into memory',
         color: _photosColor,
         fraction: null,
       );
@@ -2826,7 +2826,7 @@ class _ScanStoryState extends State<_ScanStory> with SingleTickerProviderStateMi
                   alignment: Alignment.centerLeft,
                   children: [...previous, if (current != null) current],
                 ),
-                child: Text(c.label, key: ValueKey(c.label), style: label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                child: Text(c.label, key: ValueKey(c.label), style: label, maxLines: 2, overflow: TextOverflow.ellipsis),
               ),
             ),
             if (c.figure != null) Padding(padding: const EdgeInsets.only(left: 12), child: Text(c.figure!, style: figure)),
