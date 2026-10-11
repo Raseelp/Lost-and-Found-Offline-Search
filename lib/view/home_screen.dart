@@ -6,12 +6,14 @@ import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:twentyonevision/controllers/collections_controller.dart';
+import 'package:twentyonevision/controllers/export_controller.dart';
 import 'package:twentyonevision/controllers/faces_controller.dart';
 import 'package:twentyonevision/controllers/native_controller.dart';
 import 'package:twentyonevision/utils/app_colors.dart';
 import 'package:twentyonevision/utils/app_radius.dart';
 import 'package:twentyonevision/utils/app_spacing.dart';
 import 'package:twentyonevision/utils/floating_bar.dart';
+import 'package:twentyonevision/view/export_zip_screen.dart';
 import 'package:twentyonevision/view/people_filter_screen.dart';
 import 'package:twentyonevision/view/settings_screen.dart';
 import 'package:twentyonevision/view/widget/collections_tab.dart';
@@ -93,6 +95,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 return;
               }
             }
+            if (Get.isRegistered<CollectionsController>()) {
+              final collections = Get.find<CollectionsController>();
+              if (collections.selecting) {
+                collections.stopSelecting();
+                return;
+              }
+            }
             controller.setHomeTab(_tabSearch);
           },
           child: Scaffold(
@@ -146,12 +155,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       // Rebuilds with the People tab's "choose people" state: while that is
                       // on, the bar turns into the button that goes on to the photos.
                       child: GetBuilder<FacesController>(
-                        builder: (faces) => _FloatingNavBar(
+                        builder: (faces) => GetBuilder<CollectionsController>(
+                          builder: (collections) => _FloatingNavBar(
                           selection:
                               faces.selecting && controller.homeTab == _tabFaces
                               ? _BarSelection(
                                   chosen: faces.selectedPeople.length,
                                   onCancel: faces.stopSelecting,
+                                  labelFor: (n) => n == 0
+                                      ? 'Choose people'
+                                      : (n == 1 ? 'See their photos' : 'Find photos with these $n'),
                                   onFind: () {
                                     final people = faces.selectedPeople;
                                     if (people.isEmpty) return;
@@ -162,6 +175,30 @@ class _HomeScreenState extends State<HomeScreen> {
                                             PeopleFilterScreen(people: people),
                                       ),
                                     );
+                                  },
+                                  onExport: () {
+                                    final people = faces.selectedPeople;
+                                    if (people.isEmpty) return;
+                                    faces.stopSelecting();
+                                    openExportZip(
+                                      context,
+                                      select: {for (final p in people) ExportController.personKey(p.id)},
+                                    );
+                                  },
+                                )
+                              : collections.selecting && controller.homeTab == _tabCollections
+                              ? _BarSelection(
+                                  chosen: collections.selectedIds.length,
+                                  onCancel: collections.stopSelecting,
+                                  icon: Icons.folder_zip_outlined,
+                                  labelFor: (n) => n == 0
+                                      ? 'Choose collections'
+                                      : (n == 1 ? 'Export as zip' : 'Export $n as zip'),
+                                  onFind: () {
+                                    final ids = {for (final id in collections.selectedIds) ExportController.collectionKey(id)};
+                                    if (ids.isEmpty) return;
+                                    collections.stopSelecting();
+                                    openExportZip(context, select: ids);
                                   },
                                 )
                               : null,
@@ -180,6 +217,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Get.isRegistered<FacesController>()) {
                               final faces = Get.find<FacesController>();
                               if (faces.selecting) faces.stopSelecting();
+                            }
+                            // Likewise choosing collections belongs to the Collections tab.
+                            if (i != _tabCollections &&
+                                Get.isRegistered<CollectionsController>()) {
+                              final collections = Get.find<CollectionsController>();
+                              if (collections.selecting) collections.stopSelecting();
                             }
                             // Opening Faces: refresh. (Looking never starts a scan.)
                             if (i == _tabFaces) {
@@ -207,6 +250,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               controller.searchFocusNode.unfocus();
                             }
                           },
+                          ),
                         ),
                       ),
                     ),
@@ -331,18 +375,25 @@ const _navTabs = [
 // so while it's active the pill has nothing selected and the button takes
 // over the highlight. Tonal like the rest of the app (parchment on canvas,
 // primary for "on"), not a dark slab.
-/// While choosing people in the People tab: how many are ticked and what the
-/// bar's two actions do.
+/// While choosing people (People tab) or collections (Collections tab): how many are ticked
+/// and what the bar's actions do. [onExport], when there is one, is a second button at the
+/// right: the zip of what is ticked.
 class _BarSelection {
   const _BarSelection({
     required this.chosen,
     required this.onCancel,
     required this.onFind,
+    required this.labelFor,
+    this.icon = Icons.photo_library_outlined,
+    this.onExport,
   });
 
   final int chosen;
   final VoidCallback onCancel;
   final VoidCallback onFind;
+  final String Function(int chosen) labelFor;
+  final IconData icon;
+  final VoidCallback? onExport;
 }
 
 class _FloatingNavBar extends StatelessWidget {
@@ -504,11 +555,7 @@ class _SelectionContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final ready = selection.chosen > 0;
     final foreground = ready ? AppColors.onPrimary : AppColors.ink;
-    final label = selection.chosen == 0
-        ? 'Choose people'
-        : (selection.chosen == 1
-              ? 'See their photos'
-              : 'Find photos with these ${selection.chosen}');
+    final label = selection.labelFor(selection.chosen);
 
     return Row(
       children: [
@@ -542,7 +589,7 @@ class _SelectionContent extends StatelessWidget {
                   children: [
                     if (ready) ...[
                       Icon(
-                        Icons.photo_library_outlined,
+                        selection.icon,
                         size: 18,
                         color: foreground,
                       ),
@@ -564,8 +611,28 @@ class _SelectionContent extends StatelessWidget {
             ),
           ),
         ),
-        // Same width as the close button, so the label is centred in the pill.
-        const SizedBox(width: _chipHeight),
+        // Same width as the close button, so the label is centred in the pill (or the zip
+        // button, for what is chosen).
+        if (selection.onExport != null && ready)
+          Semantics(
+            button: true,
+            label: 'Export as zip',
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: selection.onExport,
+              child: Container(
+                width: _chipHeight,
+                height: _chipHeight,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: foreground.withValues(alpha: 0.18),
+                ),
+                child: Icon(Icons.folder_zip_outlined, size: 20, color: foreground),
+              ),
+            ),
+          )
+        else
+          const SizedBox(width: _chipHeight),
       ],
     );
   }

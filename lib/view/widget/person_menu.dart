@@ -3,12 +3,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:twentyonevision/controllers/export_controller.dart';
 import 'package:twentyonevision/controllers/faces_controller.dart';
 import 'package:twentyonevision/controllers/native_controller.dart';
 import 'package:twentyonevision/services/native_services.dart';
 import 'package:twentyonevision/utils/app_colors.dart';
 import 'package:twentyonevision/utils/app_radius.dart';
 import 'package:twentyonevision/utils/app_spacing.dart';
+import 'package:twentyonevision/view/export_zip_screen.dart';
 import 'package:twentyonevision/view/face_review_screen.dart';
 import 'package:twentyonevision/view/split_person_screen.dart';
 import 'package:twentyonevision/view/widget/face_widgets.dart';
@@ -34,6 +36,16 @@ void showPersonMenu(
             Navigator.of(sheet).pop();
             final name = await showRenamePersonDialog(context, person.name);
             if (name != null) faces.rename(person, name);
+          },
+        ),
+        const Divider(height: 1, color: AppColors.dividerSoft),
+        SheetRow(
+          icon: Icons.folder_zip_outlined,
+          label: 'Export as zip',
+          subtitle: 'Their photos and videos, in a zip',
+          onTap: () {
+            Navigator.of(sheet).pop();
+            openExportZip(context, select: {ExportController.personKey(person.id)});
           },
         ),
         const Divider(height: 1, color: AppColors.dividerSoft),
