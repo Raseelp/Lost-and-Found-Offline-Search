@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:twentyonevision/controllers/export_controller.dart';
 import 'package:twentyonevision/controllers/faces_controller.dart';
 import 'package:twentyonevision/controllers/native_controller.dart';
 import 'package:twentyonevision/services/native_services.dart';
 import 'package:twentyonevision/utils/app_colors.dart';
 import 'package:twentyonevision/utils/app_radius.dart';
 import 'package:twentyonevision/utils/app_spacing.dart';
+import 'package:twentyonevision/view/export_zip_screen.dart';
 import 'package:twentyonevision/view/widget/face_widgets.dart';
 import 'package:twentyonevision/view/widget/person_menu.dart';
 import 'package:twentyonevision/view/widget/search_results.dart';
@@ -116,7 +118,12 @@ class _PersonScreenState extends State<PersonScreen> {
                         shown.photoCount == 1 ? '1 photo' : '${shown.photoCount} photos',
                         style: textTheme.bodySmall?.copyWith(color: AppColors.ink48),
                       ),
-                      const SizedBox(height: AppSpacing.lg),
+                      TextButton.icon(
+                        onPressed: () => openExportZip(context, select: {ExportController.personKey(shown.id)}),
+                        icon: const Icon(Icons.folder_zip_outlined, size: 18),
+                        label: const Text('Export as zip'),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
                     ],
                   ),
                 ),

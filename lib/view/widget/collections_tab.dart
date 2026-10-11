@@ -51,14 +51,29 @@ class CollectionsTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  nothingIndexed
-                      ? 'Collections fill in once something is indexed.'
-                      : 'Saved searches that stay up to date as you scan. Long-press one to edit it.',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: AppColors.ink48,
-                    height: 1.4,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        controller.selecting
+                            ? (controller.selectedIds.isEmpty
+                                  ? 'Choose collections to export'
+                                  : '${controller.selectedIds.length} chosen')
+                            : nothingIndexed
+                            ? 'Collections fill in once something is indexed.'
+                            : 'Saved searches that stay up to date as you scan. Long-press one to edit it.',
+                        style: controller.selecting
+                            ? textTheme.titleMedium
+                            : textTheme.bodySmall?.copyWith(color: AppColors.ink48, height: 1.4),
+                      ),
+                    ),
+                    if (!controller.selecting && !nothingIndexed && controller.visible.isNotEmpty)
+                      TextButton(
+                        onPressed: controller.startSelecting,
+                        child: const Text('Select'),
+                      ),
+                  ],
                 ),
                 if (controller.isScoring) ...[
                   const SizedBox(height: AppSpacing.md),
@@ -88,10 +103,14 @@ class CollectionsTab extends StatelessWidget {
                 stats: stats,
                 coverBytes: controller.coverFor(collection.id),
                 syncing: controller.syncing.contains(collection.id),
-                onTap: () =>
-                    openCollectionScreen(context, controller, collection),
-                onLongPress: () =>
-                    showCollectionMenu(context, collection, controller),
+                selecting: controller.selecting,
+                selected: controller.selectedIds.contains(collection.id),
+                onTap: () => controller.selecting
+                    ? controller.toggleSelected(collection.id)
+                    : openCollectionScreen(context, controller, collection),
+                onLongPress: () => controller.selecting
+                    ? controller.toggleSelected(collection.id)
+                    : showCollectionMenu(context, collection, controller),
               );
             }, childCount: controller.visible.length + 1),
           ),
