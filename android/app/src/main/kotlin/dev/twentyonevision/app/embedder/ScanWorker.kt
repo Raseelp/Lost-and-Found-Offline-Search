@@ -54,6 +54,9 @@ class ScanWorker(
         val contentMode = inputData.getString(KEY_CONTENT_MODE) ?: "both"
 
         ScanForegroundService.onScanStarting(applicationContext)
+        // The items this scan stores are the latest scan's (see LatestScan); a scan the system
+        // restarted carries on with the list it had.
+        LatestScan.begin(applicationContext, resume = runAttemptCount > 0)
 
         try {
             setForeground(createForegroundInfo())
@@ -81,6 +84,7 @@ class ScanWorker(
                 // WorkManager stopped this work (replaced, or stopped by the system): stop the
                 // scan too - it is resumable, so a restart carries on from where it got to.
                 if (isStopped) embeddingEngine.cancelEmbedding()
+                LatestScan.flush(applicationContext)
                 // A newer scan was asked for: this one is only on its way out.
                 if (thisRun != latestRun.get()) {
                     embeddingEngine.cancelEmbedding()
@@ -112,6 +116,9 @@ class ScanWorker(
                         )
                     }
                 )
+                // The scan has ended (to its end, or because the user stopped it): its items are
+                // final before the app is told, so the app finds them when it asks.
+                if (progress.done && !isStopped) LatestScan.finish(applicationContext)
                 ScanForegroundService.pushProgress(map)
 
                 val notification = ScanForegroundService.updateProgress(
@@ -142,6 +149,7 @@ class ScanWorker(
             // back on anymore now that scanImagesAndOrVideos returns as
             // soon as the work is enqueued, not when it finishes.
             Log.e(TAG, "doWork: embedImages failed: ${e.message}", e)
+            if (!isStopped) LatestScan.finish(applicationContext)
             if (thisRun == latestRun.get()) ScanForegroundService.pushProgress(
                 mapOf(
                     "id" to folderId,
@@ -166,6 +174,9 @@ class ScanWorker(
             // Whatever ended the scan, the face scan stops with it.
             FaceFollower.closeForScan()
             FaceFollower.finish()
+            // A scan the system stopped is restarted and carries on with its list; any other end
+            // makes the list final (a second time does nothing).
+            if (isStopped) LatestScan.flush(applicationContext) else LatestScan.finish(applicationContext)
             ScanForegroundService.onScanEnded(applicationContext)
         }
     }

@@ -43,6 +43,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     await _resumeActiveScanIfAny();
     await _checkForInterruptedScan();
     _refreshCollections();
+    // A scan that ended while the app was closed leaves its items for this (see LatestScan).
+    unawaited(refreshLatestScan());
     super.onInit();
   }
 
@@ -134,7 +136,33 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(checkBackgroundScanPermission());
+      unawaited(refreshLatestScan());
     }
+  }
+
+  // The items the latest indexing scan stored: they are tagged as new wherever they are shown.
+  // Kept for this run of the app only; a scan that stored nothing leaves them as they were.
+  Set<String> latestScanUris = {};
+
+  bool isInLatestScan(String uri) => latestScanUris.contains(uri);
+
+  /// [items] (media with a 'path') with the ones the latest scan indexed first and the rest in
+  /// their order; the very same list when none of them is. A grid and the loading of its
+  /// thumbnails both use this, so what shows first is what loads first.
+  List<Map<String, dynamic>> newFirst(List<Map<String, dynamic>> items) {
+    if (latestScanUris.isEmpty) return items;
+    final fresh = <Map<String, dynamic>>[], rest = <Map<String, dynamic>>[];
+    for (final item in items) {
+      (isInLatestScan(item['path'] as String? ?? '') ? fresh : rest).add(item);
+    }
+    return fresh.isEmpty ? items : [...fresh, ...rest];
+  }
+
+  Future<void> refreshLatestScan() async {
+    final items = await NativeServices().takeLatestScan();
+    if (items.isEmpty) return;
+    latestScanUris = items.toSet();
+    update();
   }
 
   // Which home tab is showing: 0 Search, 1 Collections, 2 Library. Lives
@@ -1045,6 +1073,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
         if (scanResult.id.isNotEmpty) {
           unawaited(_finishScan(folderId: scanResult.id));
         }
+        // The scan's items are final by now (even a scan the user stopped).
+        unawaited(refreshLatestScan());
       }
 
       update();
