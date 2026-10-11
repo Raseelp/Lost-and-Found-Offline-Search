@@ -453,6 +453,7 @@ class _ResultsSliverGrid extends StatelessWidget {
               upgradeMaxDimension: upgradeMaxDimension,
               uri: uri,
               timestampMs: timestampMs,
+              isNew: controller.isInLatestScan(uri),
               onTap: () {
                 // A rapid double-tap otherwise pushes the viewer twice (the
                 // second tap lands before the first push's transition even
@@ -672,11 +673,15 @@ class _ResultTile extends StatefulWidget {
     this.upgradeMaxDimension,
     this.uri,
     this.timestampMs = 0,
+    this.isNew = false,
   });
 
   final Uint8List bytes;
   final bool isVideo;
   final VoidCallback onTap;
+
+  /// Indexed by the latest scan: tagged "New".
+  final bool isNew;
 
   // Non-null only for a bento hero/showcase tile (see
   // _bentoUpgradeDimension) - [bytes] above is still the normal, cheap
@@ -885,6 +890,12 @@ class _ResultTileState extends State<_ResultTile>
                       ),
                     ),
                   ),
+                  if (widget.isNew)
+                    Positioned(
+                      left: 6,
+                      top: 6,
+                      child: _NewTag(compact: constraints.maxWidth < 96),
+                    ),
                   if (widget.isVideo)
                     Positioned(
                       right: 6,
@@ -910,6 +921,51 @@ class _ResultTileState extends State<_ResultTile>
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+// The mark on an item the latest scan indexed. A small pill on a normal tile, a dot on a very
+// small one. The ring keeps it readable on a light or a dark photo.
+class _NewTag extends StatelessWidget {
+  const _NewTag({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'New, indexed in the latest scan',
+      child: ExcludeSemantics(
+        child: compact
+            ? Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.4),
+                ),
+              )
+            : Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                  border: Border.all(color: Colors.white.withValues(alpha: .85), width: 1),
+                ),
+                child: const Text(
+                  'NEW',
+                  style: TextStyle(
+                    color: AppColors.onPrimary,
+                    fontSize: 9,
+                    height: 1.1,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .6,
+                  ),
+                ),
+              ),
       ),
     );
   }
@@ -1145,7 +1201,8 @@ class _CenterNote extends StatelessWidget {
 }
 
 /// The results grid for something other than the live search (a
-/// collection): same tiles and viewers, its own list and thumbnails.
+/// collection, a person): same tiles and viewers, its own list and thumbnails. What the
+/// latest scan indexed (tagged New) comes first; the rest keep their order.
 Widget collectionResultsGrid({
   required NativeController controller,
   required List<Map<String, dynamic>> results,
@@ -1156,7 +1213,7 @@ Widget collectionResultsGrid({
   return _ResultsSliverGrid(
     loading: loading,
     controller: controller,
-    results: results,
+    results: controller.newFirst(results),
     bytesFor: bytesFor,
     matchQuery: matchQuery,
   );

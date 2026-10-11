@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:twentyonevision/controllers/native_controller.dart';
 import 'package:twentyonevision/services/native_services.dart';
 import 'package:twentyonevision/utils/app_colors.dart';
 
@@ -348,6 +349,11 @@ class FacesController extends GetxController {
     return path;
   }
 
+  // What the latest scan indexed (tagged New) shows first in a grid, so its thumbnails are
+  // fetched first too.
+  List<Map<String, dynamic>> _newFirst(List<Map<String, dynamic>> items) =>
+      Get.isRegistered<NativeController>() ? Get.find<NativeController>().newFirst(items) : items;
+
   Future<Uint8List> _thumbFor(Map<String, dynamic> item) {
     final path = item['path'] as String;
     if (item['isVideo'] as bool? ?? false) {
@@ -384,7 +390,7 @@ class FacesController extends GetxController {
     // Same approach as a collection: cached ones at once, the rest a few at a
     // time in list order, so the top of the grid fills first.
     final pending = <Map<String, dynamic>>[];
-    for (final item in photos) {
+    for (final item in _newFirst(photos)) {
       final key = thumbKey(item);
       final cached = _thumbCache.remove(key);
       if (cached != null) {
@@ -595,7 +601,7 @@ class FacesController extends GetxController {
     // Same approach as one person's photos: cached ones at once, the rest a few
     // at a time in list order.
     final pending = <Map<String, dynamic>>[];
-    for (final item in filterPhotos) {
+    for (final item in _newFirst(filterPhotos)) {
       final key = thumbKey(item);
       final cached = _thumbCache.remove(key);
       if (cached != null) {

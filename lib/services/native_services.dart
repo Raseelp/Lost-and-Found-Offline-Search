@@ -283,6 +283,16 @@ class NativeServices {
     return Uint8List.fromList(bytes!);
   }
 
+  /// The items the latest indexing scan stored, if the app has not taken them yet (they are
+  /// given out once). Empty when there are none, or on any failure.
+  Future<List<String>> takeLatestScan() async {
+    try {
+      return await _channel.invokeListMethod<String>('takeLatestScan') ?? const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+
   static Future<Map<String, dynamic>?>? _deviceChip;
 
   /// The name of this phone's processor (maker, model, cores, architecture), asked once.
