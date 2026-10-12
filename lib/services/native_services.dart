@@ -1,11 +1,11 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
-import 'package:twentyonevision/controllers/native_controller.dart';
-import 'package:twentyonevision/models/library_stats.dart';
-import 'package:twentyonevision/models/meta_data_model.dart';
-import 'package:twentyonevision/models/model_status.dart';
-import 'package:twentyonevision/tokanizer/clip_tokenizer.dart';
+import 'package:lost_and_found/controllers/native_controller.dart';
+import 'package:lost_and_found/models/library_stats.dart';
+import 'package:lost_and_found/models/meta_data_model.dart';
+import 'package:lost_and_found/models/model_status.dart';
+import 'package:lost_and_found/tokanizer/clip_tokenizer.dart';
 
 /// Thrown when a native call fails because the CLIP models aren't
 /// downloaded/verified yet, so callers can redirect to the download screen.
@@ -14,10 +14,10 @@ class ModelsNotReadyError implements Exception {
 }
 
 class NativeServices {
-  static const MethodChannel _channel = MethodChannel('twentyonevision/native');
-  static const _progressChannel = EventChannel('twentyonevision/progress');
+  static const MethodChannel _channel = MethodChannel('lostandfound/native');
+  static const _progressChannel = EventChannel('lostandfound/progress');
   static const _modelDownloadChannel = EventChannel(
-    'twentyonevision/modelDownload',
+    'lostandfound/modelDownload',
   );
 
   /// Opens the SAF folder picker, returns the picked tree URI or null if
@@ -356,7 +356,7 @@ class NativeServices {
   // ---- Faces ----
 
   static const _faceProgressChannel = EventChannel(
-    'twentyonevision/faceProgress',
+    'lostandfound/faceProgress',
   );
 
   /// Live status ticks from the face scan (also delivered while it runs in the
@@ -808,7 +808,7 @@ class NativeServices {
         0;
   }
 
-  /// The performance logs (adb logcat -s VectorBench): on unless turned off.
+  /// The performance logs (adb logcat -s LostFoundBench): on unless turned off.
   Future<bool> benchLogsEnabled() async =>
       await _channel.invokeMethod<bool>('getBenchLogs') ?? true;
 

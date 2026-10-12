@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:twentyonevision/controllers/collections_controller.dart';
-import 'package:twentyonevision/controllers/native_controller.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
-import 'package:twentyonevision/view/widget/collection_widgets.dart';
-import 'package:twentyonevision/view/widget/search_results.dart';
+import 'package:lost_and_found/controllers/collections_controller.dart';
+import 'package:lost_and_found/controllers/native_controller.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/view/widget/collection_widgets.dart';
+import 'package:lost_and_found/view/widget/search_results.dart';
 
 // One collection's members - the same tiles and viewers as search results,
 // with the collection as the header instead of a search bar.

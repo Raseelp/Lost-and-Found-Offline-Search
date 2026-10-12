@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
 
 /// A centered confirm dialog for irreversible actions - no shadow, a
 /// hairline divider above the button row, canvas background. Used instead

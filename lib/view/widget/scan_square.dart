@@ -5,10 +5,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
-import 'package:twentyonevision/services/native_services.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/view/widget/chip_art.dart';
-import 'package:twentyonevision/view/widget/library_orbit.dart';
+import 'package:lost_and_found/services/native_services.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/view/widget/chip_art.dart';
+import 'package:lost_and_found/view/widget/library_orbit.dart';
 
 // The Library page's scanning hero: a rounded square that is the scan, and shows what is
 // happening inside it.

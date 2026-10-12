@@ -1,4 +1,7 @@
-# Vector — Local Semantic Search & People
+# Lost & Found: Offline Search
+
+Find your photos and videos by describing them, and browse them by who is in
+them — all on your phone, with no account and no cloud.
 
 On-device semantic search for your photos and videos. Describe what you're
 looking for — "a dog on a beach", "the whiteboard from that meeting" — and
@@ -20,12 +23,46 @@ index and the face recognition are built and used entirely on your phone.
   library by similarity.
 - Indexing is the slow part and only has to happen once per file — after
   that, search is instant.
-- Save searches as **Collections** and open them later.
+- Save searches as **Collections** and open them later (see below).
+
+### Collections
+
+A collection is a saved search with a name of your own ("dog" saved as
+"Mittu"). Only the definition is stored: its photos and videos are looked up
+again from the index each time, so what a new scan finds shows up by itself.
+Items found by the latest scan carry a **New** tag and come first, in
+collections and on people's pages. Long-press a collection to edit, hide or
+export it; **Select** on the Collections tab picks several at once.
+
+### Export as zip
+
+Put collections and people in a zip to keep, send, or move to another phone.
+Your photos and videos are only read, never changed or removed.
+
+- **Where from.** The Library tab, a collection's menu, **Select** on the
+  Collections tab, a person's menu or page, or the zip button when choosing
+  people.
+- **What goes in.** Pick any number of collections and people (there is a
+  search box and *Select all*). Each becomes a folder in the zip with an
+  `Images` and a `Videos` folder inside. A photo in two chosen albums is stored
+  in both. Files are not compressed (photos and videos already are), keep their
+  names, and carry the date they were taken (else last changed).
+- **Settings.** A name (one album: its name; several: "Lost & Found export" and
+  the date), where to save (**Downloads › Lost & Found**, or any folder you
+  pick; before Android 10 a folder has to be picked), and a `list.json` with each
+  file's name, date and size (no original paths; on by default).
+- **Splitting.** From about 100 MB up, the zip can be cut into independent
+  parts (4 GB, 2 GB, 1 GB, 512 MB, or a size you choose). Each part is a
+  complete zip that opens on its own, and no file is ever cut across two of
+  them. A part expected to pass about 3 GB (or 60,000 files) uses the 64-bit zip format; smaller ones are plain zips every tool reads.
+- **Making it.** It runs as background work with a notification, so it carries
+  on if you leave the app. Cancelling, or a failure, deletes everything made so
+  far.
 
 ### People (face recognition)
 
 A background scan finds and recognises the faces in your photos and groups
-them into people. It runs along with indexing (every so many photos Vector
+them into people. It runs along with indexing (every so many photos the app
 finds their faces before it carries on), or from **Sync faces** on the People
 tab; it never starts by itself. It can be paused and resumed, and people appear
 as they are found.
@@ -39,7 +76,7 @@ as they are found.
   person to see all their photos; rename them; hide people you don't want
   listed.
 - **Fixing mistakes.** *Review faces* takes out a face that isn't them.
-  *Same person as someone else* merges two groups, and Vector suggests likely
+  *Same person as someone else* merges two groups, and the app suggests likely
   merges (with a certainty level). Merges can be undone (**Undo a merge**), and
   **Split into two people** separates a person who was two people mixed up.
   Your edits stick: they are remembered for photos scanned later, and pairs you
@@ -87,9 +124,25 @@ text towers) and the face models both via ONNX Runtime, and stores
 embeddings and faces in small on-device stores (a binary store for CLIP, SQLite
 for faces).
 
+## Privacy
+
+Nothing leaves the phone. The only network use is the one-time download of the
+search models (see below); your media, the index, the faces and the people are
+never uploaded.
+
 ## Status
 
 Android only, for now (minimum Android 7.0 / API 24).
+
+## Project layout
+
+- `lib/` — the Flutter app (`controllers/` with GetX, `view/`, `services/` for
+  the channel to the native side, `db/`).
+- `android/app/src/main/kotlin/dev/raseel/lostandfound/` — the native side:
+  `embedder/` (CLIP, scanning, the stores), `embedder/faces/` (detection,
+  recognition, grouping), `export/` (the zip writer and its background work).
+- `export_clip/` — scripts that turn the CLIP models into ONNX.
+- `model_host/` — a throwaway server for testing the model download.
 
 ## Building it yourself
 
@@ -110,14 +163,30 @@ published), or `android/app/build.gradle.kts` for where the release build
 points to.
 
 ```bash
+git clone https://github.com/Raseelp/Lost-and-Found-Offline-Search.git
+cd Lost-and-Found-Offline-Search
 flutter pub get
 flutter run
+```
+
+The zip writer has a JVM unit test (it also checks that other zip tools can
+read what it writes):
+
+```bash
+cd android && ./gradlew :app:testDebugUnitTest
 ```
 
 To watch the face scan's timing on a device:
 
 ```bash
 adb logcat -s FaceScanner FaceTuner
+```
+
+The performance logs for indexing and face finding (on unless turned off in
+Settings) use their own tag:
+
+```bash
+adb logcat -s LostFoundBench
 ```
 
 ## License

@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:twentyonevision/controllers/faces_controller.dart';
-import 'package:twentyonevision/services/native_services.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
-import 'package:twentyonevision/utils/floating_bar.dart';
-import 'package:twentyonevision/view/merge_suggestions_screen.dart';
-import 'package:twentyonevision/view/person_screen.dart';
-import 'package:twentyonevision/view/widget/face_widgets.dart';
-import 'package:twentyonevision/view/widget/faces_options_sheet.dart';
-import 'package:twentyonevision/view/widget/person_menu.dart';
+import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/services/native_services.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/floating_bar.dart';
+import 'package:lost_and_found/view/merge_suggestions_screen.dart';
+import 'package:lost_and_found/view/person_screen.dart';
+import 'package:lost_and_found/view/widget/face_widgets.dart';
+import 'package:lost_and_found/view/widget/faces_options_sheet.dart';
+import 'package:lost_and_found/view/widget/person_menu.dart';
 
 /// The Faces tab: the people found in your photos. The face scan runs by
 /// itself (no button) - a progress card shows how far it is, and people appear
@@ -253,7 +253,7 @@ class _EmptyState extends StatelessWidget {
           'Nobody yet. People appear here as soon as the same face turns up in two photos.';
     } else if (status.total == 0) {
       message =
-          'Index your photos first (Library tab). Faces are found in the photos Vector has indexed.';
+          'Index your photos first (Library tab). Faces are found in the photos you have indexed.';
     } else {
       message =
           'No people found yet. A person shows up once their face appears in at least two photos.';

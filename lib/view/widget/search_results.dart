@@ -4,14 +4,14 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:twentyonevision/controllers/native_controller.dart';
-import 'package:twentyonevision/services/native_services.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
-import 'package:twentyonevision/utils/media_view_route.dart';
-import 'package:twentyonevision/view/image_full_screen.dart';
-import 'package:twentyonevision/view/video_full_screen.dart';
+import 'package:lost_and_found/controllers/native_controller.dart';
+import 'package:lost_and_found/services/native_services.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/media_view_route.dart';
+import 'package:lost_and_found/view/image_full_screen.dart';
+import 'package:lost_and_found/view/video_full_screen.dart';
 
 // Higher decode caps requested only for a bento tile big enough to need
 // them (see _bentoUpgradeDimension), instead of raising the cap every tile

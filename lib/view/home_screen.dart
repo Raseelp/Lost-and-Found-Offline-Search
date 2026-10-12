@@ -5,21 +5,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:twentyonevision/controllers/collections_controller.dart';
-import 'package:twentyonevision/controllers/export_controller.dart';
-import 'package:twentyonevision/controllers/faces_controller.dart';
-import 'package:twentyonevision/controllers/native_controller.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
-import 'package:twentyonevision/utils/floating_bar.dart';
-import 'package:twentyonevision/view/export_zip_screen.dart';
-import 'package:twentyonevision/view/people_filter_screen.dart';
-import 'package:twentyonevision/view/settings_screen.dart';
-import 'package:twentyonevision/view/widget/collections_tab.dart';
-import 'package:twentyonevision/view/widget/faces_tab.dart';
-import 'package:twentyonevision/view/widget/library_tab.dart';
-import 'package:twentyonevision/view/widget/search_tab.dart';
+import 'package:lost_and_found/controllers/collections_controller.dart';
+import 'package:lost_and_found/controllers/export_controller.dart';
+import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/controllers/native_controller.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/floating_bar.dart';
+import 'package:lost_and_found/view/export_zip_screen.dart';
+import 'package:lost_and_found/view/people_filter_screen.dart';
+import 'package:lost_and_found/view/settings_screen.dart';
+import 'package:lost_and_found/view/widget/collections_tab.dart';
+import 'package:lost_and_found/view/widget/faces_tab.dart';
+import 'package:lost_and_found/view/widget/library_tab.dart';
+import 'package:lost_and_found/view/widget/search_tab.dart';
 
 // NativeController.homeTab values.
 const int _tabSearch = 0;
@@ -322,7 +322,7 @@ class _HomeTopBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text('Vector', style: Theme.of(context).textTheme.titleLarge),
+          Text('Lost & Found', style: Theme.of(context).textTheme.titleLarge),
           IconButton(
             icon: const Icon(
               Icons.settings_outlined,

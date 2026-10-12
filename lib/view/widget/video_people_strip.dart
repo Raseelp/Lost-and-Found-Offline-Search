@@ -1,11 +1,11 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:twentyonevision/services/native_services.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
-import 'package:twentyonevision/view/widget/face_widgets.dart';
-import 'package:twentyonevision/view/widget/media_tray.dart';
+import 'package:lost_and_found/services/native_services.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/view/widget/face_widgets.dart';
+import 'package:lost_and_found/view/widget/media_tray.dart';
 
 /// The small button in the video's controls: a face and how many people are in the video.
 /// Tapping it opens the [VideoPeoplePanel]. When [pulse] changes (a scan just finished, or

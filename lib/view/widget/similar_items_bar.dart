@@ -1,10 +1,10 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
-import 'package:twentyonevision/view/widget/media_tray.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/view/widget/media_tray.dart';
 
 /// The strip opened from the "search with this" button instead of jumping straight to a full
 /// results screen: up to ten photos and videos whose CLIP embedding is closest to the one just

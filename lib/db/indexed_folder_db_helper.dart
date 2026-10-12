@@ -1,15 +1,15 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
-import 'package:twentyonevision/models/collection_model.dart';
-import 'package:twentyonevision/models/indexed_folder_model.dart';
+import 'package:lost_and_found/models/collection_model.dart';
+import 'package:lost_and_found/models/indexed_folder_model.dart';
 
 class IndexedFolderDbHelper {
   IndexedFolderDbHelper._();
 
   static final IndexedFolderDbHelper instance = IndexedFolderDbHelper._();
 
-  static const _dbName = 'twentyonevision.db';
+  static const _dbName = 'lostandfound.db';
   // onUpgrade just drops and recreates this table - it's disposable UI
   // bookkeeping, the actual embeddings live in the native store untouched.
   static const _dbVersion = 5;

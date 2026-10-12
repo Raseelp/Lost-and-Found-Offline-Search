@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:twentyonevision/controllers/native_controller.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/view/home_screen.dart';
-import 'package:twentyonevision/view/model_download_screen.dart';
+import 'package:lost_and_found/controllers/native_controller.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/view/home_screen.dart';
+import 'package:lost_and_found/view/model_download_screen.dart';
 
 /// Shows the download screen until every model is on the device, then the app.
 class AppGate extends StatelessWidget {
