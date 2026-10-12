@@ -7,15 +7,15 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:twentyonevision/controllers/collections_controller.dart';
-import 'package:twentyonevision/controllers/faces_controller.dart';
-import 'package:twentyonevision/db/indexed_folder_db_helper.dart';
-import 'package:twentyonevision/models/indexed_folder_model.dart';
-import 'package:twentyonevision/models/meta_data_model.dart';
-import 'package:twentyonevision/models/model_status.dart';
-import 'package:twentyonevision/services/native_services.dart';
-import 'package:twentyonevision/utils/query_words.dart';
-import 'package:twentyonevision/view/widget/mention_text_controller.dart';
+import 'package:lost_and_found/controllers/collections_controller.dart';
+import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/db/indexed_folder_db_helper.dart';
+import 'package:lost_and_found/models/indexed_folder_model.dart';
+import 'package:lost_and_found/models/meta_data_model.dart';
+import 'package:lost_and_found/models/model_status.dart';
+import 'package:lost_and_found/services/native_services.dart';
+import 'package:lost_and_found/utils/query_words.dart';
+import 'package:lost_and_found/view/widget/mention_text_controller.dart';
 
 class NativeController extends GetxController with WidgetsBindingObserver {
   // Keys for the preferences persisted below - see
@@ -1329,7 +1329,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     update();
   }
 
-  // Timing logs for indexing and face finding (adb logcat -s VectorBench). The
+  // Timing logs for indexing and face finding (adb logcat -s LostFoundBench). The
   // switch itself lives natively, where the logs are written; this mirrors it.
   bool benchLogsEnabled = true;
 

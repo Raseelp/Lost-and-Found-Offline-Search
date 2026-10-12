@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:twentyonevision/models/collection_model.dart';
+import 'package:lost_and_found/models/collection_model.dart';
 
 // Built-ins live in code, not the database - the DB only holds which of
 // them a user has hidden - so improving a prompt list in an app update

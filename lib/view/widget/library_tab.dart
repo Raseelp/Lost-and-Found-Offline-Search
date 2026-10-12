@@ -3,20 +3,20 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:twentyonevision/controllers/export_controller.dart';
-import 'package:twentyonevision/controllers/faces_controller.dart';
-import 'package:twentyonevision/controllers/native_controller.dart';
-import 'package:twentyonevision/models/indexed_folder_model.dart';
-import 'package:twentyonevision/models/model_status.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
-import 'package:twentyonevision/utils/floating_bar.dart';
-import 'package:twentyonevision/view/export_zip_screen.dart';
-import 'package:twentyonevision/view/widget/confirm_dialog.dart';
-import 'package:twentyonevision/services/native_services.dart';
-import 'package:twentyonevision/view/widget/library_orbit.dart';
-import 'package:twentyonevision/view/widget/scan_square.dart';
+import 'package:lost_and_found/controllers/export_controller.dart';
+import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/controllers/native_controller.dart';
+import 'package:lost_and_found/models/indexed_folder_model.dart';
+import 'package:lost_and_found/models/model_status.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/floating_bar.dart';
+import 'package:lost_and_found/view/export_zip_screen.dart';
+import 'package:lost_and_found/view/widget/confirm_dialog.dart';
+import 'package:lost_and_found/services/native_services.dart';
+import 'package:lost_and_found/view/widget/library_orbit.dart';
+import 'package:lost_and_found/view/widget/scan_square.dart';
 
 class LibraryTab extends StatelessWidget {
   const LibraryTab({super.key, required this.controller});

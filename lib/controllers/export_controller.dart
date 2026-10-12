@@ -3,10 +3,10 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import 'package:twentyonevision/controllers/collections_controller.dart';
-import 'package:twentyonevision/controllers/faces_controller.dart';
-import 'package:twentyonevision/models/collection_model.dart';
-import 'package:twentyonevision/services/native_services.dart';
+import 'package:lost_and_found/controllers/collections_controller.dart';
+import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/models/collection_model.dart';
+import 'package:lost_and_found/services/native_services.dart';
 
 /// One photo or video of an album to be exported, and how big it is.
 class ExportItem {
@@ -137,7 +137,7 @@ class ExportController extends GetxController {
   bool includeList = true;
   int partLimit = 0;
 
-  /// A folder the user chose to save in; null means Downloads (in a folder called Vector).
+  /// A folder the user chose to save in; null means Downloads (in a folder called Lost & Found).
   String? folderUri;
   String? folderLabel;
   int freeBytes = -1;
@@ -171,7 +171,7 @@ class ExportController extends GetxController {
   static String _defaultName() {
     final now = DateTime.now();
     String two(int n) => n.toString().padLeft(2, '0');
-    return 'Vector export ${now.year}-${two(now.month)}-${two(now.day)}';
+    return 'Lost & Found export ${now.year}-${two(now.month)}-${two(now.day)}';
   }
 
   // An export that is going on, or that ended while the app was away and has not been seen yet,
@@ -576,7 +576,7 @@ class ExportController extends GetxController {
         .trim();
     base = base.replaceAll(RegExp(r'^\.+|\.+$'), '').trim();
     if (base.length > 100) base = base.substring(0, 100).trim();
-    if (base.isEmpty) base = 'Vector export';
+    if (base.isEmpty) base = 'Lost & Found export';
     return count <= 1
         ? ['$base.zip']
         : [for (var i = 1; i <= count; i++) '$base - part $i of $count.zip'];

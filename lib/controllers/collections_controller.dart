@@ -6,12 +6,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:twentyonevision/controllers/native_controller.dart';
-import 'package:twentyonevision/db/indexed_folder_db_helper.dart';
-import 'package:twentyonevision/models/collection_model.dart';
-import 'package:twentyonevision/models/default_collections.dart';
-import 'package:twentyonevision/services/native_services.dart';
-import 'package:twentyonevision/tokanizer/clip_tokenizer.dart';
+import 'package:lost_and_found/controllers/native_controller.dart';
+import 'package:lost_and_found/db/indexed_folder_db_helper.dart';
+import 'package:lost_and_found/models/collection_model.dart';
+import 'package:lost_and_found/models/default_collections.dart';
+import 'package:lost_and_found/services/native_services.dart';
+import 'package:lost_and_found/tokanizer/clip_tokenizer.dart';
 
 // Owns everything about collections (see collections_plan.md): the list the
 // Collections tab and the Search tab's chip row show, each one's count/cover

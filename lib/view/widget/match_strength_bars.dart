@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
 
 // Shared by the image and video viewers' "Why this matched" section: one
 // row per word, each with its own bar. The raw dot-product scores

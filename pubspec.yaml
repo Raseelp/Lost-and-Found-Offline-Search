@@ -1,5 +1,5 @@
-name: twentyonevision
-description: "Vector — local, on-device semantic photo and video search."
+name: lost_and_found
+description: "Lost & Found: Offline Search — find your photos and videos by describing them, all on-device."
 publish_to: "none"
 version: 1.0.0+1
 

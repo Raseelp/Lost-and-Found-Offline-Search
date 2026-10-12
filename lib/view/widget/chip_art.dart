@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
 
 // The processor the Library page shows, drawn from above on a 340 x 340 sheet: a green
 // substrate with rows of gold contact pads along its edges, a corner marker (pin 1) and
