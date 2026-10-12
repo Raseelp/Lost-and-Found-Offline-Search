@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:twentyonevision/controllers/faces_controller.dart';
-import 'package:twentyonevision/services/native_services.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
-import 'package:twentyonevision/view/hidden_people_screen.dart';
-import 'package:twentyonevision/view/merge_history_screen.dart';
-import 'package:twentyonevision/view/widget/face_widgets.dart';
+import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/services/native_services.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/view/hidden_people_screen.dart';
+import 'package:lost_and_found/view/merge_history_screen.dart';
+import 'package:lost_and_found/view/widget/face_widgets.dart';
 
 /// Options for the Faces tab: whether videos are scanned, and the maintenance actions.
 ///

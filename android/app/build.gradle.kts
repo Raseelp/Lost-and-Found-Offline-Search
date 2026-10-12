@@ -9,7 +9,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.twentyonevision.app"
+    namespace = "dev.raseel.lostandfound"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
@@ -34,7 +34,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "dev.twentyonevision.app"
+        applicationId = "dev.raseel.lostandfound"
         // 24, not 23: ONNX Runtime needs at least Android 7.0.
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
@@ -80,7 +80,7 @@ android {
             buildConfigField(
                 "String",
                 "MODEL_BASE_URL",
-                "\"https://github.com/Raseelp/Vector-LocalSemanticSearch/releases/download/models-v1\""
+                "\"https://github.com/Raseelp/Lost-and-Found-Offline-Search/releases/download/models-v1\""
             )
         }
     }

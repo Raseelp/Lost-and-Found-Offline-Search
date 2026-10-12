@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/route_manager.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:twentyonevision/bindings/init_bindings.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/view/app_gate.dart';
+import 'package:lost_and_found/bindings/init_bindings.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/view/app_gate.dart';
 
 // System bars for the app's light screens: draw behind them (edge-to-edge, so
 // SafeArea does the insetting) but paint the navigation bar - the gesture
@@ -25,11 +25,11 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(kAppOverlayStyle);
-  runApp(const TwentyOneVision());
+  runApp(const LostAndFoundApp());
 }
 
-class TwentyOneVision extends StatelessWidget {
-  const TwentyOneVision({super.key});
+class LostAndFoundApp extends StatelessWidget {
+  const LostAndFoundApp({super.key});
 
   @override
   Widget build(BuildContext context) {

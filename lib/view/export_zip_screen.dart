@@ -5,16 +5,16 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
-import 'package:twentyonevision/controllers/collections_controller.dart';
-import 'package:twentyonevision/controllers/export_controller.dart';
-import 'package:twentyonevision/services/native_services.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
-import 'package:twentyonevision/view/widget/confirm_dialog.dart';
-import 'package:twentyonevision/view/widget/face_widgets.dart';
-import 'package:twentyonevision/view/widget/zip_art.dart';
-import 'package:twentyonevision/view/widget/zip_progress.dart';
+import 'package:lost_and_found/controllers/collections_controller.dart';
+import 'package:lost_and_found/controllers/export_controller.dart';
+import 'package:lost_and_found/services/native_services.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/view/widget/confirm_dialog.dart';
+import 'package:lost_and_found/view/widget/face_widgets.dart';
+import 'package:lost_and_found/view/widget/zip_art.dart';
+import 'package:lost_and_found/view/widget/zip_progress.dart';
 
 /// Opens the zip export with [select] (see [ExportController.collectionKey] and
 /// [ExportController.personKey]) already ticked.
@@ -733,7 +733,7 @@ class _ZipFileCardState extends State<_ZipFileCard> {
                           c.folderUri != null
                               ? (c.folderLabel ?? 'Chosen folder')
                               : (c.downloadsAvailable
-                                    ? 'Downloads › Vector'
+                                    ? 'Downloads › Lost & Found'
                                     : 'Choose a folder'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1691,7 +1691,7 @@ class _DoneView extends StatelessWidget {
     final inDownloads =
         s.results.isEmpty || s.results.first.uri.startsWith('content://media/');
     final saved = inDownloads
-        ? 'Downloads › Vector'
+        ? 'Downloads › Lost & Found'
         : (c.savedLabel ?? 'the folder you chose');
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.xl),

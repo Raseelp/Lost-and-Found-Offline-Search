@@ -2,21 +2,21 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:twentyonevision/controllers/collections_controller.dart';
-import 'package:twentyonevision/controllers/faces_controller.dart';
-import 'package:twentyonevision/view/person_screen.dart';
-import 'package:twentyonevision/view/widget/face_widgets.dart';
-import 'package:twentyonevision/view/widget/collection_widgets.dart';
-import 'package:twentyonevision/view/widget/collections_tab.dart';
-import 'package:twentyonevision/controllers/native_controller.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
-import 'package:twentyonevision/utils/floating_bar.dart';
-import 'package:twentyonevision/view/widget/mention_input_field.dart';
-import 'package:twentyonevision/view/widget/mention_text_controller.dart';
-import 'package:twentyonevision/view/widget/search_filter_sheet.dart';
-import 'package:twentyonevision/view/widget/search_results.dart';
+import 'package:lost_and_found/controllers/collections_controller.dart';
+import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/view/person_screen.dart';
+import 'package:lost_and_found/view/widget/face_widgets.dart';
+import 'package:lost_and_found/view/widget/collection_widgets.dart';
+import 'package:lost_and_found/view/widget/collections_tab.dart';
+import 'package:lost_and_found/controllers/native_controller.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/floating_bar.dart';
+import 'package:lost_and_found/view/widget/mention_input_field.dart';
+import 'package:lost_and_found/view/widget/mention_text_controller.dart';
+import 'package:lost_and_found/view/widget/search_filter_sheet.dart';
+import 'package:lost_and_found/view/widget/search_results.dart';
 
 class SearchTab extends StatelessWidget {
   const SearchTab({
@@ -560,7 +560,7 @@ class _SearchIdlePrompt extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text(
             hasIndex
-                ? 'Vector searches by meaning, not filenames.'
+                ? 'Lost & Found searches by meaning, not filenames.'
                 : 'Head to the Library tab to index your phone or a folder first.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(

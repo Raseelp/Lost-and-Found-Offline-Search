@@ -4,11 +4,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:twentyonevision/controllers/faces_controller.dart';
-import 'package:twentyonevision/services/native_services.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
-import 'package:twentyonevision/view/widget/face_widgets.dart';
+import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/services/native_services.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/view/widget/face_widgets.dart';
 
 // The colours of the selection outline: the app's teal (lightened so it glows on a
 // photo) flowing into cool blue, violet, pink and warm gold, and back to teal.

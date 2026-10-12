@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:twentyonevision/controllers/collections_controller.dart';
-import 'package:twentyonevision/controllers/native_controller.dart';
-import 'package:twentyonevision/models/collection_model.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
-import 'package:twentyonevision/utils/floating_bar.dart';
-import 'package:twentyonevision/view/collection_screen.dart';
-import 'package:twentyonevision/view/widget/collection_widgets.dart';
+import 'package:lost_and_found/controllers/collections_controller.dart';
+import 'package:lost_and_found/controllers/native_controller.dart';
+import 'package:lost_and_found/models/collection_model.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/floating_bar.dart';
+import 'package:lost_and_found/view/collection_screen.dart';
+import 'package:lost_and_found/view/widget/collection_widgets.dart';
 
 /// Opens [collection] - shared by the tab's cards and the Search tab's chips.
 void openCollectionScreen(
