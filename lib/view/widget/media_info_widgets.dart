@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
 
 // Shared by the image and video metadata sheets - same grouped-card grammar
 // as Settings: a pearl-toned card, dividerSoft between rows, an uppercase

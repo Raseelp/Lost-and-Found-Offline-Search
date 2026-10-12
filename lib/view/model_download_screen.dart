@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:twentyonevision/controllers/native_controller.dart';
-import 'package:twentyonevision/models/model_status.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
+import 'package:lost_and_found/controllers/native_controller.dart';
+import 'package:lost_and_found/models/model_status.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
 
 /// A model's file name in words a person would use.
 String friendlyModelName(String fileName) {
@@ -47,7 +47,7 @@ class ModelDownloadScreen extends StatelessWidget {
                             Center(child: _HeaderIcon(isDownloading: controller.isDownloadingModels)),
                             const SizedBox(height: AppSpacing.lg),
                             Text(
-                              'Get Vector ready',
+                              'Get Lost & Found ready',
                               textAlign: TextAlign.center,
                               style: textTheme.headlineSmall,
                             ),

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:twentyonevision/controllers/faces_controller.dart';
-import 'package:twentyonevision/services/native_services.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
-import 'package:twentyonevision/view/model_download_screen.dart' show PillButton;
-import 'package:twentyonevision/view/widget/face_widgets.dart';
+import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/services/native_services.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/view/model_download_screen.dart' show PillButton;
+import 'package:lost_and_found/view/widget/face_widgets.dart';
 
 /// For a person who is really two people: shows the two groups their faces fall
 /// into, side by side, and splits them if you say so. The bigger group stays with
@@ -99,7 +99,7 @@ class _SplitPersonScreenState extends State<SplitPersonScreen> {
                           padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.sm, AppSpacing.xl, AppSpacing.base),
                           children: [
                             Text(
-                              'Vector found two groups among the faces of $name. If they are two different '
+                              'Two groups were found among the faces of $name. If they are two different '
                               'people, split them.',
                               style: textTheme.bodySmall?.copyWith(color: AppColors.ink48, height: 1.45),
                             ),

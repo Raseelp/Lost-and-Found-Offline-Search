@@ -45,7 +45,7 @@
 
 
     <application
-        android:label="Vector"
+        android:label="Lost &amp; Found"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 

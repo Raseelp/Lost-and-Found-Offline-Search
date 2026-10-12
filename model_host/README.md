@@ -34,7 +34,7 @@ Worth checking before trusting the flow:
    (`android/app/build.gradle.kts`) already points at that tag - update it
    if you use a different tag name.
 3. If the model files change, update the checksums/sizes in
-   `RemoteModel.kt` (`android/app/src/main/kotlin/dev/twentyonevision/app/embedder/models/`)
+   `RemoteModel.kt` (`android/app/src/main/kotlin/dev/raseel/lostandfound/embedder/models/`)
    to match, or every download will fail verification.
 
 The CLIP models moved from TorchScript (`.pt`, PyTorch Mobile) to ONNX -

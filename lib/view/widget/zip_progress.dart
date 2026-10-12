@@ -3,9 +3,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
-import 'package:twentyonevision/controllers/export_controller.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
+import 'package:lost_and_found/controllers/export_controller.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
 
 // What the zip export shows while it works: the folders that are going into the zip, listed as
 // they will be in it (each album with its Images and Videos), each filling with its own bar and

@@ -1,5 +1,5 @@
 import 'package:flutter/widgets.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
 
 /// Height of the floating navigation pill (and the round search button).
 const double kFloatingBarHeight = 58;

@@ -4,17 +4,17 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:twentyonevision/controllers/collections_controller.dart';
-import 'package:twentyonevision/controllers/export_controller.dart';
-import 'package:twentyonevision/controllers/faces_controller.dart';
-import 'package:twentyonevision/models/collection_model.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
-import 'package:twentyonevision/view/export_zip_screen.dart';
-import 'package:twentyonevision/view/widget/confirm_dialog.dart';
-import 'package:twentyonevision/view/widget/mention_input_field.dart';
-import 'package:twentyonevision/view/widget/mention_text_controller.dart';
+import 'package:lost_and_found/controllers/collections_controller.dart';
+import 'package:lost_and_found/controllers/export_controller.dart';
+import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/models/collection_model.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/view/export_zip_screen.dart';
+import 'package:lost_and_found/view/widget/confirm_dialog.dart';
+import 'package:lost_and_found/view/widget/mention_input_field.dart';
+import 'package:lost_and_found/view/widget/mention_text_controller.dart';
 
 String _countLabel(int count) => count == 1 ? '1 item' : '$count items';
 

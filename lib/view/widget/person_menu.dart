@@ -3,17 +3,17 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:twentyonevision/controllers/export_controller.dart';
-import 'package:twentyonevision/controllers/faces_controller.dart';
-import 'package:twentyonevision/controllers/native_controller.dart';
-import 'package:twentyonevision/services/native_services.dart';
-import 'package:twentyonevision/utils/app_colors.dart';
-import 'package:twentyonevision/utils/app_radius.dart';
-import 'package:twentyonevision/utils/app_spacing.dart';
-import 'package:twentyonevision/view/export_zip_screen.dart';
-import 'package:twentyonevision/view/face_review_screen.dart';
-import 'package:twentyonevision/view/split_person_screen.dart';
-import 'package:twentyonevision/view/widget/face_widgets.dart';
+import 'package:lost_and_found/controllers/export_controller.dart';
+import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/controllers/native_controller.dart';
+import 'package:lost_and_found/services/native_services.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/view/export_zip_screen.dart';
+import 'package:lost_and_found/view/face_review_screen.dart';
+import 'package:lost_and_found/view/split_person_screen.dart';
+import 'package:lost_and_found/view/widget/face_widgets.dart';
 
 /// Everything you can do with one person, in one menu - opened by holding a face in
 /// the People tab. (Their own page shows these as [PersonHeadActions] instead - the
@@ -395,7 +395,7 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
         label: 'Split',
         title: 'Split into two people?',
         message: "You'd only need this if two different people were merged into $name by "
-            'mistake. Vector will show the two groups it can tell apart, for you to separate.',
+            'mistake. You will see the two groups it can tell apart, to separate them.',
         confirmLabel: 'Continue',
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => SplitPersonScreen(person: widget.person)),
