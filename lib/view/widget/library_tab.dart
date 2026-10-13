@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lost_and_found/controllers/export_controller.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
 import 'package:lost_and_found/models/indexed_folder_model.dart';
@@ -12,11 +11,14 @@ import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/utils/floating_bar.dart';
-import 'package:lost_and_found/view/export_zip_screen.dart';
 import 'package:lost_and_found/view/widget/confirm_dialog.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/view/widget/library_orbit.dart';
 import 'package:lost_and_found/view/widget/scan_square.dart';
+
+// The list of indexed folders is switched off for now (it comes back with per-folder
+// actions); the code for it is kept below.
+const bool _showIndexedFolders = false;
 
 class LibraryTab extends StatelessWidget {
   const LibraryTab({super.key, required this.controller});
@@ -56,29 +58,38 @@ class LibraryTab extends StatelessWidget {
                     ),
             ),
           ),
-          const SizedBox(height: AppSpacing.xl),
-          // The three tiles, just above the folders; they fold into one quiet line while a
-          // scan runs.
+          // What is indexed so far: one card, which folds into a single quiet line while a
+          // scan runs, and is not there at all until something is indexed.
           AnimatedSize(
             duration: const Duration(milliseconds: 320),
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 320),
-              child: scanning
+              child: !_hasLibrary(controller)
+                  ? const SizedBox(
+                      key: ValueKey('none'),
+                      width: double.infinity,
+                    )
+                  : scanning
                   ? _SlimStats(
                       key: const ValueKey('slim'),
                       controller: controller,
                     )
-                  : _StatsRow(
-                      key: const ValueKey('tiles'),
-                      controller: controller,
+                  : _LibraryCard(
+                      key: const ValueKey('card'),
+                      images: controller.totalImages,
+                      videos: controller.totalVideos,
+                      folders: controller.allIndexedFoldersList.length,
+                      embeddings: controller.totalEmbeddings,
+                      sizeBytes: controller.indexSizeBytes,
+                      lastScan: _lastScanTime(controller.allIndexedFoldersList),
+                      failed: controller.totalFailed,
                     ),
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
-          const _ExportZipCard(),
-          if (controller.allIndexedFoldersList.isNotEmpty) ...[
+          if (_showIndexedFolders &&
+              controller.allIndexedFoldersList.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xxl),
             Text(
               'INDEXED FOLDERS',
@@ -98,6 +109,12 @@ class LibraryTab extends StatelessWidget {
   }
 }
 
+bool _hasLibrary(NativeController controller) =>
+    controller.totalImages > 0 ||
+    controller.totalVideos > 0 ||
+    controller.totalEmbeddings > 0 ||
+    controller.allIndexedFoldersList.isNotEmpty;
+
 Future<void> _startDeviceScan(
   BuildContext context,
   NativeController controller,
@@ -109,54 +126,8 @@ Future<void> _startDeviceScan(
   controller.pickAndScanFolders(isScanEntirePhone: true);
 }
 
-// The way into exporting albums as a zip. While one is being made it says how far it is.
-class _ExportZipCard extends StatelessWidget {
-  const _ExportZipCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return GetBuilder<ExportController>(
-      init: ExportController(),
-      initState: (state) => state.controller?.refreshStatus(),
-      builder: (export) {
-        final status = export.status;
-        final subtitle = status.running
-            ? 'Making a zip · ${(status.fraction * 100).floor()}%'
-            : 'Put collections or people in a zip to keep or send';
-        return Material(
-          color: AppColors.parchment,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            onTap: () => openExportZip(context),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.base, vertical: AppSpacing.md),
-              child: Row(
-                children: [
-                  const Icon(Icons.folder_zip_outlined, color: AppColors.primary),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Export as zip', style: textTheme.titleSmall),
-                        Text(subtitle, style: textTheme.bodySmall?.copyWith(color: AppColors.ink48)),
-                      ],
-                    ),
-                  ),
-                  const Icon(Icons.chevron_right_rounded, color: AppColors.ink48),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// Before a scan (and after one): the choices under the chip.
+// Before a scan (and after one): what to include, and the way to index one folder instead of
+// the whole phone.
 class _IdleControls extends StatelessWidget {
   const _IdleControls({super.key, required this.controller});
 
@@ -172,14 +143,46 @@ class _IdleControls extends StatelessWidget {
           _InterruptedScanBanner(controller: controller),
           const SizedBox(height: AppSpacing.base),
         ],
-        _ScanScopeChip(controller: controller),
+        Text(
+          'WHAT TO INDEX',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: AppColors.ink48,
+            letterSpacing: 0.5,
+          ),
+        ),
         const SizedBox(height: AppSpacing.sm),
-        Center(
-          child: OrbitPill(
-            label: 'Choose folder',
-            icon: Icons.folder_open_rounded,
-            onTap: () =>
-                controller.pickAndScanFolders(isScanEntirePhone: false),
+        _Segmented<ContentMode>(
+          options: _scopeOrder,
+          value: controller.selectedContentMode,
+          labelOf: _scopeLabel,
+          onChanged: (mode) =>
+              controller.toggleSelectedContentMode(contentMode: mode),
+        ),
+        const SizedBox(height: AppSpacing.base),
+        Text(
+          'WHERE TO LOOK',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: AppColors.ink48,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        _Segmented<bool>(
+          options: const [true, false],
+          value: controller.scanWholePhone,
+          labelOf: (wholePhone) => wholePhone ? 'Whole phone' : 'One folder',
+          onChanged: controller.setScanWholePhone,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+          child: Text(
+            controller.scanWholePhone
+                ? 'Everything on your phone, in one go.'
+                : 'Tap the chip, then pick the folder.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.ink48),
           ),
         ),
       ],
@@ -187,144 +190,114 @@ class _IdleControls extends StatelessWidget {
   }
 }
 
-// What the tiles say, in one line, while a scan is running.
-class _SlimStats extends StatelessWidget {
-  const _SlimStats({super.key, required this.controller});
+const _scopeOrder = [ContentMode.images, ContentMode.both, ContentMode.videos];
 
-  final NativeController controller;
+String _scopeLabel(ContentMode mode) {
+  switch (mode) {
+    case ContentMode.images:
+      return 'Photos';
+    case ContentMode.videos:
+      return 'Videos';
+    case ContentMode.both:
+      return 'Photos & videos';
+  }
+}
+
+// A row of choices, all in view, one tap to pick (used for what to index and where to look).
+class _Segmented<T> extends StatelessWidget {
+  const _Segmented({
+    required this.options,
+    required this.value,
+    required this.labelOf,
+    required this.onChanged,
+  });
+
+  final List<T> options;
+  final T value;
+  final String Function(T option) labelOf;
+  final ValueChanged<T> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final parts = <String>[
-      '${controller.totalImages} images',
-      '${controller.totalVideos} videos',
-      '${controller.allIndexedFoldersList.length} folders',
-      if (controller.totalFailed > 0) '${controller.totalFailed} failed',
-    ];
+    final textTheme = Theme.of(context).textTheme;
     return Container(
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.base,
-        vertical: AppSpacing.sm,
-      ),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: AppColors.parchment,
         borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
-      child: Text(
-        parts.join('  ·  '),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(
-          context,
-        ).textTheme.bodySmall?.copyWith(color: AppColors.ink80),
-      ),
-    );
-  }
-}
-
-// Two tiers, deliberately: Images/Videos/Folders are what someone actually
-// asked for ("how much of my stuff is in here"), so they're the large
-// primary tiles. Embeddings is real but more of an implementation detail
-// (a video contributes several - see refreshLibraryStats' doc) so it's
-// folded into the quieter footer line with the index's on-disk size and
-// when it was last scanned, rather than competing for the same visual
-// weight as the tiles above it.
-class _StatsRow extends StatelessWidget {
-  const _StatsRow({super.key, required this.controller});
-
-  final NativeController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
+      child: Row(
+        children: [
+          for (final option in options)
             Expanded(
-              child: _StatTile(
-                icon: Icons.image_outlined,
-                value: '${controller.totalImages}',
-                label: 'Images',
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: _StatTile(
-                icon: Icons.videocam_outlined,
-                value: '${controller.totalVideos}',
-                label: 'Videos',
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: _StatTile(
-                icon: Icons.folder_copy_outlined,
-                value: '${controller.allIndexedFoldersList.length}',
-                label: 'Folders',
-              ),
-            ),
-            // Only shown when there's something to report - most libraries
-            // never see it. Files here couldn't be read or embedded (corrupt,
-            // unsupported format), which is why a rescan of a "finished"
-            // library still tries a handful of files every time.
-            if (controller.totalFailed > 0) ...[
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: _StatTile(
-                  icon: Icons.warning_amber_rounded,
-                  iconColor: AppColors.danger,
-                  value: '${controller.totalFailed}',
-                  label: 'Failed',
+              child: Semantics(
+                button: true,
+                selected: option == value,
+                label: labelOf(option),
+                excludeSemantics: true,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (option != value) onChanged(option);
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
+                    height: 40,
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      color: option == value
+                          ? AppColors.canvas
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                      border: Border.all(
+                        color: option == value
+                            ? AppColors.hairline
+                            : Colors.transparent,
+                      ),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        labelOf(option),
+                        maxLines: 1,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: option == value
+                              ? AppColors.primary
+                              : AppColors.ink80,
+                          fontWeight: option == value
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ],
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        _StatsFooter(controller: controller),
-      ],
-    );
-  }
-}
-
-// A single quiet line rather than more tiles - embeddings/size/last-scan
-// are context, not headline numbers, and stacking more tiles under the
-// primary row would start to compete with it instead of supporting it.
-class _StatsFooter extends StatelessWidget {
-  const _StatsFooter({required this.controller});
-
-  final NativeController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final parts = <String>['${controller.totalEmbeddings} embeddings'];
-
-    if (controller.indexSizeBytes > 0) {
-      parts.add(
-        '${ModelDownloadProgress.formatBytes(controller.indexSizeBytes)} on device',
-      );
-    }
-
-    final lastScan = _lastScanTime(controller.allIndexedFoldersList);
-    if (lastScan != null) {
-      parts.add('scanned ${_timeAgo(lastScan)}');
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-      child: Text(
-        parts.join('  ·  '),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(
-          context,
-        ).textTheme.bodySmall?.copyWith(color: AppColors.ink48),
+            ),
+        ],
       ),
     );
   }
 }
+
+// ---------------------------------------------------------------- what is indexed
+
+String _grouped(int n) {
+  final digits = n.abs().toString();
+  final out = StringBuffer(n < 0 ? '-' : '');
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) out.write(',');
+    out.write(digits[i]);
+  }
+  return out.toString();
+}
+
+String _count(int n, String one, String many) =>
+    '${_grouped(n)} ${n == 1 ? one : many}';
 
 DateTime? _lastScanTime(List<IndexedFolder> folders) {
   if (folders.isEmpty) return null;
@@ -338,259 +311,200 @@ DateTime? _lastScanTime(List<IndexedFolder> folders) {
 String _timeAgo(DateTime time) {
   final diff = DateTime.now().difference(time);
   if (diff.inMinutes < 1) return 'just now';
-  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-  if (diff.inHours < 24) return '${diff.inHours}h ago';
-  if (diff.inDays < 7) return '${diff.inDays}d ago';
-  return '${time.month}/${time.day}/${time.year}';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+  if (diff.inHours < 24) {
+    return diff.inHours == 1 ? '1 hour ago' : '${diff.inHours} hours ago';
+  }
+  if (diff.inDays < 7) {
+    return diff.inDays == 1 ? 'yesterday' : '${diff.inDays} days ago';
+  }
+  return '${time.day}/${time.month}/${time.year}';
 }
 
-class _StatTile extends StatelessWidget {
-  const _StatTile({
-    required this.icon,
-    required this.value,
-    required this.label,
-    this.iconColor = AppColors.primary,
-  });
+// What a scan running looks like in place of the card: one line.
+class _SlimStats extends StatelessWidget {
+  const _SlimStats({super.key, required this.controller});
 
-  final IconData icon;
-  final String value;
-  final String label;
-  final Color iconColor;
+  final NativeController controller;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        vertical: AppSpacing.md,
-        horizontal: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.parchment,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: iconColor, size: 18),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.ink48),
-          ),
-        ],
+    final parts = <String>[
+      _count(controller.totalImages, 'photo', 'photos'),
+      _count(controller.totalVideos, 'video', 'videos'),
+      _count(controller.allIndexedFoldersList.length, 'folder', 'folders'),
+      if (controller.totalFailed > 0)
+        '${_grouped(controller.totalFailed)} skipped',
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xl),
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.base,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.parchment,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
+        child: Text(
+          parts.join('  ·  '),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.ink80),
+        ),
       ),
     );
   }
 }
 
-const _scopeOrder = [ContentMode.images, ContentMode.both, ContentMode.videos];
+// What is indexed so far, as one card: the two numbers people asked for (photos and videos)
+// large, and under them, quietly, the rest (folders, embeddings, size on the phone, when it was
+// last scanned). Files that could not be read get a line of their own when there are some.
+class _LibraryCard extends StatelessWidget {
+  const _LibraryCard({
+    super.key,
+    required this.images,
+    required this.videos,
+    required this.folders,
+    required this.embeddings,
+    required this.sizeBytes,
+    required this.lastScan,
+    required this.failed,
+  });
 
-IconData _contentModeIcon(ContentMode mode) {
-  switch (mode) {
-    case ContentMode.images:
-      return Icons.image_outlined;
-    case ContentMode.videos:
-      return Icons.videocam_outlined;
-    case ContentMode.both:
-      return Icons.auto_awesome_mosaic_outlined;
-  }
-}
-
-String _contentModeLabel(ContentMode mode) {
-  switch (mode) {
-    case ContentMode.images:
-      return 'images only';
-    case ContentMode.videos:
-      return 'videos only';
-    case ContentMode.both:
-      return 'images and videos';
-  }
-}
-
-// A bordered pill with a dropdown chevron, not a flat-filled chip - the
-// chevron is what reads as "tap to pick" at a glance, the same signal a
-// native select control gives. Tapping opens a proper sheet with all three
-// options spelled out, rather than blindly cycling through them on tap.
-class _ScanScopeChip extends StatelessWidget {
-  const _ScanScopeChip({required this.controller, this.locked = false});
-
-  final NativeController controller;
-  final bool locked;
+  final int images, videos, folders, embeddings, sizeBytes, failed;
+  final DateTime? lastScan;
 
   @override
   Widget build(BuildContext context) {
-    final mode = controller.selectedContentMode;
-
-    return Opacity(
-      opacity: locked ? 0.5 : 1,
-      child: Align(
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-            onTap: locked ? null : () => _showScopePicker(context, controller),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.base,
-                vertical: AppSpacing.sm,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.canvas,
-                borderRadius: BorderRadius.circular(AppRadius.pill),
-                border: Border.all(color: AppColors.hairline),
-              ),
+    final textTheme = Theme.of(context).textTheme;
+    final details = <String>[
+      _count(folders, 'folder', 'folders'),
+      _count(embeddings, 'embedding', 'embeddings'),
+      if (sizeBytes > 0)
+        '${ModelDownloadProgress.formatBytes(sizeBytes)} on device',
+      if (lastScan != null) 'scanned ${_timeAgo(lastScan!)}',
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xl),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.base),
+        decoration: BoxDecoration(
+          color: AppColors.parchment,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            IntrinsicHeight(
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    _contentModeIcon(mode),
+                  Expanded(
+                    child: _BigCount(
+                      icon: Icons.image_outlined,
+                      value: images,
+                      label: images == 1 ? 'photo' : 'photos',
+                    ),
+                  ),
+                  const VerticalDivider(
+                    width: AppSpacing.base,
+                    color: AppColors.hairline,
+                  ),
+                  Expanded(
+                    child: _BigCount(
+                      icon: Icons.videocam_outlined,
+                      value: videos,
+                      label: videos == 1 ? 'video' : 'videos',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            const Divider(height: 1, color: AppColors.hairline),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              details.join('  ·  '),
+              textAlign: TextAlign.center,
+              style: textTheme.bodySmall?.copyWith(
+                color: AppColors.ink48,
+                height: 1.45,
+              ),
+            ),
+            if (failed > 0) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.warning_amber_rounded,
                     size: 15,
-                    color: AppColors.primary,
+                    color: AppColors.danger,
                   ),
                   const SizedBox(width: AppSpacing.xs),
                   Flexible(
                     child: Text(
-                      'Next scan: ${_contentModeLabel(mode)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: AppColors.ink80),
+                      '${_count(failed, 'file', 'files')} could not be read and '
+                      '${failed == 1 ? 'was' : 'were'} skipped',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: AppColors.ink80,
+                      ),
                     ),
                   ),
-                  if (!locked) ...[
-                    const SizedBox(width: AppSpacing.xs),
-                    const Icon(
-                      Icons.expand_more_rounded,
-                      size: 16,
-                      color: AppColors.ink48,
-                    ),
-                  ],
                 ],
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-void _showScopePicker(BuildContext context, NativeController controller) {
-  showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _ScopeSheet(controller: controller),
-  );
-}
-
-class _ScopeSheet extends StatelessWidget {
-  const _ScopeSheet({required this.controller});
-
-  final NativeController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.xl,
-          0,
-          AppSpacing.xl,
-          AppSpacing.xl,
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppColors.canvas,
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.base),
-                child: Text(
-                  'What should the next scan include?',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-              ),
-              const Divider(height: 1, color: AppColors.hairline),
-              for (final mode in _scopeOrder) ...[
-                if (mode != _scopeOrder.first)
-                  const Divider(height: 1, color: AppColors.dividerSoft),
-                _ScopeOption(
-                  mode: mode,
-                  selected: controller.selectedContentMode == mode,
-                  onTap: () {
-                    controller.toggleSelectedContentMode(contentMode: mode);
-                    Navigator.of(context).pop();
-                  },
-                ),
-              ],
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ScopeOption extends StatelessWidget {
-  const _ScopeOption({
-    required this.mode,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final ContentMode mode;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.base,
-          vertical: AppSpacing.md,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              _contentModeIcon(mode),
-              size: 18,
-              color: selected ? AppColors.primary : AppColors.ink48,
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Text(
-                _contentModeLabel(mode),
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: selected ? AppColors.primary : AppColors.ink,
-                ),
-              ),
-            ),
-            if (selected)
-              const Icon(
-                Icons.check_rounded,
-                size: 18,
-                color: AppColors.primary,
-              ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _BigCount extends StatelessWidget {
+  const _BigCount({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  final IconData icon;
+  final int value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: AppColors.primary),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                _grouped(value),
+                maxLines: 1,
+                style: textTheme.titleLarge?.copyWith(
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: textTheme.bodySmall?.copyWith(color: AppColors.ink48),
+        ),
+      ],
     );
   }
 }
@@ -671,7 +585,14 @@ class _ChipHero extends StatelessWidget {
 
     return SquareScanHero(
       mode: mode,
-      onStart: () => _startDeviceScan(context, controller),
+      // Tapping the chip does what the "Where to look" choice says: the whole phone as before, or
+      // ask for a folder.
+      onStart: () => controller.scanWholePhone
+          ? _startDeviceScan(context, controller)
+          : controller.pickAndScanFolders(isScanEntirePhone: false),
+      idleHint: controller.scanWholePhone
+          ? 'TAP TO SCAN'
+          : 'TAP TO CHOOSE A FOLDER',
       onDismiss: controller.dismissScanSummary,
       summary: summary == null
           ? null
@@ -723,19 +644,11 @@ class _ScanningControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!Get.isRegistered<FacesController>()) return _body(context, null);
-    return GetBuilder<FacesController>(
-      builder: (faces) => _body(context, faces),
-    );
-  }
-
-  Widget _body(BuildContext context, FacesController? faces) {
     final textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: AppSpacing.sm),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.xl),
         Center(
           child: OrbitPill(
             label: 'Stop indexing',
@@ -743,24 +656,28 @@ class _ScanningControls extends StatelessWidget {
             onTap: controller.stopScanning,
           ),
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.base),
         Text(
-          'Search already works on what\'s finished - this keeps going if you switch apps.',
+          "Search already works on what's finished. This keeps going if you switch apps.",
           textAlign: TextAlign.center,
           style: textTheme.bodySmall?.copyWith(
             color: AppColors.ink48,
             height: 1.4,
           ),
         ),
-        const SizedBox(height: AppSpacing.base),
-        _BackgroundScanBanner(controller: controller),
-        const SizedBox(height: AppSpacing.base),
-        _ScanScopeChip(controller: controller, locked: true),
+        // Only until the notification permission is given; after that there is nothing to say.
+        if (!controller.backgroundNotificationsGranted) ...[
+          const SizedBox(height: AppSpacing.base),
+          _BackgroundScanBanner(controller: controller),
+        ],
       ],
     );
   }
 }
 
+// Asks for the permission that keeps a scan going in the background. Sets expectations rather
+// than overpromising: background scanning genuinely can get cut short on some phones, so a big
+// library is more reliably finished with the app open.
 class _BackgroundScanBanner extends StatelessWidget {
   const _BackgroundScanBanner({required this.controller});
 
@@ -768,8 +685,7 @@ class _BackgroundScanBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final granted = controller.backgroundNotificationsGranted;
-
+    final textTheme = Theme.of(context).textTheme;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.base,
@@ -784,57 +700,41 @@ class _BackgroundScanBanner extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(
-                granted
-                    ? Icons.notifications_active_rounded
-                    : Icons.notifications_none_rounded,
+              const Icon(
+                Icons.notifications_none_rounded,
                 size: 17,
-                color: granted ? AppColors.primary : AppColors.ink48,
+                color: AppColors.ink48,
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  granted
-                      ? 'Background scanning enabled'
-                      : 'Keep this going in the background',
+                  'Keep this going in the background',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  style: textTheme.bodySmall?.copyWith(
                     color: AppColors.ink80,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              if (!granted)
-                InkWell(
-                  onTap: controller.requestBackgroundScanPermission,
-                  borderRadius: BorderRadius.circular(AppRadius.pill),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm,
-                      vertical: AppSpacing.xs,
-                    ),
-                    child: Text(
-                      'Enable',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.primary,
-                      ),
-                    ),
+              TextButton(
+                onPressed: controller.requestBackgroundScanPermission,
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(0, 36),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
                   ),
                 ),
+                child: const Text('Enable'),
+              ),
             ],
           ),
-          const SizedBox(height: 2),
-          // Sets expectations rather than overpromising - background
-          // scanning genuinely can get cut short on some phones, so a big
-          // library is more reliably finished with the app open than left
-          // to run unattended for a long stretch.
           Padding(
             padding: const EdgeInsets.only(left: 25),
             child: Text(
               'Big libraries index fastest with the app open - background '
               'scanning works best in short stretches.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              style: textTheme.bodySmall?.copyWith(
                 color: AppColors.ink48,
                 height: 1.3,
               ),

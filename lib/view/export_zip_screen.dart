@@ -7,12 +7,15 @@ import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/controllers/collections_controller.dart';
 import 'package:lost_and_found/controllers/export_controller.dart';
+import 'package:lost_and_found/controllers/native_controller.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/view/widget/app_search_field.dart';
 import 'package:lost_and_found/view/widget/confirm_dialog.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
+import 'package:lost_and_found/view/widget/nothing_indexed.dart';
 import 'package:lost_and_found/view/widget/zip_art.dart';
 import 'package:lost_and_found/view/widget/zip_progress.dart';
 
@@ -125,6 +128,11 @@ class _ExportZipScreenState extends State<ExportZipScreen> {
 
 // ------------------------------------------------------------------------------ choosing
 
+// Whether nothing has been indexed (so there is nothing to export for that reason).
+bool _nothingIndexed() =>
+    !Get.isRegistered<NativeController>() ||
+    Get.find<NativeController>().totalEmbeddings == 0;
+
 class _BuilderView extends StatelessWidget {
   const _BuilderView({required this.c});
 
@@ -196,7 +204,19 @@ class _BuilderView extends StatelessWidget {
                     onChanged: c.setQuery,
                   ),
                 ),
-              if (rows.isEmpty)
+              if (rows.isEmpty && nothingAtAll && _nothingIndexed())
+                const SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpacing.xxl,
+                    AppSpacing.xxxl,
+                    AppSpacing.xxl,
+                    0,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: NothingIndexed(icon: Icons.folder_zip_outlined),
+                  ),
+                )
+              else if (rows.isEmpty)
                 SliverPadding(
                   padding: const EdgeInsets.all(AppSpacing.xl),
                   sliver: SliverToBoxAdapter(
@@ -369,7 +389,7 @@ class _SearchHeader extends SliverPersistentHeaderDelegate {
   final int chosen;
   final ValueChanged<String> onChanged;
 
-  static const double _height = 60;
+  static const double _height = 72;
 
   @override
   double get minExtent => _height;
@@ -385,12 +405,8 @@ class _SearchHeader extends SliverPersistentHeaderDelegate {
   ) {
     return Container(
       color: AppColors.canvas,
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.xl,
-        AppSpacing.sm,
-        AppSpacing.xl,
-        AppSpacing.sm,
-      ),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
       child: _SearchField(initial: query, chosen: chosen, onChanged: onChanged),
     );
   }
@@ -429,67 +445,22 @@ class _SearchFieldState extends State<_SearchField> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    return TextField(
+    return AppSearchField(
       controller: _text,
-      onChanged: (value) {
-        widget.onChanged(value);
-        setState(() {});
-      },
-      textInputAction: TextInputAction.search,
-      style: textTheme.bodyMedium,
-      decoration: InputDecoration(
-        hintText: 'Search collections and people',
-        hintStyle: textTheme.bodyMedium?.copyWith(color: AppColors.ink48),
-        prefixIcon: const Icon(
-          Icons.search_rounded,
-          size: 20,
-          color: AppColors.ink48,
-        ),
-        suffixIcon: _text.text.isEmpty
-            ? (widget.chosen > 0
-                  ? Padding(
-                      padding: const EdgeInsets.only(right: AppSpacing.md),
-                      child: Center(
-                        widthFactor: 1,
-                        child: Text(
-                          '${widget.chosen} chosen',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    )
-                  : null)
-            : IconButton(
-                icon: const Icon(
-                  Icons.close_rounded,
-                  size: 18,
-                  color: AppColors.ink48,
+      hint: 'Search collections and people',
+      onChanged: widget.onChanged,
+      trailingWhenEmpty: widget.chosen > 0
+          ? Padding(
+              padding: const EdgeInsets.only(left: AppSpacing.sm),
+              child: Text(
+                '${widget.chosen} chosen',
+                style: textTheme.bodySmall?.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
                 ),
-                onPressed: () {
-                  _text.clear();
-                  widget.onChanged('');
-                  setState(() {});
-                },
               ),
-        isDense: true,
-        filled: true,
-        fillColor: AppColors.parchment,
-        contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.2),
-        ),
-      ),
+            )
+          : null,
     );
   }
 }
@@ -686,6 +657,7 @@ class _ZipFileCardState extends State<_ZipFileCard> {
           TextField(
             controller: _name,
             focusNode: _focus,
+            onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
             onChanged: c.setName,
             textInputAction: TextInputAction.done,
             maxLength: 80,

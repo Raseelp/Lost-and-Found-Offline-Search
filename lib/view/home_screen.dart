@@ -17,6 +17,7 @@ import 'package:lost_and_found/view/export_zip_screen.dart';
 import 'package:lost_and_found/view/people_filter_screen.dart';
 import 'package:lost_and_found/view/settings_screen.dart';
 import 'package:lost_and_found/view/widget/collections_tab.dart';
+import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/view/widget/faces_tab.dart';
 import 'package:lost_and_found/view/widget/library_tab.dart';
 import 'package:lost_and_found/view/widget/search_tab.dart';
@@ -34,6 +35,9 @@ const int _tabFaces = 3;
 const double _barHeight = kFloatingBarHeight;
 const double _barInset = 8;
 const double _chipHeight = _barHeight - 2 * _barInset;
+
+// The bar while several people are ticked: two rows (who is chosen, then the two buttons).
+const double _tallBarHeight = 106;
 
 /// The app's four front-page destinations behind one floating bar: Library,
 /// Collections and Faces as tabs in a pill, and Search as its own round
@@ -162,44 +166,75 @@ class _HomeScreenState extends State<HomeScreen> {
                               ? _BarSelection(
                                   chosen: faces.selectedPeople.length,
                                   onCancel: faces.stopSelecting,
-                                  labelFor: (n) => n == 0
-                                      ? 'Choose people'
-                                      : (n == 1 ? 'See their photos' : 'Find photos with these $n'),
-                                  onFind: () {
-                                    final people = faces.selectedPeople;
-                                    if (people.isEmpty) return;
-                                    faces.stopSelecting();
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            PeopleFilterScreen(people: people),
-                                      ),
-                                    );
-                                  },
-                                  onExport: () {
-                                    final people = faces.selectedPeople;
-                                    if (people.isEmpty) return;
-                                    faces.stopSelecting();
-                                    openExportZip(
-                                      context,
-                                      select: {for (final p in people) ExportController.personKey(p.id)},
-                                    );
-                                  },
+                                  emptyLabel: 'Choose people',
+                                  faceIds: [
+                                    for (final p in faces.selectedPeople)
+                                      p.coverFaceId,
+                                  ],
+                                  summaryFor: (n) => n == 1
+                                      ? '1 person chosen'
+                                      : '$n people chosen',
+                                  actions: [
+                                    _BarAction(
+                                      icon: Icons.folder_zip_outlined,
+                                      labelFor: (n) => 'Export as zip',
+                                      onTap: () {
+                                        final people = faces.selectedPeople;
+                                        if (people.isEmpty) return;
+                                        faces.stopSelecting();
+                                        openExportZip(
+                                          context,
+                                          select: {
+                                            for (final p in people)
+                                              ExportController.personKey(p.id),
+                                          },
+                                        );
+                                      },
+                                    ),
+                                    _BarAction(
+                                      icon: Icons.photo_library_outlined,
+                                      labelFor: (n) => n == 1
+                                          ? 'Their photos'
+                                          : 'Photos together',
+                                      onTap: () {
+                                        final people = faces.selectedPeople;
+                                        if (people.isEmpty) return;
+                                        faces.stopSelecting();
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => PeopleFilterScreen(
+                                              people: people,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
                                 )
-                              : collections.selecting && controller.homeTab == _tabCollections
+                              : collections.selecting &&
+                                    controller.homeTab == _tabCollections
                               ? _BarSelection(
                                   chosen: collections.selectedIds.length,
                                   onCancel: collections.stopSelecting,
-                                  icon: Icons.folder_zip_outlined,
-                                  labelFor: (n) => n == 0
-                                      ? 'Choose collections'
-                                      : (n == 1 ? 'Export as zip' : 'Export $n as zip'),
-                                  onFind: () {
-                                    final ids = {for (final id in collections.selectedIds) ExportController.collectionKey(id)};
-                                    if (ids.isEmpty) return;
-                                    collections.stopSelecting();
-                                    openExportZip(context, select: ids);
-                                  },
+                                  emptyLabel: 'Choose collections',
+                                  actions: [
+                                    _BarAction(
+                                      icon: Icons.folder_zip_outlined,
+                                      labelFor: (n) => n == 1
+                                          ? 'Export as zip'
+                                          : 'Export $n as zip',
+                                      onTap: () {
+                                        final ids = {
+                                          for (final id
+                                              in collections.selectedIds)
+                                            ExportController.collectionKey(id),
+                                        };
+                                        if (ids.isEmpty) return;
+                                        collections.stopSelecting();
+                                        openExportZip(context, select: ids);
+                                      },
+                                    ),
+                                  ],
                                 )
                               : null,
                           index: controller.homeTab,
@@ -375,25 +410,47 @@ const _navTabs = [
 // so while it's active the pill has nothing selected and the button takes
 // over the highlight. Tonal like the rest of the app (parchment on canvas,
 // primary for "on"), not a dark slab.
+/// One thing the bar can do with what is ticked: its icon, its words (they can depend on how
+/// many are ticked) and what it does.
+class _BarAction {
+  const _BarAction({
+    required this.icon,
+    required this.labelFor,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String Function(int chosen) labelFor;
+  final VoidCallback onTap;
+}
+
 /// While choosing people (People tab) or collections (Collections tab): how many are ticked
-/// and what the bar's actions do. [onExport], when there is one, is a second button at the
-/// right: the zip of what is ticked.
+/// and what the bar can do with them. One action fills the bar; two share it, side by side.
 class _BarSelection {
   const _BarSelection({
     required this.chosen,
     required this.onCancel,
-    required this.onFind,
-    required this.labelFor,
-    this.icon = Icons.photo_library_outlined,
-    this.onExport,
+    required this.emptyLabel,
+    required this.actions,
+    this.faceIds = const [],
+    this.summaryFor,
   });
 
   final int chosen;
   final VoidCallback onCancel;
-  final VoidCallback onFind;
-  final String Function(int chosen) labelFor;
-  final IconData icon;
-  final VoidCallback? onExport;
+
+  /// What the bar says until something is ticked.
+  final String emptyLabel;
+  final List<_BarAction> actions;
+
+  /// The faces of the people ticked (shown stacked in the tall bar).
+  final List<int> faceIds;
+
+  /// "3 people chosen" and the like, for the tall bar.
+  final String Function(int chosen)? summaryFor;
+
+  /// Two actions, once something is ticked: the bar grows to two rows so neither is cramped.
+  bool get tall => chosen > 0 && actions.length > 1;
 }
 
 class _FloatingNavBar extends StatelessWidget {
@@ -450,7 +507,7 @@ class _FloatingNavBar extends StatelessWidget {
             children: [
               Expanded(
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                  borderRadius: BorderRadius.circular(_barHeight / 2),
                   // Translucent frosted glass: content scrolls visibly behind
                   // it, a touch more see-through while it's out of the way.
                   child: BackdropFilter(
@@ -460,7 +517,9 @@ class _FloatingNavBar extends StatelessWidget {
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 340),
                       curve: Curves.easeOutCubic,
-                      height: _barHeight,
+                      height: choosing && selection.tall
+                          ? _tallBarHeight
+                          : _barHeight,
                       padding: const EdgeInsets.all(_barInset),
                       decoration: BoxDecoration(
                         color: ready
@@ -468,7 +527,7 @@ class _FloatingNavBar extends StatelessWidget {
                             : AppColors.parchment.withValues(
                                 alpha: shrunk ? 0.55 : 0.72,
                               ),
-                        borderRadius: BorderRadius.circular(AppRadius.pill),
+                        borderRadius: BorderRadius.circular(_barHeight / 2),
                         border: Border.all(
                           color: ready ? AppColors.primary : AppColors.hairline,
                         ),
@@ -543,9 +602,9 @@ class _FloatingNavBar extends StatelessWidget {
   }
 }
 
-// What the pill shows while choosing people: a close button on the left, and the
-// action across the middle - "Choose people" until someone is ticked, then the
-// button to see their photos.
+// What the pill shows while choosing people or collections: a close button on the left, and
+// the action(s) across the rest - the words "Choose ..." until something is ticked, then the
+// buttons. Two actions share the width with a thin line between them.
 class _SelectionContent extends StatelessWidget {
   const _SelectionContent({super.key, required this.selection});
 
@@ -553,9 +612,232 @@ class _SelectionContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      layoutBuilder: (current, previous) => Stack(
+        fit: StackFit.expand,
+        children: [...previous, if (current != null) current],
+      ),
+      child: selection.tall
+          ? _TallSelection(key: const ValueKey('tall'), selection: selection)
+          : _SingleRowSelection(
+              key: const ValueKey('row'),
+              selection: selection,
+            ),
+    );
+  }
+}
+
+// Option E: who is chosen on the first row (their faces, how many, and the close button), and
+// the two actions side by side on the second - the right-hand one, the main one, in white.
+class _TallSelection extends StatelessWidget {
+  const _TallSelection({super.key, required this.selection});
+
+  final _BarSelection selection;
+
+  static const double _face = 30;
+  static const double _overlap = 20;
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = selection.actions;
+    final textTheme = Theme.of(context).textTheme;
+    final shownFaces = selection.faceIds.take(3).toList();
+    final more = selection.faceIds.length - shownFaces.length;
+    final summary =
+        selection.summaryFor?.call(selection.chosen) ??
+        '${selection.chosen} chosen';
+
+    // Laid out at its full height right away and clipped by the bar while the bar grows.
+    return OverflowBox(
+      alignment: Alignment.topCenter,
+      minHeight: 0,
+      maxHeight: _tallBarHeight - 2 * _barInset,
+      child: SizedBox(
+        height: _tallBarHeight - 2 * _barInset,
+        child: Column(
+          children: [
+            SizedBox(
+              height: 38,
+              child: Row(
+                children: [
+                  const SizedBox(width: AppSpacing.sm),
+                  SizedBox(
+                    width: _face + _overlap * (shownFaces.length - 1) +
+                        (more > 0 ? _overlap : 0),
+                    height: _face,
+                    child: Stack(
+                      children: [
+                        for (var i = 0; i < shownFaces.length; i++)
+                          Positioned(
+                            left: i * _overlap,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.primary,
+                                  width: 2,
+                                ),
+                              ),
+                              child: FaceAvatar(
+                                faceId: shownFaces[i],
+                                size: _face - 4,
+                              ),
+                            ),
+                          ),
+                        if (more > 0)
+                          Positioned(
+                            left: shownFaces.length * _overlap,
+                            child: Container(
+                              width: _face,
+                              height: _face,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.primaryFocus,
+                                border: Border.all(
+                                  color: AppColors.primary,
+                                  width: 2,
+                                ),
+                              ),
+                              child: Text(
+                                '+$more',
+                                style: textTheme.labelSmall?.copyWith(
+                                  color: AppColors.onPrimary,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      summary,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.titleSmall?.copyWith(
+                        color: AppColors.onPrimary,
+                      ),
+                    ),
+                  ),
+                  Semantics(
+                    button: true,
+                    label: 'Cancel',
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: selection.onCancel,
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.onPrimary.withValues(alpha: 0.18),
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size: 18,
+                          color: AppColors.onPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            SizedBox(
+              height: _chipHeight,
+              child: Row(
+                children: [
+                  for (var i = 0; i < actions.length; i++) ...[
+                    if (i > 0) const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: _TallActionButton(
+                        action: actions[i],
+                        label: actions[i].labelFor(selection.chosen),
+                        main: i == actions.length - 1,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TallActionButton extends StatelessWidget {
+  const _TallActionButton({
+    required this.action,
+    required this.label,
+    required this.main,
+  });
+
+  final _BarAction action;
+  final String label;
+
+  /// The main action is a solid white button; the other is a soft one.
+  final bool main;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = main ? AppColors.primary : AppColors.onPrimary;
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: action.onTap,
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: main
+                ? AppColors.onPrimary
+                : AppColors.onPrimary.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(_chipHeight / 2),
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(action.icon, size: 18, color: foreground),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  label,
+                  maxLines: 1,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(color: foreground),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Nothing ticked yet, or a single action: ✕ on the left and the words or the button across.
+class _SingleRowSelection extends StatelessWidget {
+  const _SingleRowSelection({super.key, required this.selection});
+
+  final _BarSelection selection;
+
+  @override
+  Widget build(BuildContext context) {
     final ready = selection.chosen > 0;
     final foreground = ready ? AppColors.onPrimary : AppColors.ink;
-    final label = selection.labelFor(selection.chosen);
+    final actions = selection.actions;
+    final labels = [for (final a in actions) a.labelFor(selection.chosen)];
 
     return Row(
       children: [
@@ -577,62 +859,83 @@ class _SelectionContent extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: ready ? selection.onFind : null,
-            child: Center(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                child: Row(
-                  key: ValueKey(label),
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (ready) ...[
-                      Icon(
-                        selection.icon,
-                        size: 18,
-                        color: foreground,
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                    ],
-                    Flexible(
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: ready ? foreground : AppColors.ink48,
-                        ),
-                      ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: !ready
+                ? Center(
+                    key: const ValueKey('empty'),
+                    child: Text(
+                      selection.emptyLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleSmall?.copyWith(color: AppColors.ink48),
                     ),
-                  ],
-                ),
-              ),
-            ),
+                  )
+                : Row(
+                    key: ValueKey(labels.join('|')),
+                    children: [
+                      for (var i = 0; i < actions.length; i++) ...[
+                        if (i > 0)
+                          Container(
+                            width: 1,
+                            height: 22,
+                            color: foreground.withValues(alpha: 0.35),
+                          ),
+                        Expanded(
+                          child: Semantics(
+                            button: true,
+                            label: labels[i],
+                            excludeSemantics: true,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: actions[i].onTap,
+                              child: SizedBox(
+                                height: _chipHeight,
+                                child: Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: AppSpacing.xs,
+                                    ),
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            actions[i].icon,
+                                            size: 18,
+                                            color: foreground,
+                                          ),
+                                          const SizedBox(width: AppSpacing.sm),
+                                          Text(
+                                            labels[i],
+                                            maxLines: 1,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleSmall
+                                                ?.copyWith(color: foreground),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
           ),
         ),
-        // Same width as the close button, so the label is centred in the pill (or the zip
-        // button, for what is chosen).
-        if (selection.onExport != null && ready)
-          Semantics(
-            button: true,
-            label: 'Export as zip',
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: selection.onExport,
-              child: Container(
-                width: _chipHeight,
-                height: _chipHeight,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: foreground.withValues(alpha: 0.18),
-                ),
-                child: Icon(Icons.folder_zip_outlined, size: 20, color: foreground),
-              ),
-            ),
-          )
-        else
-          const SizedBox(width: _chipHeight),
+        // One action (or none yet): same width as the close button, so the words are centred
+        // in the pill. Two actions use the whole width.
+        SizedBox(
+          width: ready && actions.length > 1 ? AppSpacing.xs : _chipHeight,
+        ),
       ],
     );
   }

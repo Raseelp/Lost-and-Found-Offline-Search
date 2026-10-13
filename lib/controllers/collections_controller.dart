@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Icons;
+import 'package:flutter/painting.dart' show HSLColor;
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
@@ -122,6 +124,155 @@ class CollectionsController extends GetxController {
   Uint8List? coverFor(String id) {
     final cover = selectedCover(id);
     return cover == null ? null : coverBytes[cover.cacheKey];
+  }
+
+  /// The photos of a collection's stack on its tile: the cover first (the one of the day), then
+  /// two more of its best matches.
+  List<CollectionCover> stackCovers(String id) {
+    final covers = statsFor(id).covers;
+    if (covers.isEmpty) return const [];
+    final day = DateTime.now().millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
+    final salt = id.codeUnits.fold<int>(0, (a, b) => a + b);
+    final start = (day + salt) % covers.length;
+    return [for (var k = 0; k < math.min(3, covers.length); k++) covers[(start + k) % covers.length]];
+  }
+
+  // The main colour of each cover picture (by cache key), for the glow behind a tile's stack.
+  final Map<String, ui.Color> _glow = {};
+
+  /// The colour a collection's tile glows in: taken from the photo on top of its stack, once that
+  /// has arrived (null until then).
+  ui.Color? glowFor(String id) {
+    final stack = stackCovers(id);
+    return stack.isEmpty ? null : _glow[stack.first.cacheKey];
+  }
+
+  // A picture shrunk to a handful of pixels and averaged (leaning toward the more colourful
+  // ones, so a grey wall does not wash it out), then made lively enough to glow.
+  Future<void> _computeGlow(String key, Uint8List bytes) async {
+    try {
+      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 12, targetHeight: 12);
+      final frame = await codec.getNextFrame();
+      final data = await frame.image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      frame.image.dispose();
+      codec.dispose();
+      if (data == null) return;
+      var r = 0.0, g = 0.0, b = 0.0, total = 0.0;
+      for (var i = 0; i + 3 < data.lengthInBytes; i += 4) {
+        final pr = data.getUint8(i) / 255, pg = data.getUint8(i + 1) / 255, pb = data.getUint8(i + 2) / 255;
+        final hi = math.max(pr, math.max(pg, pb)), lo = math.min(pr, math.min(pg, pb));
+        final weight = 0.15 + (hi - lo);
+        r += pr * weight;
+        g += pg * weight;
+        b += pb * weight;
+        total += weight;
+      }
+      if (total == 0) return;
+      final avg = ui.Color.from(alpha: 1, red: r / total, green: g / total, blue: b / total);
+      final hsl = HSLColor.fromColor(avg);
+      _glow[key] = hsl
+          .withSaturation(hsl.saturation.clamp(0.4, 0.85))
+          .withLightness(hsl.lightness.clamp(0.42, 0.6))
+          .toColor();
+      _updateSoon();
+    } catch (_) {
+      // The tile keeps its fallback colour.
+    }
+  }
+
+  /// Their pictures, as far as they have arrived (null for one that has not).
+  List<Uint8List?> stackBytes(String id) => [for (final c in stackCovers(id)) coverBytes[c.cacheKey]];
+
+  /// Whether any photo on the stack came in with the latest scan.
+  bool hasNewCover(String id, bool Function(String uri) isNew) => stackCovers(id).any((c) => isNew(c.uri));
+
+  // Built-ins with no matches are tucked away at the end of the tab; this opens that group.
+  bool showEmpty = false;
+
+  void toggleShowEmpty() {
+    showEmpty = !showEmpty;
+    update();
+  }
+
+  // Larger pictures for the featured card at the top of the Collections tab, by the cover's
+  // cache key (a collection's cover changes with the day and with the index).
+  final Map<String, Uint8List> _heroBytes = {};
+
+  Uint8List? heroBytesFor(String id) {
+    final cover = selectedCover(id);
+    return cover == null ? null : (_heroBytes[cover.cacheKey] ?? coverBytes[cover.cacheKey]);
+  }
+
+  /// The collections that take turns on the featured card: those with something in them and a
+  /// cover (known from the scores, not from the picture having arrived, so the set does not
+  /// shuffle while pictures come in), the ones that just got new photos first, then others. A different order each day
+  /// (the same all day, so it does not jump about on every visit).
+  List<SmartCollection> heroCandidates({required bool Function(String uri) isNew, int max = 5}) {
+    final pool = [
+      for (final c in visible)
+        if (!c.isEveryday && statsFor(c.id).count > 0 && selectedCover(c.id) != null) c,
+    ];
+    if (pool.isEmpty) return const [];
+    final day = DateTime.now().millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
+    pool.shuffle(math.Random(day));
+    final fresh = [
+      for (final c in pool)
+        if (hasNewCover(c.id, isNew)) c,
+    ];
+    final rest = [
+      for (final c in pool)
+        if (!hasNewCover(c.id, isNew)) c,
+    ];
+    return [...fresh, ...rest].take(max).toList();
+  }
+
+  bool _heroRunning = false;
+
+  Future<void> _loadHeroImages() async {
+    if (_heroRunning) return;
+    _heroRunning = true;
+    try {
+      await _loadHeroImagesOnce();
+    } finally {
+      _heroRunning = false;
+    }
+  }
+
+  Future<void> _loadHeroImagesOnce() async {
+    final native = Get.isRegistered<NativeController>() ? Get.find<NativeController>() : null;
+    final list = heroCandidates(isNew: native?.isInLatestScan ?? (_) => false);
+    for (final c in list) {
+      final cover = selectedCover(c.id);
+      if (cover == null || _heroBytes.containsKey(cover.cacheKey)) continue;
+      try {
+        _heroBytes[cover.cacheKey] = await NativeServices().loadThumbnail(
+          uri: cover.uri,
+          isVideo: cover.isVideo,
+          timestampMs: cover.timestampMs,
+          size: 900,
+        );
+        _updateSoon();
+      } catch (_) {
+        // The smaller cover is used instead.
+      }
+    }
+  }
+
+  // Pictures arrive one by one (dozens of them): the tab is told about them a few times a
+  // second, not once per picture.
+  Timer? _notifyTimer;
+
+  void _updateSoon() {
+    _notifyTimer ??= Timer(const Duration(milliseconds: 150), () {
+      _notifyTimer = null;
+      update();
+    });
+  }
+
+  @override
+  void onClose() {
+    _notifyTimer?.cancel();
+    super.onClose();
   }
 
   // ---- Loading ----
@@ -280,6 +431,7 @@ class CollectionsController extends GetxController {
     _embeddingCache.clear();
     stats.clear();
     coverBytes.clear();
+    _heroBytes.clear();
     await _saveEmbeddingCache();
     update();
     await refreshStats();
@@ -303,6 +455,7 @@ class CollectionsController extends GetxController {
       // full of photos that open onto nothing.
       stats.clear();
       coverBytes.clear();
+      _heroBytes.clear();
       _rebuildLists();
     }
     if (!native.modelsReady || native.totalEmbeddings == 0) {
@@ -388,17 +541,63 @@ class CollectionsController extends GetxController {
     unawaited(_loadCovers());
   }
 
+  @visibleForTesting
+  Future<void> loadCoversNow() => _loadCovers();
+
+  // One pass at a time: a scan finishing while pictures are still arriving asks for another
+  // pass afterwards instead of loading the same pictures twice at once.
+  bool _coversRunning = false;
+  bool _coversAgain = false;
+
   Future<void> _loadCovers() async {
-    for (final c in visible) {
-      final cover = selectedCover(c.id);
-      if (cover == null || coverBytes.containsKey(cover.cacheKey)) continue;
-      try {
-        coverBytes[cover.cacheKey] = await _loadThumb(cover.uri, cover.isVideo, cover.timestampMs);
-        update();
-      } catch (_) {
-        // A missing cover just leaves the card on its icon.
-      }
+    if (_coversRunning) {
+      _coversAgain = true;
+      return;
     }
+    _coversRunning = true;
+    try {
+      do {
+        _coversAgain = false;
+        await _loadCoversPass();
+      } while (_coversAgain);
+    } finally {
+      _coversRunning = false;
+    }
+  }
+
+  Future<void> _loadCoversPass() async {
+    // The front picture of every tile first, then the two behind it, so tiles fill in fast.
+    final native = Get.isRegistered<NativeController>() ? Get.find<NativeController>() : null;
+    for (var layer = 0; layer < 3; layer++) {
+      var order = visible.toList();
+      if (layer == 0) {
+        // The featured card at the top of the tab first.
+        final featured = heroCandidates(isNew: native?.isInLatestScan ?? (_) => false);
+        order = [...featured, ...order.where((c) => !featured.contains(c))];
+      }
+      for (final c in order) {
+        final stack = stackCovers(c.id);
+        if (layer >= stack.length) continue;
+        final cover = stack[layer];
+        if (!coverBytes.containsKey(cover.cacheKey)) {
+          try {
+            coverBytes[cover.cacheKey] = await _loadThumb(cover.uri, cover.isVideo, cover.timestampMs);
+            _updateSoon();
+          } catch (_) {
+            // A missing picture just leaves that spot on the stack blank.
+          }
+        }
+        final loaded = coverBytes[cover.cacheKey];
+        if (layer == 0 && loaded != null && !_glow.containsKey(cover.cacheKey)) {
+          await _computeGlow(cover.cacheKey, loaded);
+        }
+      }
+      if (layer == 0) unawaited(_loadHeroImages());
+    }
+    // The last pictures are not left waiting for the timer.
+    _notifyTimer?.cancel();
+    _notifyTimer = null;
+    update();
   }
 
   Future<Uint8List> _loadThumb(String uri, bool isVideo, int timestampMs) {

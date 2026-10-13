@@ -872,6 +872,7 @@ class Person {
     required this.faceCount,
     required this.photoCount,
     required this.coverFaceId,
+    this.stackFaceIds = const [],
   });
 
   final int id;
@@ -880,6 +881,10 @@ class Person {
   final int faceCount, photoCount;
   final int coverFaceId;
 
+  /// Two more of their clearest faces, for the little stack on their tile (fewer for a person
+  /// with few faces).
+  final List<int> stackFaceIds;
+
   factory Person.fromMap(Map<dynamic, dynamic> m) => Person(
     id: (m['id'] as num).toInt(),
     name: m['name'] as String?,
@@ -887,6 +892,9 @@ class Person {
     faceCount: (m['faceCount'] as num).toInt(),
     photoCount: (m['photoCount'] as num).toInt(),
     coverFaceId: (m['coverFaceId'] as num).toInt(),
+    stackFaceIds: [
+      for (final id in (m['stackFaceIds'] as List? ?? const [])) (id as num).toInt(),
+    ],
   );
 }
 

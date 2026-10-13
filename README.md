@@ -39,9 +39,10 @@ export it; **Select** on the Collections tab picks several at once.
 Put collections and people in a zip to keep, send, or move to another phone.
 Your photos and videos are only read, never changed or removed.
 
-- **Where from.** The Library tab, a collection's menu, **Select** on the
-  Collections tab, a person's menu or page, or the zip button when choosing
-  people.
+- **Where from.** **Select collections** on the Collections tab (the bar at the
+  bottom then offers *Export as zip*), **Select people** on the People tab (the
+  bar offers *Photos together* and *Export as zip*), a collection's or person's
+  menu, or the *Export* button round a person's photo.
 - **What goes in.** Pick any number of collections and people (there is a
   search box and *Select all*). Each becomes a folder in the zip with an
   `Images` and a `Videos` folder inside. A photo in two chosen albums is stored
@@ -63,7 +64,7 @@ Your photos and videos are only read, never changed or removed.
 
 A background scan finds and recognises the faces in your photos and groups
 them into people. It runs along with indexing (every so many photos the app
-finds their faces before it carries on), or from **Sync faces** on the People
+finds their faces before it carries on), or from **Update people** on the People
 tab; it never starts by itself. It can be paused and resumed, and people appear
 as they are found.
 
@@ -81,7 +82,7 @@ as they are found.
   **Split into two people** separates a person who was two people mixed up.
   Your edits stick: they are remembered for photos scanned later, and pairs you
   said are different are never suggested again.
-- **Find photos by people.** Pick one or more people (*Find together* on the
+- **Find photos by people.** Pick one or more people (*Select people* on the
   Faces tab, or long-press a person) and see the photos with them — with
   anyone, on their own, any of them, plus others, or only that group. From the
   results you can add or remove people.
@@ -93,7 +94,7 @@ as they are found.
   one or two faces of each track, so a clip costs a handful of recognitions, not
   hundreds. Faces in video must be clearer than in photos (motion blur), a small
   picture of each kept face is saved, and a video counts as one item however many frames
-  someone is in. People's pages and *Find together* mix photos and videos; a video opens
+  someone is in. People's pages and *Select people* mix photos and videos; a video opens
   at the moment the person shows up. In the video viewer, the people found are a row of
   faces above the playback bar: tap one to jump to where they appear (and see those
   moments on the bar), tap again for their next appearance. It can be switched off in the

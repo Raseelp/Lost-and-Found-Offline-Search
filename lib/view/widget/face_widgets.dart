@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -17,11 +18,15 @@ class FaceAvatar extends StatefulWidget {
     required this.faceId,
     required this.size,
     this.square = false,
+    this.radius,
   });
 
   final int faceId;
   final double size;
   final bool square;
+
+  /// Corner radius of a square avatar (a small one by default).
+  final double? radius;
 
   @override
   State<FaceAvatar> createState() => _FaceAvatarState();
@@ -110,14 +115,18 @@ class _FaceAvatarState extends State<FaceAvatar> {
       width: widget.size,
       height: widget.size,
       child: widget.square
-          ? ClipRRect(borderRadius: BorderRadius.circular(AppRadius.md), child: child)
+          ? ClipRRect(borderRadius: BorderRadius.circular(widget.radius ?? AppRadius.md), child: child)
           : ClipOval(child: child),
     );
   }
 }
 
-/// One person in the people grid.
-class PersonTile extends StatelessWidget {
+/// One person in the people grid: a small tilted stack of their faces (the cover on top, two
+/// more of their clearest behind it), with the name and the number of photos under it. Each
+/// stack leans its own way (from the person's id, so it is always the same), fans out when the
+/// tile first shows, and straightens a little when pressed - the same idea as the stacks on the
+/// Collections tab.
+class PersonTile extends StatefulWidget {
   const PersonTile({
     super.key,
     required this.person,
@@ -125,6 +134,7 @@ class PersonTile extends StatelessWidget {
     this.onLongPress,
     this.selecting = false,
     this.selected = false,
+    this.index = 0,
   });
 
   final Person person;
@@ -132,18 +142,97 @@ class PersonTile extends StatelessWidget {
   final VoidCallback? onLongPress;
 
   // While picking several people: every tile shows a tick circle; ticked ones
-  // get a ring around the face.
+  // get a ring around the stack.
   final bool selecting;
   final bool selected;
+
+  /// Where the tile is in the grid: the stacks open one after another.
+  final int index;
+
+  @override
+  State<PersonTile> createState() => _PersonTileState();
+}
+
+class _PersonTileState extends State<PersonTile> with TickerProviderStateMixin {
+  late final AnimationController _fan = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 720),
+  );
+  late final AnimationController _press = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 160),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    // The first screenful opens one after another; a tile that scrolls in later just opens.
+    final delay = Duration(milliseconds: widget.index < 8 ? widget.index * 45 : 0);
+    Future<void>.delayed(delay, () {
+      if (mounted) _fan.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _fan.dispose();
+    _press.dispose();
+    super.dispose();
+  }
+
+  // One face in the stack: a white-bordered rounded square (blank, if the person has too few
+  // faces to fill it).
+  Widget _card(int? faceId, double size, {required bool top}) {
+    final radius = size * 0.24;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: [
+          top
+              ? BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 5))
+              : BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(3),
+        child: faceId == null
+            ? SizedBox(
+                width: size - 6,
+                height: size - 6,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppColors.parchment,
+                    borderRadius: BorderRadius.circular(radius - 3),
+                  ),
+                ),
+              )
+            : FaceAvatar(faceId: faceId, size: size - 6, square: true, radius: radius - 3),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final person = widget.person;
     final named = person.name != null;
+    final selected = widget.selected;
+
+    // The lean of the top face is from -6.6 to 6.6 degrees, never flat; the two behind lean the
+    // other way and the same way, a different amount each, and peek out to the sides.
+    final h = person.id * 2654435761 & 0x7fffffff;
+    final steps = (h % 7) - 3;
+    var lean = steps * 2.2;
+    if (lean.abs() < 2.2) lean = h.isEven ? 3.0 : -3.0;
+    final dir = lean < 0 ? 1.0 : -1.0;
+    final angles = [lean, lean + dir * (9 + (h >> 3) % 5), lean - dir * (6 + (h >> 5) % 4)];
+    final faces = <int?>[person.coverFaceId, for (final id in person.stackFaceIds.take(2)) id];
 
     return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
+      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
+      onHighlightChanged: (down) => down ? _press.forward() : _press.reverse(),
       borderRadius: BorderRadius.circular(AppRadius.lg),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
@@ -151,36 +240,57 @@ class PersonTile extends StatelessWidget {
           children: [
             LayoutBuilder(
               builder: (context, box) {
-                // Room for the selection ring (4 either side) inside the tile: the picture
-                // plus ring must leave space for the name and count under it.
-                final size = (box.maxWidth - 24).clamp(60.0, 112.0);
+                // The room for the stack: the faces tilt, so they are a little smaller than
+                // the space they sit in, and the ring (when chosen) goes round all of it.
+                final area = (box.maxWidth - 24).clamp(60.0, 112.0);
+                final card = area * 0.84;
+                final shifts = [Offset.zero, Offset(dir * area * 0.07, -area * 0.03), Offset(-dir * area * 0.06, -area * 0.04)];
                 return SizedBox(
-                  width: size + 8,
-                  height: size + 8,
+                  width: area + 8,
+                  height: area + 8,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 160),
-                        width: size + 8,
-                        height: size + 8,
+                        width: area + 8,
+                        height: area + 8,
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
+                          borderRadius: BorderRadius.circular(area * 0.3),
                           border: Border.all(
                             color: selected ? AppColors.primary : Colors.transparent,
                             width: 3,
                           ),
+                          color: selected ? AppColors.primary.withValues(alpha: 0.08) : Colors.transparent,
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: AnimatedScale(
-                            duration: const Duration(milliseconds: 160),
-                            scale: selected ? 0.94 : 1,
-                            child: FaceAvatar(faceId: person.coverFaceId, size: size),
+                      ),
+                      AnimatedScale(
+                        duration: const Duration(milliseconds: 160),
+                        scale: selected ? 0.94 : 1,
+                        child: SizedBox(
+                          width: area,
+                          height: area,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Furthest back first.
+                              for (final layer in const [2, 1, 0])
+                                AnimatedBuilder(
+                                  animation: Listenable.merge([_fan, _press]),
+                                  builder: (context, child) {
+                                    final open = Curves.easeOutBack.transform(_fan.value) * (1 - 0.65 * _press.value);
+                                    return Transform.translate(
+                                      offset: shifts[layer] * open,
+                                      child: Transform.rotate(angle: angles[layer] * math.pi / 180 * open, child: child),
+                                    );
+                                  },
+                                  child: _card(layer < faces.length ? faces[layer] : null, card, top: layer == 0),
+                                ),
+                            ],
                           ),
                         ),
                       ),
-                      if (selecting)
+                      if (widget.selecting)
                         Positioned(
                           right: 0,
                           top: 0,
@@ -216,6 +326,8 @@ class PersonTile extends StatelessWidget {
             const SizedBox(height: 1),
             Text(
               person.photoCount == 1 ? '1 photo' : '${person.photoCount} photos',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: textTheme.bodySmall?.copyWith(color: AppColors.ink48),
             ),
           ],
@@ -225,42 +337,38 @@ class PersonTile extends StatelessWidget {
   }
 }
 
-/// Where the face scan is, as a small pill that takes the place of the "Sync faces"
-/// button while it runs: a progress ring, what it is doing, and pause / resume.
+/// Where the face scan is, as a small pill that takes the place of the "Update people"
+/// button while it runs: a progress ring, what it is doing, and a pause button. Pausing puts
+/// the "Update people" button back (tapping it carries on).
 class FaceSyncPill extends StatelessWidget {
   const FaceSyncPill({
     super.key,
     required this.status,
     required this.onPause,
-    required this.onResume,
   });
 
   final FaceStatus status;
   final VoidCallback onPause;
-  final VoidCallback onResume;
 
   @override
   Widget build(BuildContext context) {
-    final stopped = status.userPaused;
-    final waiting = status.paused && !stopped;
+    final waiting = status.paused;
     final tuning = status.phase == 'tune';
-    final label = stopped
-        ? 'Paused'
-        : waiting
-            ? 'Waiting for indexing'
-            : tuning
-                ? 'Optimising for your phone'
-                : status.phase == 'refine'
-                    ? 'Refining'
-                    : status.phase == 'videos'
-                        ? 'Videos'
-                        : 'Finding faces';
-    final showCount = !stopped && !waiting && !tuning && status.total > 0;
+    final label = waiting
+        ? 'Waiting for indexing'
+        : tuning
+            ? 'Getting ready'
+            : status.phase == 'refine'
+                ? 'Matching the last faces'
+                : status.phase == 'videos'
+                    ? 'Checking videos'
+                    : 'Finding faces';
+    final showCount = !waiting && !tuning && status.total > 0;
     final text = showCount ? '$label  ${status.processed}/${status.total}' : label;
 
     return Container(
-      height: 32,
-      padding: const EdgeInsets.only(left: AppSpacing.sm, right: 2),
+      height: 36,
+      padding: const EdgeInsets.only(left: AppSpacing.md, right: AppSpacing.xs),
       decoration: BoxDecoration(
         color: AppColors.parchment,
         borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -271,14 +379,12 @@ class FaceSyncPill extends StatelessWidget {
           SizedBox(
             width: 14,
             height: 14,
-            child: stopped
-                ? const Icon(Icons.pause_rounded, size: 14, color: AppColors.ink48)
-                : CircularProgressIndicator(
-                    strokeWidth: 2,
-                    value: (waiting || tuning) ? null : status.fraction,
-                    color: AppColors.primary,
-                    backgroundColor: AppColors.hairline,
-                  ),
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              value: (waiting || tuning) ? null : status.fraction,
+              color: AppColors.primary,
+              backgroundColor: AppColors.hairline,
+            ),
           ),
           const SizedBox(width: AppSpacing.sm),
           Flexible(
@@ -290,14 +396,14 @@ class FaceSyncPill extends StatelessWidget {
             ),
           ),
           SizedBox(
-            width: 28,
-            height: 28,
+            width: 30,
+            height: 30,
             child: IconButton(
               padding: EdgeInsets.zero,
-              tooltip: stopped ? 'Resume' : 'Pause',
+              tooltip: 'Pause',
               color: AppColors.ink48,
-              icon: Icon(stopped ? Icons.play_arrow_rounded : Icons.pause_rounded, size: 18),
-              onPressed: stopped ? onResume : onPause,
+              icon: const Icon(Icons.pause_rounded, size: 18),
+              onPressed: onPause,
             ),
           ),
         ],
@@ -411,6 +517,90 @@ void confirmMerge(BuildContext context, FacesController faces, {required Person 
         '${winner.name ?? 'the other'}, and their photos combined.',
     confirmLabel: 'Merge',
     onConfirm: () => faces.merge(keep: winner, other: loser),
+  );
+}
+
+/// What the person asked for in [showNamePersonDialog]: a name, or to skip this person.
+typedef NamePersonResult = ({String? name, bool skip});
+
+/// One step of naming people one after another: the person's face, "Who is this?", and a place
+/// for the name. Returns the name (or skip), or null if the person closed it (which ends the
+/// run). [position] and [total] say how far along it is.
+Future<NamePersonResult?> showNamePersonDialog(
+  BuildContext context,
+  Person person, {
+  required int position,
+  required int total,
+}) {
+  final field = TextEditingController();
+  return showDialog<NamePersonResult>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.45),
+    builder: (ctx) => Dialog(
+      backgroundColor: AppColors.canvas,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(child: FaceAvatar(faceId: person.coverFaceId, size: 96)),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Who is this?',
+              textAlign: TextAlign.center,
+              style: Theme.of(ctx).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${person.photoCount} ${person.photoCount == 1 ? 'photo' : 'photos'}'
+              '${total > 1 ? '  ·  $position of $total' : ''}',
+              textAlign: TextAlign.center,
+              style: Theme.of(ctx).textTheme.bodySmall?.copyWith(color: AppColors.ink48),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextField(
+              controller: field,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (v) => Navigator.of(ctx).pop((name: v.trim(), skip: v.trim().isEmpty)),
+              decoration: InputDecoration(
+                hintText: 'Name',
+                filled: true,
+                fillColor: AppColors.parchment,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.base),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Stop'),
+                ),
+                const Spacer(),
+                if (total > 1)
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop((name: null, skip: true)),
+                    child: const Text('Skip'),
+                  ),
+                const SizedBox(width: AppSpacing.sm),
+                FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop((name: field.text.trim(), skip: field.text.trim().isEmpty)),
+                  child: Text(position < total ? 'Next' : 'Save'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 }
 
