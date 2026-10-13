@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lost_and_found/controllers/export_controller.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
-import 'package:lost_and_found/view/export_zip_screen.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/view/widget/person_menu.dart';
 import 'package:lost_and_found/view/widget/search_results.dart';
@@ -82,7 +80,7 @@ class _PersonScreenState extends State<PersonScreen> {
                           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.ink),
                           onPressed: () => Navigator.of(context).pop(),
                         ),
-                        // No more "⋯" here - Merge, Split, Together, Review and Hide are the
+                        // No more "⋯" here - Together, Merge, Split, Review, Hide and Export are the
                         // buttons floating round the photo below, not hidden behind a tap.
                       ],
                     ),
@@ -118,12 +116,7 @@ class _PersonScreenState extends State<PersonScreen> {
                         shown.photoCount == 1 ? '1 photo' : '${shown.photoCount} photos',
                         style: textTheme.bodySmall?.copyWith(color: AppColors.ink48),
                       ),
-                      TextButton.icon(
-                        onPressed: () => openExportZip(context, select: {ExportController.personKey(shown.id)}),
-                        icon: const Icon(Icons.folder_zip_outlined, size: 18),
-                        label: const Text('Export as zip'),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
+                      const SizedBox(height: AppSpacing.lg),
                     ],
                   ),
                 ),

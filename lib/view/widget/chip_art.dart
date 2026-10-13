@@ -946,6 +946,9 @@ class ChipLidText {
   final String hint;
 
   String get key => '$above|$big|$below|${extras.join('/')}|$hint';
+
+  /// The same text with another hint line.
+  ChipLidText withHint(String hint) => ChipLidText(above: above, big: big, below: below, extras: extras, hint: hint);
 }
 
 const Rect _flange = Rect.fromLTWH(34, 34, 272, 272);

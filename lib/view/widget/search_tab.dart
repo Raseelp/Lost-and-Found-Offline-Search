@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:lost_and_found/view/widget/app_search_field.dart';
+import 'package:lost_and_found/view/widget/nothing_indexed.dart';
 import 'package:lost_and_found/controllers/collections_controller.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
 import 'package:lost_and_found/view/person_screen.dart';
@@ -36,7 +38,6 @@ class SearchTab extends StatelessWidget {
         controller.isSearching ||
         controller.searchResults.isNotEmpty ||
         controller.error.isNotEmpty;
-    final hasImage = controller.pickedSearchImageUri != null;
 
     // CustomScrollView, not SingleChildScrollView(child: Column(...)) -
     // the results grid needs to be a real sliver participating in this
@@ -56,10 +57,6 @@ class SearchTab extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _SearchPill(controller: controller),
-                if (!hasImage) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  _ImageSearchAction(onTap: controller.pickSearchImage),
-                ],
                 const SizedBox(height: AppSpacing.lg),
                 if (controller.isScanning)
                   _BackgroundIndexingNote(controller: controller),
@@ -112,6 +109,13 @@ class _SearchPill extends StatefulWidget {
   State<_SearchPill> createState() => _SearchPillState();
 }
 
+// The gap between the bar's rounded ends and the switch / arrow button inside them (about what is
+// left above and below them, so they sit evenly in the ends).
+const double _endGap = 5;
+
+// The size of the switch and of the arrow button: the same, so both sit in the ends alike.
+const double _endButton = 38;
+
 class _SearchPillState extends State<_SearchPill> {
   final LayerLink _mentionLink = LayerLink();
   OverlayEntry? _mentionEntry;
@@ -129,8 +133,12 @@ class _SearchPillState extends State<_SearchPill> {
     super.dispose();
   }
 
+  // The "@" list shows while a name is being typed - not in photo mode, where the text box is
+  // not there (a half-typed "@ra" is kept for when it is back).
   void _onTextChanged() {
-    if (widget.controller.searchTextController.activeMentionQuery == null) {
+    final c = widget.controller;
+    final photoMode = c.searchPhotoMode || c.pickedSearchImageUri != null;
+    if (photoMode || c.searchTextController.activeMentionQuery == null) {
       _removeMentionOverlay();
     } else if (_mentionEntry == null) {
       _mentionEntry = OverlayEntry(
@@ -157,57 +165,170 @@ class _SearchPillState extends State<_SearchPill> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final hasImage = controller.pickedSearchImageUri != null;
+    // A photo that is attached counts as photo mode.
+    final photoMode = controller.searchPhotoMode || hasImage;
+    // A change of mode puts the "@" list away, or brings it back.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _onTextChanged();
+    });
 
     return CompositedTransformTarget(
       link: _mentionLink,
       child: Container(
+        // The two ends of the bar are its own round ends: the switch and the arrow button sit
+        // snug in them, the same gap on every side, instead of a wide margin at the sides.
         padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.base,
+          horizontal: _endGap,
           vertical: AppSpacing.xxs,
         ),
-        decoration: BoxDecoration(
-          color: AppColors.parchment,
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-        ),
+        decoration: AppSearchBox.decoration(),
         child: Row(
           children: [
-            if (hasImage) ...[
-              Expanded(child: _AttachedImageChip(controller: controller)),
-            ] else ...[
-              const Icon(Icons.search_rounded, size: 19, color: AppColors.ink48),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Stack(
-                  alignment: Alignment.centerLeft,
-                  children: [
-                    // Behind the field, only visible through it while it's empty - a real
-                    // hintText can't crossfade between examples on its own, and one of those
-                    // examples is the whole point: showing "@name at the beach" is how someone
-                    // discovers this exists at all, without a tooltip or a dialog for it.
-                    _RotatingHint(controller: controller.searchTextController),
-                    TextField(
-                      controller: controller.searchTextController,
-                      focusNode: controller.searchFocusNode,
-                      onTapOutside: (_) => FocusScope.of(context).unfocus(),
-                      onSubmitted: (_) => controller.runSearch(),
-                      textInputAction: TextInputAction.search,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        isCollapsed: true,
-                        contentPadding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-                      ),
+            _ModeSwitch(
+              photoMode: photoMode,
+              onChanged: controller.setSearchPhotoMode,
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: photoMode
+                  ? (hasImage
+                        ? _AttachedImageChip(controller: controller)
+                        : _PhotoPrompt(onTap: controller.pickSearchImage))
+                  : Stack(
+                      alignment: Alignment.centerLeft,
+                      children: [
+                        // Behind the field, only visible through it while it's empty - a real
+                        // hintText can't crossfade between examples on its own, and one of those
+                        // examples is the whole point: showing "@name at the beach" is how someone
+                        // discovers this exists at all, without a tooltip or a dialog for it.
+                        _RotatingHint(
+                          controller: controller.searchTextController,
+                        ),
+                        TextField(
+                          controller: controller.searchTextController,
+                          focusNode: controller.searchFocusNode,
+                          onTapOutside: (_) =>
+                              controller.searchFocusNode.unfocus(),
+                          onSubmitted: (_) => controller.runSearch(),
+                          textInputAction: TextInputAction.search,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            isCollapsed: true,
+                            contentPadding: AppSearchBox.fieldPadding,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            ],
+            ),
             const SizedBox(width: AppSpacing.sm),
             _FilterButton(controller: controller),
             _SaveCollectionButton(controller: controller),
             const SizedBox(width: AppSpacing.sm),
             _SearchSubmitButton(controller: controller),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// Two small round choices at the left of the bar: describe what you are after, or search with a
+// photo. The one in use is filled.
+class _ModeSwitch extends StatelessWidget {
+  const _ModeSwitch({required this.photoMode, required this.onChanged});
+
+  final bool photoMode;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget choice({
+      required IconData icon,
+      required String label,
+      required bool selected,
+      required VoidCallback onTap,
+    }) {
+      return Semantics(
+        button: true,
+        selected: selected,
+        label: label,
+        excludeSemantics: true,
+        child: Tooltip(
+          message: label,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primary : Colors.transparent,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 18,
+                color: selected ? AppColors.onPrimary : AppColors.ink48,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: AppColors.canvas,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: AppColors.hairline),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          choice(
+            icon: Icons.search_rounded,
+            label: 'Describe',
+            selected: !photoMode,
+            onTap: () => onChanged(false),
+          ),
+          choice(
+            icon: Icons.image_search_rounded,
+            label: 'Search with a photo',
+            selected: photoMode,
+            onTap: () => onChanged(true),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// In photo mode with no photo yet: the whole middle of the bar is the way to pick one, and
+// says what a photo does.
+class _PhotoPrompt extends StatelessWidget {
+  const _PhotoPrompt({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        child: Text(
+          'Find similar moments instead of describing one',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: AppColors.ink80,
+            height: 1.25,
+          ),
         ),
       ),
     );
@@ -385,9 +506,11 @@ class _SearchSubmitButton extends StatelessWidget {
     return ListenableBuilder(
       listenable: controller.searchTextController,
       builder: (context, _) {
-        final enabled =
-            controller.pickedSearchImageUri != null ||
-            controller.searchTextController.text.trim().isNotEmpty;
+        final hasImage = controller.pickedSearchImageUri != null;
+        // In photo mode it is the photo that counts, not any text typed earlier.
+        final enabled = (controller.searchPhotoMode || hasImage)
+            ? hasImage
+            : controller.searchTextController.text.trim().isNotEmpty;
 
         return Material(
           color: Colors.transparent,
@@ -395,8 +518,8 @@ class _SearchSubmitButton extends StatelessWidget {
             onTap: enabled ? controller.runSearch : null,
             borderRadius: BorderRadius.circular(AppRadius.pill),
             child: Container(
-              width: 34,
-              height: 34,
+              width: _endButton,
+              height: _endButton,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: enabled ? AppColors.primary : AppColors.hairline,
@@ -415,80 +538,6 @@ class _SearchSubmitButton extends StatelessWidget {
   }
 }
 
-// Styled like a proper list row (icon, title, subtitle, chevron) rather
-// than a small icon guess inside the search bar - the same visual language
-// as a settings row, so it reads as tappable on sight instead of needing a
-// caption to explain itself.
-class _ImageSearchAction extends StatelessWidget {
-  const _ImageSearchAction({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.base,
-            vertical: AppSpacing.md,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.parchment,
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.photo_camera_rounded,
-                  color: AppColors.onPrimary,
-                  size: 16,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Search with a photo',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      'Find similar moments instead of describing one',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: AppColors.ink48),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.ink48,
-                size: 20,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _BackgroundIndexingNote extends StatelessWidget {
   const _BackgroundIndexingNote({required this.controller});
 
@@ -496,28 +545,41 @@ class _BackgroundIndexingNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Tapping it opens the Library, where the progress is.
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.base),
-      child: Row(
-        children: [
-          const SizedBox(
-            width: 13,
-            height: 13,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: AppColors.primary,
-            ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        onTap: () => goToLibrary(context),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+          child: Row(
+            children: [
+              const SizedBox(
+                width: 13,
+                height: 13,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Indexing continues in the background - ${controller.totalEmbeddings} indexed so far.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.ink48),
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: AppColors.ink48,
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              'Indexing continues in the background - ${controller.totalEmbeddings} indexed so far.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: AppColors.ink48),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -530,7 +592,13 @@ class _SearchIdlePrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasIndex = controller.totalEmbeddings > 0;
+    // Nothing to search yet: the same block every screen shows, with the way to the Library.
+    if (controller.totalEmbeddings == 0) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: AppSpacing.xxl),
+        child: NothingIndexed(icon: Icons.search_rounded),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxl),
@@ -551,17 +619,13 @@ class _SearchIdlePrompt extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.base),
           Text(
-            hasIndex
-                ? 'Describe a photo, place, or moment'
-                : 'Nothing indexed yet',
+            'Describe a photo, place, or moment',
             style: Theme.of(context).textTheme.titleMedium,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            hasIndex
-                ? 'Lost & Found searches by meaning, not filenames.'
-                : 'Head to the Library tab to index your phone or a folder first.',
+            'Lost & Found searches by meaning, not filenames.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: AppColors.ink48,
@@ -574,8 +638,6 @@ class _SearchIdlePrompt extends StatelessWidget {
   }
 }
 
-// Appears once a text search has results: turns that search into a
-// collection - name (pre-filled with the query), then Save.
 class _SaveCollectionButton extends StatelessWidget {
   const _SaveCollectionButton({required this.controller});
 
