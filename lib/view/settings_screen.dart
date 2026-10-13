@@ -7,8 +7,12 @@ import 'package:lost_and_found/controllers/native_controller.dart';
 import 'package:lost_and_found/models/model_status.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/view/hidden_people_screen.dart';
+import 'package:lost_and_found/view/merge_history_screen.dart';
 import 'package:lost_and_found/view/widget/confirm_dialog.dart';
+import 'package:lost_and_found/view/widget/face_widgets.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -51,10 +55,10 @@ class SettingsScreen extends StatelessWidget {
                                 : Icons.download_for_offline_outlined,
                             accentIcon: modelsVerified,
                             title: modelsVerified
-                                ? 'Search model (CLIP)'
+                                ? 'Search model'
                                 : 'Search model - not ready',
                             subtitle: modelsVerified
-                                ? 'Finds photos by meaning  ·  ${ModelDownloadProgress.formatBytes(modelBytes)}  ·  verified'
+                                ? 'CLIP ViT-B/32 (OpenAI)  ·  finds photos by meaning  ·  ${ModelDownloadProgress.formatBytes(modelBytes)}  ·  verified'
                                 : null,
                             trailing: modelsVerified
                                 ? const Icon(
@@ -69,7 +73,7 @@ class SettingsScreen extends StatelessWidget {
                             accentIcon: true,
                             title: 'Face detector',
                             subtitle:
-                                'Finds where faces are in photos and videos  ·  about 3 MB  ·  built in',
+                                'SCRFD det_2.5g  ·  finds where faces are in photos and videos  ·  about 3 MB  ·  built in',
                             trailing: Icon(
                               Icons.check_circle_rounded,
                               color: AppColors.primary,
@@ -81,7 +85,7 @@ class SettingsScreen extends StatelessWidget {
                             accentIcon: true,
                             title: 'Face recognition',
                             subtitle:
-                                'Groups photos by person  ·  about 13 MB  ·  built in',
+                                'MobileFaceNet w600k_mbf  ·  groups photos by person  ·  about 13 MB  ·  built in',
                             trailing: Icon(
                               Icons.check_circle_rounded,
                               color: AppColors.primary,
@@ -136,6 +140,104 @@ class SettingsScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xl),
+                      const _GroupLabel('People'),
+                      GetBuilder<FacesController>(
+                        builder: (faces) {
+                          final st = faces.status;
+                          return _GroupCard(
+                            children: [
+                              _SettingsRow(
+                                icon: Icons.videocam_outlined,
+                                title: 'Find people in videos',
+                                subtitle:
+                                    'After the photos, a few frames of each video are checked. Takes a while and uses battery. '
+                                    'Turned off, you can still scan any single video from its own screen.',
+                                trailing: Switch(
+                                  value: st.scanVideos,
+                                  onChanged: faces.setScanVideos,
+                                ),
+                              ),
+                              if (st.scanVideos)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    AppSpacing.base,
+                                    AppSpacing.sm,
+                                    AppSpacing.base,
+                                    AppSpacing.md,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: SegmentedButton<String>(
+                                          showSelectedIcon: false,
+                                          segments: const [
+                                            ButtonSegment(
+                                              value: 'fast',
+                                              label: Text('Fast'),
+                                            ),
+                                            ButtonSegment(
+                                              value: 'balanced',
+                                              label: Text('Balanced'),
+                                            ),
+                                            ButtonSegment(
+                                              value: 'thorough',
+                                              label: Text('Thorough'),
+                                            ),
+                                          ],
+                                          selected: {st.videoDensity},
+                                          onSelectionChanged: (s) =>
+                                              faces.setVideoDensity(s.first),
+                                        ),
+                                      ),
+                                      const SizedBox(height: AppSpacing.xs),
+                                      Text(
+                                        'How many frames of each video are checked. Applies to videos not scanned yet - '
+                                        '"Clear face data" below redoes the rest.',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: AppColors.ink48,
+                                              height: 1.4,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              _TapRow(
+                                icon: Icons.undo_rounded,
+                                title: 'Undo a merge',
+                                subtitle:
+                                    'Split two people you merged by mistake',
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const MergeHistoryScreen(),
+                                  ),
+                                ),
+                              ),
+                              _TapRow(
+                                icon: Icons.visibility_off_outlined,
+                                title: 'Hidden people',
+                                subtitle: faces.hiddenPeople.isEmpty
+                                    ? 'None'
+                                    : '${faces.hiddenPeople.length} hidden',
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const HiddenPeopleScreen(),
+                                  ),
+                                ),
+                              ),
+                              // The expert controls are switched off (their defaults give the
+                              // best results). To bring them back, add:
+                              //   ..._expertFaceRows(context, faces, st, null)
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
                       const _GroupLabel('Diagnostics'),
                       _GroupCard(
                         children: [
@@ -158,12 +260,12 @@ class SettingsScreen extends StatelessWidget {
                         children: [
                           if (deletableBytes > 0 || modelsVerified)
                             _DangerRow(
-                              title: 'Delete AI models',
+                              title: 'Delete search model',
                               subtitle:
                                   'Frees ~${ModelDownloadProgress.formatBytes(deletableBytes)} - the search model',
                               onTap: () => showConfirmDialog(
                                 context,
-                                title: 'Delete AI models?',
+                                title: 'Delete the search model?',
                                 message:
                                     'Search and indexing stop working until you download the search model again - you will be taken back to the setup screen. Your photos, the search index and the people already found are kept.',
                                 confirmLabel: 'Delete',
@@ -612,4 +714,143 @@ class _TapRow extends StatelessWidget {
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The face controls that are not shown (their defaults are the best settings). They moved here
+// from the old Faces options sheet. Everything they call still works: FacesController
+// .setStrictness / setRefine / setThorough / retune / regroup / models / selectModel. To bring any
+// back, add these rows to the People section above, e.g.
+//   ..._expertFaceRows(context, faces, st, models)
+// ---------------------------------------------------------------------------------------------
+
+// ignore: unused_element
+List<Widget> _expertFaceRows(
+  BuildContext context,
+  FacesController faces,
+  FaceStatus status,
+  FaceModels? models,
+) {
+  final textTheme = Theme.of(context).textTheme;
+
+  Widget chips(String kind) {
+    final list = models?.ofKind(kind) ?? const <FaceModelInfo>[];
+    if (list.isEmpty) {
+      return Text(
+        'none installed',
+        style: textTheme.bodySmall?.copyWith(color: AppColors.danger),
+      );
+    }
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
+      children: [
+        for (final m in list)
+          ChoiceChip(
+            label: Text(
+              '${m.name}  ${(m.sizeBytes / 1048576).toStringAsFixed(0)} MB',
+            ),
+            selected: m.selected,
+            onSelected: (_) => faces.selectModel(m),
+          ),
+      ],
+    );
+  }
+
+  return [
+    // Sorts the automatic groups again from every face known now (names and hand edits are kept).
+    SheetRow(
+      icon: Icons.auto_fix_high_rounded,
+      label: 'Regroup now',
+      subtitle:
+          'Sorts the faces into people again. Names and your edits are kept',
+      onTap: faces.regroup,
+    ),
+    // Models (the detector and the recognition model).
+    Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.base,
+        AppSpacing.base,
+        AppSpacing.base,
+        AppSpacing.xs,
+      ),
+      child: Text(
+        'Models',
+        style: textTheme.labelMedium?.copyWith(color: AppColors.ink48),
+      ),
+    ),
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.base),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Finds faces', style: textTheme.bodySmall),
+          const SizedBox(height: AppSpacing.xs),
+          chips('detector'),
+          const SizedBox(height: AppSpacing.md),
+          Text('Tells people apart', style: textTheme.bodySmall),
+          const SizedBox(height: AppSpacing.xs),
+          chips('embedder'),
+        ],
+      ),
+    ),
+    // How strict the grouping is (applied by "Regroup now").
+    Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.base,
+        AppSpacing.base,
+        AppSpacing.base,
+        AppSpacing.xs,
+      ),
+      child: Text(
+        'Grouping',
+        style: textTheme.labelMedium?.copyWith(color: AppColors.ink48),
+      ),
+    ),
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.base),
+      child: SizedBox(
+        width: double.infinity,
+        child: SegmentedButton<String>(
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(value: 'strict', label: Text('Strict')),
+            ButtonSegment(value: 'balanced', label: Text('Balanced')),
+            ButtonSegment(value: 'loose', label: Text('Loose')),
+          ],
+          selected: {status.strictness},
+          onSelectionChanged: (s) => faces.setStrictness(s.first),
+        ),
+      ),
+    ),
+    SwitchListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.base),
+      title: Text(
+        'Recognise small and blurry faces',
+        style: textTheme.bodyMedium,
+      ),
+      subtitle: Text(
+        'A second pass after the clear faces are done, matching the rest to the same people.',
+        style: textTheme.bodySmall?.copyWith(color: AppColors.ink48),
+      ),
+      value: status.refine,
+      onChanged: (v) => faces.setRefine(v),
+    ),
+    SwitchListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.base),
+      title: Text('Search harder for small faces', style: textTheme.bodyMedium),
+      subtitle: Text(
+        'Slower. Applies to photos scanned from now on.',
+        style: textTheme.bodySmall?.copyWith(color: AppColors.ink48),
+      ),
+      value: status.thorough,
+      onChanged: (v) => faces.setThorough(v),
+    ),
+    SheetRow(
+      icon: Icons.speed_rounded,
+      label: 'Speed test',
+      subtitle: status.tuning ?? 'Runs once, at the start of the next scan',
+      onTap: faces.retune,
+    ),
+  ];
 }

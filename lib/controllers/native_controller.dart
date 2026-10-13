@@ -690,6 +690,21 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     isLoadingSimilar = false;
   }
 
+  /// Whether the search bar is in photo mode (find similar moments from a photo) rather than
+  /// describing. A photo that is attached counts as photo mode whatever this says.
+  bool searchPhotoMode = false;
+
+  /// Switches the bar between describing and searching with a photo. Going back to describing
+  /// lets go of an attached photo.
+  void setSearchPhotoMode(bool value) {
+    searchPhotoMode = value;
+    if (!value && pickedSearchImageUri != null) {
+      clearPickedSearchImage();
+      return;
+    }
+    update();
+  }
+
   void clearPickedSearchImage() {
     pickedSearchImageUri = null;
     pickedSearchImageBytes = null;
@@ -1537,6 +1552,16 @@ class NativeController extends GetxController with WidgetsBindingObserver {
       case ContentMode.videos:
         return 'videos';
     }
+  }
+
+  /// Where the next scan looks: the whole phone (how it always starts), or one folder that is
+  /// picked when the chip is tapped.
+  bool scanWholePhone = true;
+
+  void setScanWholePhone(bool value) {
+    if (scanWholePhone == value) return;
+    scanWholePhone = value;
+    update();
   }
 
   void toggleSelectedContentMode({required ContentMode contentMode}) {

@@ -431,7 +431,11 @@ class SquareScanHero extends StatefulWidget {
     this.onStart,
     this.onDismiss,
     this.summary,
+    this.idleHint = 'TAP TO SCAN',
   });
+
+  /// What the lid says while waiting to be tapped.
+  final String idleHint;
 
   /// Indexing's progress, 0..1 (null while the folder is still being walked).
   final double? progress;
@@ -1497,7 +1501,7 @@ class _SquarePainter extends CustomPainter {
       open: scene._lid,
       now: now,
       pressed: scene._pressed,
-      idle: scene._lidIdle,
+      idle: scene._lidIdle.withHint(scene.widget.idleHint),
       done: scene._lidDone,
       doneAmt: done,
       tilt: scene._tilt,

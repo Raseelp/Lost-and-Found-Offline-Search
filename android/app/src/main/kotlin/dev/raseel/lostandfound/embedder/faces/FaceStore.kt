@@ -54,6 +54,8 @@ class PersonSummary(
     val faceCount: Int,
     val photoCount: Int,
     val coverFaceId: Long,
+    /** Two more of their clearest faces (not the cover), for the little stack on their tile. */
+    val stackFaceIds: List<Long> = emptyList(),
 )
 
 class FaceLocation(
@@ -1056,10 +1058,23 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         coverValid = !c.isNull(7),
     )
 
-    private fun CoverRow.toSummary() = PersonSummary(
-        id = id, name = name, hidden = hidden, faceCount = faceCount, photoCount = photoCount,
-        coverFaceId = coverFor(this),
-    )
+    private fun CoverRow.toSummary(): PersonSummary {
+        val cover = coverFor(this)
+        return PersonSummary(
+            id = id, name = name, hidden = hidden, faceCount = faceCount, photoCount = photoCount,
+            coverFaceId = cover, stackFaceIds = stackFaces(id, cover),
+        )
+    }
+
+    // Their two clearest faces other than the cover.
+    private fun stackFaces(personId: Long, cover: Long): List<Long> {
+        val out = ArrayList<Long>(2)
+        readableDatabase.rawQuery(
+            "SELECT id FROM faces WHERE person_id = ? AND id != ? AND length(embedding) > 0 ORDER BY good DESC, rank DESC LIMIT 2",
+            arrayOf(personId.toString(), cover.toString())
+        ).use { while (it.moveToNext()) out += it.getLong(0) }
+        return out
+    }
 
     private fun coverFor(row: CoverRow): Long {
         val current = row.storedCover

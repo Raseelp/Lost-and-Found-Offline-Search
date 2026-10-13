@@ -832,6 +832,7 @@ class MainActivity : FlutterActivity() {
                             "faceCount" to p.faceCount,
                             "photoCount" to p.photoCount,
                             "coverFaceId" to p.coverFaceId,
+                            "stackFaceIds" to p.stackFaceIds,
                         )
                     }
                 }
@@ -846,6 +847,7 @@ class MainActivity : FlutterActivity() {
                             "faceCount" to p.faceCount,
                             "photoCount" to p.photoCount,
                             "coverFaceId" to p.coverFaceId,
+                            "stackFaceIds" to p.stackFaceIds,
                         )
                     }
                 }

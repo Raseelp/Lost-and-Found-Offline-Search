@@ -29,7 +29,7 @@ class FacesController extends GetxController {
   void onInit() {
     super.onInit();
     _progressSub = _native.faceProgress().listen(_onProgress, onError: (_) {});
-    // Faces are found along with indexing (or by "Sync faces"): opening the app never starts a scan.
+    // Faces are found along with indexing (or by "Update people"): opening the app never starts a scan.
     refreshAll();
   }
 
@@ -56,10 +56,10 @@ class FacesController extends GetxController {
   }
 
   /// Whether the People tab is showing a sync's progress. Faces are found by
-  /// themselves along with indexing, so that is only after "Sync faces".
+  /// themselves along with indexing, so that is only after "Update people".
   bool syncing = false;
 
-  /// "Sync faces": catches up on whatever the automatic scan hasn't covered (the
+  /// "Update people": catches up on whatever the automatic scan hasn't covered (the
   /// photos after the last batch, small and blurry faces, videos) and shows its
   /// progress. False if there was nothing for it to do.
   Future<bool> syncFaces() async {
@@ -676,7 +676,7 @@ class FacesController extends GetxController {
   }
 
   // Right after a merge: a way out for a slip of the finger. (Later, the same
-  // merge can still be undone from Face options.)
+  // merge can still be undone from Settings.)
   void _offerUndo(int recordId) {
     if (recordId <= 0) return;
     Get.closeAllSnackbars();
