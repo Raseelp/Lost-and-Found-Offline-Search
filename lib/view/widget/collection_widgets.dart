@@ -18,36 +18,50 @@ import 'package:lost_and_found/view/widget/mention_text_controller.dart';
 
 String _countLabel(int count) => count == 1 ? '1 item' : '$count items';
 
-// One collection in the Collections tab's grid: a cover photo as its
-// identity (as in Google Photos; it rotates through the collection's best
-// matches - see CollectionsController.selectedCover), otherwise its icon on
-// a plain card.
-//
-// While a collection is being (re)computed - just saved, or just edited -
-// the card plays a "finding matches" animation: a light sweeps across it and
-// a sparkle pulses. When it finishes the card pops slightly and the count
-// ticks up from zero, so a new collection visibly arrives instead of
-// appearing already finished.
+int _idHash(String id) => id.codeUnits.fold<int>(7, (a, b) => (a * 31 + b) & 0x7fffffff);
+
+// One collection in the Collections tab's mosaic: a stack of its best photos, with no box
+// around it - just a soft light in the main colour of the top photo behind it, and the same
+// colour in the shadow under it. Each photo is tilted its own way (the tilt comes from the
+// collection's id, so every stack leans differently and always the same). The stack fans out
+// when the tile first shows, straightens a little when pressed, and the cover on top rotates
+// through the collection's best matches (see CollectionsController.stackCovers). While a
+// collection is being (re)computed its light breathes.
 class CollectionCard extends StatefulWidget {
   const CollectionCard({
     super.key,
     required this.collection,
     required this.stats,
-    required this.coverBytes,
+    required this.stack,
     required this.syncing,
     required this.onTap,
     required this.onLongPress,
     this.selecting = false,
     this.selected = false,
+    this.isNew = false,
+    this.index = 0,
+    this.glow,
   });
 
-  /// While choosing several collections: every card shows a tick circle, ticked ones a ring.
+  /// The colour of the light behind the stack (taken from the top photo); a colour of the
+  /// collection's own until that is known.
+  final Color? glow;
+
+  /// While choosing several collections: every tile shows a tick circle, ticked ones a ring.
   final bool selecting;
   final bool selected;
 
+  /// Some of the photos on the stack came in with the latest scan.
+  final bool isNew;
+
+  /// Where the tile is in the mosaic: the fan-out of the stacks starts one after another.
+  final int index;
+
   final SmartCollection collection;
   final CollectionStats stats;
-  final Uint8List? coverBytes;
+
+  /// The picture on top, then the two behind it (null: not arrived yet).
+  final List<Uint8List?> stack;
   final bool syncing;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
@@ -65,11 +79,25 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
     vsync: this,
     duration: const Duration(milliseconds: 700),
   );
+  late final AnimationController _fan = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 780),
+  );
+  late final AnimationController _press = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 180),
+  );
 
   @override
   void initState() {
     super.initState();
     if (widget.syncing) _sweep.repeat();
+    // The first screenful opens one after another, in the order it is laid out; a tile that
+    // scrolls in later just opens.
+    final delay = Duration(milliseconds: widget.index < 8 ? widget.index * 60 : 0);
+    Future<void>.delayed(delay, () {
+      if (mounted) _fan.forward();
+    });
   }
 
   @override
@@ -87,13 +115,57 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
   void dispose() {
     _sweep.dispose();
     _pop.dispose();
+    _fan.dispose();
+    _press.dispose();
     super.dispose();
+  }
+
+  // One photo of the stack: a white-bordered print with a soft shadow.
+  Widget _print(Uint8List? bytes, {required bool top, required Color glow}) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: [
+          // The top photo throws a coloured shadow; the ones behind a plain soft one.
+          top
+              ? BoxShadow(color: glow.withValues(alpha: 0.5), blurRadius: 26, spreadRadius: -6, offset: const Offset(0, 18))
+              : BoxShadow(color: Colors.black.withValues(alpha: 0.13), blurRadius: 8, offset: const Offset(0, 3)),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(3),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          child: bytes != null
+              ? Image.memory(bytes, fit: BoxFit.cover, cacheWidth: 360, gaplessPlayback: true)
+              : ColoredBox(
+                  color: AppColors.parchment,
+                  child: top ? Center(child: Icon(widget.collection.icon, size: 30, color: AppColors.ink48)) : null,
+                ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasCover = widget.coverBytes != null;
     final textTheme = Theme.of(context).textTheme;
+    final id = widget.collection.id;
+    final h = _idHash(id);
+    // Until the top photo's colour is known, a colour of the collection's own.
+    final glow = widget.glow ?? HSLColor.fromAHSL(1, (h % 360).toDouble(), 0.5, 0.55).toColor();
+
+    // The lean of the top photo is from -6.6 to 6.6 degrees, never flat; the two behind lean
+    // the other way and the same way, a different amount each, and peek out to the sides.
+    final steps = (h % 7) - 3;
+    var lean = steps * 2.2;
+    if (lean.abs() < 2.2) lean = h.isEven ? 3.0 : -3.0;
+    final dir = lean < 0 ? 1.0 : -1.0;
+    final angles = [lean, lean + dir * (8 + (h >> 3) % 5), lean - dir * (5 + (h >> 5) % 4)];
+    final shifts = [Offset.zero, Offset(dir * 9, -3), Offset(-dir * 7, -5)];
+
+    final stack = widget.stack;
 
     final scale = TweenSequence<double>([
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.06), weight: 30),
@@ -102,189 +174,168 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
 
     return ScaleTransition(
       scale: scale,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.onTap,
-          onLongPress: widget.onLongPress,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // Crossfades when the cover changes (a new day, a new best
-                // match) rather than snapping.
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 700),
-                  // The default layout gives its children loose constraints,
-                  // so a cover would sit at its own size in the middle of the
-                  // card with a border around it. Expand instead, so `cover`
-                  // fills the whole card - cropped, never stretched or
-                  // letterboxed.
-                  layoutBuilder: (current, previous) => Stack(
-                    fit: StackFit.expand,
-                    children: [...previous, if (current != null) current],
-                  ),
-                  child: hasCover
-                      ? Image.memory(
-                          widget.coverBytes!,
-                          key: ValueKey(widget.coverBytes),
-                          fit: BoxFit.cover,
-                          cacheWidth: 420,
-                          gaplessPlayback: true,
-                        )
-                      : ColoredBox(
-                          key: const ValueKey('no-cover'),
-                          color: AppColors.parchment,
-                          child: Center(
-                            child: Padding(
-                              padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-                              child: Icon(widget.collection.icon, size: 34, color: AppColors.ink48),
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 160),
+        scale: widget.selecting && widget.selected ? 0.95 : 1,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppRadius.xl),
+            onTap: widget.onTap,
+            onLongPress: widget.onLongPress,
+            onHighlightChanged: (down) => down ? _press.forward() : _press.reverse(),
+            child: LayoutBuilder(
+              builder: (context, box) {
+                final w = box.maxWidth;
+                final height = box.maxHeight;
+                final wide = w > height * 1.6;
+                const pad = 14.0;
+                final area = wide
+                    ? Rect.fromLTWH(w * 0.46, pad, w * 0.48, height - 2 * pad)
+                    : Rect.fromLTWH(pad + 4, pad, w - 2 * (pad + 4), height - pad - 52);
+                final card = area.deflate(wide ? 8 : 12);
+
+                final text = Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.collection.name,
+                      maxLines: wide ? 2 : 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: (wide ? textTheme.titleMedium : textTheme.titleSmall)?.copyWith(color: AppColors.ink),
+                    ),
+                    const SizedBox(height: 1),
+                    widget.syncing
+                        ? Text('Finding matches...', style: textTheme.bodySmall?.copyWith(color: AppColors.ink48))
+                        : TweenAnimationBuilder<int>(
+                            tween: IntTween(begin: 0, end: widget.stats.count),
+                            duration: const Duration(milliseconds: 900),
+                            curve: Curves.easeOutCubic,
+                            builder: (context, value, _) => Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (widget.isNew) ...[
+                                  Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                                  ),
+                                  const SizedBox(width: 5),
+                                ],
+                                Flexible(
+                                  child: Text(
+                                    widget.isNew ? 'New  ·  ${_countLabel(value)}' : _countLabel(value),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: textTheme.bodySmall?.copyWith(color: AppColors.ink48),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                  ],
+                );
+
+                return Stack(
+                  fit: StackFit.expand,
+                  clipBehavior: Clip.none,
+                  children: [
+                    // The light behind the stack: a soft ellipse in the colour of the top photo, strongest
+                    // in the middle and gone at its edge (a round gradient stretched to the stack's shape).
+                    Positioned.fromRect(
+                      rect: card.inflate(wide ? 26 : 32),
+                      child: IgnorePointer(
+                        child: AnimatedBuilder(
+                          animation: _sweep,
+                          builder: (context, _) {
+                            // Breathes while the collection is being worked out.
+                            final strength = widget.syncing
+                                ? 0.3 + 0.3 * (0.5 + 0.5 * math.sin(_sweep.value * 2 * math.pi))
+                                : 0.5;
+                            return FittedBox(
+                              fit: BoxFit.fill,
+                              child: SizedBox.square(
+                                dimension: 100,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: RadialGradient(
+                                      radius: 0.5,
+                                      colors: [glow.withValues(alpha: strength), glow.withValues(alpha: 0)],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    // Furthest back first.
+                    for (final layer in const [2, 1, 0])
+                      Positioned.fromRect(
+                        rect: card,
+                        child: AnimatedBuilder(
+                          animation: Listenable.merge([_fan, _press]),
+                          builder: (context, child) {
+                            final open = Curves.easeOutBack.transform(_fan.value) * (1 - 0.65 * _press.value);
+                            return Transform.translate(
+                              offset: shifts[layer] * open,
+                              child: Transform.rotate(angle: angles[layer] * math.pi / 180 * open, child: child),
+                            );
+                          },
+                          child: _print(layer < stack.length ? stack[layer] : null, top: layer == 0, glow: glow),
+                        ),
+                      ),
+                    if (widget.selecting)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 160),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(AppRadius.xl),
+                              border: Border.all(
+                                color: widget.selected ? AppColors.primary : Colors.transparent,
+                                width: 3,
+                              ),
+                              color: widget.selected
+                                  ? AppColors.primary.withValues(alpha: 0.10)
+                                  : Colors.transparent,
                             ),
                           ),
                         ),
-                ),
-                if (hasCover)
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black.withValues(alpha: 0.62)],
-                        stops: const [0.45, 1],
                       ),
-                    ),
-                  ),
-                if (widget.syncing) _SyncOverlay(animation: _sweep, onPhoto: hasCover),
-                if (widget.selecting)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 160),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(AppRadius.lg),
-                          border: Border.all(color: widget.selected ? AppColors.primary : Colors.transparent, width: 3),
-                          color: widget.selected ? AppColors.primary.withValues(alpha: .12) : Colors.transparent,
-                        ),
-                      ),
-                    ),
-                  ),
-                if (widget.selecting)
-                  Positioned(
-                    top: AppSpacing.sm,
-                    right: AppSpacing.sm,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: widget.selected ? AppColors.primary : Colors.white.withValues(alpha: .85),
-                        border: Border.all(color: widget.selected ? AppColors.primary : AppColors.hairline, width: 1.5),
-                      ),
-                      child: widget.selected
-                          ? const Icon(Icons.check_rounded, size: 18, color: AppColors.onPrimary)
-                          : null,
-                    ),
-                  ),
-                Positioned(
-                  left: AppSpacing.md,
-                  right: AppSpacing.md,
-                  bottom: AppSpacing.md,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        widget.collection.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: textTheme.titleSmall?.copyWith(
-                          color: hasCover ? Colors.white : AppColors.ink,
-                        ),
-                      ),
-                      widget.syncing
-                          ? Text(
-                              'Finding matches...',
-                              style: textTheme.bodySmall?.copyWith(
-                                color: hasCover ? Colors.white70 : AppColors.ink48,
-                              ),
-                            )
-                          : TweenAnimationBuilder<int>(
-                              tween: IntTween(begin: 0, end: widget.stats.count),
-                              duration: const Duration(milliseconds: 900),
-                              curve: Curves.easeOutCubic,
-                              builder: (context, value, _) => Text(
-                                _countLabel(value),
-                                style: textTheme.bodySmall?.copyWith(
-                                  color: hasCover ? Colors.white70 : AppColors.ink48,
-                                ),
-                              ),
+                    if (widget.selecting)
+                      Positioned(
+                        top: AppSpacing.sm + 2,
+                        right: AppSpacing.sm + 2,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          width: 26,
+                          height: 26,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: widget.selected ? AppColors.primary : Colors.white.withValues(alpha: 0.9),
+                            border: Border.all(
+                              color: widget.selected ? AppColors.primary : AppColors.hairline,
+                              width: 1.5,
                             ),
-                    ],
-                  ),
-                ),
-              ],
+                          ),
+                          child: widget.selected
+                              ? const Icon(Icons.check_rounded, size: 18, color: AppColors.onPrimary)
+                              : null,
+                        ),
+                      ),
+                    wide
+                        ? Positioned(left: 16, top: 0, bottom: 0, width: w * 0.40, child: Center(child: text))
+                        : Positioned(left: 14, right: 14, bottom: 12, child: text),
+                  ],
+                );
+              },
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-// A soft band of light sweeping diagonally across the card, with a sparkle
-// breathing in the middle.
-class _SyncOverlay extends StatelessWidget {
-  const _SyncOverlay({required this.animation, required this.onPhoto});
-
-  final Animation<double> animation;
-  final bool onPhoto;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, _) {
-        final t = animation.value;
-        final breathe = 0.5 + 0.5 * math.sin(t * 2 * math.pi);
-
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment(-2.4 + 4.8 * t, -1),
-                  end: Alignment(-1.2 + 4.8 * t, 1),
-                  colors: [
-                    Colors.white.withValues(alpha: 0),
-                    Colors.white.withValues(alpha: onPhoto ? 0.35 : 0.85),
-                    Colors.white.withValues(alpha: 0),
-                  ],
-                ),
-              ),
-            ),
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-                child: Transform.rotate(
-                  angle: 0.35 * math.sin(t * 2 * math.pi),
-                  child: Transform.scale(
-                    scale: 0.85 + 0.3 * breathe,
-                    child: Icon(
-                      Icons.auto_awesome_rounded,
-                      size: 30,
-                      color: onPhoto ? Colors.white : AppColors.primary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 }
@@ -339,52 +390,6 @@ class CollectionChip extends StatelessWidget {
                 style: Theme.of(
                   context,
                 ).textTheme.bodySmall?.copyWith(color: AppColors.ink48),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The "New collection" tile at the start of the Collections grid.
-class NewCollectionCard extends StatelessWidget {
-  const NewCollectionCard({super.key, required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border.all(color: AppColors.hairline, width: 1.5),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.add_rounded,
-                  color: AppColors.onPrimary,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'New collection',
-                style: Theme.of(context).textTheme.titleSmall,
               ),
             ],
           ),

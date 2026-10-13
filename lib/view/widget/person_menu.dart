@@ -417,17 +417,27 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
         label: 'Hide',
         title: 'Hide $name?',
         message: 'Moved out of the Faces tab into Hidden people. Nothing is deleted, and you can '
-            'bring them back anytime from Face options.',
+            'bring them back anytime from Settings.',
         confirmLabel: 'Hide',
         danger: true,
         onTap: () => widget.faces.setHidden(widget.person, true),
       ),
+      // Last, so it takes the spot straight below the photo, completing the ring.
+      _Orbit(
+        icon: Icons.folder_zip_outlined,
+        label: 'Export',
+        title: 'Export as zip?',
+        message: 'Put all the photos and videos of $name in a zip to keep or send. Your originals '
+            'stay where they are. You choose the name and where it is saved next.',
+        confirmLabel: 'Continue',
+        onTap: () => openExportZip(context, select: {ExportController.personKey(widget.person.id)}),
+      ),
     ];
   }
 
-  // Degrees, 0 = straight up, clockwise. Spread over the top 240° so nothing sits behind
-  // the name that shows right under the photo.
-  static const _angles = [-120.0, -60.0, 0.0, 60.0, 120.0];
+  // Degrees, 0 = straight up, clockwise. Six buttons, a sixth of the circle apart; the name
+  // sits below this whole box, so the last one fits straight under the photo.
+  static const _angles = [-120.0, -60.0, 0.0, 60.0, 120.0, 180.0];
 
   // Each button lives in a box this big, centred on its orbit point - a fixed size (not
   // whatever its icon+label happen to measure) so its tap target is exactly where it's

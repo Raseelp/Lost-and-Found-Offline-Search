@@ -70,6 +70,19 @@ class SmartCollection {
 
   bool get isPhotos => kind == kindPhotos;
 
+  /// Built-ins that are things you keep rather than moments you look back on (papers, screens,
+  /// tickets, notes, forwards). The Collections tab puts them after the rest and never features
+  /// them on the big card.
+  static const Set<String> everydayIds = {
+    'builtin_documents',
+    'builtin_screenshots',
+    'builtin_tickets_passes',
+    'builtin_notes_whiteboards',
+    'builtin_memes',
+  };
+
+  bool get isEveryday => isBuiltIn && everydayIds.contains(id);
+
   String get queryText => explainQuery ?? prompts.first;
 
   /// Changes whenever anything that affects the cached query embedding
