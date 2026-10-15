@@ -14,6 +14,7 @@ import 'package:lost_and_found/utils/floating_bar.dart';
 import 'package:lost_and_found/view/widget/confirm_dialog.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/view/widget/library_orbit.dart';
+import 'package:lost_and_found/view/widget/on_this_day_card.dart';
 import 'package:lost_and_found/view/widget/scan_square.dart';
 
 // The list of indexed folders is switched off for now (it comes back with per-folder
@@ -58,23 +59,18 @@ class LibraryTab extends StatelessWidget {
                     ),
             ),
           ),
-          // What is indexed so far: one card, which folds into a single quiet line while a
-          // scan runs, and is not there at all until something is indexed.
+          // What is indexed so far: one card, which is not there while a scan runs (the chip
+          // above shows the progress), nor at all until something is indexed.
           AnimatedSize(
             duration: const Duration(milliseconds: 320),
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 320),
-              child: !_hasLibrary(controller)
+              child: !_hasLibrary(controller) || scanning
                   ? const SizedBox(
                       key: ValueKey('none'),
                       width: double.infinity,
-                    )
-                  : scanning
-                  ? _SlimStats(
-                      key: const ValueKey('slim'),
-                      controller: controller,
                     )
                   : _LibraryCard(
                       key: const ValueKey('card'),
@@ -87,6 +83,11 @@ class LibraryTab extends StatelessWidget {
                       failed: controller.totalFailed,
                     ),
             ),
+          ),
+          // This date in the past years of the library: there only when there is something from it.
+          OnThisDaySection(
+            visible: _hasLibrary(controller) && !scanning,
+            indexed: controller.totalEmbeddings,
           ),
           if (_showIndexedFolders &&
               controller.allIndexedFoldersList.isNotEmpty) ...[
@@ -319,46 +320,6 @@ String _timeAgo(DateTime time) {
     return diff.inDays == 1 ? 'yesterday' : '${diff.inDays} days ago';
   }
   return '${time.day}/${time.month}/${time.year}';
-}
-
-// What a scan running looks like in place of the card: one line.
-class _SlimStats extends StatelessWidget {
-  const _SlimStats({super.key, required this.controller});
-
-  final NativeController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final parts = <String>[
-      _count(controller.totalImages, 'photo', 'photos'),
-      _count(controller.totalVideos, 'video', 'videos'),
-      _count(controller.allIndexedFoldersList.length, 'folder', 'folders'),
-      if (controller.totalFailed > 0)
-        '${_grouped(controller.totalFailed)} skipped',
-    ];
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.xl),
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.base,
-          vertical: AppSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: AppColors.parchment,
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-        ),
-        child: Text(
-          parts.join('  ·  '),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: AppColors.ink80),
-        ),
-      ),
-    );
-  }
 }
 
 // What is indexed so far, as one card: the two numbers people asked for (photos and videos)

@@ -6,6 +6,7 @@ import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/view/widget/then_now_card.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/view/widget/person_menu.dart';
 import 'package:lost_and_found/view/widget/search_results.dart';
@@ -120,6 +121,8 @@ class _PersonScreenState extends State<PersonScreen> {
                     ],
                   ),
                 ),
+                // Their first year and their latest, side by side (when there are enough photos over enough time).
+                SliverToBoxAdapter(child: ThenAndNowCard(person: shown)),
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
                   sliver: collectionResultsGrid(

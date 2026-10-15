@@ -16,6 +16,7 @@ import 'package:lost_and_found/view/widget/match_strength_bars.dart';
 import 'package:lost_and_found/view/widget/media_actions_sheet.dart';
 import 'package:lost_and_found/view/widget/media_chrome_button.dart';
 import 'package:lost_and_found/view/widget/media_info_widgets.dart';
+import 'package:lost_and_found/view/widget/moment_badge.dart';
 import 'package:lost_and_found/view/widget/photo_faces_layer.dart';
 import 'package:lost_and_found/view/widget/similar_items_bar.dart';
 import 'package:lost_and_found/view/widget/video_people_strip.dart';
@@ -504,6 +505,16 @@ class _ImageViewScreenState extends State<ImageViewScreen>
                       ],
                     ),
                   ),
+
+                  // If this photo is one of the moments (the first photo of two people together, the
+                  // whole gang, a reunion), it says so, under the top buttons.
+                  if (!controller.showMetadata)
+                    Positioned(
+                      top: MediaQuery.of(context).padding.top + 48 + AppSpacing.sm * 2,
+                      left: 0,
+                      right: 0,
+                      child: IgnorePointer(child: MomentCaption(uri: uri)),
+                    ),
 
                   DraggableMetadataSheet(
                     visible: controller.showMetadata,

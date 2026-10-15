@@ -12,6 +12,7 @@ import 'package:lost_and_found/view/person_screen.dart';
 import 'package:lost_and_found/view/widget/app_search_field.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/view/widget/header_action.dart';
+import 'package:lost_and_found/view/people_timeline_screen.dart';
 import 'package:lost_and_found/view/widget/nothing_indexed.dart';
 import 'package:lost_and_found/view/widget/person_menu.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -278,7 +279,17 @@ class _FacesTabState extends State<FacesTab> {
                           runSpacing: AppSpacing.sm,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            // Choosing people needs at least two to pick from.
+                            // Choosing people, or seeing them over the years, needs at least two.
+                            if (count >= 2)
+                              HeaderActionPill(
+                                icon: Icons.timeline_rounded,
+                                label: 'Timeline',
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const PeopleTimelineScreen(),
+                                  ),
+                                ),
+                              ),
                             if (count >= 2)
                               HeaderActionPill(
                                 icon: Icons.groups_rounded,
