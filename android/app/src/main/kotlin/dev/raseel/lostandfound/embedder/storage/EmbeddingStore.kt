@@ -33,6 +33,7 @@ class EmbeddingStore(private val context: Context) {
         private const val MAGIC = 0x454D4244  // "EMBD"
         private const val VERSION = 2          // bumped: video fields added
         private const val EMBEDDING_DIM = 512
+        private const val HEADER_BYTES = 12L
     }
 
     init {
@@ -190,12 +191,14 @@ class EmbeddingStore(private val context: Context) {
         } catch (_: Exception) {
         }
         createNewStore()
+        bumpGeneration()
     }
 
     fun clear() {
         synchronized(lock) {
             storeFile.delete()
             createNewStore()
+            bumpGeneration()
         }
     }
 
@@ -233,6 +236,49 @@ class EmbeddingStore(private val context: Context) {
             }
 
             cachedRecords = null
+            bumpGeneration()
+        }
+    }
+
+    // ---- a light read of what is in the store (for the dates of everything indexed) ----
+
+    private val prefs get() = context.getSharedPreferences("embedding_store", Context.MODE_PRIVATE)
+
+    /**
+     * Changes whenever the file is rewritten rather than only added to (a folder removed, everything
+     * cleared, a damaged file reset): byte positions from before are then no good.
+     */
+    fun generation(): Long = prefs.getLong("generation", 0L)
+
+    private fun bumpGeneration() {
+        prefs.edit().putLong("generation", generation() + 1).apply()
+    }
+
+    /**
+     * Goes through the records from byte [from] on (a record boundary this returned before, or 0) and
+     * gives each one's key and where to read it - never its embedding, which is skipped with a seek,
+     * so a whole library takes a moment and no memory. A video's frames are one entry each time, with
+     * [video] true. Returns the byte position after the last whole record (a half-written one at the end
+     * is left for next time), or -1 when [from] is not somewhere in this file (it has been rewritten).
+     */
+    fun scanMeta(from: Long, onRecord: (key: Long, uri: String, video: Boolean) -> Unit): Long = synchronized(lock) {
+        try {
+            java.io.RandomAccessFile(storeFile, "r").use { file ->
+                val length = file.length()
+                if (length < HEADER_BYTES) return@synchronized -1L
+                file.seek(0)
+                if (file.readInt() != MAGIC || file.readInt() != VERSION || file.readInt() != EMBEDDING_DIM) {
+                    return@synchronized -1L
+                }
+                val pos = if (from < HEADER_BYTES) HEADER_BYTES else from
+                if (pos > length) return@synchronized -1L
+                file.seek(pos)
+                val input = BufferedInputStream(java.io.FileInputStream(file.fd), 1 shl 16)
+                EmbeddingMetaReader.read(input, pos, EMBEDDING_DIM, onRecord)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "scanMeta failed: ${e.message}")
+            -1L
         }
     }
 }

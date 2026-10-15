@@ -12,6 +12,7 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/utils/media_view_route.dart';
 import 'package:lost_and_found/view/image_full_screen.dart';
 import 'package:lost_and_found/view/video_full_screen.dart';
+import 'package:lost_and_found/view/widget/moment_badge.dart';
 
 // Higher decode caps requested only for a bento tile big enough to need
 // them (see _bentoUpgradeDimension), instead of raising the cap every tile
@@ -896,6 +897,13 @@ class _ResultTileState extends State<_ResultTile>
                       top: 6,
                       child: _NewTag(compact: constraints.maxWidth < 96),
                     ),
+                  // A moment (the first photo of two people together, the whole gang, a reunion): a
+                  // little bookmark hanging from the top edge.
+                  Positioned(
+                    right: 9,
+                    top: 0,
+                    child: MomentTag(uri: widget.uri, compact: constraints.maxWidth < 96),
+                  ),
                   if (widget.isVideo)
                     Positioned(
                       right: 6,

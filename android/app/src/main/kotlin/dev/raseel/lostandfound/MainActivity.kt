@@ -41,6 +41,18 @@ import dev.raseel.lostandfound.embedder.faces.FaceServices
 import dev.raseel.lostandfound.embedder.faces.PhotoScanProgress
 import dev.raseel.lostandfound.embedder.faces.FaceTuner
 import dev.raseel.lostandfound.embedder.faces.FaceSettings
+import dev.raseel.lostandfound.embedder.memories.LibraryDates
+import dev.raseel.lostandfound.embedder.memories.MemoryDay
+import dev.raseel.lostandfound.embedder.memories.MemoryDays
+import dev.raseel.lostandfound.embedder.memories.MemoryEvergreen
+import dev.raseel.lostandfound.embedder.memories.MemoryNotifier
+import dev.raseel.lostandfound.embedder.memories.MemoryPlanner
+import dev.raseel.lostandfound.embedder.memories.MemoryPrefs
+import dev.raseel.lostandfound.embedder.memories.MemoryScheduler
+import dev.raseel.lostandfound.embedder.memories.ThenNow
+import dev.raseel.lostandfound.embedder.memories.DayYear
+import dev.raseel.lostandfound.embedder.memories.Plan
+import dev.raseel.lostandfound.embedder.memories.PlanPhoto
 import dev.raseel.lostandfound.embedder.models.ModelCatalog
 import dev.raseel.lostandfound.embedder.models.ModelManager
 import dev.raseel.lostandfound.embedder.models.ModelsNotReadyException
@@ -122,6 +134,9 @@ class MainActivity : FlutterActivity() {
     // Face detection has its own thread and detector (with its own ONNX
     // session), so it never waits behind - or holds up - search or a scan.
     private val faceExecutor = Executors.newSingleThreadExecutor()
+    // The memories (dates of everything indexed, "on this day", "then and now") have their own thread,
+    // so reading dates never holds up the face calls or a search.
+    private val memoryExecutor = Executors.newSingleThreadExecutor()
     // A photo opened in the viewer that the face scan hasn't reached yet is analysed on
     // its own thread, so it doesn't queue behind the other face calls.
     private val photoFacesExecutor = Executors.newSingleThreadExecutor()
@@ -132,6 +147,17 @@ class MainActivity : FlutterActivity() {
     // by the token each viewer sent: those requests are skipped instead of scanned for nobody.
     private val cancelledPhotoScans: MutableSet<Long> = java.util.concurrent.ConcurrentHashMap.newKeySet()
     private val faces by lazy { FaceServices.get(applicationContext) }
+
+    // A photo or video standing for a moment of several people, as the timeline wants it.
+    private fun groupMap(g: dev.raseel.lostandfound.embedder.faces.FaceStore.GroupMedia) = mapOf(
+        "key" to g.key,
+        "takenMs" to g.ms,
+        "people" to g.people,
+        "gapDays" to g.gapDays,
+        "uri" to g.uri,
+        "isVideo" to g.isVideo,
+        "tsMs" to g.tsMs,
+    )
 
     // Runs [block] on the face thread and hands its value (or its error) to Flutter.
     private fun faceTask(result: MethodChannel.Result, block: () -> Any?) {
@@ -147,6 +173,9 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        noteMemoryTap(intent)
+        // The daily memory, if the person turned it on: kept scheduled (a new install of the app or a restart does not lose it).
+        try { MemoryScheduler.apply(applicationContext) } catch (_: Exception) {}
 
         // Draw behind the system bars, with the navigation bar (gesture
         // pill / 3-button strip) in the app background colour. Flutter's own
@@ -159,6 +188,76 @@ class MainActivity : FlutterActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isNavigationBarContrastEnforced = false
             window.isStatusBarContrastEnforced = false
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        noteMemoryTap(intent)
+    }
+
+    // A tap on the daily memory's notification: remembered, and the app picks it up (takeLaunchMemory) to open the memory.
+    private fun noteMemoryTap(intent: Intent?) {
+        if (intent?.action != MemoryNotifier.ACTION_OPEN) return
+        MemoryPrefs(applicationContext).setLaunch(
+            intent.getStringExtra(MemoryNotifier.EXTRA_KIND),
+            intent.getIntExtra(MemoryNotifier.EXTRA_YEAR, 0),
+            intent.getLongExtra(MemoryNotifier.EXTRA_PERSON, 0L),
+        )
+    }
+
+    private fun planPhotoMap(p: PlanPhoto) = mapOf(
+        "key" to p.key,
+        "uri" to p.uri,
+        "isVideo" to p.video,
+        "tsMs" to p.tsMs,
+        "takenMs" to p.takenMs,
+        "names" to p.names,
+    )
+
+    private fun dayYearMap(y: DayYear) = mapOf(
+        "year" to y.year,
+        "yearsAgo" to y.yearsAgo,
+        "total" to y.total,
+        "photos" to y.photos.map { planPhotoMap(it) },
+        "names" to y.names,
+        "strength" to y.strength.toDouble(),
+    )
+
+    private fun planMap(plan: Plan) = mapOf(
+        "month" to plan.month,
+        "day" to plan.day,
+        "year" to plan.year,
+        "exact" to plan.exact.map { dayYearMap(it) },
+        "week" to plan.week.map { dayYearMap(it) },
+        "anniversaries" to plan.anniversaries.map { a ->
+            mapOf(
+                "yearsAgo" to a.yearsAgo,
+                "ids" to a.ids,
+                "names" to a.names,
+                "firstMs" to a.firstMs,
+                "photo" to a.photo?.let { planPhotoMap(it) },
+            )
+        },
+    )
+
+    private fun memorySettingsMap(): Map<String, Any> {
+        val prefs = MemoryPrefs(applicationContext)
+        return mapOf(
+            "enabled" to prefs.enabled,
+            "allowed" to MemoryNotifier.allowed(applicationContext),
+        )
+    }
+
+    private fun memoryTask(result: MethodChannel.Result, block: () -> Any?) {
+        memoryExecutor.execute {
+            try {
+                val value = block()
+                runOnUiThread { result.success(value) }
+            } catch (e: Throwable) {
+                android.util.Log.w("MainActivity", "memory call failed: ${e.message}", e)
+                runOnUiThread { result.error("MEMORY_FAILED", e.message, null) }
+            }
         }
     }
 
@@ -885,6 +984,225 @@ class MainActivity : FlutterActivity() {
                 "peopleCounts" -> faceTask(result) {
                     val ids = (call.argument<List<Number>>("personIds") ?: emptyList()).map { it.toLong() }
                     faces.store.peopleCounts(ids)
+                }
+
+                // When people appear: finds the date of photos and videos not looked up yet (for as
+                // long as [budgetMs] allows, so the app can show progress and ask again), then returns
+                // each listed person's months. See MediaDates and FaceStore.peopleTimeline.
+                "peopleTimeline" -> faceTask(result) {
+                    val budget = (call.argument<Number>("budgetMs") ?: 800).toLong()
+                    val now = System.currentTimeMillis()
+                    val deadline = android.os.SystemClock.elapsedRealtime() + budget
+                    while (android.os.SystemClock.elapsedRealtime() < deadline) {
+                        val batch = faces.store.mediaMissingDates(300)
+                        if (batch.isEmpty()) break
+                        val found = dev.raseel.lostandfound.embedder.faces.MediaDates.resolve(applicationContext, batch, now, deadline)
+                        if (found.isEmpty()) break
+                        faces.store.putDates(found)
+                    }
+                    val (total, pending) = faces.store.dateProgress()
+                    val timeline = faces.store.peopleTimeline(full = pending == 0)
+                    mapOf(
+                        "total" to total,
+                        "pending" to pending,
+                        "people" to timeline.rows.map { r ->
+                            mapOf(
+                                "id" to r.personId,
+                                "dated" to r.dated,
+                                "undated" to r.undated,
+                                "months" to r.months.toList(),
+                            )
+                        },
+                        "together" to timeline.together.map { c ->
+                            mapOf(
+                                "id" to c.personId,
+                                "withId" to c.withId,
+                                "count" to c.count,
+                                "firstMs" to c.firstMs,
+                                "first" to timeline.togetherFirst[c.personId]?.let { g -> groupMap(g) },
+                            )
+                        },
+                        "crowds" to timeline.crowds.map { g -> groupMap(g) },
+                        "reunions" to timeline.reunions.map { g -> groupMap(g) },
+                    )
+                }
+
+                // The photos on the timeline's filmstrip: the best few of every month, in date order.
+                "timelinePicks" -> faceTask(result) {
+                    faces.store.timelinePicks(perMonth = 6, burstMs = 120_000L).map { m ->
+                        mapOf(
+                            "key" to m.key,
+                            "uri" to m.uri,
+                            "isVideo" to m.isVideo,
+                            "tsMs" to m.tsMs,
+                            "takenMs" to m.takenMs,
+                        )
+                    }
+                }
+
+                // Each person's clearest photo or video in a stretch of time (the month under the
+                // timeline's playhead).
+                "timelineMonthPhotos" -> faceTask(result) {
+                    val start = (call.argument<Number>("startMs") ?: 0).toLong()
+                    val end = (call.argument<Number>("endMs") ?: 0).toLong()
+                    val ids = (call.argument<List<Number>>("personIds") ?: emptyList()).map { it.toLong() }
+                    faces.store.personPhotosBetween(start, end, ids).map { m ->
+                        mapOf(
+                            "personId" to m.personId,
+                            "key" to m.key,
+                            "uri" to m.uri,
+                            "isVideo" to m.isVideo,
+                            "tsMs" to m.tsMs,
+                            "takenMs" to m.takenMs,
+                        )
+                    }
+                }
+
+                // The best photos and videos of one month, and how many it has (the timeline at rest).
+                "timelineMonthMedia" -> faceTask(result) {
+                    val start = (call.argument<Number>("startMs") ?: 0).toLong()
+                    val end = (call.argument<Number>("endMs") ?: 0).toLong()
+                    val limit = (call.argument<Number>("limit") ?: 9).toInt()
+                    val burst = (call.argument<Number>("burstMs") ?: 20_000).toLong()
+                    val media = faces.store.monthMedia(start, end, limit, burstMs = burst)
+                    mapOf(
+                        "total" to media.total,
+                        "items" to media.items.map { m ->
+                            mapOf(
+                                "key" to m.key,
+                                "uri" to m.uri,
+                                "isVideo" to m.isVideo,
+                                "tsMs" to m.tsMs,
+                                "takenMs" to m.takenMs,
+                            )
+                        },
+                    )
+                }
+
+                // ---- memories: "on this day", "then and now", and the daily notification ----
+
+                // Brings the catalog of dates (everything in the search index) up to date and looks dates up for up
+                // to [budgetMs]; call again while [pending] is above 0.
+                "memoryPrepare" -> memoryTask(result) {
+                    val budget = (call.argument<Number>("budgetMs") ?: 600).toLong()
+                    val dates = LibraryDates.get(applicationContext)
+                    val faceStore = faces.store
+                    dates.sync(embeddingEngine)
+                    val pending = dates.resolve(applicationContext, faceStore, budget)
+                    mapOf("total" to dates.progress().first, "pending" to pending)
+                }
+
+                // This date in past years (and, when it has nothing, the week round it), with the first photos
+                // together that have their anniversary today.
+                "onThisDay" -> memoryTask(result) {
+                    val planner = MemoryPlanner(LibraryDates.get(applicationContext), faces.store)
+                    planMap(planner.plan(System.currentTimeMillis(), withWeek = true, withAnniversaries = true))
+                }
+
+                // A person's start next to their latest: up to three photos at each end - from about the first
+                // couple of months and about the latest couple - mixed in kind (on their own, with another person,
+                // in a small group), and which are shown first. Null: not enough to compare.
+                "thenAndNow" -> memoryTask(result) {
+                    val personId = (call.argument<Number>("personId") ?: 0).toLong()
+                    val found = faces.store.personDatedFaces(personId)
+                    // Which are shown first is random, but the same all day.
+                    val seed = MemoryDays.dayNumber(System.currentTimeMillis()) * 31L + personId
+                    val r = ThenNow.choose(found.map { MemoryEvergreen.cand(it) }, seed = seed)
+                    if (r == null) {
+                        null
+                    } else {
+                        // Another person is only spoken of (and framed) when they have a name.
+                        val names = faces.store.namesOf((r.then + r.now).mapNotNull { it.partner }.toSet())
+                        fun side(c: ThenNow.Cand): Map<String, Any?> {
+                            val withId = c.partner?.takeIf { names[it] != null }
+                            val box = c.box(withId)
+                            val pair = withId != null && c.others.any { it.personId == withId }
+                            return mapOf(
+                                "key" to c.key,
+                                "uri" to c.uri,
+                                "faceId" to c.faceId,
+                                "takenMs" to c.takenMs,
+                                "boxL" to box[0].toDouble(), "boxT" to box[1].toDouble(),
+                                "boxR" to box[2].toDouble(), "boxB" to box[3].toDouble(),
+                                "photoW" to c.photoW, "photoH" to c.photoH,
+                                "margin" to (if (pair) MemoryEvergreen.DUO_MARGIN else 3.1f).toDouble(),
+                                "lift" to (if (pair) 0.0 else 0.55),
+                                "faces" to c.faces,
+                                "kind" to c.kind.code,
+                                "withName" to withId?.let { names[it] },
+                            )
+                        }
+                        mapOf(
+                            "then" to r.then.map { side(it) },
+                            "now" to r.now.map { side(it) },
+                            "startThen" to r.startThen,
+                            "startNow" to r.startNow,
+                            "spanMonths" to r.spanMonths,
+                            "lastMonth" to r.lastMonth,
+                        )
+                    }
+                }
+
+                // The head-and-shoulders picture for "then and now".
+                "portraitCrop" -> faceCropExecutor.execute {
+                    try {
+                        val bytes = faces.crops.portrait(
+                            call.argument<String>("uri") ?: "",
+                            (call.argument<Number>("boxL") ?: 0).toFloat(),
+                            (call.argument<Number>("boxT") ?: 0).toFloat(),
+                            (call.argument<Number>("boxR") ?: 0).toFloat(),
+                            (call.argument<Number>("boxB") ?: 0).toFloat(),
+                            (call.argument<Number>("photoW") ?: 0).toInt(),
+                            (call.argument<Number>("photoH") ?: 0).toInt(),
+                            (call.argument<Number>("size") ?: 640).toInt(),
+                            (call.argument<Number>("margin") ?: 3.1).toFloat(),
+                            (call.argument<Number>("lift") ?: 0.55).toFloat(),
+                        )
+                        runOnUiThread { result.success(bytes) }
+                    } catch (e: Throwable) {
+                        runOnUiThread { result.error("PORTRAIT_FAILED", e.message, null) }
+                    }
+                }
+
+                // Every photo and video of one stretch of time (a day of a past year), in the order taken.
+                "memoryDay" -> memoryTask(result) {
+                    val start = (call.argument<Number>("startMs") ?: 0).toLong()
+                    val end = (call.argument<Number>("endMs") ?: 0).toLong()
+                    val limit = (call.argument<Number>("limit") ?: 2000).toInt()
+                    val dates = LibraryDates.get(applicationContext)
+                    mapOf(
+                        "total" to dates.count(start, end),
+                        "items" to dates.photos(start, end, limit).map { m ->
+                            mapOf(
+                                "key" to m.key,
+                                "uri" to m.uri,
+                                "isVideo" to m.video,
+                                "tsMs" to (if (m.video) 1000L else 0L),
+                                "takenMs" to m.takenMs,
+                            )
+                        },
+                    )
+                }
+
+                "memorySettings" -> result.success(memorySettingsMap())
+
+                "setMemorySettings" -> {
+                    val prefs = MemoryPrefs(applicationContext)
+                    call.argument<Boolean>("enabled")?.let { prefs.enabled = it }
+                    MemoryScheduler.apply(applicationContext, replace = true)
+                    result.success(memorySettingsMap())
+                }
+
+                // Sends today's memory now, to see what it looks like (never uses up the day's real one).
+                "memoryTest" -> memoryTask(result) {
+                    val outcome = MemoryDay.run(applicationContext, test = true, budgetMs = 4_000L)
+                    mapOf("sent" to outcome.sent?.code, "message" to outcome.message)
+                }
+
+                // The memory a tapped notification wants opened (taken once), or null.
+                "takeLaunchMemory" -> {
+                    val launch = MemoryPrefs(applicationContext).takeLaunch()
+                    result.success(launch?.let { mapOf("kind" to it.kind, "year" to it.year, "personId" to it.personId) })
                 }
 
                 "personFaces" -> faceTask(result) {

@@ -1323,4 +1323,10 @@ class EmbeddingEngine(
     }
 
     fun clearAll() = store.clear()
+
+    /** See [EmbeddingStore.generation] and [EmbeddingStore.scanMeta]. */
+    fun storeGeneration(): Long = store.generation()
+
+    fun scanStoreMeta(from: Long, onRecord: (key: Long, uri: String, video: Boolean) -> Unit): Long =
+        store.scanMeta(from, onRecord)
 }

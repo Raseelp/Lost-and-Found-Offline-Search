@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
+import 'package:lost_and_found/models/people_timeline.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Everything about faces and people: the scan status (the scan runs by
 /// itself in the background - see FaceScanner), the list of people, and the
@@ -29,6 +31,7 @@ class FacesController extends GetxController {
   void onInit() {
     super.onInit();
     _progressSub = _native.faceProgress().listen(_onProgress, onError: (_) {});
+    unawaited(_loadMomentPrefs());
     // Faces are found along with indexing (or by "Update people"): opening the app never starts a scan.
     refreshAll();
   }
@@ -37,6 +40,7 @@ class FacesController extends GetxController {
   void onClose() {
     _progressSub?.cancel();
     _refreshTimer?.cancel();
+    momentsRevision.dispose();
     super.onClose();
   }
 
@@ -157,7 +161,11 @@ class FacesController extends GetxController {
       _scheduleRefresh(immediate: tick.done);
     }
     // The scan just ended: now is the time to look for people who may be one.
-    if (wasRunning && !tick.running) refreshSuggestions();
+    if (wasRunning && !tick.running) {
+      refreshSuggestions();
+      // New photos may have new moments: the dates are looked at again once.
+      _momentsLookedUp = false;
+    }
   }
 
   void _scheduleRefresh({bool immediate = false}) {
@@ -214,6 +222,145 @@ class FacesController extends GetxController {
     update();
   }
 
+  // ---- when people appear (the timeline view) ----
+
+  /// What the phone knows about when everyone appears, and how far it has got with the dates.
+  TimelineData timeline = TimelineData.empty;
+  bool timelineLoaded = false;
+
+  /// Set while the People tab shows the timeline: new people and photos are then looked at too.
+  bool timelineWanted = false;
+
+  bool _timelineRunning = false;
+  bool _timelineAgain = false;
+
+  // Some dates could not be found out (no headway): the rest is left, and the view does not wait for it.
+  bool _timelineStuck = false;
+
+  // Who was listed when the timeline was last worked out: another list (someone merged or hidden)
+  // means it is worked out again.
+  String _timelinePeopleKey = '';
+
+  // Who is listed and how many photos each is in: a face taken out of someone changes it, and then
+  // the moments are worked out again.
+  String _peopleKey() => people.map((p) => '${p.id}:${p.photoCount}').join(',');
+
+  /// Whether every date is in (or the rest could not be found out).
+  bool get timelineDone => timeline.done || _timelineStuck;
+
+  // ---- moments (shown on the photos themselves, and in the timeline's story) ----
+
+  static const _momentsEveryoneKey = 'faces_timeline_moments_everyone';
+
+  /// Whose moments are pointed out: the inner circle (the named people photographed the most), or everyone.
+  bool momentsEveryone = false;
+
+  Map<String, PhotoMoment> _photoMoments = const {};
+
+  /// Counts the changes of which photos are moments (what the tiles and the viewers listen to, so
+  /// they do not rebuild with every scan tick).
+  final ValueNotifier<int> momentsRevision = ValueNotifier(0);
+  bool _momentPrefsLoaded = false;
+  bool _momentsLookedUp = false;
+
+  /// The moment this photo or video is (the first photo of two people together, the whole gang in
+  /// one shot, a reunion), if it is one.
+  PhotoMoment? momentFor(String? uri) => uri == null ? null : _photoMoments[uri];
+
+  Future<void> setMomentsEveryone(bool value) async {
+    if (momentsEveryone == value) return;
+    momentsEveryone = value;
+    _rebuildMoments();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_momentsEveryoneKey, value);
+    } catch (_) {
+      // Kept for this visit at least.
+    }
+  }
+
+  Future<void> _loadMomentPrefs() async {
+    if (_momentPrefsLoaded) return;
+    _momentPrefsLoaded = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final everyone = prefs.getBool(_momentsEveryoneKey) ?? false;
+      if (everyone != momentsEveryone) {
+        momentsEveryone = everyone;
+        _rebuildMoments();
+      }
+    } catch (_) {
+      // The inner circle, as ever.
+    }
+  }
+
+  void _rebuildMoments() {
+    final next = timelineLoaded && people.isNotEmpty
+        ? TimelineLayout.build(people, timeline, DateTime.now(), everyone: momentsEveryone).photoMoments()
+        : const <String, PhotoMoment>{};
+    // The tiles and viewers listen to the revision: they are only told when a moment really changed.
+    var same = next.length == _photoMoments.length;
+    if (same) {
+      for (final e in next.entries) {
+        final old = _photoMoments[e.key];
+        if (old == null ||
+            old.title != e.value.title ||
+            old.month != e.value.month ||
+            old.people.length != e.value.people.length ||
+            !old.people.every((p) => e.value.people.any((q) => q.id == p.id && q.name == p.name))) {
+          same = false;
+          break;
+        }
+      }
+    }
+    _photoMoments = next;
+    if (!same) momentsRevision.value++;
+  }
+
+  /// Looks up the dates (a bit at a time, so the view can show how far it is) and keeps the
+  /// result in [timeline]. Asking again while it runs makes it go round once more at the end.
+  Future<void> loadTimeline() async {
+    if (_timelineRunning) {
+      _timelineAgain = true;
+      return;
+    }
+    _timelineRunning = true;
+    try {
+      var stuck = 0;
+      _timelineStuck = false;
+      do {
+        _timelineAgain = false;
+        while (true) {
+          final before = timeline.pending;
+          // Looked at in the background (the timeline is not open), it works in short turns with
+          // pauses, so what the person is doing with the faces is not kept waiting.
+          final gentle = !timelineWanted;
+          final data = await _native.peopleTimeline(budgetMs: gentle ? 250 : 800);
+          timeline = data;
+          timelineLoaded = true;
+          update();
+          if (data.done) break;
+          // No headway three times over (a file that cannot be read, say): leave the rest.
+          stuck = (before != 0 && data.pending >= before) ? stuck + 1 : 0;
+          if (stuck >= 3) {
+            _timelineStuck = true;
+            update();
+            break;
+          }
+          if (gentle) await Future<void>.delayed(const Duration(milliseconds: 300));
+        }
+      } while (_timelineAgain);
+      _timelinePeopleKey = _peopleKey();
+      _rebuildMoments();
+    } catch (e) {
+      debugPrint('peopleTimeline failed: $e');
+      timelineLoaded = true;
+      update();
+    } finally {
+      _timelineRunning = false;
+    }
+  }
+
   Future<void> refreshPeople() async {
     _lastRefresh = DateTime.now();
     try {
@@ -229,6 +376,22 @@ class FacesController extends GetxController {
     }
     isLoadingPeople = false;
     update();
+    if (timelineWanted) {
+      unawaited(loadTimeline());
+    } else if (!_momentsLookedUp && !status.running && people.isNotEmpty) {
+      // Once, so the photos can say which of them are moments: the dates of the photos with
+      // people are looked up (a bit at a time, in the background).
+      _momentsLookedUp = true;
+      unawaited(loadTimeline());
+    } else if (timelineLoaded) {
+      // Someone was merged or hidden (another list): the timeline is worked out again. Someone was
+      // only named: the inner circle may be different now.
+      if (!status.running && _peopleKey() != _timelinePeopleKey) {
+        unawaited(loadTimeline());
+      } else {
+        _rebuildMoments();
+      }
+    }
   }
 
   // ---- face pictures ----
