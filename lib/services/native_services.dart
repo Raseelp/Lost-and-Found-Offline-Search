@@ -4,7 +4,9 @@ import 'package:get/get.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
 import 'package:lost_and_found/models/library_stats.dart';
 import 'package:lost_and_found/models/meta_data_model.dart';
+import 'package:lost_and_found/models/memories.dart';
 import 'package:lost_and_found/models/model_status.dart';
+import 'package:lost_and_found/models/people_timeline.dart';
 import 'package:lost_and_found/tokanizer/clip_tokenizer.dart';
 
 /// Thrown when a native call fails because the CLIP models aren't
@@ -380,6 +382,130 @@ class NativeServices {
   Future<FaceStatus> faceStatus() async {
     final map = await _channel.invokeMapMethod<String, dynamic>('faceStatus');
     return FaceStatus.fromMap(map!);
+  }
+
+  /// When everyone appears, month by month. Looks up the dates of photos and videos not looked at
+  /// yet for up to [budgetMs] first, so call again while [TimelineData.pending] is above 0.
+  Future<TimelineData> peopleTimeline({int budgetMs = 800}) async {
+    final map = await _channel.invokeMapMethod<String, dynamic>('peopleTimeline', {'budgetMs': budgetMs});
+    return TimelineData.fromMap(map!);
+  }
+
+  /// The best few photos and videos of every month with people in them, in date order (the
+  /// filmstrip on the timeline).
+  Future<List<PreviewPhoto>> timelinePicks() async {
+    final list = await _channel.invokeListMethod<dynamic>('timelinePicks');
+    return [for (final e in list ?? const []) PreviewPhoto.fromMap(e as Map<dynamic, dynamic>)];
+  }
+
+  /// Each of [personIds]' clearest photo or video taken from [from] up to [to] (people with
+  /// nothing then are left out).
+  Future<List<PreviewPhoto>> timelineMonthPhotos(DateTime from, DateTime to, List<int> personIds) async {
+    final list = await _channel.invokeListMethod<dynamic>('timelineMonthPhotos', {
+      'startMs': from.millisecondsSinceEpoch,
+      'endMs': to.millisecondsSinceEpoch,
+      'personIds': personIds,
+    });
+    return [for (final e in list ?? const []) PreviewPhoto.fromMap(e as Map<dynamic, dynamic>)];
+  }
+
+  /// The best [limit] photos and videos from [from] up to [to], and how many there are in all.
+  Future<({int total, List<PreviewPhoto> photos})> timelineMonthMedia(
+    DateTime from,
+    DateTime to, {
+    int limit = 9,
+    int burstMs = 20000,
+  }) async {
+    final map = await _channel.invokeMapMethod<String, dynamic>('timelineMonthMedia', {
+      'startMs': from.millisecondsSinceEpoch,
+      'endMs': to.millisecondsSinceEpoch,
+      'limit': limit,
+      'burstMs': burstMs,
+    });
+    return (
+      total: (map?['total'] as num?)?.toInt() ?? 0,
+      photos: [
+        for (final e in (map?['items'] as List? ?? const [])) PreviewPhoto.fromMap(e as Map<dynamic, dynamic>),
+      ],
+    );
+  }
+
+  // ---- memories ----
+
+  /// Brings the dates of everything indexed up to date, for up to [budgetMs]; call again while
+  /// [pending] is above 0.
+  Future<({int total, int pending})> memoryPrepare({int budgetMs = 600}) async {
+    final map = await _channel.invokeMapMethod<String, dynamic>('memoryPrepare', {'budgetMs': budgetMs});
+    return (total: (map?['total'] as num?)?.toInt() ?? 0, pending: (map?['pending'] as num?)?.toInt() ?? 0);
+  }
+
+  /// Today's date in the past years of the library.
+  Future<OnThisDay> onThisDay() async {
+    final map = await _channel.invokeMapMethod<String, dynamic>('onThisDay');
+    return map == null ? OnThisDay.empty : OnThisDay.fromMap(map);
+  }
+
+  /// A person's clearest photo of their first year and of their latest, or null when there is not
+  /// enough to compare.
+  Future<ThenNow?> thenAndNow(int personId) async {
+    final map = await _channel.invokeMapMethod<String, dynamic>('thenAndNow', {'personId': personId});
+    return map == null ? null : ThenNow.fromMap(map);
+  }
+
+  /// The head-and-shoulders picture of the face at [side] in its photo.
+  Future<Uint8List?> portraitCrop(ThenNowSide side, {int size = 640}) {
+    return _channel.invokeMethod<Uint8List>('portraitCrop', {
+      'uri': side.uri,
+      'boxL': side.boxL,
+      'boxT': side.boxT,
+      'boxR': side.boxR,
+      'boxB': side.boxB,
+      'photoW': side.photoW,
+      'photoH': side.photoH,
+      'size': size,
+      'margin': side.margin,
+      'lift': side.lift,
+    });
+  }
+
+  /// Every photo and video from [from] up to [to] (one day of a past year).
+  Future<List<PreviewPhoto>> memoryDay(DateTime from, DateTime to, {int limit = 2000}) async {
+    final map = await _channel.invokeMapMethod<String, dynamic>('memoryDay', {
+      'startMs': from.millisecondsSinceEpoch,
+      'endMs': to.millisecondsSinceEpoch,
+      'limit': limit,
+    });
+    return [for (final e in (map?['items'] as List? ?? const [])) PreviewPhoto.fromMap(e as Map<dynamic, dynamic>)];
+  }
+
+  Future<MemorySettings> memorySettings() async {
+    final map = await _channel.invokeMapMethod<String, dynamic>('memorySettings');
+    return map == null ? const MemorySettings() : MemorySettings.fromMap(map);
+  }
+
+  Future<MemorySettings> setMemorySettings({bool? enabled}) async {
+    final map = await _channel.invokeMapMethod<String, dynamic>('setMemorySettings', {
+      if (enabled != null) 'enabled': enabled,
+    });
+    return map == null ? const MemorySettings() : MemorySettings.fromMap(map);
+  }
+
+  /// Sends today's memory now, to see what it looks like. The message says what happened.
+  Future<String> memoryTest() async {
+    final map = await _channel.invokeMapMethod<String, dynamic>('memoryTest');
+    final message = map?['message'] as String? ?? '';
+    return map?['sent'] != null ? 'Sent: $message' : message;
+  }
+
+  /// The memory a tapped notification wants opened (taken once): its kind and year, or null.
+  Future<({String kind, int year, int personId})?> takeLaunchMemory() async {
+    final map = await _channel.invokeMapMethod<String, dynamic>('takeLaunchMemory');
+    if (map == null) return null;
+    return (
+      kind: map['kind'] as String? ?? '',
+      year: (map['year'] as num?)?.toInt() ?? 0,
+      personId: (map['personId'] as num?)?.toInt() ?? 0,
+    );
   }
 
   Future<List<Person>> listPeople({bool hidden = false}) async {

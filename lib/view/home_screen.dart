@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:lost_and_found/controllers/collections_controller.dart';
 import 'package:lost_and_found/controllers/export_controller.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/controllers/memories_controller.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
@@ -57,6 +58,24 @@ class _HomeScreenState extends State<HomeScreen> {
   // lower (see _FloatingNavBar). Scrolling back up, or reaching the top,
   // restores it.
   bool _shrunk = false;
+
+  final MemoriesController _memories = Get.find<MemoriesController>();
+
+  @override
+  void initState() {
+    super.initState();
+    // A tapped "daily memory" notification opens its memory once the home screen is up.
+    _memories.homeReady = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _memories.checkLaunch();
+    });
+  }
+
+  @override
+  void dispose() {
+    _memories.homeReady = false;
+    super.dispose();
+  }
 
   void _setShrunk(bool value) {
     if (_shrunk != value) setState(() => _shrunk = value);

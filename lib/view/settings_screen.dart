@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:lost_and_found/controllers/collections_controller.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/controllers/memories_controller.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
 import 'package:lost_and_found/models/model_status.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
@@ -237,6 +238,9 @@ class SettingsScreen extends StatelessWidget {
                           );
                         },
                       ),
+                      const SizedBox(height: AppSpacing.xl),
+                      const _GroupLabel('Memories'),
+                      const _MemoriesSection(),
                       const SizedBox(height: AppSpacing.xl),
                       const _GroupLabel('Diagnostics'),
                       _GroupCard(
@@ -853,4 +857,66 @@ List<Widget> _expertFaceRows(
       onTap: faces.retune,
     ),
   ];
+}
+
+// ---------------------------------------------------------------------------------------------
+// The daily memory: one notification a day at most, only when there is something good.
+// ---------------------------------------------------------------------------------------------
+
+class _MemoriesSection extends StatelessWidget {
+  const _MemoriesSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return GetBuilder<MemoriesController>(
+      builder: (memories) {
+        final s = memories.settings;
+
+        void say(String text) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(SnackBar(content: Text(text)));
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _GroupCard(
+              children: [
+                _SettingsRow(
+                  icon: Icons.auto_awesome_outlined,
+                  title: 'Daily memory',
+                  subtitle:
+                      'Two a day, morning and evening, only when there is something good.',
+                  trailing: Switch(
+                    value: s.enabled,
+                    onChanged: (on) async {
+                      final ok = await memories.setEnabled(on);
+                      if (on && !ok) say('Allow notifications for this app to get a daily memory.');
+                    },
+                  ),
+                ),
+                if (s.enabled && !s.allowed)
+                  _TapRow(
+                    icon: Icons.notifications_off_outlined,
+                    title: 'Notifications are off for this app',
+                    subtitle: 'Tap to open the system settings and turn them on.',
+                    onTap: openAppSettings,
+                  ),
+                if (s.enabled) ...[
+                  _TapRow(
+                    icon: Icons.send_rounded,
+                    title: 'Send one now',
+                    subtitle: 'See a different one each time.',
+                    onTap: () async => say(await memories.sendTest()),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
 }

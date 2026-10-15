@@ -507,7 +507,8 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
     companion object {
         private const val TAG = "ZipExportWorker"
         private const val CHANNEL_ID = "zip_export"
-        private const val NOTIFICATION_ID = 4202
+        // Not 4202: that is the face scan's, and the two can run at the same time.
+        private const val NOTIFICATION_ID = 4204
         private const val NOTIFICATION_DONE_ID = 4203
         private const val WAKE_LOCK_MS = 3 * 60 * 60 * 1000L
 
