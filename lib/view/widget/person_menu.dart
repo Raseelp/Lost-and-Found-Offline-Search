@@ -341,10 +341,14 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
   bool _confirming = false;
 
   void _confirm() {
-    if (_confirming) return;
+    final action = _pending;
+    if (_confirming || action == null) return;
     _confirming = true;
-    final action = _pending!;
-    _bubbleFade.reverse().whenComplete(_removeBubbleOverlay);
+    // Ready for the next time once the bubble is gone (it stays set until then, for the double-tap).
+    _bubbleFade.reverse().whenComplete(() {
+      _removeBubbleOverlay();
+      _confirming = false;
+    });
     // Snappy on purpose: the page is about to leave (or another sheet is about to open) -
     // watching everything fly back first would just be a delay.
     Future.delayed(const Duration(milliseconds: 140), () {

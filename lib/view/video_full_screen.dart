@@ -18,6 +18,7 @@ import 'package:lost_and_found/view/widget/match_strength_bars.dart';
 import 'package:lost_and_found/view/widget/media_actions_sheet.dart';
 import 'package:lost_and_found/view/widget/media_chrome_button.dart';
 import 'package:lost_and_found/view/widget/media_info_widgets.dart';
+import 'package:lost_and_found/view/widget/moment_badge.dart';
 import 'package:lost_and_found/view/widget/photo_faces_layer.dart';
 import 'package:lost_and_found/view/widget/similar_items_bar.dart';
 import 'package:lost_and_found/view/widget/video_people_strip.dart';
@@ -1102,6 +1103,15 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                                 ),
 
                                 if (_pickingFrame) const _FramePickHint(),
+
+                                // If this video is one of the moments, it says so.
+                                if (!_pickingFrame)
+                                  IgnorePointer(
+                                    child: MomentCaption(
+                                      uri: widget.videoUri,
+                                      outer: const EdgeInsets.only(top: AppSpacing.xs),
+                                    ),
+                                  ),
 
                                 const Spacer(),
 

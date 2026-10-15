@@ -86,7 +86,7 @@ class FaceLocation(
  *  - people: the groups; a person is "pinned" once the user named or
  *    edited it, which stops automatic regrouping from touching it
  */
-class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applicationContext, "faces.db", null, 8) {
+class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applicationContext, "faces.db", null, 10) {
 
     // Small pictures of the faces found in videos (a video frame can't be cut out again
     // cheaply, so the picture is kept when the face is found).
@@ -176,6 +176,7 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         createMergeHistory(db)
         createVideos(db)
         createVideoSeen(db)
+        createMediaDates(db)
     }
 
     // People named in a video by looking at one of its frames (the video viewer's paused-frame
@@ -190,6 +191,22 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
                 PRIMARY KEY (uri, ts_ms, person_id)
             )"""
         )
+    }
+
+    // When each photo or video was taken (see MediaDates), by the same key faces use for "the same
+    // photo or video" (media_key, else the photo hash). Kept per file, not per person, so people
+    // being merged, split or hidden never makes it wrong. [src] 0 means no date could be found
+    // (not asked for again).
+    private fun createMediaDates(db: SQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE IF NOT EXISTS media_dates (
+                key INTEGER PRIMARY KEY,
+                taken_ms INTEGER NOT NULL,
+                src INTEGER NOT NULL
+            )"""
+        )
+        // For "everything in this month".
+        db.execSQL("CREATE INDEX IF NOT EXISTS media_dates_taken ON media_dates(taken_ms)")
     }
 
     // Videos already gone through (their sampled frames live in `photos` with video_hash set).
@@ -249,6 +266,8 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         // line up with the picture the player shows there). Older scans used the nearest keyframe.
         if (oldVersion == 6) db.execSQL("ALTER TABLE videos ADD COLUMN exact INTEGER NOT NULL DEFAULT 0")
         if (oldVersion < 8) createVideoSeen(db)
+        if (oldVersion < 9) createMediaDates(db)
+        if (oldVersion < 10) db.execSQL("CREATE INDEX IF NOT EXISTS media_dates_taken ON media_dates(taken_ms)")
         if (oldVersion < 3) {
             // The face shown for a person, and how many faces they had when it was chosen.
             db.execSQL("ALTER TABLE people ADD COLUMN cover_face_id INTEGER")
@@ -595,6 +614,7 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
                 db.execSQL("DELETE FROM photos WHERE hash IN ($marks)", args)
             }
             pruneEmptyPeople(db)
+            db.execSQL("DELETE FROM media_dates WHERE key NOT IN (SELECT COALESCE(media_key, photo_hash) FROM faces)")
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
@@ -616,6 +636,7 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
             db.execSQL("DELETE FROM photos")
             db.execSQL("DELETE FROM videos")
             db.execSQL("DELETE FROM video_seen")
+            db.execSQL("DELETE FROM media_dates")
             // Each video's remembered search level starts over with the rest.
             db.execSQL("DELETE FROM meta WHERE key LIKE 'video_relax_%' OR key LIKE 'video_fail_%'")
             db.execSQL("DELETE FROM people")
@@ -1130,6 +1151,535 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
             .map { (key, b) -> MediaItem(b.uri, key, b.isVideo, b.ts) }
     }
 
+    // ---- when people appear (the People timeline) ----
+
+    // A face that can be spoken of as being someone ("X and Y together", a first photo of them): the person
+    // confirmed it, or it is clear AND not just a speck in the background (at least [MIN_FACE_FRACTION] of the
+    // photo across). A tiny face can pass for clear and be matched to the wrong person on a loose likeness; that
+    // would put someone in a photo they are not in. [f] is the faces table's alias.
+    private fun confident(f: String) =
+        "($f.locked = 1 OR ($f.good = 1 AND (($f.box_r - $f.box_l) >= $MIN_FACE_FRACTION OR ($f.box_b - $f.box_t) >= $MIN_FACE_FRACTION)))"
+
+    // The people the app lists: not hidden, and in at least MIN_PHOTOS_TO_SHOW photos (one-off faces
+    // are mostly strangers in the background). The timeline counts only them, so a crowd of strangers
+    // is not a "whole gang" and a month is not "busy" because of people nobody knows. Needs the
+    // faces table as `f` and the people table as `p`.
+    private val listedPeople = """p.hidden = 0 AND f.person_id IN (
+               SELECT person_id FROM faces WHERE person_id IS NOT NULL
+               GROUP BY person_id HAVING COUNT(DISTINCT COALESCE(media_key, photo_hash)) >= $MIN_PHOTOS_TO_SHOW)"""
+
+    /** Photos and videos with a person in them whose date has not been looked up yet: key and uri. */
+    fun mediaMissingDates(limit: Int): List<Pair<Long, String>> {
+        val out = ArrayList<Pair<Long, String>>()
+        readableDatabase.rawQuery(
+            """SELECT k, uri FROM (
+                   SELECT DISTINCT COALESCE(f.media_key, f.photo_hash) AS k, ph.uri AS uri
+                   FROM faces f JOIN photos ph ON ph.hash = f.photo_hash
+                   WHERE f.person_id IS NOT NULL
+               ) WHERE k NOT IN (SELECT key FROM media_dates) LIMIT ?""",
+            arrayOf(limit.toString())
+        ).use { while (it.moveToNext()) out += it.getLong(0) to it.getString(1) }
+        return out
+    }
+
+    /** How many photos and videos have a person in them, and how many of those have no date looked up yet. */
+    fun dateProgress(): Pair<Int, Int> {
+        val db = readableDatabase
+        // The same files mediaMissingDates looks at: with a person in them and a photo row to find the file by.
+        val total = db.rawQuery(
+            """SELECT COUNT(DISTINCT COALESCE(f.media_key, f.photo_hash)) FROM faces f
+               JOIN photos ph ON ph.hash = f.photo_hash WHERE f.person_id IS NOT NULL""", null
+        ).use { it.moveToFirst(); it.getInt(0) }
+        val pending = db.rawQuery(
+            """SELECT COUNT(*) FROM (SELECT DISTINCT COALESCE(f.media_key, f.photo_hash) AS k FROM faces f
+               JOIN photos ph ON ph.hash = f.photo_hash WHERE f.person_id IS NOT NULL)
+               WHERE k NOT IN (SELECT key FROM media_dates)""", null
+        ).use { it.moveToFirst(); it.getInt(0) }
+        return total to pending
+    }
+
+    fun putDates(found: Map<Long, MediaDates.Found>) {
+        if (found.isEmpty()) return
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            val stmt = db.compileStatement("INSERT OR REPLACE INTO media_dates (key, taken_ms, src) VALUES (?, ?, ?)")
+            for ((key, d) in found) {
+                stmt.clearBindings()
+                stmt.bindLong(1, key)
+                stmt.bindLong(2, d.ms)
+                stmt.bindLong(3, d.src.toLong())
+                stmt.executeInsert()
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    /**
+     * One person's months: [months] is month, count, month, count ... in order (a month is year *
+     * 12 + 0-based month, in the phone's time zone), [dated] how many photos and videos have a
+     * date, [undated] how many do not (yet).
+     */
+    class TimelineRow(val personId: Long, val months: IntArray, val dated: Int, val undated: Int)
+
+    /** What the timeline needs: everyone's months, and who each person is photographed with most. */
+    /** A photo or video that stands for a moment of several people, with what is needed to show it. */
+    class GroupMedia(
+        val key: Long,
+        val ms: Long,
+        val people: List<Long>,
+        val gapDays: Int,
+        val uri: String,
+        val isVideo: Boolean,
+        val tsMs: Long,
+    )
+
+    class TimelineResult(
+        val rows: List<TimelineRow>,
+        val together: List<TimelineTogether.Companion>,
+        /** For each person's companion, the file of the first photo together (by the companion's [TimelineTogether.Companion.firstKey]). */
+        val togetherFirst: Map<Long, GroupMedia>,
+        val crowds: List<GroupMedia>,
+        val reunions: List<GroupMedia>,
+    )
+
+    // The best picture of one photo or video (what to show for it).
+    private fun previewOf(key: Long): Triple<String, Boolean, Long>? =
+        readableDatabase.rawQuery(
+            """SELECT ph.uri, ph.video_hash IS NOT NULL, ph.ts_ms FROM faces f
+               JOIN photos ph ON ph.hash = f.photo_hash WHERE f.media_key = ? ORDER BY f.rank DESC LIMIT 1""",
+            arrayOf(key.toString())
+        ).use { if (it.moveToFirst()) Triple(it.getString(0), it.getInt(1) == 1, it.getLong(2)) else null }
+
+    /**
+     * Everyone listed (not hidden), with the months they appear in. With [full] false (dates are still
+     * being looked up, and this is asked for again and again) only the months: who is photographed with
+     * whom, the whole gang and the reunions are worked out once every date is in.
+     */
+    fun peopleTimeline(full: Boolean = true): TimelineResult {
+        class Acc {
+            val months = java.util.TreeMap<Int, Int>()
+            var dated = 0
+            var undated = 0
+        }
+
+        val byPerson = LinkedHashMap<Long, Acc>()
+        // Who is in each dated photo (for who they are photographed with, the whole gang, reunions).
+        // Only what can be relied on counts there: a clear face (or one the person confirmed) in a
+        // photo. A blurry or turned-away face may join someone on a looser match, and a video has
+        // people at different times, so neither can say "these two were together".
+        val inMedia = HashMap<Long, Pair<Long, ArrayList<Long>>>()
+        val cal = java.util.Calendar.getInstance()
+        readableDatabase.rawQuery(
+            """SELECT f.person_id, COALESCE(f.media_key, f.photo_hash), MAX(COALESCE(d.taken_ms, 0)),
+                      MAX(CASE WHEN ${confident("f")} THEN 1 ELSE 0 END),
+                      MAX(CASE WHEN ph.video_hash IS NOT NULL THEN 1 ELSE 0 END)
+               FROM faces f JOIN people p ON p.id = f.person_id
+               JOIN photos ph ON ph.hash = f.photo_hash
+               LEFT JOIN media_dates d ON d.key = COALESCE(f.media_key, f.photo_hash)
+               WHERE $listedPeople
+               GROUP BY f.person_id, COALESCE(f.media_key, f.photo_hash)""", null
+        ).use {
+            while (it.moveToNext()) {
+                val personId = it.getLong(0)
+                val acc = byPerson.getOrPut(personId) { Acc() }
+                val ms = it.getLong(2)
+                if (ms <= 0) {
+                    acc.undated++
+                } else {
+                    if (it.getInt(3) == 1 && it.getInt(4) == 0) {
+                        inMedia.getOrPut(it.getLong(1)) { ms to ArrayList() }.second += personId
+                    }
+                    cal.timeInMillis = ms
+                    val month = cal.get(java.util.Calendar.YEAR) * 12 + cal.get(java.util.Calendar.MONTH)
+                    acc.months[month] = (acc.months[month] ?: 0) + 1
+                    acc.dated++
+                }
+            }
+        }
+        val rows = byPerson.map { (id, acc) ->
+            val flat = IntArray(acc.months.size * 2)
+            var i = 0
+            for ((month, count) in acc.months) {
+                flat[i++] = month
+                flat[i++] = count
+            }
+            TimelineRow(id, flat, acc.dated, acc.undated)
+        }
+        if (!full) return TimelineResult(rows, emptyList(), emptyMap(), emptyList(), emptyList())
+        val cal2 = java.util.Calendar.getInstance()
+        val items = inMedia.map { (key, v) -> TimelineTogether.Item(key, v.first, v.second) }
+        val crowds = TimelineTogether.crowds(items, yearOf = { ms ->
+            cal2.timeInMillis = ms
+            cal2.get(java.util.Calendar.YEAR)
+        }).mapNotNull { c ->
+            previewOf(c.key)?.let { GroupMedia(c.key, c.ms, c.people, 0, it.first, it.second, it.third) }
+        }
+        val reunions = TimelineTogether.reunions(items).mapNotNull { r ->
+            previewOf(r.key)?.let { GroupMedia(r.key, r.ms, r.people, r.gapDays, it.first, it.second, it.third) }
+        }
+        val together = TimelineTogether.companions(items)
+        val togetherFirst = HashMap<Long, GroupMedia>()
+        for (c in together) {
+            previewOf(c.firstKey)?.let {
+                togetherFirst[c.personId] = GroupMedia(c.firstKey, c.firstMs, listOf(c.personId, c.withId), 0, it.first, it.second, it.third)
+            }
+        }
+        return TimelineResult(rows, together, togetherFirst, crowds, reunions)
+    }
+
+    // ---- what the memories and "then and now" ask ----
+
+    /** The dates already looked up for [keys] (photos and videos with a person in them), by key. */
+    fun datesForKeys(keys: List<Long>): Map<Long, MediaDates.Found> {
+        if (keys.isEmpty()) return emptyMap()
+        val out = HashMap<Long, MediaDates.Found>()
+        for (chunk in keys.chunked(300)) {
+            readableDatabase.rawQuery(
+                "SELECT key, taken_ms, src FROM media_dates WHERE key IN (${chunk.joinToString(",")})", null
+            ).use { while (it.moveToNext()) out[it.getLong(0)] = MediaDates.Found(it.getLong(1), it.getInt(2)) }
+        }
+        return out
+    }
+
+    /**
+     * How good a picture of people each of [keys] is, for choosing photos: the clear faces of listed people
+     * in it count in full (the three clearest add up, so a group beats a close-up), unclear ones for less. A
+     * photo with nobody is not in the result.
+     */
+    fun faceScores(keys: List<Long>): Map<Long, Float> {
+        if (keys.isEmpty()) return emptyMap()
+        val ranks = HashMap<Long, ArrayList<Float>>()
+        for (chunk in keys.chunked(300)) {
+            readableDatabase.rawQuery(
+                """SELECT f.media_key, f.rank, f.good, f.locked FROM faces f JOIN people p ON p.id = f.person_id
+                   WHERE $listedPeople AND f.media_key IN (${chunk.joinToString(",")})""", null
+            ).use {
+                while (it.moveToNext()) {
+                    val trusted = it.getInt(2) == 1 || it.getInt(3) == 1
+                    ranks.getOrPut(it.getLong(0)) { ArrayList(4) } += if (trusted) it.getFloat(1) else it.getFloat(1) * 0.3f
+                }
+            }
+        }
+        return ranks.mapValues { TimelinePicks.score(it.value) }
+    }
+
+    /** The named people in each of [keys] (clear faces in photos only, never a guess from a blurry face), best known first. */
+    fun namesIn(keys: List<Long>): Map<Long, List<Pair<Long, String>>> {
+        if (keys.isEmpty()) return emptyMap()
+        val out = HashMap<Long, LinkedHashMap<Long, String>>()
+        for (chunk in keys.chunked(300)) {
+            readableDatabase.rawQuery(
+                """SELECT f.media_key, p.id, p.name FROM faces f JOIN people p ON p.id = f.person_id
+                   JOIN photos ph ON ph.hash = f.photo_hash
+                   WHERE $listedPeople AND p.name IS NOT NULL AND p.name != '' AND ${confident("f")}
+                     AND ph.video_hash IS NULL AND f.media_key IN (${chunk.joinToString(",")})
+                   ORDER BY f.rank DESC""", null
+            ).use { while (it.moveToNext()) out.getOrPut(it.getLong(0)) { LinkedHashMap() }.putIfAbsent(it.getLong(1), it.getString(2)) }
+        }
+        return out.mapValues { e -> e.value.map { it.key to it.value } }
+    }
+
+    /** The name of each of [ids] who has one. */
+    fun namesOf(ids: Collection<Long>): Map<Long, String> {
+        if (ids.isEmpty()) return emptyMap()
+        val out = HashMap<Long, String>()
+        readableDatabase.rawQuery(
+            "SELECT id, name FROM people WHERE name IS NOT NULL AND name != '' AND id IN (${ids.joinToString(",")})", null
+        ).use { while (it.moveToNext()) out[it.getLong(0)] = it.getString(1) }
+        return out
+    }
+
+    /** A named, listed person's photos with a clear face of theirs and a date that can be believed: how many, and the first and last. */
+    class PersonStat(val id: Long, val name: String, val photos: Int, val firstMs: Long, val lastMs: Long)
+
+    fun personStats(): List<PersonStat> {
+        val out = ArrayList<PersonStat>()
+        readableDatabase.rawQuery(
+            """SELECT p.id, p.name, COUNT(DISTINCT f.media_key), MIN(d.taken_ms), MAX(d.taken_ms)
+               FROM faces f JOIN people p ON p.id = f.person_id
+               JOIN photos ph ON ph.hash = f.photo_hash JOIN media_dates d ON d.key = f.media_key
+               WHERE $listedPeople AND p.name IS NOT NULL AND p.name != '' AND ${confident("f")}
+                 AND ph.video_hash IS NULL AND d.src IN (1, 2, 3) AND d.taken_ms > 0
+               GROUP BY p.id""", null
+        ).use { while (it.moveToNext()) out += PersonStat(it.getLong(0), it.getString(1), it.getInt(2), it.getLong(3), it.getLong(4)) }
+        return out
+    }
+
+    /** One photo with two people clear in it: where each face is, and how many clear faces there are in all. */
+    class PairPhoto(
+        val key: Long, val uri: String, val takenMs: Long,
+        val rankA: Float, val rankB: Float,
+        val boxA: FloatArray, val boxB: FloatArray,
+        val photoW: Int, val photoH: Int,
+        val faces: Int,
+    )
+
+    /** Every photo with a clear face of [a] and of [b] in it (still photos, dates that can be believed), oldest first. */
+    fun pairPhotos(a: Long, b: Long): List<PairPhoto> {
+        class Raw(
+            val key: Long, val uri: String, val takenMs: Long, val rankA: Float, val rankB: Float,
+            val boxA: FloatArray, val boxB: FloatArray, val w: Int, val h: Int,
+        )
+        val raw = ArrayList<Raw>()
+        readableDatabase.rawQuery(
+            """SELECT fa.media_key, ph.uri, d.taken_ms, fa.rank, fb.rank,
+                      fa.box_l, fa.box_t, fa.box_r, fa.box_b, fb.box_l, fb.box_t, fb.box_r, fb.box_b, ph.width, ph.height
+               FROM faces fa JOIN faces fb ON fb.media_key = fa.media_key AND fb.person_id = ?
+               JOIN photos ph ON ph.hash = fa.photo_hash JOIN media_dates d ON d.key = fa.media_key
+               WHERE fa.person_id = ? AND ${confident("fa")} AND ${confident("fb")}
+                 AND ph.video_hash IS NULL AND d.src IN (1, 2, 3) AND d.taken_ms > 0 AND ph.width > 0 AND ph.height > 0
+               ORDER BY d.taken_ms""",
+            arrayOf(b.toString(), a.toString())
+        ).use {
+            while (it.moveToNext()) {
+                raw += Raw(
+                    it.getLong(0), it.getString(1), it.getLong(2), it.getFloat(3), it.getFloat(4),
+                    floatArrayOf(it.getFloat(5), it.getFloat(6), it.getFloat(7), it.getFloat(8)),
+                    floatArrayOf(it.getFloat(9), it.getFloat(10), it.getFloat(11), it.getFloat(12)),
+                    it.getInt(13), it.getInt(14),
+                )
+            }
+        }
+        if (raw.isEmpty()) return emptyList()
+        val counts = HashMap<Long, Int>()
+        for (chunk in raw.map { it.key }.distinct().chunked(300)) {
+            readableDatabase.rawQuery(
+                """SELECT media_key, COUNT(*) FROM faces WHERE (good = 1 OR locked = 1 OR person_id IS NOT NULL)
+                   AND media_key IN (${chunk.joinToString(",")}) GROUP BY media_key""", null
+            ).use { while (it.moveToNext()) counts[it.getLong(0)] = it.getInt(1) }
+        }
+        return raw.distinctBy { it.key }.map {
+            PairPhoto(it.key, it.uri, it.takenMs, it.rankA, it.rankB, it.boxA, it.boxB, it.w, it.h, counts[it.key] ?: 2)
+        }
+    }
+
+    /**
+     * One person's clear faces in still photos with a date that can be believed, for "then and now" and
+     * the memories: one entry per face, with where it is in the picture and who else is clear in it.
+     */
+    fun personDatedFaces(personId: Long): List<ThenNowFace> {
+        val rows = ArrayList<ThenNowFace>()
+        readableDatabase.rawQuery(
+            """SELECT f.id, f.media_key, ph.uri, d.taken_ms, f.rank, f.box_l, f.box_t, f.box_r, f.box_b, ph.width, ph.height
+               FROM faces f JOIN photos ph ON ph.hash = f.photo_hash JOIN media_dates d ON d.key = f.media_key
+               WHERE f.person_id = ? AND ${confident("f")} AND ph.video_hash IS NULL
+                 AND d.src IN (1, 2, 3) AND d.taken_ms > 0 AND ph.width > 0 AND ph.height > 0""",
+            arrayOf(personId.toString())
+        ).use {
+            while (it.moveToNext()) {
+                rows += ThenNowFace(
+                    it.getLong(0), it.getLong(1), it.getString(2), it.getLong(3), it.getFloat(4),
+                    it.getFloat(5), it.getFloat(6), it.getFloat(7), it.getFloat(8), it.getInt(9), it.getInt(10),
+                    1, emptyList(),
+                )
+            }
+        }
+        if (rows.isEmpty()) return rows
+
+        // Who else is clear in those photos: how many faces there are, and which of them are listed people.
+        val listed = listedPersonIds()
+        val company = HashMap<Long, ArrayList<Pair<Long?, FloatArray>>>()
+        for (chunk in rows.map { it.key }.distinct().chunked(300)) {
+            readableDatabase.rawQuery(
+                // Every face that is clear or has been given to someone counts as being in the photo (so "on their
+                // own" is only said when there is nobody else); only the confident ones can be named as company.
+                """SELECT f.media_key, f.person_id, f.box_l, f.box_t, f.box_r, f.box_b,
+                          CASE WHEN ${confident("f")} THEN 1 ELSE 0 END
+                   FROM faces f
+                   WHERE (f.good = 1 OR f.locked = 1 OR f.person_id IS NOT NULL) AND f.media_key IN (${chunk.joinToString(",")})""", null
+            ).use {
+                while (it.moveToNext()) {
+                    // Someone's face that is only a possible match is not company worth naming: left as nobody.
+                    val who = if (it.isNull(1) || it.getInt(6) == 0) null else it.getLong(1)
+                    company.getOrPut(it.getLong(0)) { ArrayList(3) } +=
+                        who to floatArrayOf(it.getFloat(2), it.getFloat(3), it.getFloat(4), it.getFloat(5))
+                }
+            }
+        }
+        return rows.map { r ->
+            val faces = company[r.key].orEmpty()
+            val others = faces.filter { (who, _) -> who != null && who != personId && who in listed }
+                .distinctBy { it.first }
+                .map { (who, box) -> OtherFace(who!!, box[0], box[1], box[2], box[3]) }
+            ThenNowFace(
+                r.faceId, r.key, r.uri, r.takenMs, r.rank, r.boxL, r.boxT, r.boxR, r.boxB, r.photoW, r.photoH,
+                maxOf(1, faces.size), others,
+            )
+        }
+    }
+
+    /** The people the app lists (see [listedPeople]). */
+    fun listedPersonIds(): Set<Long> {
+        val out = HashSet<Long>()
+        readableDatabase.rawQuery(
+            "SELECT DISTINCT f.person_id FROM faces f JOIN people p ON p.id = f.person_id WHERE $listedPeople", null
+        ).use { while (it.moveToNext()) out += it.getLong(0) }
+        return out
+    }
+
+    class OtherFace(val personId: Long, val boxL: Float, val boxT: Float, val boxR: Float, val boxB: Float)
+
+    class ThenNowFace(
+        val faceId: Long, val key: Long, val uri: String, val takenMs: Long, val rank: Float,
+        val boxL: Float, val boxT: Float, val boxR: Float, val boxB: Float, val photoW: Int, val photoH: Int,
+        /** Clear faces in the photo, this person's included. */
+        val faces: Int,
+        /** The listed people among the others. */
+        val others: List<OtherFace>,
+    )
+
+    /** One photo or video chosen to show for a month or a person. */
+    class PreviewItem(
+        val personId: Long,
+        val key: Long,
+        val uri: String,
+        val isVideo: Boolean,
+        val tsMs: Long,
+        val takenMs: Long,
+    )
+
+    /**
+     * What stands for each month on the timeline's filmstrip: the best few photos and videos (with
+     * people in them) of every month, in the order they were taken. See [TimelinePicks].
+     */
+    fun timelinePicks(perMonth: Int, burstMs: Long): List<PreviewItem> {
+        class Acc(val uri: String, val isVideo: Boolean, val takenMs: Long) {
+            val ranks = ArrayList<Float>(4)
+            var bestRank = -1f
+            var tsMs = 0L
+        }
+
+        val byMedia = HashMap<Long, Acc>()
+        readableDatabase.rawQuery(
+            """SELECT f.media_key, ph.uri, ph.video_hash IS NOT NULL, ph.ts_ms, d.taken_ms, f.rank, f.good
+               FROM faces f
+               JOIN people p ON p.id = f.person_id
+               JOIN photos ph ON ph.hash = f.photo_hash
+               JOIN media_dates d ON d.key = f.media_key
+               WHERE $listedPeople AND d.taken_ms > 0""", null
+        ).use {
+            while (it.moveToNext()) {
+                val key = it.getLong(0)
+                val acc = byMedia.getOrPut(key) { Acc(it.getString(1), it.getInt(2) == 1, it.getLong(4)) }
+                val rank = it.getFloat(5)
+                // A face that is not clear counts for less, but it still shows who was there.
+                acc.ranks += if (it.getInt(6) == 1) rank else rank * 0.3f
+                if (rank > acc.bestRank) {
+                    acc.bestRank = rank
+                    acc.tsMs = it.getLong(3)
+                }
+            }
+        }
+        val cal = java.util.Calendar.getInstance()
+        val candidates = byMedia.map { (key, a) ->
+            TimelinePicks.Candidate(key, a.uri, a.isVideo, a.tsMs, a.takenMs, TimelinePicks.score(a.ranks))
+        }
+        val picks = TimelinePicks.bestPerMonth(
+            candidates,
+            monthOf = { ms ->
+                cal.timeInMillis = ms
+                cal.get(java.util.Calendar.YEAR) * 12 + cal.get(java.util.Calendar.MONTH)
+            },
+            perMonth = perMonth,
+            burstMs = burstMs,
+        )
+        return picks.map { PreviewItem(0, it.key, it.uri, it.isVideo, it.tsMs, it.takenMs) }
+    }
+
+    /**
+     * For each of [personIds], their clearest photo or video taken between [startMs] (included) and
+     * [endMs] - the month the timeline's playhead is on. People with nothing in it are left out.
+     */
+    fun personPhotosBetween(startMs: Long, endMs: Long, personIds: List<Long>): List<PreviewItem> {
+        if (personIds.isEmpty()) return emptyList()
+        val db = readableDatabase
+        val keys = ArrayList<Long>()
+        db.rawQuery(
+            "SELECT key FROM media_dates WHERE taken_ms >= ? AND taken_ms < ?",
+            arrayOf(startMs.toString(), endMs.toString())
+        ).use { while (it.moveToNext()) keys += it.getLong(0) }
+        if (keys.isEmpty()) return emptyList()
+
+        val wanted = personIds.toSet()
+        val people = personIds.joinToString(",")
+        val best = HashMap<Long, PreviewItem>()
+        val bestRank = HashMap<Long, Float>()
+        for (chunk in keys.chunked(300)) {
+            db.rawQuery(
+                """SELECT f.person_id, f.media_key, ph.uri, ph.video_hash IS NOT NULL, ph.ts_ms, d.taken_ms, f.rank, f.good, f.locked
+                   FROM faces f
+                   JOIN photos ph ON ph.hash = f.photo_hash
+                   JOIN media_dates d ON d.key = f.media_key
+                   WHERE f.media_key IN (${chunk.joinToString(",")}) AND f.person_id IN ($people)""", null
+            ).use {
+                while (it.moveToNext()) {
+                    val person = it.getLong(0)
+                    if (person !in wanted) continue
+                    // A face that is not clear counts for less, so a photo where they are really there comes first.
+                    val rank = if (it.getInt(7) == 1 || it.getInt(8) == 1) it.getFloat(6) else it.getFloat(6) * 0.3f
+                    if (rank > (bestRank[person] ?: -1f)) {
+                        bestRank[person] = rank
+                        best[person] = PreviewItem(person, it.getLong(1), it.getString(2), it.getInt(3) == 1, it.getLong(4), it.getLong(5))
+                    }
+                }
+            }
+        }
+        return best.values.toList()
+    }
+
+    /** The photos and videos of one stretch of time ([total] with people in them, [items] the best of them). */
+    class MonthMedia(val total: Int, val items: List<PreviewItem>)
+
+    private class MediaAcc(val uri: String, val isVideo: Boolean, val takenMs: Long) {
+        val ranks = ArrayList<Float>(4)
+        var bestRank = -1f
+        var tsMs = 0L
+    }
+
+    /**
+     * The best [limit] photos and videos taken from [startMs] (included) up to [endMs] (the month the
+     * timeline has come to rest on), in the order they were taken, and how many there are in all.
+     */
+    fun monthMedia(startMs: Long, endMs: Long, limit: Int, burstMs: Long): MonthMedia {
+        val db = readableDatabase
+        val keys = ArrayList<Long>()
+        db.rawQuery(
+            "SELECT key FROM media_dates WHERE taken_ms >= ? AND taken_ms < ?",
+            arrayOf(startMs.toString(), endMs.toString())
+        ).use { while (it.moveToNext()) keys += it.getLong(0) }
+        if (keys.isEmpty()) return MonthMedia(0, emptyList())
+
+        val byMedia = HashMap<Long, MediaAcc>()
+        for (chunk in keys.chunked(300)) {
+            db.rawQuery(
+                """SELECT f.media_key, ph.uri, ph.video_hash IS NOT NULL, ph.ts_ms, d.taken_ms, f.rank, f.good
+                   FROM faces f
+                   JOIN people p ON p.id = f.person_id
+                   JOIN photos ph ON ph.hash = f.photo_hash
+                   JOIN media_dates d ON d.key = f.media_key
+                   WHERE $listedPeople AND f.media_key IN (${chunk.joinToString(",")})""", null
+            ).use {
+                while (it.moveToNext()) {
+                    val acc = byMedia.getOrPut(it.getLong(0)) { MediaAcc(it.getString(1), it.getInt(2) == 1, it.getLong(4)) }
+                    val rank = it.getFloat(5)
+                    acc.ranks += if (it.getInt(6) == 1) rank else rank * 0.3f
+                    if (rank > acc.bestRank) {
+                        acc.bestRank = rank
+                        acc.tsMs = it.getLong(3)
+                    }
+                }
+            }
+        }
+        val candidates = byMedia.map { (key, a) ->
+            TimelinePicks.Candidate(key, a.uri, a.isVideo, a.tsMs, a.takenMs, TimelinePicks.score(a.ranks))
+        }
+        val picks = TimelinePicks.bestPerMonth(candidates, monthOf = { 0 }, perMonth = limit, burstMs = burstMs)
+        return MonthMedia(byMedia.size, picks.map { PreviewItem(0, it.key, it.uri, it.isVideo, it.tsMs, it.takenMs) })
+    }
+
     // ---- photos and videos with several people ----
     //
     // For every photo that has at least one of the chosen people: are they in it (any /
@@ -1325,6 +1875,9 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
     companion object {
         /** A person needs this many different photos or videos to be listed. */
         const val MIN_PHOTOS_TO_SHOW = 2
+
+        /** A face this much of the photo across (width or height) or more is big enough to be spoken of by name. */
+        const val MIN_FACE_FRACTION = 0.04f
 
         /** In a video, people "together" show up within this many ms of each other. */
         private const val VIDEO_TOGETHER_MS = 3000L
