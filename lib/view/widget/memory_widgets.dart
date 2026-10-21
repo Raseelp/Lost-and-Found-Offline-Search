@@ -8,6 +8,7 @@ import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/media_view_route.dart';
 import 'package:lost_and_found/view/image_full_screen.dart';
 import 'package:lost_and_found/view/video_full_screen.dart';
+import 'package:lost_and_found/view/widget/grid_video_layer.dart';
 import 'package:lost_and_found/view/widget/timeline_preview.dart';
 
 /// Opens [photo] in the viewer for its kind, from the small picture [loader] already has (so it opens
@@ -92,6 +93,8 @@ class MemoryTile extends StatelessWidget {
               fill: AppColors.parchment,
               alignment: const Alignment(0, -0.25),
             ),
+            // Plays a silent preview when it is the video the grid is playing (the time left is in the corner).
+            if (photo.isVideo) GridVideoLayer(uri: photo.uri),
             if (photo.isVideo)
               const Positioned(
                 right: 6,

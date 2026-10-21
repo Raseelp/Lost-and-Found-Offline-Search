@@ -486,6 +486,12 @@ class NativeServices {
     return [for (final e in (map?['items'] as List? ?? const [])) PreviewPhoto.fromMap(e as Map<dynamic, dynamic>)];
   }
 
+  /// Whether battery saver is on, and how many video decoders the phone can run at once.
+  Future<({bool powerSave, int maxDecoders})> videoEnv() async {
+    final map = await _channel.invokeMapMethod<String, dynamic>('videoEnv');
+    return (powerSave: map?['powerSave'] == true, maxDecoders: (map?['maxDecoders'] as num?)?.toInt() ?? 1);
+  }
+
   Future<MemorySettings> memorySettings() async {
     final map = await _channel.invokeMapMethod<String, dynamic>('memorySettings');
     return map == null ? const MemorySettings() : MemorySettings.fromMap(map);

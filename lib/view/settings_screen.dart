@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lost_and_found/controllers/collections_controller.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/controllers/grid_video_controller.dart';
 import 'package:lost_and_found/controllers/memories_controller.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
 import 'package:lost_and_found/models/model_status.dart';
@@ -256,6 +257,24 @@ class SettingsScreen extends StatelessWidget {
                             ],
                           );
                         },
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      const _GroupLabel('Videos'),
+                      GetBuilder<GridVideoController>(
+                        builder: (videos) => _GroupCard(
+                          children: [
+                            _SettingsRow(
+                              icon: Icons.play_circle_outline_rounded,
+                              title: 'Play videos in grids',
+                              subtitle:
+                                  'A silent preview of up to 15 seconds plays for the first video in view, then the next. Pauses while scanning and in battery saver.',
+                              trailing: Switch(
+                                value: videos.enabled,
+                                onChanged: videos.setEnabled,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: AppSpacing.xl),
                       const _GroupLabel('Memories'),

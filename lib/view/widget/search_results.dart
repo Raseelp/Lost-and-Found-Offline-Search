@@ -12,6 +12,7 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/utils/media_view_route.dart';
 import 'package:lost_and_found/view/image_full_screen.dart';
 import 'package:lost_and_found/view/video_full_screen.dart';
+import 'package:lost_and_found/view/widget/grid_video_layer.dart';
 import 'package:lost_and_found/view/widget/moment_badge.dart';
 
 // Higher decode caps requested only for a bento tile big enough to need
@@ -666,6 +667,27 @@ class _RevealGateState extends State<_RevealGate> {
   }
 }
 
+// The small play mark in the corner of a video's tile.
+class _PlayMark extends StatelessWidget {
+  const _PlayMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.scrim.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: const Icon(
+        Icons.play_arrow_rounded,
+        color: AppColors.onMedia,
+        size: 13,
+      ),
+    );
+  }
+}
+
 class _ResultTile extends StatefulWidget {
   const _ResultTile({
     required this.bytes,
@@ -891,6 +913,12 @@ class _ResultTileState extends State<_ResultTile>
                       ),
                     ),
                   ),
+                  // A video plays its silent preview here when it is the one the grid is playing; the rest of the
+                  // time it is the picture with a small play mark.
+                  if (widget.isVideo)
+                    widget.uri == null
+                        ? const Positioned(right: 6, bottom: 6, child: _PlayMark())
+                        : GridVideoLayer(uri: widget.uri!, idleBadge: const _PlayMark()),
                   if (widget.isNew)
                     Positioned(
                       left: 6,
@@ -904,26 +932,6 @@ class _ResultTileState extends State<_ResultTile>
                     top: 0,
                     child: MomentTag(uri: widget.uri, compact: constraints.maxWidth < 96),
                   ),
-                  if (widget.isVideo)
-                    Positioned(
-                      right: 6,
-                      bottom: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.scrim.withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(AppRadius.pill),
-                        ),
-                        child: const Icon(
-                          Icons.play_arrow_rounded,
-                          color: AppColors.onMedia,
-                          size: 13,
-                        ),
-                      ),
-                    ),
                 ],
               );
             },

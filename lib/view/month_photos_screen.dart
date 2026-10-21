@@ -12,6 +12,7 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/utils/media_view_route.dart';
 import 'package:lost_and_found/view/image_full_screen.dart';
 import 'package:lost_and_found/view/video_full_screen.dart';
+import 'package:lost_and_found/view/widget/grid_video_layer.dart';
 import 'package:lost_and_found/view/widget/moment_badge.dart';
 import 'package:lost_and_found/view/widget/timeline_preview.dart';
 
@@ -285,6 +286,7 @@ class _MonthPhotosScreenState extends State<MonthPhotosScreen> {
                                             fill: AppColors.parchment,
                                             alignment: const Alignment(0, -0.25),
                                           ),
+                                          if (photo.isVideo) GridVideoLayer(uri: photo.uri),
                                           if (photo.isVideo)
                                             const Positioned(
                                               right: 6,

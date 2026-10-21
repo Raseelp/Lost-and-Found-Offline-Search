@@ -241,6 +241,36 @@ class MainActivity : FlutterActivity() {
         },
     )
 
+    private fun videoEnvMap(): Map<String, Any> {
+        val powerSave = try {
+            (getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager).isPowerSaveMode
+        } catch (_: Exception) {
+            false
+        }
+        return mapOf("powerSave" to powerSave, "maxDecoders" to hardwareVideoDecoders)
+    }
+
+    // How many H.264 hardware decoders can run at once: looked up once (it walks every codec of the phone).
+    private val hardwareVideoDecoders: Int by lazy {
+        var decoders = 1
+        try {
+            for (info in android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos) {
+                if (info.isEncoder || !info.supportedTypes.any { it.equals("video/avc", ignoreCase = true) }) continue
+                // The software decoders say they can run dozens at once; they would make a weak phone look strong.
+                val software = if (Build.VERSION.SDK_INT >= 29) {
+                    !info.isHardwareAccelerated || info.isSoftwareOnly
+                } else {
+                    info.name.startsWith("OMX.google.") || info.name.startsWith("c2.android.")
+                }
+                if (software) continue
+                val n = info.getCapabilitiesForType("video/avc").maxSupportedInstances
+                if (n > decoders) decoders = n
+            }
+        } catch (_: Exception) {
+        }
+        decoders
+    }
+
     private fun memorySettingsMap(): Map<String, Any> {
         val prefs = MemoryPrefs(applicationContext)
         return mapOf(
@@ -1185,6 +1215,10 @@ class MainActivity : FlutterActivity() {
                 }
 
                 "memorySettings" -> result.success(memorySettingsMap())
+
+                // What decides whether the grids may play video previews: battery saver, and how many video
+                // decoders the phone can run at once (a second one is only used to get the next preview ready).
+                "videoEnv" -> result.success(videoEnvMap())
 
                 "setMemorySettings" -> {
                     val prefs = MemoryPrefs(applicationContext)
