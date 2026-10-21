@@ -880,7 +880,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
       builder: (nativeController) => AnnotatedRegion<SystemUiOverlayStyle>(
         value: kMediaOverlayStyle,
         child: Scaffold(
-          backgroundColor: Colors.black,
+          backgroundColor: AppColors.mediaBackdrop,
           body: Stack(
             fit: StackFit.expand,
             children: [
@@ -914,7 +914,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
 
                     if (!_initialized && _initError == null)
                       const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
+                        child: CircularProgressIndicator(color: AppColors.onMedia),
                       ),
 
                     if (_initError != null)
@@ -925,7 +925,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                           ),
                           padding: const EdgeInsets.all(AppSpacing.lg),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
+                            color: AppColors.scrim.withValues(alpha: 0.6),
                             borderRadius: BorderRadius.circular(AppRadius.xl),
                           ),
                           child: Column(
@@ -933,7 +933,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                             children: [
                               const Icon(
                                 Icons.error_outline_rounded,
-                                color: Colors.white70,
+                                color: AppColors.onMedia70,
                                 size: 36,
                               ),
                               const SizedBox(height: AppSpacing.md),
@@ -941,7 +941,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                                 _initError!,
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: AppColors.onMedia,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -992,9 +992,9 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                                       begin: Alignment.topCenter,
                                       end: Alignment.bottomCenter,
                                       colors: [
-                                        Colors.black.withValues(alpha: 0.36),
-                                        Colors.transparent,
-                                        Colors.transparent,
+                                        AppColors.scrim.withValues(alpha: 0.36),
+                                        AppColors.transparent,
+                                        AppColors.transparent,
                                       ],
                                       stops: const [0, 0.16, 1],
                                     ),
@@ -1321,18 +1321,18 @@ class _FramePickHint extends StatelessWidget {
           vertical: AppSpacing.sm,
         ),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.6),
+          color: AppColors.scrim.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(AppRadius.pill),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.swipe_rounded, color: Colors.white, size: 16),
+            Icon(Icons.swipe_rounded, color: AppColors.onMedia, size: 16),
             SizedBox(width: AppSpacing.sm),
             Text(
               'Drag the bar to any moment, then see what looks similar',
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.onMedia,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -1404,8 +1404,8 @@ class _FramePickBarState extends State<_FramePickBar> {
             data: SliderTheme.of(context).copyWith(
               trackHeight: 6,
               activeTrackColor: AppColors.primary,
-              inactiveTrackColor: Colors.white24,
-              thumbColor: Colors.white,
+              inactiveTrackColor: AppColors.onMedia24,
+              thumbColor: AppColors.onMedia,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 11),
               overlayColor: AppColors.primary.withValues(alpha: 0.25),
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 22),
@@ -1424,13 +1424,13 @@ class _FramePickBarState extends State<_FramePickBar> {
                 onPressed: onCancel,
                 child: const Text(
                   'Cancel',
-                  style: TextStyle(color: Colors.white70),
+                  style: TextStyle(color: AppColors.onMedia70),
                 ),
               ),
               const Spacer(),
               Text(
                 formatDuration(controller.value.position),
-                style: const TextStyle(color: Colors.white, fontSize: 13),
+                style: const TextStyle(color: AppColors.onMedia, fontSize: 13),
               ),
               const Spacer(),
               InkWell(
@@ -1626,7 +1626,7 @@ class _ToastCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    const surface = Color(0xEE15171A);
+    const surface = AppColors.mediaSurface;
     final faces = data.faces.take(3).toList();
 
     return Container(
@@ -1640,7 +1640,7 @@ class _ToastCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: surface,
         borderRadius: BorderRadius.circular(AppRadius.xl),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: AppColors.onMedia.withValues(alpha: 0.08)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1676,7 +1676,7 @@ class _ToastCard extends StatelessWidget {
                 Text(
                   data.title,
                   style: textTheme.titleSmall?.copyWith(
-                    color: Colors.white,
+                    color: AppColors.onMedia,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1685,7 +1685,7 @@ class _ToastCard extends StatelessWidget {
                   Text(
                     data.subtitle!,
                     style: textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.66),
+                      color: AppColors.onMedia.withValues(alpha: 0.66),
                       height: 1.35,
                     ),
                   ),
@@ -1727,7 +1727,7 @@ class _VideoControlsBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final value = controller.value;
     final label = Theme.of(context).textTheme.labelSmall?.copyWith(
-      color: Colors.white.withValues(alpha: 0.72),
+      color: AppColors.onMedia.withValues(alpha: 0.72),
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
@@ -1746,9 +1746,9 @@ class _VideoControlsBar extends StatelessWidget {
           AppSpacing.xs + 2,
         ),
         decoration: BoxDecoration(
-          color: const Color(0xCC121413),
+          color: AppColors.mediaPanel,
           borderRadius: BorderRadius.circular(AppRadius.xl),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+          border: Border.all(color: AppColors.onMedia.withValues(alpha: 0.09)),
         ),
         child: Row(
           children: [
@@ -1914,7 +1914,7 @@ class _ScrubberPainter extends CustomPainter {
         y + trackHeight / 2,
         radius,
       ),
-      Paint()..color = Colors.white.withValues(alpha: 0.24),
+      Paint()..color = AppColors.onMedia.withValues(alpha: 0.24),
     );
     canvas.drawRRect(
       RRect.fromLTRBR(
@@ -1924,7 +1924,7 @@ class _ScrubberPainter extends CustomPainter {
         y + trackHeight / 2,
         radius,
       ),
-      Paint()..color = Colors.white,
+      Paint()..color = AppColors.onMedia,
     );
 
     // Where the picked person appears.
@@ -1934,12 +1934,12 @@ class _ScrubberPainter extends CustomPainter {
         canvas.drawCircle(
           Offset(mx, y),
           4.4,
-          Paint()..color = const Color(0xFF121413),
+          Paint()..color = AppColors.mediaInk,
         );
         canvas.drawCircle(
           Offset(mx, y),
           3.0,
-          Paint()..color = const Color(0xFF5FE0CF),
+          Paint()..color = AppColors.mediaAccent,
         );
       }
     }
@@ -1949,9 +1949,9 @@ class _ScrubberPainter extends CustomPainter {
     canvas.drawCircle(
       Offset(x, y),
       thumb + 1.2,
-      Paint()..color = Colors.black.withValues(alpha: 0.32),
+      Paint()..color = AppColors.scrim.withValues(alpha: 0.32),
     );
-    canvas.drawCircle(Offset(x, y), thumb, Paint()..color = Colors.white);
+    canvas.drawCircle(Offset(x, y), thumb, Paint()..color = AppColors.onMedia);
   }
 
   @override

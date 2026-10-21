@@ -10,6 +10,7 @@ import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/palettes/people_palette.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/view/widget/timeline_preview.dart';
 
@@ -43,14 +44,14 @@ const double _openingMonths = 36;
 
 /// A person's colour on the timeline: soft, a little dusty, and the same every time.
 const List<Color> _tones = [
-  Color(0xFFC8694A), // terracotta
-  Color(0xFFD59A3E), // honey
-  Color(0xFFC4707F), // rose
-  Color(0xFF7C9F76), // sage
-  Color(0xFF165E59), // the app's teal
-  Color(0xFF6E8DB5), // dusty blue
-  Color(0xFF8C6CA6), // plum
-  Color(0xFFA39A45), // olive
+  PeoplePalette.red450, // terracotta
+  AppColors.honey, // honey
+  PeoplePalette.red400, // rose
+  PeoplePalette.green450, // sage
+  AppColors.primary, // the app's teal
+  PeoplePalette.sky450, // dusty blue
+  PeoplePalette.indigo450, // plum
+  PeoplePalette.gold550, // olive
 ];
 
 /// The stretches of months a person is in, as (first, last) places on the axis: months in a row
@@ -656,9 +657,9 @@ class TimelineZoomBar extends StatelessWidget {
                       height: 32,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: _isActive(years) ? AppColors.canvas : Colors.transparent,
+                        color: _isActive(years) ? AppColors.canvas : AppColors.transparent,
                         borderRadius: BorderRadius.circular(AppRadius.pill),
-                        border: Border.all(color: _isActive(years) ? AppColors.hairline : Colors.transparent),
+                        border: Border.all(color: _isActive(years) ? AppColors.hairline : AppColors.transparent),
                       ),
                       child: Text(
                         label,
@@ -706,7 +707,7 @@ class TimelineHeaderDelegate extends SliverPersistentHeaderDelegate {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.canvas,
-        border: Border(bottom: BorderSide(color: overlapsContent ? AppColors.hairline : Colors.transparent)),
+        border: Border(bottom: BorderSide(color: overlapsContent ? AppColors.hairline : AppColors.transparent)),
       ),
       padding: const EdgeInsets.fromLTRB(_pad, 6, _pad, 0),
       child: Row(
@@ -1167,7 +1168,7 @@ class _TimelineRowState extends State<TimelineRow> with TickerProviderStateMixin
             ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppRadius.lg),
-              color: widget.selected ? AppColors.primary.withValues(alpha: 0.08) : Colors.transparent,
+              color: widget.selected ? AppColors.primary.withValues(alpha: 0.08) : AppColors.transparent,
             ),
             child: widget.compact ? _compactContent(context, tone) : Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1412,10 +1413,10 @@ class _Avatar extends StatelessWidget {
               ),
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.canvas,
                   borderRadius: BorderRadius.circular(11),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.14), blurRadius: 8, offset: const Offset(0, 3)),
+                    BoxShadow(color: AppColors.shadow.withValues(alpha: 0.14), blurRadius: 8, offset: const Offset(0, 3)),
                   ],
                 ),
                 child: Padding(
@@ -1575,7 +1576,7 @@ class _StripPainter extends CustomPainter {
           Paint()
             ..style = PaintingStyle.stroke
             ..strokeWidth = 1.4
-            ..color = Colors.white,
+            ..color = AppColors.canvas,
         );
       }
     }

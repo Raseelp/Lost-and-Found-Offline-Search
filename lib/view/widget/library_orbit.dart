@@ -6,9 +6,6 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 // The Library page's hero is a processor (see chip_art.dart and scan_square.dart) that is the
 // scan. This file holds what is shared with the controls round it.
 
-/// The accent used while faces are being found (indexing keeps the app's teal).
-const Color orbitFaceAccent = Color(0xFF6C63B5);
-
 // ---------------------------------------------------------------------------
 // Small shared pieces
 // ---------------------------------------------------------------------------
@@ -32,7 +29,7 @@ class OrbitPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final fg = filled ? AppColors.onPrimary : AppColors.ink;
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -43,7 +40,7 @@ class OrbitPill extends StatelessWidget {
             vertical: AppSpacing.sm,
           ),
           decoration: BoxDecoration(
-            color: filled ? AppColors.primary : Colors.transparent,
+            color: filled ? AppColors.primary : AppColors.transparent,
             borderRadius: BorderRadius.circular(AppRadius.pill),
             border: filled ? null : Border.all(color: AppColors.hairline),
           ),

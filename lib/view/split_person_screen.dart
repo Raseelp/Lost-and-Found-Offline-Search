@@ -58,7 +58,7 @@ class _SplitPersonScreenState extends State<SplitPersonScreen> {
       snackPosition: SnackPosition.BOTTOM,
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 110),
       backgroundColor: AppColors.ink,
-      colorText: Colors.white,
+      colorText: AppColors.onMedia,
       borderRadius: 14,
     );
   }

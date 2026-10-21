@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:lost_and_found/controllers/collections_controller.dart';
+import 'package:lost_and_found/controllers/memories_controller.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
 import 'package:lost_and_found/models/collection_model.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
@@ -11,6 +13,7 @@ import 'package:lost_and_found/view/widget/collection_widgets.dart';
 import 'package:lost_and_found/view/widget/collections_bento.dart';
 import 'package:lost_and_found/view/widget/header_action.dart';
 import 'package:lost_and_found/view/widget/nothing_indexed.dart';
+import 'package:lost_and_found/view/widget/on_this_day_card.dart';
 
 /// Opens [collection] - shared by the tab's cards and the Search tab's chips.
 void openCollectionScreen(
@@ -295,6 +298,23 @@ class CollectionsTab extends StatelessWidget {
             ),
           ),
         ),
+        // This date in the past years: above the featured collection, there only when there is something
+        // from it. It can be ticked for export like a collection.
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+          sliver: SliverToBoxAdapter(
+            child: OnThisDaySection(
+              visible: !nothingIndexed && !native.isScanning,
+              indexed: native.totalEmbeddings,
+              selecting: controller.selecting,
+              selected: controller.selectedIds.contains(
+                MemoriesController.selectionId,
+              ),
+              onSelect: () =>
+                  controller.toggleSelected(MemoriesController.selectionId),
+            ),
+          ),
+        ),
         // The featured collection, a different one now and then. Out of the way while choosing.
         if (!controller.selecting && !nothingIndexed)
           SliverPadding(
@@ -313,39 +333,55 @@ class CollectionsTab extends StatelessWidget {
               ),
             ),
           ),
-        if (nothingIndexed) _nothingYet(context) else ..._mosaicSlivers(context),
-        if (controller.hiddenCollections.isNotEmpty)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                AppSpacing.lg,
-                AppSpacing.xl,
-                0,
-              ),
-              child: Row(
-                children: [
-                  Text(
-                    '${controller.hiddenCollections.length} hidden',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: AppColors.ink48,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  InkWell(
-                    onTap: controller.unhideAll,
-                    child: Text(
-                      'Restore',
+        if (nothingIndexed)
+          _nothingYet(context)
+        else
+          ..._mosaicSlivers(context),
+        // What was hidden: the collections, and the On this day card (only while it has something to show).
+        SliverToBoxAdapter(
+          child: GetBuilder<MemoriesController>(
+            builder: (memories) {
+              final hiddenCard = memories.hidden && !memories.today.isEmpty;
+              final hidden =
+                  controller.hiddenCollections.length + (hiddenCard ? 1 : 0);
+              if (hidden == 0) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl,
+                  AppSpacing.lg,
+                  AppSpacing.xl,
+                  0,
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      '$hidden hidden',
                       style: textTheme.bodySmall?.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
+                        color: AppColors.ink48,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
+                    const SizedBox(width: AppSpacing.sm),
+                    InkWell(
+                      onTap: () {
+                        if (hiddenCard) memories.setHidden(false);
+                        if (controller.hiddenCollections.isNotEmpty) {
+                          controller.unhideAll();
+                        }
+                      },
+                      child: Text(
+                        'Restore',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
+        ),
         SliverToBoxAdapter(
           child: SizedBox(height: floatingBarClearance(context)),
         ),

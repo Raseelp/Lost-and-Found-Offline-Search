@@ -301,7 +301,7 @@ class _ImageViewScreenState extends State<ImageViewScreen>
               }
             },
             child: Scaffold(
-              backgroundColor: Colors.black,
+              backgroundColor: AppColors.mediaBackdrop,
               body: Stack(
                 children: [
                   AnimatedPositioned(
@@ -440,8 +440,8 @@ class _ImageViewScreenState extends State<ImageViewScreen>
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              Colors.black.withValues(alpha: 0.45),
-                              Colors.transparent,
+                              AppColors.scrim.withValues(alpha: 0.45),
+                              AppColors.transparent,
                             ],
                           ),
                         ),

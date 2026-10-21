@@ -1,14 +1,16 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/palettes/viewer_palette.dart';
 
 /// The shared shell for a floating panel over the photo/video viewer - the people strip and the
 /// "similar to this" strip both live in one of these, so they read as one family of trays rather
 /// than two one-off cards.
 ///
-/// Deliberately not a flat `Colors.black.withValues(alpha: 0.8)` slab with a coloured ring round
+/// Deliberately not a flat dark slab with a coloured ring round
 /// it - that particular combination is everywhere, and it reads exactly as cheap as it is. This
 /// is real frosted glass instead: [BackdropFilter] actually blurs the picture behind it, so the
 /// surface has depth rather than being a flat tinted rectangle; a thin line of light sits along
@@ -16,7 +18,7 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 /// the whole way round; and the accent only shows once, as a brief warm catch of light while the
 /// tray opens, gone within a second rather than left glowing for as long as the panel is up.
 class MediaTray extends StatefulWidget {
-  const MediaTray({super.key, required this.child, this.accent = const Color(0xFF5FE0CF)});
+  const MediaTray({super.key, required this.child, this.accent = AppColors.mediaAccent});
 
   final Widget child;
   final Color accent;
@@ -60,9 +62,9 @@ class _MediaTrayState extends State<MediaTray> with SingleTickerProviderStateMix
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.white.withValues(alpha: 0.10), Colors.black.withValues(alpha: 0.34)],
+                colors: [AppColors.onMedia.withValues(alpha: 0.10), AppColors.scrim.withValues(alpha: 0.34)],
               ),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+              border: Border.all(color: AppColors.onMedia.withValues(alpha: 0.14)),
             ),
             child: Stack(
               children: [
@@ -75,7 +77,7 @@ class _MediaTrayState extends State<MediaTray> with SingleTickerProviderStateMix
                     height: 1,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [Colors.transparent, Color(0x8AFFFFFF), Colors.transparent]),
+                        gradient: LinearGradient(colors: [AppColors.transparent, ViewerPalette.whiteA54, AppColors.transparent]),
                       ),
                     ),
                   ),
@@ -92,7 +94,7 @@ class _MediaTrayState extends State<MediaTray> with SingleTickerProviderStateMix
                             gradient: LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
-                              colors: [widget.accent.withValues(alpha: 0.3), Colors.transparent],
+                              colors: [widget.accent.withValues(alpha: 0.3), AppColors.transparent],
                             ),
                           ),
                         ),
@@ -110,7 +112,7 @@ class _MediaTrayState extends State<MediaTray> with SingleTickerProviderStateMix
                         width: 34,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.3),
+                          color: AppColors.onMedia.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(AppRadius.sm),
                         ),
                       ),

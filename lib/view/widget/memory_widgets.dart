@@ -8,6 +8,7 @@ import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/media_view_route.dart';
 import 'package:lost_and_found/view/image_full_screen.dart';
 import 'package:lost_and_found/view/video_full_screen.dart';
+import 'package:lost_and_found/view/widget/grid_video_layer.dart';
 import 'package:lost_and_found/view/widget/timeline_preview.dart';
 
 /// Opens [photo] in the viewer for its kind, from the small picture [loader] already has (so it opens
@@ -20,6 +21,7 @@ Future<void> openMemoryPhoto(
   if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
   final native = Get.find<NativeController>();
   final bytes =
+      loader.peek(photo, large: true, sharp: true) ??
       loader.peek(photo, large: true) ??
       loader.peek(photo, large: false) ??
       await loader.get(photo, large: false);
@@ -55,6 +57,7 @@ class MemoryTile extends StatelessWidget {
     required this.photo,
     required this.loader,
     this.large = false,
+    this.sharp = false,
     this.radius = 14,
     this.onTap,
     this.overlay,
@@ -63,6 +66,9 @@ class MemoryTile extends StatelessWidget {
   final PreviewPhoto photo;
   final PreviewLoader loader;
   final bool large;
+
+  /// Shown big enough that the large version is not sharp: the biggest one is fetched and faded in too.
+  final bool sharp;
   final double radius;
   final VoidCallback? onTap;
 
@@ -83,9 +89,12 @@ class MemoryTile extends StatelessWidget {
               photo: photo,
               loader: loader,
               large: large,
+              sharp: sharp,
               fill: AppColors.parchment,
               alignment: const Alignment(0, -0.25),
             ),
+            // Plays a silent preview when it is the video the grid is playing (the time left is in the corner).
+            if (photo.isVideo) GridVideoLayer(uri: photo.uri),
             if (photo.isVideo)
               const Positioned(
                 right: 6,
@@ -93,7 +102,7 @@ class MemoryTile extends StatelessWidget {
                 child: Icon(
                   Icons.play_circle_fill_rounded,
                   size: 20,
-                  color: Colors.white,
+                  color: AppColors.onMedia,
                 ),
               ),
             if (overlay != null) Positioned.fill(child: overlay!),

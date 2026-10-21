@@ -389,8 +389,8 @@ class _HeroPage extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.66),
+                      AppColors.transparent,
+                      AppColors.scrim.withValues(alpha: 0.66),
                     ],
                     stops: const [0.4, 1],
                   ),
@@ -407,7 +407,7 @@ class _HeroPage extends StatelessWidget {
                   Text(
                     fresh ? 'NEW PHOTOS' : 'FEATURED',
                     style: textTheme.labelSmall?.copyWith(
-                      color: bytes != null ? Colors.white70 : AppColors.ink48,
+                      color: bytes != null ? AppColors.onMedia70 : AppColors.ink48,
                       letterSpacing: 0.8,
                     ),
                   ),
@@ -417,13 +417,13 @@ class _HeroPage extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: textTheme.titleLarge?.copyWith(
-                      color: bytes != null ? Colors.white : AppColors.ink,
+                      color: bytes != null ? AppColors.onMedia : AppColors.ink,
                     ),
                   ),
                   Text(
                     count == 1 ? '1 item' : '$count items',
                     style: textTheme.bodySmall?.copyWith(
-                      color: bytes != null ? Colors.white70 : AppColors.ink48,
+                      color: bytes != null ? AppColors.onMedia70 : AppColors.ink48,
                     ),
                   ),
                 ],
@@ -458,7 +458,7 @@ class _HeroDots extends StatelessWidget {
                 width: 6 + 10 * (1 - (page - i).abs().clamp(0.0, 1.0)),
                 height: 6,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(
+                  color: AppColors.onMedia.withValues(
                     alpha: 0.45 + 0.5 * (1 - (page - i).abs().clamp(0.0, 1.0)),
                   ),
                   borderRadius: BorderRadius.circular(3),

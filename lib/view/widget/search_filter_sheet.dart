@@ -7,7 +7,7 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 void showSearchFilterSheet(BuildContext context, NativeController controller) {
   showModalBottomSheet<void>(
     context: context,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.transparent,
     builder: (_) => _SearchFilterSheet(controller: controller),
   );
 }

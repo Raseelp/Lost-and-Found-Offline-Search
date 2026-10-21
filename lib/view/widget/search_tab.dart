@@ -265,7 +265,7 @@ class _ModeSwitch extends StatelessWidget {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: selected ? AppColors.primary : Colors.transparent,
+                color: selected ? AppColors.primary : AppColors.transparent,
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -424,7 +424,7 @@ class _FilterButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         onTap: () => showSearchFilterSheet(context, controller),
         borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -513,7 +513,7 @@ class _SearchSubmitButton extends StatelessWidget {
             : controller.searchTextController.text.trim().isNotEmpty;
 
         return Material(
-          color: Colors.transparent,
+          color: AppColors.transparent,
           child: InkWell(
             onTap: enabled ? controller.runSearch : null,
             borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -658,7 +658,7 @@ class _SaveCollectionButton extends StatelessWidget {
     }
 
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         onTap: () => isImageSearch
             ? _saveImageSearch(context)

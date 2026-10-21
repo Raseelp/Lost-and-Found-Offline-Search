@@ -358,14 +358,14 @@ class PillButton extends StatelessWidget {
     final foreground = outlined ? AppColors.ink : AppColors.onPrimary;
 
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadius.pill),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
           decoration: BoxDecoration(
-            color: outlined ? Colors.transparent : AppColors.primary,
+            color: outlined ? AppColors.transparent : AppColors.primary,
             borderRadius: BorderRadius.circular(AppRadius.pill),
             border: outlined ? Border.all(color: AppColors.hairline) : null,
           ),

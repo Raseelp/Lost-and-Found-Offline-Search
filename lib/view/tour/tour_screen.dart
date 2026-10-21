@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/palettes/tour_palette.dart';
 import 'package:lost_and_found/view/tour/tour_download.dart';
 import 'package:lost_and_found/view/tour/tour_samples.dart';
 import 'package:lost_and_found/view/tour/tour_widgets.dart';
@@ -206,15 +208,15 @@ class _TourScreenState extends State<TourScreen> {
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         // The background is light: dark icons in the bars, and the bottom bar in its colour.
         value: const SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
+          statusBarColor: AppColors.transparent,
           statusBarIconBrightness: Brightness.dark,
-          systemNavigationBarColor: kTourBottom,
-          systemNavigationBarDividerColor: kTourBottom,
+          systemNavigationBarColor: TourPalette.bottom,
+          systemNavigationBarDividerColor: TourPalette.bottom,
           systemNavigationBarIconBrightness: Brightness.dark,
           systemNavigationBarContrastEnforced: false,
         ),
         child: Scaffold(
-          backgroundColor: kTourBottom,
+          backgroundColor: TourPalette.bottom,
           body: TourBackground(
             child: SafeArea(
               child: Column(
@@ -319,7 +321,7 @@ class _TourScreenState extends State<TourScreen> {
             if (_help)
               IconButton(
                 tooltip: 'Close',
-                icon: const Icon(Icons.close_rounded, color: kTourText),
+                icon: const Icon(Icons.close_rounded, color: TourPalette.text),
                 onPressed: widget.onFinished,
               )
             else if (!_last)
@@ -327,7 +329,9 @@ class _TourScreenState extends State<TourScreen> {
                 onPressed: widget.onFinished,
                 child: Text(
                   'Skip',
-                  style: textTheme.labelLarge?.copyWith(color: kTourText80),
+                  style: textTheme.labelLarge?.copyWith(
+                    color: TourPalette.text80,
+                  ),
                 ),
               )
             else
@@ -392,10 +396,10 @@ class _TourScreenState extends State<TourScreen> {
             if (_index == 0 && !state.running && !state.done) ...[
               const SizedBox(height: AppSpacing.md),
               Text(
-                'To make your media searchable, the app needs to download a model that works offline. It’s what makes searching on your phone possible.',
+                'To make your media searchable, the app needs to download an offline model. This is a one-time download. After that, everything works without an internet connection.',
                 textAlign: TextAlign.center,
                 style: textTheme.bodySmall?.copyWith(
-                  color: kTourText80,
+                  color: TourPalette.text80,
                   height: 1.35,
                 ),
               ),
@@ -458,8 +462,8 @@ class _Ring extends StatelessWidget {
       child: CircularProgressIndicator(
         value: value,
         strokeWidth: size > 22 ? 3 : 2.4,
-        valueColor: const AlwaysStoppedAnimation<Color>(kTourAccent),
-        backgroundColor: Colors.black.withValues(alpha: 0.09),
+        valueColor: const AlwaysStoppedAnimation<Color>(TourPalette.teal),
+        backgroundColor: TourPalette.black.withValues(alpha: 0.09),
         strokeCap: StrokeCap.round,
       ),
     );
@@ -511,9 +515,9 @@ class _DownloadChip extends StatelessWidget {
         height: 32,
         padding: const EdgeInsets.only(left: 8, right: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: TourPalette.white,
           borderRadius: BorderRadius.circular(AppRadius.pill),
-          border: Border.all(color: kTourLine),
+          border: Border.all(color: TourPalette.line),
           boxShadow: kTourSoftShadow,
         ),
         child: Row(
@@ -524,13 +528,13 @@ class _DownloadChip extends StatelessWidget {
               const Icon(
                 Icons.check_circle_rounded,
                 size: 18,
-                color: kTourAccent,
+                color: TourPalette.teal,
               )
             else if (state.paused)
               const Icon(
                 Icons.pause_circle_filled_rounded,
                 size: 18,
-                color: kTourAccent,
+                color: TourPalette.teal,
               )
             else
               _Ring(value: ring, size: 18),
@@ -538,7 +542,7 @@ class _DownloadChip extends StatelessWidget {
             Text(
               text,
               style: textTheme.labelMedium?.copyWith(
-                color: kTourText,
+                color: TourPalette.text,
                 fontWeight: FontWeight.w700,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
@@ -610,7 +614,7 @@ class _DownloadCard extends StatelessWidget {
         lead = const Icon(
           Icons.error_outline_rounded,
           size: 26,
-          color: Color(0xFFB14032),
+          color: TourPalette.red550,
         );
       case TourDownloadPhase.connecting || TourDownloadPhase.verifying:
         lead = const _Ring(value: null);
@@ -630,9 +634,9 @@ class _DownloadCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: TourPalette.white,
             borderRadius: BorderRadius.circular(AppRadius.lg + 2),
-            border: Border.all(color: kTourLine),
+            border: Border.all(color: TourPalette.line),
             boxShadow: kTourSoftShadow,
           ),
           child: Row(
@@ -650,7 +654,7 @@ class _DownloadCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: textTheme.labelLarge?.copyWith(
-                        color: kTourText,
+                        color: TourPalette.text,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -660,7 +664,7 @@ class _DownloadCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: textTheme.bodySmall?.copyWith(
-                        color: kTourText60,
+                        color: TourPalette.text60,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
@@ -679,7 +683,7 @@ class _DownloadCard extends StatelessWidget {
                 TextButton(
                   onPressed: download.start,
                   style: TextButton.styleFrom(
-                    foregroundColor: kTourAccent,
+                    foregroundColor: TourPalette.teal,
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     minimumSize: const Size(0, 36),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -687,7 +691,7 @@ class _DownloadCard extends StatelessWidget {
                   child: Text(
                     action,
                     style: textTheme.labelLarge?.copyWith(
-                      color: kTourAccent,
+                      color: TourPalette.teal,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -717,7 +721,9 @@ class _PauseButton extends StatelessWidget {
       child: Tooltip(
         message: paused ? 'Resume' : 'Pause',
         child: Material(
-          color: paused ? kTourAccent : kTourAccent.withValues(alpha: 0.1),
+          color: paused
+              ? TourPalette.teal
+              : TourPalette.teal.withValues(alpha: 0.1),
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
@@ -734,7 +740,7 @@ class _PauseButton extends StatelessWidget {
                   paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
                   key: ValueKey(paused),
                   size: 24,
-                  color: paused ? Colors.white : kTourAccent,
+                  color: paused ? TourPalette.white : TourPalette.teal,
                 ),
               ),
             ),
@@ -766,7 +772,7 @@ class _Dots extends StatelessWidget {
               width: i == index ? 22 : 7,
               height: 7,
               decoration: BoxDecoration(
-                color: i == index ? kTourAccent : const Color(0xFFB8C8C4),
+                color: i == index ? TourPalette.teal : TourPalette.slate250,
                 borderRadius: BorderRadius.circular(AppRadius.pill),
               ),
             ),
@@ -798,9 +804,9 @@ class _MainButton extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         opacity: enabled ? 1 : 0.55,
         child: Material(
-          color: kTourAccent,
+          color: TourPalette.teal,
           elevation: 0,
-          shadowColor: kTourAccent.withValues(alpha: 0.4),
+          shadowColor: TourPalette.teal.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(AppRadius.pill),
           child: InkWell(
             onTap: enabled ? onTap : null,
@@ -815,7 +821,7 @@ class _MainButton extends StatelessWidget {
                   label,
                   key: ValueKey(label),
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Colors.white,
+                    color: TourPalette.white,
                     fontWeight: FontWeight.w700,
                   ),
                 ),

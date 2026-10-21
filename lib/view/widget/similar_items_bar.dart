@@ -45,7 +45,7 @@ class SimilarItemsBar extends StatelessWidget {
                 Expanded(
                   child: Text(
                     label,
-                    style: textTheme.labelMedium?.copyWith(color: Colors.white.withValues(alpha: 0.75)),
+                    style: textTheme.labelMedium?.copyWith(color: AppColors.onMedia.withValues(alpha: 0.75)),
                   ),
                 ),
                 _TrayActionPill(label: 'Search with this', onTap: onSearchFull),
@@ -71,7 +71,7 @@ class SimilarItemsBar extends StatelessWidget {
                     : Center(
                         child: Text(
                           'Nothing similar found',
-                          style: textTheme.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.6)),
+                          style: textTheme.bodySmall?.copyWith(color: AppColors.onMedia.withValues(alpha: 0.6)),
                         ),
                       ))
                 : ListView.separated(
@@ -127,10 +127,10 @@ class _TrayActionPill extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: AppColors.shadow.withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 2))],
       ),
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         borderRadius: BorderRadius.circular(AppRadius.pill),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -140,7 +140,7 @@ class _TrayActionPill extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFF1F7A70), AppColors.primary],
+                colors: [AppColors.primaryGlow, AppColors.primary],
               ),
             ),
             child: Stack(
@@ -152,7 +152,7 @@ class _TrayActionPill extends StatelessWidget {
                   child: Container(
                     height: 1,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: [Colors.transparent, Colors.white.withValues(alpha: 0.55), Colors.transparent]),
+                      gradient: LinearGradient(colors: [AppColors.transparent, AppColors.onMedia.withValues(alpha: 0.55), AppColors.transparent]),
                     ),
                   ),
                 ),
@@ -215,7 +215,7 @@ class _SimilarTile extends StatelessWidget {
                 const Positioned(
                   right: 4,
                   bottom: 4,
-                  child: Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 18),
+                  child: Icon(Icons.play_circle_fill_rounded, color: AppColors.onMedia, size: 18),
                 ),
             ],
           ),
@@ -279,9 +279,9 @@ class _ShimmerTileState extends State<_ShimmerTile> with SingleTickerProviderSta
                     begin: Alignment(-2 + 4 * t, -1),
                     end: Alignment(-1 + 4 * t, 1),
                     colors: [
-                      Colors.white.withValues(alpha: 0.05),
-                      Colors.white.withValues(alpha: 0.17),
-                      Colors.white.withValues(alpha: 0.05),
+                      AppColors.onMedia.withValues(alpha: 0.05),
+                      AppColors.onMedia.withValues(alpha: 0.17),
+                      AppColors.onMedia.withValues(alpha: 0.05),
                     ],
                   ),
                 ),

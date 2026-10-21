@@ -29,15 +29,18 @@ import 'package:lost_and_found/view/widget/people_timeline.dart';
 // ---------------------------------------------------------------------------------- loading
 
 class _Job {
-  _Job(this.photo, this.large);
+  _Job(this.photo, this.large, [this.sharp = false]);
 
   final PreviewPhoto photo;
   final bool large;
+
+  /// The biggest version (which is [large] too); what a picture shown big is finally sharpened to.
+  final bool sharp;
   final List<Completer<Uint8List?>> waiters = [];
   final List<bool Function()> wanted = [];
   bool ahead = false;
 
-  String get id => '${large ? 'L' : 'S'}${photo.cacheKey}';
+  String get id => '${sharp ? 'H' : (large ? 'L' : 'S')}${photo.cacheKey}';
 
   // Made ahead of time, or somebody still wants it.
   bool get stillWanted => ahead && waiters.isEmpty || wanted.any((w) => w());
@@ -50,27 +53,35 @@ class _Job {
   }
 }
 
-/// Small and sharp versions of the timeline's photos, kept in memory. At most a few are made at once
+/// Small, large and sharp versions of the timeline's photos, kept in memory. At most a few are made at once
 /// (more only slow each other down), the newest request goes first (it is what is on screen now),
 /// and a request nobody wants any more is dropped before it starts.
 class PreviewLoader {
   static const int smallSize = 120;
   static const int largeSize = 400;
+
+  /// For a picture shown big (the middle of the lens, a memory's main photo): the large one is not enough there.
+  static const int sharpSize = 1080;
   static const int _maxRunning = 3;
   static const int _keepSmall = 900;
   static const int _keepLarge = 40;
+  static const int _keepSharp = 10;
+
+  /// Whether a picture shown [logical] big, on a screen with [pixelRatio], needs more than the large version.
+  static bool wantsSharp(Size logical, double pixelRatio) => logical.longestSide * pixelRatio > largeSize * 1.1;
 
   final LinkedHashMap<String, Uint8List> _small = LinkedHashMap();
   final LinkedHashMap<String, Uint8List> _large = LinkedHashMap();
+  final LinkedHashMap<String, Uint8List> _sharp = LinkedHashMap();
   final Map<String, _Job> _jobs = {};
   final List<_Job> _now = []; // wanted now; newest last
   final List<_Job> _ahead = []; // made ahead of time, in the order given
   final Set<String> _failed = {};
   int _running = 0;
 
-  /// What is in memory already (the sharp version when [large], else the small one).
-  Uint8List? peek(PreviewPhoto photo, {required bool large}) {
-    final cache = large ? _large : _small;
+  /// What is in memory already (the sharpest version when [sharp], the large one when [large], else the small one).
+  Uint8List? peek(PreviewPhoto photo, {required bool large, bool sharp = false}) {
+    final cache = sharp ? _sharp : (large ? _large : _small);
     final bytes = cache.remove(photo.cacheKey);
     if (bytes != null) cache[photo.cacheKey] = bytes; // most recently used goes last
     return bytes;
@@ -80,15 +91,15 @@ class PreviewLoader {
 
   /// The picture, from memory or made now. [wanted] says whether it is still needed once its turn
   /// comes (a frame that has slid away no longer needs it).
-  Future<Uint8List?> get(PreviewPhoto photo, {required bool large, bool Function()? wanted}) {
-    final cached = peek(photo, large: large);
+  Future<Uint8List?> get(PreviewPhoto photo, {required bool large, bool sharp = false, bool Function()? wanted}) {
+    final cached = peek(photo, large: large, sharp: sharp);
     if (cached != null) return Future.value(cached);
-    final id = '${large ? 'L' : 'S'}${photo.cacheKey}';
+    final id = '${sharp ? 'H' : (large ? 'L' : 'S')}${photo.cacheKey}';
     if (_failed.contains(id)) return Future.value(null);
 
     var job = _jobs[id];
     if (job == null) {
-      job = _Job(photo, large);
+      job = _Job(photo, large, sharp);
       _jobs[id] = job;
       _now.add(job);
     } else if (_ahead.remove(job)) {
@@ -141,7 +152,7 @@ class PreviewLoader {
             uri: job.photo.uri,
             isVideo: job.photo.isVideo,
             timestampMs: job.photo.tsMs,
-            size: job.large ? largeSize : smallSize,
+            size: job.sharp ? sharpSize : (job.large ? largeSize : smallSize),
           )
           .then<Uint8List?>((bytes) => bytes)
           .catchError((_) => null)
@@ -151,9 +162,9 @@ class PreviewLoader {
             if (bytes == null) {
               _failed.add(job.id);
             } else {
-              final cache = job.large ? _large : _small;
+              final cache = job.sharp ? _sharp : (job.large ? _large : _small);
               cache[job.photo.cacheKey] = bytes;
-              final keep = job.large ? _keepLarge : _keepSmall;
+              final keep = job.sharp ? _keepSharp : (job.large ? _keepLarge : _keepSmall);
               while (cache.length > keep) {
                 cache.remove(cache.keys.first);
               }
@@ -165,14 +176,16 @@ class PreviewLoader {
   }
 }
 
-/// A picture of the timeline, shown as soon as there is anything of it: the small version at
-/// once, the sharp one when [large] and it has arrived.
+/// A picture of the timeline, shown as soon as there is anything of it: the small version at once, then the
+/// large one when [large] and it has arrived, then - when [sharp], for a picture shown big - the sharp one. Each
+/// better version fades in over the one before, so nothing jumps or blinks while it sharpens.
 class PreviewImage extends StatefulWidget {
   const PreviewImage({
     super.key,
     required this.photo,
     required this.loader,
     this.large = false,
+    this.sharp = false,
     this.alignment = Alignment.center,
     this.fill = AppColors.parchment,
   });
@@ -180,6 +193,9 @@ class PreviewImage extends StatefulWidget {
   final PreviewPhoto photo;
   final PreviewLoader loader;
   final bool large;
+
+  /// Also fetch the biggest version, once the large one is in.
+  final bool sharp;
   final Alignment alignment;
 
   /// What shows until the picture is there.
@@ -190,7 +206,11 @@ class PreviewImage extends StatefulWidget {
 }
 
 class _PreviewImageState extends State<PreviewImage> {
-  Uint8List? _bytes;
+  // What is on show, and a better version fading in over it. _top is the best version either of them is.
+  Uint8List? _shown;
+  Uint8List? _incoming;
+  bool _incomingReady = false; // decoded, so it is at least starting to show
+  int _top = 0; // 0 nothing yet, 1 small, 2 large, 3 sharp
 
   @override
   void initState() {
@@ -201,52 +221,112 @@ class _PreviewImageState extends State<PreviewImage> {
   @override
   void didUpdateWidget(covariant PreviewImage old) {
     super.didUpdateWidget(old);
-    if (old.photo.cacheKey != widget.photo.cacheKey) _bytes = null;
-    if (old.photo.cacheKey != widget.photo.cacheKey || old.large != widget.large) _resolve();
+    if (old.photo.cacheKey != widget.photo.cacheKey) {
+      _shown = null;
+      _incoming = null;
+      _incomingReady = false;
+      _top = 0;
+    }
+    if (old.photo.cacheKey != widget.photo.cacheKey || old.large != widget.large || old.sharp != widget.sharp) _resolve();
   }
 
   void _resolve() {
     final photo = widget.photo, loader = widget.loader;
-    final sharp = widget.large ? loader.peek(photo, large: true) : null;
+    final wantLarge = widget.large || widget.sharp;
+    final sharp = widget.sharp ? loader.peek(photo, large: true, sharp: true) : null;
+    final large = wantLarge ? loader.peek(photo, large: true) : null;
     final small = loader.peek(photo, large: false);
-    _bytes = sharp ?? small ?? _bytes;
-    if (sharp != null) return;
+    final best = sharp ?? large ?? small;
+    final rank = sharp != null ? 3 : (large != null ? 2 : (small != null ? 1 : 0));
+    if (best != null && rank > _top) {
+      _top = rank;
+      // Already in memory: shown at once if there is nothing yet, else faded in over what is there.
+      if (_shown == null && _incoming == null) {
+        _shown = best;
+      } else {
+        _incoming = best;
+        _incomingReady = false;
+      }
+    }
 
     final key = photo.cacheKey;
-    bool wanted(bool large) => mounted && widget.photo.cacheKey == key && (!large || widget.large);
-    if (small == null) {
-      loader.get(photo, large: false, wanted: () => wanted(false)).then((b) {
-        if (b != null && mounted && widget.photo.cacheKey == key && _bytes == null) setState(() => _bytes = b);
-      });
+    if (_top < 1) _fetch(key, 1);
+    if (wantLarge && _top < 2) {
+      _fetch(key, 2);
+    } else if (widget.sharp && _top == 2) {
+      _fetch(key, 3);
     }
-    if (widget.large) {
-      loader.get(photo, large: true, wanted: () => wanted(true)).then((b) {
-        if (b != null && mounted && widget.photo.cacheKey == key && widget.large) setState(() => _bytes = b);
-      });
-    }
+  }
+
+  void _fetch(String key, int rank) {
+    bool wanted() =>
+        mounted && widget.photo.cacheKey == key && (rank <= 1 || widget.large || widget.sharp) && (rank < 3 || widget.sharp);
+    widget.loader.get(widget.photo, large: rank >= 2, sharp: rank == 3, wanted: wanted).then((b) {
+      if (b == null || !wanted()) return;
+      _deliver(b, rank);
+      // The sharp version follows the large one (not asked for at the same time: a picture that is only passing by
+      // never needs it).
+      if (rank == 2 && widget.sharp) _fetch(key, 3);
+    });
+  }
+
+  void _deliver(Uint8List bytes, int rank) {
+    if (rank <= _top) return;
+    setState(() {
+      _top = rank;
+      // One that is already showing becomes what is shown, and this one fades in over it. One that has not been
+      // decoded yet is dropped: it would leave a hole where the picture was.
+      if (_incoming != null && _incomingReady) _shown = _incoming;
+      _incoming = bytes;
+      _incomingReady = false;
+    });
+  }
+
+  // The fade of the newest version has ended: it is what is shown now.
+  void _promote() {
+    if (!mounted || _incoming == null) return;
+    setState(() {
+      _shown = _incoming;
+      _incoming = null;
+      _incomingReady = false;
+    });
+  }
+
+  Widget _image(Uint8List bytes) {
+    return Image.memory(
+      bytes,
+      key: ObjectKey(bytes),
+      fit: BoxFit.cover,
+      alignment: widget.alignment,
+      gaplessPlayback: true,
+      filterQuality: FilterQuality.low,
+      width: double.infinity,
+      height: double.infinity,
+      frameBuilder: (context, child, frame, sync) {
+        final ready = frame != null || sync;
+        if (ready && identical(bytes, _incoming)) _incomingReady = true;
+        return AnimatedOpacity(
+          opacity: ready ? 1 : 0,
+          duration: const Duration(milliseconds: 200),
+          onEnd: _promote,
+          child: child,
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final bytes = _bytes;
+    final shown = _shown, incoming = _incoming;
     return ColoredBox(
       color: widget.fill,
-      child: bytes == null
-          ? const SizedBox.expand()
-          : Image.memory(
-              bytes,
-              fit: BoxFit.cover,
-              alignment: widget.alignment,
-              gaplessPlayback: true,
-              filterQuality: FilterQuality.low,
-              width: double.infinity,
-              height: double.infinity,
-              frameBuilder: (context, child, frame, sync) => AnimatedOpacity(
-                opacity: frame == null && !sync ? 0 : 1,
-                duration: const Duration(milliseconds: 160),
-                child: child,
-              ),
-            ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (shown != null) _image(shown),
+          if (incoming != null) _image(incoming),
+        ],
+      ),
     );
   }
 }
@@ -871,9 +951,9 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
           child: DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white, width: 2.5),
+              border: Border.all(color: AppColors.canvas, width: 2.5),
               boxShadow: a < 0.8
-                  ? [BoxShadow(color: Colors.black.withValues(alpha: 0.22), blurRadius: 14, offset: const Offset(0, 6))]
+                  ? [BoxShadow(color: AppColors.shadow.withValues(alpha: 0.22), blurRadius: 14, offset: const Offset(0, 6))]
                   : const [],
             ),
             child: ClipRRect(
@@ -886,6 +966,8 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
                     loader: preview.loader,
                     // The sharp one only for the middle few, and once the playhead is still.
                     large: near && preview.settled,
+                    // The one in the middle, big on the screen, is sharpened once the playhead is still.
+                    sharp: a < 0.8 && preview.settled && PreviewLoader.wantsSharp(rect.size, MediaQuery.devicePixelRatioOf(context)),
                     fill: AppColors.hairline,
                   ),
                   if (near)
@@ -897,9 +979,9 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
                       child: Text(
                         _dayLabel(photo.taken),
                         style: textTheme.labelSmall?.copyWith(
-                          color: Colors.white,
+                          color: AppColors.onMedia,
                           fontWeight: FontWeight.w600,
-                          shadows: const [Shadow(color: Colors.black54, blurRadius: 4)],
+                          shadows: const [Shadow(color: AppColors.scrim54, blurRadius: 4)],
                         ),
                       ),
                     ),
@@ -907,7 +989,7 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
                     const Positioned(
                       right: 5,
                       top: 5,
-                      child: Icon(Icons.play_circle_fill_rounded, size: 18, color: Colors.white),
+                      child: Icon(Icons.play_circle_fill_rounded, size: 18, color: AppColors.onMedia),
                     ),
                   // Frames further out are veiled, not see-through: they sit behind the next one.
                   if (a > 0.3)
@@ -1009,7 +1091,7 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(radius),
                 boxShadow: i == 0 || local > 0.3
-                    ? [BoxShadow(color: Colors.black.withValues(alpha: 0.16 * (i == 0 ? 1 : local)), blurRadius: 12, offset: const Offset(0, 4))]
+                    ? [BoxShadow(color: AppColors.shadow.withValues(alpha: 0.16 * (i == 0 ? 1 : local)), blurRadius: 12, offset: const Offset(0, 4))]
                     : const [],
               ),
               child: ClipRRect(
@@ -1021,6 +1103,8 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
                       photo: photos[i],
                       loader: widget.preview.loader,
                       large: true,
+                      // The big tiles of the opened month, once they have settled into place.
+                      sharp: t >= 0.8 && PreviewLoader.wantsSharp(target.size, MediaQuery.devicePixelRatioOf(context)),
                       fill: AppColors.hairline,
                       alignment: const Alignment(0, -0.25),
                     ),
@@ -1028,17 +1112,17 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
                       const Positioned(
                         right: 6,
                         top: 6,
-                        child: Icon(Icons.play_circle_fill_rounded, size: 20, color: Colors.white),
+                        child: Icon(Icons.play_circle_fill_rounded, size: 20, color: AppColors.onMedia),
                       ),
                     // The last tile says how many more there are.
                     if (i == photos.length - 1 && remaining > 0)
                       Positioned.fill(
                         child: ColoredBox(
-                          color: Colors.black.withValues(alpha: 0.45),
+                          color: AppColors.scrim.withValues(alpha: 0.45),
                           child: Center(
                             child: Text(
                               '+$remaining',
-                              style: textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+                              style: textTheme.titleMedium?.copyWith(color: AppColors.onMedia, fontWeight: FontWeight.w700),
                             ),
                           ),
                         ),
@@ -1130,12 +1214,12 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.42),
+                  color: AppColors.scrim.withValues(alpha: 0.42),
                   borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
                 child: Text(
                   '${monthLabel(month)}  ·  ${media.total == 1 ? '1 photo' : '${media.total} photos'}',
-                  style: textTheme.labelMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+                  style: textTheme.labelMedium?.copyWith(color: AppColors.onMedia, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -1164,9 +1248,9 @@ class _MomentChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(5, 5, 12, 5),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.94),
+        color: AppColors.canvas.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.16), blurRadius: 10, offset: const Offset(0, 3))],
+        boxShadow: [BoxShadow(color: AppColors.shadow.withValues(alpha: 0.16), blurRadius: 10, offset: const Offset(0, 3))],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1183,7 +1267,7 @@ class _MomentChip extends StatelessWidget {
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.5),
+                        border: Border.all(color: AppColors.canvas, width: 1.5),
                       ),
                       child: FaceAvatar(faceId: people[i].coverFaceId, size: 24),
                     ),

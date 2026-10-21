@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
-import 'package:lost_and_found/view/tour/tour_samples.dart';
+import 'package:lost_and_found/utils/palettes/tour_palette.dart';
 
 /// The frame every page of the tour sits in: a title in the serif, a line under it, then the page's own
 /// picture or demo. It scrolls when the phone is short.
@@ -97,7 +97,7 @@ class TourPageFrame extends StatelessWidget {
     final base = GoogleFonts.instrumentSerif(
       fontSize: 38,
       height: 1.04,
-      color: kTourText,
+      color: TourPalette.text,
     );
     final at = emphasis == null ? -1 : title.indexOf(emphasis!);
     if (at < 0) return TextSpan(text: title, style: base);
@@ -110,7 +110,7 @@ class TourPageFrame extends StatelessWidget {
           style: GoogleFonts.instrumentSerif(
             fontSize: 38,
             height: 1.04,
-            color: kTourAccent,
+            color: TourPalette.teal,
             fontStyle: FontStyle.italic,
           ),
         ),
@@ -125,7 +125,10 @@ class TourPageFrame extends StatelessWidget {
       const SizedBox(height: AppSpacing.md),
       Text(
         subtitle!,
-        style: textTheme.bodyLarge?.copyWith(color: kTourText80, height: 1.45),
+        style: textTheme.bodyLarge?.copyWith(
+          color: TourPalette.text80,
+          height: 1.45,
+        ),
       ),
     ],
     const SizedBox(height: AppSpacing.xl),
@@ -178,7 +181,7 @@ class TourTag extends StatelessWidget {
     return Text(
       text,
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        color: kTourText60,
+        color: TourPalette.text60,
         fontWeight: FontWeight.w400,
       ),
     );
@@ -209,12 +212,12 @@ class PaperCard extends StatelessWidget {
       child: Container(
         padding: padding,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: TourPalette.white,
           borderRadius: BorderRadius.circular(radius),
-          border: Border.all(color: kTourLine),
+          border: Border.all(color: TourPalette.line),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.09),
+              color: TourPalette.black.withValues(alpha: 0.09),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),
@@ -239,7 +242,7 @@ class TourBackground extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [kTourTop, kTourBottom],
+          colors: [TourPalette.top, TourPalette.bottom],
         ),
       ),
       child: Stack(
@@ -248,12 +251,12 @@ class TourBackground extends StatelessWidget {
           const Positioned(
             left: -110,
             top: 170,
-            child: _Glow(color: kTourMint, size: 300),
+            child: _Glow(color: TourPalette.mint, size: 300),
           ),
           const Positioned(
             right: -100,
             bottom: 110,
-            child: _Glow(color: kTourPeach, size: 280),
+            child: _Glow(color: TourPalette.peach, size: 280),
           ),
           child,
         ],

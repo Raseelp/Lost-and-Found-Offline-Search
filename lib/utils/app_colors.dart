@@ -28,4 +28,40 @@ class AppColors {
 
   // Status - for state only, never as decoration or a second brand color.
   static const Color danger = Color(0xFFB14032);
+
+  // Nothing: a fade that ends in no colour, or a surface that is not painted.
+  static const Color transparent = Color(0x00000000);
+
+  // Over pictures - the full-screen photo and video viewers, and the labels, badges and shades laid on a
+  // picture. A picture can be any colour, so these do not follow the surfaces above: they are the same
+  // wherever a picture is underneath. Dim one with `.withValues(alpha: ...)`.
+  static const Color mediaBackdrop = Color(
+    0xFF000000,
+  ); // behind a photo or video, and the bars round it
+  static const Color onMedia = Color(
+    0xFFFFFFFF,
+  ); // writing, icons and outlines on a picture
+  static const Color onMedia70 = Color(0xB3FFFFFF);
+  static const Color onMedia24 = Color(0x3DFFFFFF);
+  static const Color scrim = Color(
+    0xFF000000,
+  ); // a dark shade over a picture, or over the screen behind a dialog
+  static const Color scrim54 = Color(0x8A000000);
+  static const Color shadow = Color(0xFF000000); // drop shadows
+
+  // The viewers' dark chrome: its one accent, and its panels.
+  static const Color mediaAccent = Color(0xFF5FE0CF);
+  static const Color mediaAccentSoft = Color(0xFF9FF0E4);
+  static const Color mediaSurface = Color(0xEE15171A);
+  static const Color mediaPanel = Color(0xCC121413);
+  static const Color mediaInk = Color(0xFF121413);
+
+  // Small touches of colour that are not the accent.
+  static const Color honey = Color(0xFFD59A3E); // a starred moment
+  static const Color primaryGlow = Color(
+    0xFF1F7A70,
+  ); // the lit end of a teal gradient
+  static const Color faceAccent = Color(
+    0xFF6C63B5,
+  ); // faces, where the library's orbit marks them
 }

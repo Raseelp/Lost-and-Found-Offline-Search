@@ -3,8 +3,9 @@ import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
-import 'package:lost_and_found/view/tour/tour_samples.dart';
+import 'package:lost_and_found/utils/palettes/tour_palette.dart';
 import 'package:lost_and_found/view/tour/tour_widgets.dart';
 import 'package:video_player/video_player.dart';
 
@@ -294,9 +295,9 @@ class _Glass extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: TourPalette.white,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: Colors.white),
+        border: Border.all(color: TourPalette.white),
       ),
       child: child,
     );
@@ -310,7 +311,7 @@ TextStyle _small(
   double size = 10,
   double? height,
 }) => Theme.of(context).textTheme.labelSmall!.copyWith(
-  color: color ?? kTourText60,
+  color: color ?? TourPalette.text60,
   fontWeight: weight ?? FontWeight.w400,
   fontSize: size,
   height: height ?? 1.2,
@@ -336,13 +337,13 @@ class _SearchResultsCard extends StatelessWidget {
                 width: 14,
                 height: 14,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10211F).withValues(alpha: 0.55),
+                  color: TourPalette.text.withValues(alpha: 0.55),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.play_arrow_rounded,
                   size: 11,
-                  color: Colors.white,
+                  color: TourPalette.white,
                 ),
               ),
             ),
@@ -356,9 +357,9 @@ class _SearchResultsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: TourPalette.white,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: Colors.white),
+        border: Border.all(color: TourPalette.white),
       ),
       child: Column(
         children: [
@@ -367,12 +368,12 @@ class _SearchResultsCard extends StatelessWidget {
           Container(
             height: 24,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: TourPalette.white,
               borderRadius: BorderRadius.circular(99),
-              border: Border.all(color: const Color(0x1A102220)),
+              border: Border.all(color: TourPalette.mint900A10),
               boxShadow: const [
                 BoxShadow(
-                  color: Color(0x14102220),
+                  color: TourPalette.mint900A8,
                   blurRadius: 6,
                   offset: Offset(0, 2),
                 ),
@@ -386,12 +387,12 @@ class _SearchResultsCard extends StatelessWidget {
                   height: 18,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Color(0x12165E59),
+                    color: TourPalette.teal750A7,
                   ),
                   child: const Icon(
                     Icons.search_rounded,
                     size: 12,
-                    color: kTourAccent,
+                    color: TourPalette.teal,
                   ),
                 ),
                 const SizedBox(width: 5),
@@ -400,7 +401,7 @@ class _SearchResultsCard extends StatelessWidget {
                     'surfing at sunset',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: _small(context, color: kTourText, size: 10.5),
+                    style: _small(context, color: TourPalette.text, size: 10.5),
                   ),
                 ),
                 Container(
@@ -409,12 +410,12 @@ class _SearchResultsCard extends StatelessWidget {
                   margin: const EdgeInsets.only(right: 3),
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    color: kTourAccent,
+                    color: TourPalette.teal,
                   ),
                   child: const Icon(
                     Icons.arrow_forward_rounded,
                     size: 11,
-                    color: Colors.white,
+                    color: TourPalette.white,
                   ),
                 ),
               ],
@@ -456,7 +457,11 @@ class _PrivacyCard extends StatelessWidget {
     return _Glass(
       child: Row(
         children: [
-          const Icon(Icons.lock_outline_rounded, size: 18, color: kTourAccent),
+          const Icon(
+            Icons.lock_outline_rounded,
+            size: 18,
+            color: TourPalette.teal,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -468,7 +473,7 @@ class _PrivacyCard extends StatelessWidget {
                   maxLines: 1,
                   style: _small(
                     context,
-                    color: kTourText,
+                    color: TourPalette.text,
                     weight: FontWeight.w700,
                     size: 10.5,
                   ),
@@ -521,7 +526,7 @@ class _NoteCard extends StatelessWidget {
                     maxLines: 1,
                     style: _small(
                       context,
-                      color: kTourText,
+                      color: TourPalette.text,
                       weight: FontWeight.w700,
                       size: 10.5,
                     ),
@@ -566,9 +571,9 @@ class _DayCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: TourPalette.white,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: Colors.white),
+        border: Border.all(color: TourPalette.white),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.md),
@@ -586,8 +591,8 @@ class _DayCard extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.transparent,
-                    const Color(0xFF10211F).withValues(alpha: 0.7),
+                    AppColors.transparent,
+                    TourPalette.text.withValues(alpha: 0.7),
                   ],
                   stops: const [0.35, 1],
                 ),
@@ -606,7 +611,7 @@ class _DayCard extends StatelessWidget {
                     maxLines: 1,
                     style: _small(
                       context,
-                      color: Colors.white.withValues(alpha: 0.85),
+                      color: TourPalette.white.withValues(alpha: 0.85),
                       weight: FontWeight.w700,
                       size: 8.5,
                     ).copyWith(letterSpacing: 1),
@@ -616,7 +621,7 @@ class _DayCard extends StatelessWidget {
                     '${_months[now.month - 1]} ${now.day}',
                     maxLines: 1,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: Colors.white,
+                      color: TourPalette.white,
                       fontWeight: FontWeight.w700,
                       fontSize: 15,
                     ),
@@ -626,7 +631,7 @@ class _DayCard extends StatelessWidget {
                     maxLines: 1,
                     style: _small(
                       context,
-                      color: Colors.white.withValues(alpha: 0.85),
+                      color: TourPalette.white.withValues(alpha: 0.85),
                       size: 9.5,
                     ),
                   ),
@@ -664,7 +669,7 @@ class _PeopleCard extends StatelessWidget {
                       height: 26,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                        border: Border.all(color: TourPalette.white, width: 2),
                       ),
                       child: ClipOval(
                         child: Image.asset(
@@ -692,7 +697,7 @@ class _PeopleCard extends StatelessWidget {
                     maxLines: 1,
                     style: _small(
                       context,
-                      color: kTourText,
+                      color: TourPalette.text,
                       weight: FontWeight.w700,
                       size: 10.5,
                     ),
@@ -731,14 +736,14 @@ class _ThenNowCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
           decoration: BoxDecoration(
-            color: const Color(0xFF10211F).withValues(alpha: 0.55),
+            color: TourPalette.text.withValues(alpha: 0.55),
             borderRadius: BorderRadius.circular(99),
           ),
           child: Text(
             label,
             style: _small(
               context,
-              color: Colors.white,
+              color: TourPalette.white,
               weight: FontWeight.w700,
               size: 8,
             ),
@@ -749,9 +754,9 @@ class _ThenNowCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: TourPalette.white,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: Colors.white),
+        border: Border.all(color: TourPalette.white),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.md),
@@ -779,7 +784,7 @@ class _ThenNowCard extends StatelessWidget {
                   top: 0,
                   bottom: 0,
                   width: 2,
-                  child: const ColoredBox(color: Colors.white),
+                  child: const ColoredBox(color: TourPalette.white),
                 ),
                 Positioned(
                   left: x - 11,
@@ -788,11 +793,11 @@ class _ThenNowCard extends StatelessWidget {
                     width: 22,
                     height: 22,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: TourPalette.white,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.25),
+                          color: TourPalette.black.withValues(alpha: 0.25),
                           blurRadius: 6,
                           offset: const Offset(0, 2),
                         ),
@@ -804,12 +809,12 @@ class _ThenNowCard extends StatelessWidget {
                         Icon(
                           Icons.chevron_left_rounded,
                           size: 11,
-                          color: kTourAccent,
+                          color: TourPalette.teal,
                         ),
                         Icon(
                           Icons.chevron_right_rounded,
                           size: 11,
-                          color: kTourAccent,
+                          color: TourPalette.teal,
                         ),
                       ],
                     ),
@@ -1001,9 +1006,9 @@ class _VideoCardState extends State<_VideoCard>
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: TourPalette.white,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: Colors.white),
+        border: Border.all(color: TourPalette.white),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.md),
@@ -1046,7 +1051,7 @@ class _VideoCardState extends State<_VideoCard>
                           height: 30 + 26 * u,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.white.withValues(
+                            color: TourPalette.white.withValues(
                               alpha: 0.42 * (1 - u),
                             ),
                           ),
@@ -1060,13 +1065,13 @@ class _VideoCardState extends State<_VideoCard>
                             width: 30,
                             height: 30,
                             decoration: const BoxDecoration(
-                              color: Colors.white,
+                              color: TourPalette.white,
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
                               Icons.play_arrow_rounded,
                               size: 22,
-                              color: kTourAccent,
+                              color: TourPalette.teal,
                             ),
                           ),
                         ),
@@ -1089,9 +1094,9 @@ class _VideoCardState extends State<_VideoCard>
                   child: LinearProgressIndicator(
                     value: progress,
                     minHeight: 3,
-                    backgroundColor: Colors.white.withValues(alpha: 0.5),
+                    backgroundColor: TourPalette.white.withValues(alpha: 0.5),
                     valueColor: const AlwaysStoppedAnimation<Color>(
-                      Colors.white,
+                      TourPalette.white,
                     ),
                   ),
                 ),

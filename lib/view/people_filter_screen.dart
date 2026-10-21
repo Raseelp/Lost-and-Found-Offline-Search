@@ -518,7 +518,7 @@ class _ScopeBar extends StatelessWidget {
     return Row(
       children: [
         Material(
-          color: Colors.transparent,
+          color: AppColors.transparent,
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(AppRadius.pill),

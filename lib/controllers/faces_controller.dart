@@ -851,14 +851,14 @@ class FacesController extends GetxController {
           Get.closeAllSnackbars();
           undoMerge(recordId);
         },
-        child: const Text('Undo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        child: const Text('Undo', style: TextStyle(color: AppColors.onMedia, fontWeight: FontWeight.w700)),
       ),
       duration: const Duration(seconds: 8),
       snackPosition: SnackPosition.BOTTOM,
       // Clear of the floating bar.
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 110),
       backgroundColor: AppColors.ink,
-      colorText: Colors.white,
+      colorText: AppColors.onMedia,
       borderRadius: 14,
     );
   }

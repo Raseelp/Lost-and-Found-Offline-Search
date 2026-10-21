@@ -9,6 +9,7 @@ import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/view/on_this_day_screen.dart';
 import 'package:lost_and_found/view/person_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Memories: "on this day" (the card on the Library tab and its screen), "then and now" for a person,
 /// and the settings of the daily notification.
@@ -23,6 +24,13 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
 
   OnThisDay today = OnThisDay.empty;
   bool loaded = false;
+
+  /// What the card is called while collections are chosen for export (next to the real collections' ids).
+  static const String selectionId = 'on-this-day';
+
+  /// Whether the user took the card off the Collections tab. Kept; undone with [restore].
+  bool hidden = false;
+  static const String _hiddenKey = 'on_this_day_hidden';
 
   /// Set while the home screen is up: a tapped notification opens its memory only then.
   bool homeReady = false;
@@ -39,6 +47,30 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
     super.onInit();
     WidgetsBinding.instance.addObserver(this);
     unawaited(loadSettings());
+    unawaited(_loadHidden());
+  }
+
+  Future<void> _loadHidden() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      hidden = prefs.getBool(_hiddenKey) ?? false;
+      update();
+    } catch (e) {
+      debugPrint('on this day: could not read hidden: $e');
+    }
+  }
+
+  /// Takes the card off the Collections tab (or brings it back). The screen stays reachable from
+  /// the daily notification either way.
+  Future<void> setHidden(bool value) async {
+    hidden = value;
+    update();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_hiddenKey, value);
+    } catch (e) {
+      debugPrint('on this day: could not save hidden: $e');
+    }
   }
 
   @override

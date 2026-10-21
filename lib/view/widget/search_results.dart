@@ -12,6 +12,7 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/utils/media_view_route.dart';
 import 'package:lost_and_found/view/image_full_screen.dart';
 import 'package:lost_and_found/view/video_full_screen.dart';
+import 'package:lost_and_found/view/widget/grid_video_layer.dart';
 import 'package:lost_and_found/view/widget/moment_badge.dart';
 
 // Higher decode caps requested only for a bento tile big enough to need
@@ -666,6 +667,27 @@ class _RevealGateState extends State<_RevealGate> {
   }
 }
 
+// The small play mark in the corner of a video's tile.
+class _PlayMark extends StatelessWidget {
+  const _PlayMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.scrim.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: const Icon(
+        Icons.play_arrow_rounded,
+        color: AppColors.onMedia,
+        size: 13,
+      ),
+    );
+  }
+}
+
 class _ResultTile extends StatefulWidget {
   const _ResultTile({
     required this.bytes,
@@ -775,7 +797,7 @@ class _ResultTileState extends State<_ResultTile>
   Widget build(BuildContext context) {
     final activeBytes = _upgradedBytes ?? widget.bytes;
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.lg),
         onTap: widget.onTap,
@@ -859,11 +881,11 @@ class _ResultTileState extends State<_ResultTile>
                                       begin: Alignment(-1.6 + 3.2 * t, -1),
                                       end: Alignment(-0.5 + 3.2 * t, 1),
                                       colors: [
-                                        Colors.transparent,
+                                        AppColors.transparent,
                                         AppColors.primaryFocus.withValues(
                                           alpha: sheenStrength * 0.16,
                                         ),
-                                        Colors.transparent,
+                                        AppColors.transparent,
                                       ],
                                     ),
                                   ),
@@ -891,6 +913,12 @@ class _ResultTileState extends State<_ResultTile>
                       ),
                     ),
                   ),
+                  // A video plays its silent preview here when it is the one the grid is playing; the rest of the
+                  // time it is the picture with a small play mark.
+                  if (widget.isVideo)
+                    widget.uri == null
+                        ? const Positioned(right: 6, bottom: 6, child: _PlayMark())
+                        : GridVideoLayer(uri: widget.uri!, idleBadge: const _PlayMark()),
                   if (widget.isNew)
                     Positioned(
                       left: 6,
@@ -904,26 +932,6 @@ class _ResultTileState extends State<_ResultTile>
                     top: 0,
                     child: MomentTag(uri: widget.uri, compact: constraints.maxWidth < 96),
                   ),
-                  if (widget.isVideo)
-                    Positioned(
-                      right: 6,
-                      bottom: 6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(AppRadius.pill),
-                        ),
-                        child: const Icon(
-                          Icons.play_arrow_rounded,
-                          color: Colors.white,
-                          size: 13,
-                        ),
-                      ),
-                    ),
                 ],
               );
             },
@@ -953,7 +961,7 @@ class _NewTag extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.primary,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.4),
+                  border: Border.all(color: AppColors.onMedia, width: 1.4),
                 ),
               )
             : Container(
@@ -961,7 +969,7 @@ class _NewTag extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.primary,
                   borderRadius: BorderRadius.circular(AppRadius.pill),
-                  border: Border.all(color: Colors.white.withValues(alpha: .85), width: 1),
+                  border: Border.all(color: AppColors.onMedia.withValues(alpha: .85), width: 1),
                 ),
                 child: const Text(
                   'NEW',
@@ -990,7 +998,7 @@ class _LayoutPickerButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.pill),
         onTap: () => _showLayoutPicker(context, controller),
@@ -1029,7 +1037,7 @@ class _LayoutPickerButton extends StatelessWidget {
 void _showLayoutPicker(BuildContext context, NativeController controller) {
   showModalBottomSheet<void>(
     context: context,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.transparent,
     builder: (_) => _LayoutSheet(controller: controller),
   );
 }

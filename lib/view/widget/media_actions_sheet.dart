@@ -15,7 +15,7 @@ void showMediaActionsSheet(
 }) {
   showModalBottomSheet<void>(
     context: context,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.transparent,
     builder: (_) => _MediaActionsSheet(
       uri: uri,
       isVideo: isVideo,

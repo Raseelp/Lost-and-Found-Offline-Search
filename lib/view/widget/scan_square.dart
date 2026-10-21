@@ -4,11 +4,11 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lost_and_found/utils/palettes/scan_palette.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/view/widget/chip_art.dart';
-import 'package:lost_and_found/view/widget/library_orbit.dart';
 
 // The Library page's scanning hero: a rounded square that is the scan, and shows what is
 // happening inside it.
@@ -280,7 +280,7 @@ Future<List<Color>?> _patchTones(ui.Image image) async {
     return [
       for (var k = 0; k < 49; k++)
         sums[k * 4 + 3] == 0
-            ? const Color(0xFF808080)
+            ? ScanPalette.gray500
             : Color.fromARGB(255, sums[k * 4] ~/ sums[k * 4 + 3], sums[k * 4 + 1] ~/ sums[k * 4 + 3], sums[k * 4 + 2] ~/ sums[k * 4 + 3]),
     ];
   } catch (_) {
@@ -291,7 +291,7 @@ Future<List<Color>?> _patchTones(ui.Image image) async {
 // Number [i] of a photo's vector (-1..1): derived from the photo's own colours, so each photo
 // gets its own list. (Illustrative: the real vector is made by the model, not by the screen.)
 double _vectorValue(List<Color>? tones, int i) {
-  final tone = tones == null ? const Color(0xFF808080) : tones[(i * 7) % 49];
+  final tone = tones == null ? ScanPalette.gray500 : tones[(i * 7) % 49];
   final v = math.sin((tone.r * 12.9898 + tone.g * 78.233 + tone.b * 37.719) * (i + 1) * 3.1) * 43758.5453;
   return ((v - v.floorToDouble()) * 2 - 1) * .98;
 }
@@ -1402,7 +1402,7 @@ class _CompleteTexts extends StatelessWidget {
               Text(
                 '${summary.people} ${summary.people == 1 ? 'person' : 'people'} found',
                 style: textTheme.bodySmall?.copyWith(
-                  color: orbitFaceAccent,
+                  color: AppColors.faceAccent,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1519,7 +1519,7 @@ class _SquarePainter extends CustomPainter {
     }
     _c.saveLayer(
       const Rect.fromLTWH(0, 0, _sheet, _sheet),
-      Paint()..color = Colors.white.withValues(alpha: alpha.clamp(0.0, 1.0)),
+      Paint()..color = ScanPalette.white.withValues(alpha: alpha.clamp(0.0, 1.0)),
     );
     body();
     _c.restore();
@@ -1532,8 +1532,8 @@ class _SquarePainter extends CustomPainter {
   // scan. The one coming up trains (a pattern runs up and down it), a lane that has just locked
   // flashes along its length, and packets of data run along the lanes that are up.
   void _wires(double now) {
-    const gold = Color(0xFFE9C65C);
-    const copper = Color(0xFFD98F5E);
+    const gold = ScanPalette.gold350;
+    const copper = ScanPalette.orange400;
     final scene = this.scene;
     for (var bar = 0; bar < 2; bar++) {
       final training = scene._training[bar];
@@ -1563,7 +1563,7 @@ class _SquarePainter extends CustomPainter {
             ..style = PaintingStyle.stroke
             ..strokeWidth = 2.8
             ..strokeCap = StrokeCap.round
-            ..color = Colors.white.withValues(alpha: .9 * (1 - f * .6)),
+            ..color = ScanPalette.white.withValues(alpha: .9 * (1 - f * .6)),
         );
       }
       // The lane being trained: a short bright pattern running up it and down again.
@@ -1571,8 +1571,8 @@ class _SquarePainter extends CustomPainter {
         for (var k = 0; k < 2; k++) {
           final f = ((now * 1.5 + k * .5) % 1);
           final pos = chipLanePoint(bar, training, f);
-          _c.drawCircle(pos, 3.2, Paint()..color = Colors.white.withValues(alpha: .22));
-          _c.drawCircle(pos, 1.4, Paint()..color = Colors.white.withValues(alpha: .85));
+          _c.drawCircle(pos, 3.2, Paint()..color = ScanPalette.white.withValues(alpha: .22));
+          _c.drawCircle(pos, 1.4, Paint()..color = ScanPalette.white.withValues(alpha: .85));
         }
       }
     }
@@ -1585,7 +1585,7 @@ class _SquarePainter extends CustomPainter {
     final c = _c;
     for (final packet in scene._packets) {
       final t = packet.t.clamp(0.0, 1.0);
-      final color = packet.bar == 0 ? const Color(0xFFFFF1B8) : const Color(0xFFFFD2B0);
+      final color = packet.bar == 0 ? ScanPalette.gold150 : ScanPalette.orange150;
       final fade = packet.t > 1 ? 1 - (packet.t - 1) / .1 : 1.0;
       c.drawPath(
         chipLaneSegment(packet.bar, packet.wire, t - .2, t),
@@ -1597,7 +1597,7 @@ class _SquarePainter extends CustomPainter {
       );
       final b = chipLanePoint(packet.bar, packet.wire, t);
       c.drawCircle(b, 3.4, Paint()..color = color.withValues(alpha: .25 * fade));
-      c.drawCircle(b, 1.5, Paint()..color = Colors.white.withValues(alpha: .95 * fade));
+      c.drawCircle(b, 1.5, Paint()..color = ScanPalette.white.withValues(alpha: .95 * fade));
     }
   }
 
@@ -1609,8 +1609,8 @@ class _SquarePainter extends CustomPainter {
     const left = 8.0;
     final pitch = (_strip.width - 2 * left) / cols;
     final written = scene._cellsWritten;
-    final dim = Paint()..color = Colors.white.withValues(alpha: .1);
-    final lit = Paint()..color = _glow.withValues(alpha: .8);
+    final dim = Paint()..color = ScanPalette.white.withValues(alpha: .1);
+    final lit = Paint()..color = ScanPalette.glow.withValues(alpha: .8);
     for (var k = 0; k < _memoryCellCount; k++) {
       final row = k ~/ cols, col = k % cols;
       final cell = Rect.fromLTWH(
@@ -1625,7 +1625,7 @@ class _SquarePainter extends CustomPainter {
         final f = (now - at) / .8;
         c.drawRRect(
           RRect.fromRectAndRadius(cell.inflate(1.2 * (1 - f)), const Radius.circular(1)),
-          Paint()..color = Colors.white.withValues(alpha: .9 * (1 - f)),
+          Paint()..color = ScanPalette.white.withValues(alpha: .9 * (1 - f)),
         );
       }
     }
@@ -1634,7 +1634,7 @@ class _SquarePainter extends CustomPainter {
       final cell = Rect.fromLTWH(_strip.left + left + col * pitch + .5, _strip.top + 2.2 + row * 3.8, pitch - 1.1, 2.6);
       c.drawRRect(
         RRect.fromRectAndRadius(cell.inflate(.8), const Radius.circular(1)),
-        Paint()..color = _glow.withValues(alpha: .25 + .55 * (.5 + .5 * math.sin(now * 9))),
+        Paint()..color = ScanPalette.glow.withValues(alpha: .25 + .55 * (.5 + .5 * math.sin(now * 9))),
       );
     }
   }
@@ -1642,7 +1642,7 @@ class _SquarePainter extends CustomPainter {
   // ---- helpers ----
 
   Paint _imagePaint(double alpha) =>
-      Paint()..color = Colors.white.withValues(alpha: alpha.clamp(0.0, 1.0));
+      Paint()..color = ScanPalette.white.withValues(alpha: alpha.clamp(0.0, 1.0));
 
   void _text(
     String text,
@@ -1678,7 +1678,7 @@ class _SquarePainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5
-        ..color = Colors.white.withValues(alpha: alpha),
+        ..color = ScanPalette.white.withValues(alpha: alpha),
     );
   }
 
@@ -1687,7 +1687,7 @@ class _SquarePainter extends CustomPainter {
   // The strip: the photos waiting for their faces (the FACE bar fills as the queue does).
   void _queueStrip(double now) {
     final loadStart = scene._loadStart[0];
-    if (loadStart >= 0) _memoryWeights(now, ((now - loadStart) / _loadSeconds).clamp(0.0, 1.0), _glow, 1);
+    if (loadStart >= 0) _memoryWeights(now, ((now - loadStart) / _loadSeconds).clamp(0.0, 1.0), ScanPalette.glow, 1);
     _memoryCells(now);
     for (final tile in scene._queue) {
       _thumb(tile.pic, _tileRect(tile.x), 1);
@@ -1701,7 +1701,7 @@ class _SquarePainter extends CustomPainter {
     final y0 = _photoBox.bottom + 3.4, y1 = _strip.top - 0.5;
     for (var i = 0; i < 7; i++) {
       final x = _strip.left + 6 + 17 + i * 38;
-      c.drawLine(Offset(x, y0), Offset(x, y1), Paint()..strokeWidth = 1.4..color = const Color(0xFFD6B85A).withValues(alpha: .35));
+      c.drawLine(Offset(x, y0), Offset(x, y1), Paint()..strokeWidth = 1.4..color = ScanPalette.gold400.withValues(alpha: .35));
       if (energy > .02) {
         // A short run of light, starting a little apart on each line.
         final f = ((now * 2.2 + i * .17) % 1);
@@ -1712,7 +1712,7 @@ class _SquarePainter extends CustomPainter {
           Paint()
             ..strokeWidth = 1.8
             ..strokeCap = StrokeCap.round
-            ..color = _glow.withValues(alpha: .95 * energy),
+            ..color = ScanPalette.glow.withValues(alpha: .95 * energy),
         );
       }
     }
@@ -1721,7 +1721,6 @@ class _SquarePainter extends CustomPainter {
   // ---- waiting ----
 
   // The light of things working on the dark die.
-  static const Color _glow = Color(0xFF7FE3CC);
 
   static final Map<int, List<Rect>> _blockCache = {};
   List<Rect> get _blocks => _blockCache.putIfAbsent(scene._dieColumns, () => chipDieBlocks(_photoBox, scene._dieColumns));
@@ -1744,7 +1743,7 @@ class _SquarePainter extends CustomPainter {
       final activity = .5 + .2 * math.sin(now * (1.7 + i * .29) + i * 1.9) + .1 * math.sin(now * 7.3 + i * 3.1);
       regions.add((_blocks[i], (on * (activity + .5 * flash)).clamp(0.0, 1.0)));
     }
-    paintChipDieLit(_c, _photoBox, scene._dieColumns, regions, _glow);
+    paintChipDieLit(_c, _photoBox, scene._dieColumns, regions, ScanPalette.glow);
   }
 
   // How long the model takes to be loaded in the picture (the chip's part of the story).
@@ -1768,7 +1767,7 @@ class _SquarePainter extends CustomPainter {
   void _memoryWeights(double now, double f, Color color, double alpha) {
     // Once it is all in, the data does not change: it is one picture, not hundreds of rectangles
     // every frame.
-    if (f >= 1 && alpha == 1 && color == _glow) {
+    if (f >= 1 && alpha == 1 && color == ScanPalette.glow) {
       paintChipCached(_c, 'weights', _strip.inflate(4), (canvas) {
         final saved = _canvas;
         _canvas = canvas;
@@ -1801,7 +1800,7 @@ class _SquarePainter extends CustomPainter {
           h = _hash(h + 7);
           final w = 2.0 + h % 7;
           final shade = .4 + .5 * ((h >> 8) % 100) / 100;
-          paint.color = (newest ? Colors.white : color).withValues(alpha: (newest ? .95 : shade) * level);
+          paint.color = (newest ? ScanPalette.white : color).withValues(alpha: (newest ? .95 : shade) * level);
           c.drawRect(Rect.fromLTWH(x, inner.top + r * rowH + .3, math.min(w, inner.right - x), rowH - .8), paint);
           x += w + 1 + (h >> 4) % 2;
         }
@@ -1868,7 +1867,7 @@ class _SquarePainter extends CustomPainter {
           Offset(r.right - 1, r.top + r.height * s),
           Paint()
             ..strokeWidth = 1.2
-            ..color = Colors.white.withValues(alpha: .85 * alpha),
+            ..color = ScanPalette.white.withValues(alpha: .85 * alpha),
         );
       } else if (receiving && s >= 1 && f < 1) {
         regions.add((blocks[i], .6 * alpha));
@@ -1880,7 +1879,7 @@ class _SquarePainter extends CustomPainter {
   }
 
   // The corners of a square, like the frame of a viewfinder.
-  void _brackets(Rect r, double alpha, bool small, {Color color = Colors.white}) {
+  void _brackets(Rect r, double alpha, bool small, {Color color = ScanPalette.white}) {
     if (alpha <= .01) return;
     final len = r.width * .15;
     final p = Paint()
@@ -1914,7 +1913,7 @@ class _SquarePainter extends CustomPainter {
       if (indeterminate) {
         _discovering(now, scene.widget.discovered);
       } else {
-        _waiting(now, _glow, _ease(_seg(now - scene._idleSince, .3, .9)));
+        _waiting(now, ScanPalette.glow, _ease(_seg(now - scene._idleSince, .3, .9)));
       }
       return;
     }
@@ -1973,7 +1972,7 @@ class _SquarePainter extends CustomPainter {
       c.clipRect(crop, clipOp: ui.ClipOp.difference);
       c.clipRRect(RRect.fromRectAndRadius(whole, Radius.circular(radius)));
       c.drawImageRect(pic.image, Rect.fromLTWH(0, 0, pic.w, pic.h), whole, _imagePaint(a * (1 - cut)));
-      c.drawRect(whole, Paint()..color = Colors.black.withValues(alpha: .55 * dim * (1 - cut) * a));
+      c.drawRect(whole, Paint()..color = ScanPalette.black.withValues(alpha: .55 * dim * (1 - cut) * a));
       c.restore();
     }
     // The square.
@@ -1998,7 +1997,7 @@ class _SquarePainter extends CustomPainter {
       final gap = split * (small ? .6 : 1);
       c.save();
       c.clipRRect(squareShape);
-      c.drawRect(square, Paint()..color = const Color(0xFF0B1210).withValues(alpha: .55 * split * a * overlay));
+      c.drawRect(square, Paint()..color = ScanPalette.mint950.withValues(alpha: .55 * split * a * overlay));
       final tint = Paint();
       for (var k = 0; k < 49; k++) {
         final r = Rect.fromLTWH(square.left + (k % 7) * cw, square.top + (k ~/ 7) * cw, cw, cw);
@@ -2012,7 +2011,7 @@ class _SquarePainter extends CustomPainter {
         if (k < read) {
           final fresh = (1 - (read - k) / 6).clamp(0.0, 1.0);
           final base = tones?[k] ?? AppColors.primary;
-          tint.color = Color.lerp(base, Colors.white, fresh * .55)!.withValues(alpha: (mosaic * a * overlay).clamp(0.0, 1.0));
+          tint.color = Color.lerp(base, ScanPalette.white, fresh * .55)!.withValues(alpha: (mosaic * a * overlay).clamp(0.0, 1.0));
           c.drawRect(inner, tint);
         }
       }
@@ -2020,14 +2019,14 @@ class _SquarePainter extends CustomPainter {
         final k = read.floor();
         c.drawRect(
           Rect.fromLTWH(square.left, square.top + (k ~/ 7) * cw, square.width, cw),
-          Paint()..color = Colors.white.withValues(alpha: .1 * overlay),
+          Paint()..color = ScanPalette.white.withValues(alpha: .1 * overlay),
         );
         c.drawRect(
           Rect.fromLTWH(square.left + (k % 7) * cw, square.top + (k ~/ 7) * cw, cw, cw).deflate(.5),
           Paint()
             ..style = PaintingStyle.stroke
             ..strokeWidth = small ? 1.2 : 2
-            ..color = Colors.white.withValues(alpha: overlay),
+            ..color = ScanPalette.white.withValues(alpha: overlay),
         );
       }
       c.restore();
@@ -2043,8 +2042,8 @@ class _SquarePainter extends CustomPainter {
       final line = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = small ? .7 : 1
-        ..color = Colors.white.withValues(alpha: .6 * look * overlay);
-      final dot = Paint()..color = Colors.white.withValues(alpha: .9 * look * overlay);
+        ..color = ScanPalette.white.withValues(alpha: .6 * look * overlay);
+      final dot = Paint()..color = ScanPalette.white.withValues(alpha: .9 * look * overlay);
       Offset center(int k) => Offset(square.left + (k % 7 + .5) * cw, square.top + (k ~/ 7 + .5) * cw);
       for (var j = 0; j < (small ? 7 : 12); j++) {
         final r = math.Random(seed ^ (bucket * 31 + j * 7919));
@@ -2076,10 +2075,10 @@ class _SquarePainter extends CustomPainter {
       final fade = (vector * overlay).clamp(0.0, 1.0);
       c.save();
       c.clipRRect(squareShape);
-      c.saveLayer(panel.inflate(4), Paint()..color = Colors.white.withValues(alpha: fade));
+      c.saveLayer(panel.inflate(4), Paint()..color = ScanPalette.white.withValues(alpha: fade));
       c.drawRRect(
         RRect.fromRectAndRadius(panel, Radius.circular(small ? 3 : 5)),
-        Paint()..color = Colors.black.withValues(alpha: .62),
+        Paint()..color = ScanPalette.black.withValues(alpha: .62),
       );
       final cellW = panel.width / cols, cellH = panel.height / rows;
       final n = cols * rows;
@@ -2119,9 +2118,9 @@ class _SquarePainter extends CustomPainter {
             fontWeight: FontWeight.w600,
             height: 1,
             color: switch (look) {
-              0 => Colors.white.withValues(alpha: .5),
-              1 => _glow,
-              _ => Colors.white,
+              0 => ScanPalette.white.withValues(alpha: .5),
+              1 => ScanPalette.glow,
+              _ => ScanPalette.white,
             },
           ),
         ),
@@ -2192,7 +2191,7 @@ class _SquarePainter extends CustomPainter {
         }
         c.drawPath(
           path,
-          Paint()..color = const Color(0xFF181234).withValues(alpha: dim * a),
+          Paint()..color = ScanPalette.indigo850.withValues(alpha: dim * a),
         );
       }
       for (var i = 0; i < shot.faces.length; i++) {
@@ -2208,9 +2207,9 @@ class _SquarePainter extends CustomPainter {
             rad,
             Paint()
               ..shader = ui.Gradient.radial(centre, rad, [
-                const Color(0xFF70689E).withValues(alpha: .97 * l * a),
-                const Color(0xFF70689E).withValues(alpha: .95 * l * a),
-                const Color(0xFF70689E).withValues(alpha: 0),
+                ScanPalette.blue500.withValues(alpha: .97 * l * a),
+                ScanPalette.blue500.withValues(alpha: .95 * l * a),
+                ScanPalette.blue500.withValues(alpha: 0),
               ], [0, .72, 1]),
           );
         }
@@ -2222,7 +2221,7 @@ class _SquarePainter extends CustomPainter {
             ..style = PaintingStyle.stroke
             ..strokeWidth = 2.2
             ..strokeCap = StrokeCap.round
-            ..color = Colors.white.withValues(alpha: al);
+            ..color = ScanPalette.white.withValues(alpha: al);
           for (final corner in [
             (box.topLeft, 1.0, 1.0),
             (box.topRight, -1.0, 1.0),
@@ -2245,14 +2244,14 @@ class _SquarePainter extends CustomPainter {
           );
           c.drawRRect(
             pill,
-            Paint()..color = orbitFaceAccent.withValues(alpha: al * la),
+            Paint()..color = AppColors.faceAccent.withValues(alpha: al * la),
           );
           if (al * la > .01) {
             _text(
               e.score.toStringAsFixed(2),
               pill.outerRect.center,
               9,
-              Colors.white.withValues(alpha: al * la),
+              ScanPalette.white.withValues(alpha: al * la),
             );
           }
           if (e.landmarks.length >= 10) {
@@ -2262,14 +2261,14 @@ class _SquarePainter extends CustomPainter {
               if (s <= 0) continue;
               final p = at(e.landmarks[j * 2], e.landmarks[j * 2 + 1]);
               final r = 2.6 * math.max(0.0, s);
-              c.drawCircle(p, r, Paint()..color = Colors.white.withValues(alpha: al));
+              c.drawCircle(p, r, Paint()..color = ScanPalette.white.withValues(alpha: al));
               c.drawCircle(
                 p,
                 r,
                 Paint()
                   ..style = PaintingStyle.stroke
                   ..strokeWidth = 1.6
-                  ..color = orbitFaceAccent.withValues(alpha: al),
+                  ..color = AppColors.faceAccent.withValues(alpha: al),
               );
             }
           }
@@ -2299,7 +2298,7 @@ class _SquarePainter extends CustomPainter {
       final full = (baseR * 2.3).clamp(52.0, 92.0);
       final side = _lerp(_lerp(baseR * 2, full, l), 31.0, tr);
       if (face.matched && tr > 0 && tr < 1) {
-        _dashed(pos, end, orbitFaceAccent.withValues(alpha: .55 * math.sin(tr * math.pi)));
+        _dashed(pos, end, AppColors.faceAccent.withValues(alpha: .55 * math.sin(tr * math.pi)));
       }
       _alignedFace(
         shot.pic,
@@ -2357,9 +2356,9 @@ class _SquarePainter extends CustomPainter {
     final frame = Rect.fromCenter(center: centre, width: side, height: side);
     final shape = RRect.fromRectAndRadius(frame, Radius.circular(_lerp(5, side / 2, travel)));
     final calm = 1 - travel;
-    c.drawRRect(shape.shift(const Offset(0, 2)).inflate(1), Paint()..color = const Color(0xFF1E1446).withValues(alpha: .22 * calm));
-    c.drawRRect(shape.shift(const Offset(0, 4)).inflate(2), Paint()..color = const Color(0xFF1E1446).withValues(alpha: .1 * calm));
-    c.drawRRect(shape, Paint()..color = const Color(0xFF181234));
+    c.drawRRect(shape.shift(const Offset(0, 2)).inflate(1), Paint()..color = ScanPalette.indigo800.withValues(alpha: .22 * calm));
+    c.drawRRect(shape.shift(const Offset(0, 4)).inflate(2), Paint()..color = ScanPalette.indigo800.withValues(alpha: .1 * calm));
+    c.drawRRect(shape, Paint()..color = ScanPalette.indigo850);
 
     // The landmarks in the photo's pixels, and the transform that lands them on the template.
     final lm = [
@@ -2414,24 +2413,24 @@ class _SquarePainter extends CustomPainter {
         Offset(frame.right, frame.top + _template[0].dy * k),
         Paint()
           ..strokeWidth = .8
-          ..color = Colors.white.withValues(alpha: .4 * shown),
+          ..color = ScanPalette.white.withValues(alpha: .4 * shown),
       );
       final locked = _seg(straighten, .88, 1);
       final mark = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
-        ..color = orbitFaceAccent.withValues(alpha: shown);
+        ..color = AppColors.faceAccent.withValues(alpha: shown);
       final dotPaint = Paint();
       final turn = Offset(math.cos(angle), math.sin(angle)) * scale.toDouble();
       for (var j = 0; j < 5; j++) {
         final target = frame.topLeft + _template[j] * k;
         c.drawCircle(target, 2.6, mark);
         if (locked > 0) {
-          c.drawCircle(target, 2.6 * locked, dotPaint..color = Colors.white.withValues(alpha: .9 * locked * shown));
+          c.drawCircle(target, 2.6 * locked, dotPaint..color = ScanPalette.white.withValues(alpha: .9 * locked * shown));
         }
         final d = lm[j] - Offset(smx, smy);
         final p = frame.topLeft + at + Offset(d.dx * turn.dx - d.dy * turn.dy, d.dx * turn.dy + d.dy * turn.dx);
-        c.drawCircle(p, 1.7, dotPaint..color = Colors.white.withValues(alpha: shown));
+        c.drawCircle(p, 1.7, dotPaint..color = ScanPalette.white.withValues(alpha: shown));
         c.drawCircle(p, 1.7, mark..strokeWidth = 1.2);
       }
       c.restore();
@@ -2441,7 +2440,7 @@ class _SquarePainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.6
-        ..color = Colors.white.withValues(alpha: .95),
+        ..color = ScanPalette.white.withValues(alpha: .95),
     );
 
     // The head-turn gauge: the track runs from a turn of -1 to +1 (as a fraction of the eye
@@ -2455,18 +2454,18 @@ class _SquarePainter extends CustomPainter {
       final centreX = centre.dx;
       c.drawRRect(
         RRect.fromRectAndRadius(Rect.fromLTRB(centreX - half, y, centreX + half, y + 4), const Radius.circular(2)),
-        Paint()..color = Colors.white.withValues(alpha: .28 * gaugeShown),
+        Paint()..color = ScanPalette.white.withValues(alpha: .28 * gaugeShown),
       );
       c.drawRRect(
         RRect.fromRectAndRadius(Rect.fromLTRB(centreX - half * .55, y, centreX + half * .55, y + 4), const Radius.circular(2)),
-        Paint()..color = orbitFaceAccent.withValues(alpha: .9 * gaugeShown),
+        Paint()..color = AppColors.faceAccent.withValues(alpha: .9 * gaugeShown),
       );
       c.drawLine(
         Offset(centreX, y - 1),
         Offset(centreX, y + 5),
         Paint()
           ..strokeWidth = .8
-          ..color = Colors.white.withValues(alpha: .7 * gaugeShown),
+          ..color = ScanPalette.white.withValues(alpha: .7 * gaugeShown),
       );
       final x = centreX + yaw * half * needle;
       c.drawPath(
@@ -2475,7 +2474,7 @@ class _SquarePainter extends CustomPainter {
           ..lineTo(x - 2.6, y + 9.4)
           ..lineTo(x + 2.6, y + 9.4)
           ..close(),
-        Paint()..color = Colors.white.withValues(alpha: gaugeShown),
+        Paint()..color = ScanPalette.white.withValues(alpha: gaugeShown),
       );
     }
   }
@@ -2495,11 +2494,11 @@ class _SquarePainter extends CustomPainter {
       ..lineTo(p[3].dx, p[3].dy)
       ..lineTo(p[4].dx, p[4].dy)
       ..close();
-    c.drawPath(fill, Paint()..color = orbitFaceAccent.withValues(alpha: .22 * grow * alpha));
+    c.drawPath(fill, Paint()..color = AppColors.faceAccent.withValues(alpha: .22 * grow * alpha));
     final line = Paint()
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round
-      ..color = Colors.white.withValues(alpha: .85 * alpha);
+      ..color = ScanPalette.white.withValues(alpha: .85 * alpha);
     for (final edge in const [
       [0, 1], [0, 2], [1, 2], [2, 3], [2, 4], [3, 4], [0, 3], [1, 4],
     ]) {
@@ -2531,7 +2530,7 @@ class _SquarePainter extends CustomPainter {
   void _lookingForFaces(double now) {
     final history = scene._batchPics;
     if (history.isEmpty) {
-      _waiting(now, orbitFaceAccent, 1, kind: 1);
+      _waiting(now, AppColors.faceAccent, 1, kind: 1);
       return;
     }
     final pic = history[(now / 1.3).floor() % history.length];
@@ -2553,7 +2552,7 @@ class _SquarePainter extends CustomPainter {
         ..shader = ui.Gradient.linear(
           Offset(0, y - 18),
           Offset(0, y),
-          [orbitFaceAccent.withValues(alpha: 0), orbitFaceAccent.withValues(alpha: .35)],
+          [AppColors.faceAccent.withValues(alpha: 0), AppColors.faceAccent.withValues(alpha: .35)],
         ),
     );
     c.drawLine(
@@ -2561,7 +2560,7 @@ class _SquarePainter extends CustomPainter {
       Offset(dst.right, y),
       Paint()
         ..strokeWidth = 2
-        ..color = orbitFaceAccent,
+        ..color = AppColors.faceAccent,
     );
     c.restore();
   }
@@ -2596,7 +2595,7 @@ class _SquarePainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.3
-          ..color = Colors.white.withValues(alpha: .2),
+          ..color = ScanPalette.white.withValues(alpha: .2),
       );
       return;
     }
@@ -2606,7 +2605,7 @@ class _SquarePainter extends CustomPainter {
     c.translate(centre.dx, centre.dy);
     c.scale(pop);
     c.translate(-centre.dx, -centre.dy);
-    c.drawCircle(centre, 17, Paint()..color = Colors.white);
+    c.drawCircle(centre, 17, Paint()..color = ScanPalette.white);
     _crop(p.pic, p.src, centre, 15.5, 1);
     c.restore();
     final pulse = _seg(now - p.pulseAt, 0, .7);
@@ -2617,28 +2616,28 @@ class _SquarePainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.5
-          ..color = orbitFaceAccent.withValues(alpha: (1 - pulse) * .9),
+          ..color = AppColors.faceAccent.withValues(alpha: (1 - pulse) * .9),
       );
     }
     final badge = centre + const Offset(12.5, 12.5);
-    c.drawCircle(badge, 7.2, Paint()..color = orbitFaceAccent);
+    c.drawCircle(badge, 7.2, Paint()..color = AppColors.faceAccent);
     c.drawCircle(
       badge,
       7.2,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5
-        ..color = Colors.white,
+        ..color = ScanPalette.white,
     );
-    _text('${p.count}', badge, p.count > 99 ? 6.5 : 8.5, Colors.white);
+    _text('${p.count}', badge, p.count > 99 ? 6.5 : 8.5, ScanPalette.white);
     if (p.isNew && age < 3) {
       final pill = RRect.fromRectAndRadius(
         Rect.fromLTWH(centre.dx - 4, centre.dy + 8, 22, 12),
         const Radius.circular(6),
       );
       final fade = 1 - _ease(_seg(age, 2.5, 3));
-      c.drawRRect(pill, Paint()..color = orbitFaceAccent.withValues(alpha: fade));
-      _text('NEW', pill.outerRect.center, 8, Colors.white.withValues(alpha: fade));
+      c.drawRRect(pill, Paint()..color = AppColors.faceAccent.withValues(alpha: fade));
+      _text('NEW', pill.outerRect.center, 8, ScanPalette.white.withValues(alpha: fade));
     }
   }
 
@@ -2690,8 +2689,8 @@ class _Channel {
 }
 
 class _ScanStoryState extends State<_ScanStory> with SingleTickerProviderStateMixin {
-  static const _photosColor = Color(0xFFD9A93A);
-  static const _facesColor = orbitFaceAccent;
+  static const _photosColor = ScanPalette.gold450;
+  static const _facesColor = AppColors.faceAccent;
 
   late final AnimationController _sweep = AnimationController(
     vsync: this,

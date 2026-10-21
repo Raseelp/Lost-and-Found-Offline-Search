@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lost_and_found/services/native_services.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/widget/photo_faces_layer.dart';
@@ -257,13 +258,13 @@ class ZoomableImageState extends State<ZoomableImage> with SingleTickerProviderS
                     vertical: AppSpacing.sm,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.6),
+                    color: AppColors.scrim.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(AppRadius.pill),
                   ),
                   child: Text(
                     '${(_currentScale * 100).round()}%',
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.onMedia,
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
                     ),

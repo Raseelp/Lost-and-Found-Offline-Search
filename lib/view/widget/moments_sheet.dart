@@ -19,7 +19,7 @@ Future<void> showMomentsSheet(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.transparent,
     builder: (sheet) => _MomentsSheet(
       layoutFor: layoutFor,
       initialEveryone: everyone,
@@ -233,10 +233,10 @@ class _WhoSwitch extends StatelessWidget {
               height: 36,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: selected ? AppColors.canvas : Colors.transparent,
+                color: selected ? AppColors.canvas : AppColors.transparent,
                 borderRadius: BorderRadius.circular(AppRadius.pill),
                 border: Border.all(
-                  color: selected ? AppColors.hairline : Colors.transparent,
+                  color: selected ? AppColors.hairline : AppColors.transparent,
                 ),
               ),
               child: Text(
@@ -326,7 +326,7 @@ class _StoryRow extends StatelessWidget {
             width: 10,
             height: 10,
             decoration: BoxDecoration(
-              color: starred ? const Color(0xFFD59A3E) : AppColors.canvas,
+              color: starred ? AppColors.honey : AppColors.canvas,
               shape: BoxShape.circle,
               border: Border.all(
                 color: starred ? AppColors.canvas : AppColors.primary,
@@ -403,7 +403,7 @@ class _StoryRow extends StatelessWidget {
                           const Icon(
                             Icons.star_rounded,
                             size: 14,
-                            color: Color(0xFFD59A3E),
+                            color: AppColors.honey,
                           ),
                         ],
                       ],

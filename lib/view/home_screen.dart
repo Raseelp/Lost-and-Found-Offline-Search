@@ -246,7 +246,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                         final ids = {
                                           for (final id
                                               in collections.selectedIds)
-                                            ExportController.collectionKey(id),
+                                            id == MemoriesController.selectionId
+                                                ? ExportController.memoryKey
+                                                : ExportController.collectionKey(
+                                                    id,
+                                                  ),
                                         };
                                         if (ids.isEmpty) return;
                                         collections.stopSelecting();
@@ -996,7 +1000,7 @@ class _NavItem extends StatelessWidget {
             horizontal: selected ? 12 : (compact ? 10 : 14),
           ),
           decoration: BoxDecoration(
-            color: selected ? AppColors.primary : Colors.transparent,
+            color: selected ? AppColors.primary : AppColors.transparent,
             borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
           child: AnimatedSize(

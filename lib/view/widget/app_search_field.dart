@@ -91,7 +91,7 @@ class AppSearchField extends StatelessWidget {
               // Counts as part of the field for "tap outside", so clearing keeps the keyboard.
               return TextFieldTapRegion(
                 child: Material(
-                  color: Colors.transparent,
+                  color: AppColors.transparent,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(AppRadius.pill),
                     onTap: () {

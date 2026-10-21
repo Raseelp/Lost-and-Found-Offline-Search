@@ -14,7 +14,6 @@ import 'package:lost_and_found/utils/floating_bar.dart';
 import 'package:lost_and_found/view/widget/confirm_dialog.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/view/widget/library_orbit.dart';
-import 'package:lost_and_found/view/widget/on_this_day_card.dart';
 import 'package:lost_and_found/view/widget/scan_square.dart';
 
 // The list of indexed folders is switched off for now (it comes back with per-folder
@@ -83,11 +82,6 @@ class LibraryTab extends StatelessWidget {
                       failed: controller.totalFailed,
                     ),
             ),
-          ),
-          // This date in the past years of the library: there only when there is something from it.
-          OnThisDaySection(
-            visible: _hasLibrary(controller) && !scanning,
-            indexed: controller.totalEmbeddings,
           ),
           if (_showIndexedFolders &&
               controller.allIndexedFoldersList.isNotEmpty) ...[
@@ -252,12 +246,12 @@ class _Segmented<T> extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: option == value
                           ? AppColors.canvas
-                          : Colors.transparent,
+                          : AppColors.transparent,
                       borderRadius: BorderRadius.circular(AppRadius.pill),
                       border: Border.all(
                         color: option == value
                             ? AppColors.hairline
-                            : Colors.transparent,
+                            : AppColors.transparent,
                       ),
                     ),
                     child: FittedBox(
