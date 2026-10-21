@@ -1,0 +1,7 @@
+Sample videos for the tour: 4-second muted clips cut and re-encoded from CC0 videos on Wikimedia Commons (a still of each is the .jpg beside it).
+
+v_football.mp4 | File:Latvia-Gibraltar football 2026-03-31.webm | Mārtiņš Bruņenieks | CC0 | https://commons.wikimedia.org/wiki/File:Latvia-Gibraltar_football_2026-03-31.webm
+v_surf.mp4 | File:Body surfing a wave.webm | JaredMcKenzie | CC0 | https://commons.wikimedia.org/wiki/File:Body_surfing_a_wave.webm
+v_husky.mp4 | File:Howling Husky Dog.webm | Klaudya Teodora | CC0 | https://commons.wikimedia.org/wiki/File:Howling_Husky_Dog.webm
+v_tram.mp4 | File:Dublin snow benburb st.webm | MdeVicente | CC0 | https://commons.wikimedia.org/wiki/File:Dublin_snow_benburb_st.webm
+v_cooking.mp4 | File:Cooking Chicken and Rice.webm | Alabama Extension | CC0 | https://commons.wikimedia.org/wiki/File:Cooking_Chicken_and_Rice.webm

@@ -2,6 +2,22 @@ import java.util.Properties
 import java.io.FileInputStream
 
 
+// What this build was made from, shown in Settings: the short commit hash (with a "+" when the working tree had
+// changes that were not committed) and the date of that commit. "unknown" when git is not there.
+fun git(vararg args: String): String = try {
+    val process = ProcessBuilder(listOf("git") + args)
+        .directory(rootProject.projectDir.parentFile)
+        .redirectErrorStream(true)
+        .start()
+    val text = process.inputStream.bufferedReader().readText().trim()
+    if (process.waitFor() == 0) text else ""
+} catch (e: Exception) {
+    ""
+}
+val gitCommit: String = git("rev-parse", "--short=7", "HEAD").ifEmpty { "unknown" } +
+    if (git("status", "--porcelain").isNotEmpty()) "+" else ""
+val gitCommitDate: String = git("log", "-1", "--format=%cs").ifEmpty { "unknown" }
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -44,6 +60,8 @@ android {
         // Fallback for the "profile" build type, which Flutter adds
         // automatically and doesn't get its own override below.
         buildConfigField("String", "MODEL_BASE_URL", "\"http://10.0.2.2:8000\"")
+        buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
+        buildConfigField("String", "GIT_COMMIT_DATE", "\"$gitCommitDate\"")
     }
     signingConfigs {
         create("release") {

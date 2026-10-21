@@ -23,6 +23,8 @@ const SystemUiOverlayStyle kAppOverlayStyle = SystemUiOverlayStyle(
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  // The fonts are in assets/fonts: the app never goes to the internet for them.
+  GoogleFonts.config.allowRuntimeFetching = false;
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(kAppOverlayStyle);
   runApp(const LostAndFoundApp());

@@ -1,0 +1,15 @@
+Face pictures for the tour demos: CC0 portraits from Wikimedia Commons (Unsplash photographers), cropped to the face.
+
+noor.jpg | File:Brunette woman portrait (Unsplash).jpg | Christopher Campbell chrisjoelcampbell | CC0 | https://commons.wikimedia.org/wiki/File:Brunette_woman_portrait_(Unsplash).jpg
+leo.jpg | File:Man with crossed arms (Unsplash).jpg | Warren Wong wflwong | CC0 | https://commons.wikimedia.org/wiki/File:Man_with_crossed_arms_(Unsplash).jpg
+
+The three people shown as stacks on screen 3 (Maya, Sam, Messi) use several pictures of the same person, cropped to the face:
+maya.jpg | File:Laughing woman in floral dress (Unsplash).jpg | Brooke Cagle brookecagle | CC0 | https://commons.wikimedia.org/wiki/File:Laughing_woman_in_floral_dress_(Unsplash).jpg
+maya_2.jpg | File:Long-haired woman laughing (Unsplash).jpg | Brooke Cagle brookecagle | CC0 | https://commons.wikimedia.org/wiki/File:Long-haired_woman_laughing_(Unsplash).jpg
+maya_3.jpg | File:Woman in a field (Unsplash).jpg | Brooke Cagle brookecagle | CC0 | https://commons.wikimedia.org/wiki/File:Woman_in_a_field_(Unsplash).jpg
+sam.jpg | File:Sitting And Smiling (Unsplash).jpg | Brooke Cagle brookecagle | CC0 | https://commons.wikimedia.org/wiki/File:Sitting_And_Smiling_(Unsplash).jpg
+sam_2.jpg | File:Man with dreadlocks on stairs (Unsplash).jpg | Brooke Cagle brookecagle | CC0 | https://commons.wikimedia.org/wiki/File:Man_with_dreadlocks_on_stairs_(Unsplash).jpg
+sam_3.jpg | File:Man smiling on steps (Unsplash).jpg | Brooke Cagle brookecagle | CC0 | https://commons.wikimedia.org/wiki/File:Man_smiling_on_steps_(Unsplash).jpg
+messi.jpg | cropped from File:Lionel Messi White House 2026 (3x4 cropped).jpg | The White House | Public domain | https://commons.wikimedia.org/wiki/File:Lionel_Messi_White_House_2026_(3x4_cropped).jpg
+messi_2.jpg | cropped from File:Lionel Messi at Bernabeu.jpg (2012) | Addesolen | CC0 | https://commons.wikimedia.org/wiki/File:Lionel_Messi_at_Bernabeu.jpg
+suarez.jpg | cropped from File:2015 UEFA Super Cup 52.jpg (11 August 2015) | Олег Дубина (Oleh Dubyna) | CC BY-SA 3.0 (credit required, same licence) | https://commons.wikimedia.org/wiki/File:2015_UEFA_Super_Cup_52.jpg | https://creativecommons.org/licenses/by-sa/3.0/

@@ -1,18 +1,23 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:lost_and_found/controllers/collections_controller.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
 import 'package:lost_and_found/controllers/memories_controller.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
 import 'package:lost_and_found/models/model_status.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/app_links.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/hidden_people_screen.dart';
 import 'package:lost_and_found/view/merge_history_screen.dart';
 import 'package:lost_and_found/view/widget/confirm_dialog.dart';
+import 'package:lost_and_found/view/tour/first_run_tour.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -151,8 +156,7 @@ class SettingsScreen extends StatelessWidget {
                                 icon: Icons.videocam_outlined,
                                 title: 'Find people in videos',
                                 subtitle:
-                                    'After the photos, a few frames of each video are checked. Takes a while and uses battery. '
-                                    'Turned off, you can still scan any single video from its own screen.',
+                                    'Checks a few frames of each video after the photos. Takes a while and uses battery.',
                                 trailing: Switch(
                                   value: st.scanVideos,
                                   onChanged: faces.setScanVideos,
@@ -249,13 +253,26 @@ class SettingsScreen extends StatelessWidget {
                             icon: Icons.speed_rounded,
                             title: 'Performance logs',
                             subtitle:
-                                'Prints how long indexing and finding faces take, for tracking down what is slow. '
-                                'Read them with: adb logcat -s LostFoundBench',
+                                'Logs how long indexing and finding faces take. Read with: adb logcat -s LostFoundBench',
                             trailing: Switch(
                               value: controller.benchLogsEnabled,
                               onChanged: controller.setBenchLogsEnabled,
                             ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      const _GroupLabel('About'),
+                      _GroupCard(
+                        children: [
+                          _TapRow(
+                            icon: Icons.help_outline_rounded,
+                            title: 'Help',
+                            subtitle: 'A short tour of what the app does.',
+                            onTap: () => openHelpTour(context),
+                          ),
+                          const _BuildRow(),
+                          const _SourceRow(),
                         ],
                       ),
                       const SizedBox(height: AppSpacing.xl),
@@ -693,6 +710,94 @@ class _PermissionRow extends StatelessWidget {
   }
 }
 
+/// Which build this is, the way Telegram X lists it: the version, the build number and the commit it was made from
+/// (a "+" after the commit means there were changes that were not committed). Tapping copies it, for a bug report.
+class _BuildRow extends StatefulWidget {
+  const _BuildRow();
+
+  @override
+  State<_BuildRow> createState() => _BuildRowState();
+}
+
+class _BuildRowState extends State<_BuildRow> {
+  String? _text;
+
+  @override
+  void initState() {
+    super.initState();
+    NativeServices().buildInfo().then((info) {
+      if (!mounted || info == null) return;
+      final parts = [
+        'Version ${info['version']} (${info['build']})',
+        'commit ${info['commit']}',
+        if ('${info['commitDate']}' != 'unknown') '${info['commitDate']}',
+        if (info['debug'] == true || kDebugMode) 'debug build',
+      ];
+      setState(() => _text = parts.join(' · '));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = _text;
+    return InkWell(
+      onTap: text == null
+          ? null
+          : () async {
+              final messenger = ScaffoldMessenger.of(context);
+              await Clipboard.setData(
+                ClipboardData(text: 'Lost & Found $text'),
+              );
+              messenger
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  const SnackBar(content: Text('Build details copied.')),
+                );
+            },
+      child: _SettingsRow(
+        icon: Icons.info_outline_rounded,
+        title: 'Lost & Found',
+        subtitle: text ?? 'Version',
+      ),
+    );
+  }
+}
+
+/// A link to the project's source code.
+class _SourceRow extends StatelessWidget {
+  const _SourceRow();
+
+  Future<void> _open(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    var opened = false;
+    try {
+      opened = await launchUrl(
+        Uri.parse(kRepoUrl),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      opened = false;
+    }
+    if (!opened) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Could not open the link.')),
+        );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _TapRow(
+      icon: Icons.code_rounded,
+      title: 'Source code on GitHub',
+      subtitle: 'Free, ad-free and fully open source.',
+      onTap: () => _open(context),
+    );
+  }
+}
+
 // A settings row that does something when tapped - dimmed and inert when
 // [onTap] is null.
 class _TapRow extends StatelessWidget {
@@ -901,7 +1006,8 @@ class _MemoriesSection extends StatelessWidget {
                   _TapRow(
                     icon: Icons.notifications_off_outlined,
                     title: 'Notifications are off for this app',
-                    subtitle: 'Tap to open the system settings and turn them on.',
+                    subtitle:
+                        'Tap to open the system settings and turn them on.',
                     onTap: openAppSettings,
                   ),
                 if (s.enabled) ...[

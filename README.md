@@ -280,6 +280,13 @@ Settings) use their own tag:
 adb logcat -s LostFoundBench
 ```
 
+## Credits
+
+The first-run tour's sample photos and clips are CC0 or public domain, except the photo in the face demo
+(`assets/tour/photos/supercup.jpg`, and the face crop `assets/tour/faces/suarez.jpg` made from it), which is by
+Oleh Dubyna under CC BY-SA 3.0. Every source is listed in `assets/tour/photos/CREDITS.txt`,
+`assets/tour/faces/CREDITS.txt` and `assets/tour/videos/CREDITS.txt`.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
