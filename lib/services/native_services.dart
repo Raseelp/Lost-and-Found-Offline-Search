@@ -337,6 +337,14 @@ class NativeServices {
 
   Future<bool> openDownloads() async => await _channel.invokeMethod<bool>('openDownloads') ?? false;
 
+  static Future<Map<String, dynamic>?>? _buildInfo;
+
+  /// Which build of the app this is (version, build number, the commit it was made from), asked once.
+  Future<Map<String, dynamic>?> buildInfo() => _buildInfo ??= _channel
+      .invokeMapMethod<String, dynamic>('buildInfo')
+      .then<Map<String, dynamic>?>((m) => m)
+      .catchError((_) => null);
+
   static Future<Map<String, dynamic>?>? _deviceChip;
 
   /// The name of this phone's processor (maker, model, cores, architecture), asked once.

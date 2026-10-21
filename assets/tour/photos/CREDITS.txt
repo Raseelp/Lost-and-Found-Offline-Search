@@ -1,0 +1,44 @@
+Sample photos for the tour. All are CC0 (public domain dedication) from Wikimedia Commons, resized.
+
+dog_beach.jpg | File:Josie swims in Valois Bay.jpg | Carocaropilates | CC0 | https://commons.wikimedia.org/wiki/File:Josie_swims_in_Valois_Bay.jpg
+puppy.jpg | File:Labrador Retriever Chocolate puppy 03.jpg | Jacek Proszyk | CC0 | https://commons.wikimedia.org/wiki/File:Labrador_Retriever_Chocolate_puppy_03.jpg
+dog_adult.jpg | File:Labrador czekoladowy.jpg | Jacek Proszyk | CC0 | https://commons.wikimedia.org/wiki/File:Labrador_czekoladowy.jpg
+cake.jpg | File:Birthday Cake Bloomsburg, Pennsylvania.jpg | Tim-desser | CC0 | https://commons.wikimedia.org/wiki/File:Birthday_Cake_Bloomsburg,_Pennsylvania.jpg
+sunset.jpg | File:Juan Griego Sunset.jpg | Wilfredor | CC0 | https://commons.wikimedia.org/wiki/File:Juan_Griego_Sunset.jpg
+cat.jpg | File:Domestic shorthair cat portrait in grass.jpg | Pixnio | CC0 | https://commons.wikimedia.org/wiki/File:Domestic_shorthair_cat_portrait_in_grass.jpg
+hike.jpg | File:A group of friends on a casual hike.jpg | Altitonantis | CC0 | https://commons.wikimedia.org/wiki/File:A_group_of_friends_on_a_casual_hike.jpg
+snow_hike.jpg | File:Hiking up the mountan.jpg | Ardvac | CC0 | https://commons.wikimedia.org/wiki/File:Hiking_up_the_mountan.jpg
+running.jpg | File:Moscow, 2025-07-13 running event 06.jpg | Retired electrician | CC0 | https://commons.wikimedia.org/wiki/File:Moscow,_2025-07-13_running_event_06.jpg
+cycling.jpg | File:Moscow, cycling event, Kosmodamianskaya Embankment Aug 2025 01.jpg | Retired electrician | CC0 | https://commons.wikimedia.org/wiki/File:Moscow,_cycling_event,_Kosmodamianskaya_Embankment_Aug_2025_01.jpg
+kayak.jpg | File:Sunset kayak (Unsplash).jpg | Patrick Fore patrickian4 | CC0 | https://commons.wikimedia.org/wiki/File:Sunset_kayak_(Unsplash).jpg
+dance.jpg | File:2008, community dance performance in Paris.jpg | Syced | CC0 | https://commons.wikimedia.org/wiki/File:2008,_community_dance_performance_in_Paris.jpg
+cheering.jpg | File:Mutina Center Beach Volleyball Event (Modena) in 2025.29.jpg | CAPTAIN RAJU | CC0 | https://commons.wikimedia.org/wiki/File:Mutina_Center_Beach_Volleyball_Event_(Modena)_in_2025.29.jpg
+friends_beach.jpg | File:Sunlight, beach and friends (35250237361).jpg | neil.dalphin | CC0 | https://commons.wikimedia.org/wiki/File:Sunlight,_beach_and_friends_(35250237361).jpg
+friends_walk.jpg | File:Three friends by train tracks (Unsplash).jpg | Priscilla Du Preez artographybyp | CC0 | https://commons.wikimedia.org/wiki/File:Three_friends_by_train_tracks_(Unsplash).jpg
+party.jpg | File:Wikipedia Birthday Party at 88MPH in Canberra 01.jpg | Aliceinthealice | CC0 | https://commons.wikimedia.org/wiki/File:Wikipedia_Birthday_Party_at_88MPH_in_Canberra_01.jpg
+pro_ronaldo.jpg | File:Cristiano Ronaldo ejecutando una falta.JPG | Campeones 2008 | CC0 | https://commons.wikimedia.org/wiki/File:Cristiano_Ronaldo_ejecutando_una_falta.JPG
+pro_sansiro.jpg | File:Inter-Como Serie A 2024-2025.jpg | Fra Casa | CC0 | https://commons.wikimedia.org/wiki/File:Inter-Como_Serie_A_2024-2025.jpg
+pro_fans.jpg | File:FC Red Bull Salzburg ve SV Ried 27.JPG | Werner100359 | CC0 | https://commons.wikimedia.org/wiki/File:FC_Red_Bull_Salzburg_ve_SV_Ried_27.JPG
+apple_cake.jpg | File:Apple cake with vanilla ice cream 2.jpg | W.carter | CC0 | https://commons.wikimedia.org/wiki/File:Apple_cake_with_vanilla_ice_cream_2.jpg
+houseboat.jpg | File:A Houseboat In Kerala Backwaters.jpg | RndmCrs | CC0 | https://commons.wikimedia.org/wiki/File:A_Houseboat_In_Kerala_Backwaters.jpg
+tajmahal.jpg | File:Taj Mahal, Agra, India3.jpg | Mustang Joe | CC0 | https://commons.wikimedia.org/wiki/File:Taj_Mahal,_Agra,_India3.jpg
+qutub.jpg | File:The Qutb Minar in morning.jpg | Raghith | CC0 | https://commons.wikimedia.org/wiki/File:The_Qutb_Minar_in_morning.jpg
+
+The two photos of the same person (screens 1 and 3, cropped square) are also free to use without credit; their sources are listed here anyway:
+
+messi_then.jpg | File:Lionel Messi at Bernabeu.jpg (18 January 2012), cropped | Addesolen | CC0 | https://commons.wikimedia.org/wiki/File:Lionel_Messi_at_Bernabeu.jpg
+messi_now.jpg | File:Lionel Messi White House 2026 (3x4 cropped).jpg (5 March 2026), cropped | The White House (a US federal government photo) | Public domain | https://commons.wikimedia.org/wiki/File:Lionel_Messi_White_House_2026_(3x4_cropped).jpg
+
+Photos the "@Messi" demo on screen 2 finds (all free to use without credit, resized or cropped):
+
+messi_2026.jpg | File:Lionel Messi White House 2026 (3x4 cropped).jpg | The White House | Public domain | https://commons.wikimedia.org/wiki/File:Lionel_Messi_White_House_2026_(3x4_cropped).jpg
+messi_2012.jpg | File:Lionel Messi at Bernabeu.jpg | Addesolen | CC0 | https://commons.wikimedia.org/wiki/File:Lionel_Messi_at_Bernabeu.jpg
+messi_2010.jpg | File:Messi en Zaragoza 2..JPG | Campeones 2008 | Public domain | https://commons.wikimedia.org/wiki/File:Messi_en_Zaragoza_2..JPG
+messi_2025.jpg | File:2025 Leagues Cup Final - Lionel Messi during warmups.jpg | Barcaforever69 | CC0 | https://commons.wikimedia.org/wiki/File:2025_Leagues_Cup_Final_-_Lionel_Messi_during_warmups.jpg
+messi_2023a.jpg | File:Messi pressing Noche d'Or (1).jpg | Cuban Boy | CC0 | https://commons.wikimedia.org/wiki/File:Messi_pressing_Noche_d'Or_(1).jpg
+messi_2023b.jpg | File:Messi pressing Noche d'Or (2).jpg | Cuban Boy | CC0 | https://commons.wikimedia.org/wiki/File:Messi_pressing_Noche_d'Or_(2).jpg
+messi_2023c.jpg | File:Messi Noche d'Or (4).jpg | Cuban Boy | CC0 | https://commons.wikimedia.org/wiki/File:Messi_Noche_d'Or_(4).jpg
+
+The photo behind the "Open a photo, tap a face" demo on screen 3 is NOT public domain. It is licensed CC BY-SA 3.0, so it needs credit and the copy used here stays under the same licence (it is bundled as it is, not cropped):
+
+supercup.jpg | File:2015 UEFA Super Cup 52.jpg (11 August 2015, before the UEFA Super Cup in Tbilisi, Georgia) | Олег Дубина (Oleh Dubyna) | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:2015_UEFA_Super_Cup_52.jpg | https://creativecommons.org/licenses/by-sa/3.0/

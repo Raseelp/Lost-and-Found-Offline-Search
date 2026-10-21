@@ -1228,3 +1228,85 @@ class _FlightPainter extends CustomPainter {
   bool shouldRepaint(covariant _FlightPainter old) =>
       old.at != at || old.radius != radius || old.amp != amp || old.alpha != alpha || old.e != e;
 }
+
+// ---------------------------------------------------------------------------------------------
+// For the first-run tour. Its demo shows what happens when a photo is opened and a face is tapped,
+// on a bundled picture that has not been scanned, so it cannot use the layer above (that needs real
+// faces from the face database). These draw exactly what the layer draws, from the same code, so the
+// tour and the viewer cannot drift apart.
+// ---------------------------------------------------------------------------------------------
+
+/// The viewer's outlines and sparkles, drawn for the tour's demo.
+class FaceOutlineDemo {
+  FaceOutlineDemo._();
+
+  /// The hint on opening a photo: each head faintly traced with a sparkle. [progress] 0..1.
+  static void paintHint(Canvas canvas, Size size, List<HeadSpot> heads, double progress, {int seed = 7}) {
+    final rolls = [for (var i = 0; i < heads.length; i++) _Roll(math.Random(seed + i))];
+    _HintPainter([for (final h in heads) _Head(h.center, h.radius)], rolls, progress).paint(canvas, size);
+  }
+
+  /// A tapped head: the photo dims round it and the glowing outline draws itself and keeps turning.
+  /// [progress] 0..1 as it appears, [spin] in radians.
+  static void paintRing(Canvas canvas, Size size, HeadSpot head,
+      {required double progress, required double spin, int seed = 7}) {
+    _RingPainter(
+      center: head.center,
+      radius: head.radius,
+      progress: progress,
+      spin: spin,
+      roll: _Roll(math.Random(seed)),
+    ).paint(canvas, size);
+  }
+}
+
+/// "Tap a face to see who": the line the viewer shows when a photo opens.
+class FaceHintLabel extends StatelessWidget {
+  const FaceHintLabel({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const _FlowText(
+      'Tap a face to see who',
+      leading: Icon(Icons.face_outlined, size: 20, color: Colors.white),
+    );
+  }
+}
+
+/// The chip the viewer pops up under a tapped head (the person's picture, name and number of photos),
+/// from a bundled picture.
+class FaceChipDemo extends StatelessWidget {
+  const FaceChipDemo({super.key, required this.face, required this.name, required this.photos});
+
+  final ImageProvider face;
+  final String name;
+  final int photos;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return _Glass(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.xs + 2, AppSpacing.xs + 2, AppSpacing.md, AppSpacing.xs + 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipOval(child: Image(image: face, width: 40, height: 40, fit: BoxFit.cover)),
+          const SizedBox(width: AppSpacing.md - 2),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(name, maxLines: 1, style: textTheme.titleSmall?.copyWith(color: Colors.white)),
+              Text(
+                photos == 1 ? '1 photo' : '$photos photos',
+                style: textTheme.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.72)),
+              ),
+            ],
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Icon(Icons.chevron_right_rounded, size: 22, color: Colors.white.withValues(alpha: 0.8)),
+        ],
+      ),
+    );
+  }
+}

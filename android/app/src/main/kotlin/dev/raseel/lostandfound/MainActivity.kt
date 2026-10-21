@@ -1433,6 +1433,17 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
+                // Which build this is, for the About row in Settings.
+                "buildInfo" -> result.success(
+                    mapOf(
+                        "version" to BuildConfig.VERSION_NAME,
+                        "build" to BuildConfig.VERSION_CODE,
+                        "commit" to BuildConfig.GIT_COMMIT,
+                        "commitDate" to BuildConfig.GIT_COMMIT_DATE,
+                        "debug" to BuildConfig.DEBUG,
+                    ),
+                )
+
                 // What this phone's processor is called, for the marking on the chip in the Library.
                 "deviceChip" -> {
                     val soc = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
