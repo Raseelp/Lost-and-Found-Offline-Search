@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:lost_and_found/utils/palettes/tour_palette.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_links.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
-import 'package:lost_and_found/view/tour/tour_samples.dart';
 import 'package:lost_and_found/view/tour/tour_screen.dart';
 import 'package:lost_and_found/view/tour/tour_widgets.dart';
 
@@ -97,7 +97,7 @@ class _ComparePageState extends State<ComparePage>
             Text(
               'Free, ad-free and fully open source. Look inside, or help improve it on GitHub.',
               style: textTheme.bodySmall?.copyWith(
-                color: kTourText80,
+                color: TourPalette.text80,
                 height: 1.45,
               ),
             ),
@@ -152,7 +152,7 @@ class _Table extends StatelessWidget {
     );
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: ours ? AppColors.primary : Colors.white,
+        color: ours ? AppColors.primary : TourPalette.white,
         borderRadius: radius,
       ),
       child: Stack(
@@ -173,7 +173,7 @@ class _Table extends StatelessWidget {
               height: 1,
               child: ColoredBox(
                 color: ours
-                    ? Colors.white.withValues(alpha: 0.16)
+                    ? TourPalette.white.withValues(alpha: 0.16)
                     : AppColors.dividerSoft,
               ),
             ),
@@ -206,7 +206,7 @@ class _Table extends StatelessWidget {
     if (first) {
       oursChild = Text(
         'Lost & Found',
-        style: heading?.copyWith(color: Colors.white),
+        style: heading?.copyWith(color: TourPalette.white),
       );
       theirsChild = Text(
         'Google Photos',
@@ -219,7 +219,9 @@ class _Table extends StatelessWidget {
         children: [
           Text(
             label.toUpperCase(),
-            style: small?.copyWith(color: Colors.white.withValues(alpha: 0.82)),
+            style: small?.copyWith(
+              color: TourPalette.white.withValues(alpha: 0.82),
+            ),
           ),
           const SizedBox(height: 3),
           _fade(
@@ -240,7 +242,7 @@ class _Table extends StatelessWidget {
           Text(
             label.toUpperCase(),
             // Darker than the app's usual quiet grey: at this size the usual one is under 4.5:1 on white.
-            style: small?.copyWith(color: const Color(0xFF656B69)),
+            style: small?.copyWith(color: TourPalette.gray600),
           ),
           const SizedBox(height: 3),
           _fade(
@@ -297,7 +299,7 @@ class _Table extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.xl),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.09),
+            color: TourPalette.black.withValues(alpha: 0.09),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -346,7 +348,7 @@ class _OursAnswer extends StatelessWidget {
               width: 16,
               height: 16,
               decoration: const BoxDecoration(
-                color: Colors.white,
+                color: TourPalette.white,
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -362,7 +364,7 @@ class _OursAnswer extends StatelessWidget {
           child: Text(
             text,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white,
+              color: TourPalette.white,
               fontWeight: FontWeight.w700,
               height: 1.3,
             ),
@@ -403,7 +405,7 @@ class _SourceButton extends StatelessWidget {
       label: 'View source code on GitHub',
       excludeSemantics: true,
       child: Material(
-        color: Colors.white,
+        color: TourPalette.white,
         borderRadius: BorderRadius.circular(AppRadius.pill),
         child: InkWell(
           onTap: () => _open(context),

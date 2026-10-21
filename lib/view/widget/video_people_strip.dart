@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:lost_and_found/services/native_services.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
@@ -66,24 +67,24 @@ class _PeopleChipButtonState extends State<PeopleChipButton> with SingleTickerPr
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: open ? 0.62 : 0.46),
+            color: AppColors.scrim.withValues(alpha: open ? 0.62 : 0.46),
             borderRadius: BorderRadius.circular(AppRadius.pill),
             border: Border.all(
-              color: open ? const Color(0xFF5FE0CF).withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.2),
+              color: open ? AppColors.mediaAccent.withValues(alpha: 0.9) : AppColors.onMedia.withValues(alpha: 0.2),
               width: open ? 1.6 : 1,
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.face_retouching_natural, size: 18, color: open ? const Color(0xFF9FF0E4) : Colors.white),
+              Icon(Icons.face_retouching_natural, size: 18, color: open ? AppColors.mediaAccentSoft : AppColors.onMedia),
               const SizedBox(width: AppSpacing.xs + 2),
               Text(
                 '${widget.count}',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(color: AppColors.onMedia, fontWeight: FontWeight.w700),
               ),
               const SizedBox(width: 2),
-              Icon(open ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_up_rounded, size: 18, color: Colors.white70),
+              Icon(open ? Icons.keyboard_arrow_down_rounded : Icons.keyboard_arrow_up_rounded, size: 18, color: AppColors.onMedia70),
             ],
           ),
         ),
@@ -114,7 +115,7 @@ class _PulsePainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2
-          ..color = const Color(0xFF5FE0CF).withValues(alpha: alpha),
+          ..color = AppColors.mediaAccent.withValues(alpha: alpha),
       );
     }
   }
@@ -158,7 +159,7 @@ class VideoPeoplePanel extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.base),
             child: Text(
               people.length == 1 ? 'In this $noun' : '${people.length} people in this $noun',
-              style: textTheme.labelMedium?.copyWith(color: Colors.white.withValues(alpha: 0.75)),
+              style: textTheme.labelMedium?.copyWith(color: AppColors.onMedia.withValues(alpha: 0.75)),
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -212,11 +213,11 @@ class _PanelFace extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: focused ? const Color(0xFF5FE0CF) : Colors.white.withValues(alpha: 0.18),
+                    color: focused ? AppColors.mediaAccent : AppColors.onMedia.withValues(alpha: 0.18),
                     width: focused ? 2.5 : 1.2,
                   ),
                   boxShadow: focused
-                      ? [BoxShadow(color: const Color(0xFF5FE0CF).withValues(alpha: 0.45), blurRadius: 12, spreadRadius: 1)]
+                      ? [BoxShadow(color: AppColors.mediaAccent.withValues(alpha: 0.45), blurRadius: 12, spreadRadius: 1)]
                       : null,
                 ),
                 child: FaceAvatar(faceId: person.person.coverFaceId, size: _size),
@@ -230,7 +231,7 @@ class _PanelFace extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: textTheme.labelSmall?.copyWith(
-              color: focused ? Colors.white : Colors.white.withValues(alpha: 0.78),
+              color: focused ? AppColors.onMedia : AppColors.onMedia.withValues(alpha: 0.78),
               fontWeight: focused ? FontWeight.w700 : FontWeight.w500,
             ),
           ),
@@ -254,8 +255,8 @@ class SightingMarkersPainter extends CustomPainter {
     for (final t in times) {
       final x = (t / durationMs).clamp(0.0, 1.0) * size.width;
       final at = Offset(math.min(math.max(x, 3.0), size.width - 3.0), y);
-      canvas.drawCircle(at, 4.6, Paint()..color = Colors.black.withValues(alpha: 0.55));
-      canvas.drawCircle(at, 3.2, Paint()..color = const Color(0xFF5FE0CF));
+      canvas.drawCircle(at, 4.6, Paint()..color = AppColors.scrim.withValues(alpha: 0.55));
+      canvas.drawCircle(at, 3.2, Paint()..color = AppColors.mediaAccent);
     }
   }
 

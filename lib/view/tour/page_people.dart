@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/palettes/tour_palette.dart';
 import 'package:lost_and_found/view/tour/face_demo.dart';
 import 'package:lost_and_found/view/tour/tour_person_tile.dart';
-import 'package:lost_and_found/view/tour/tour_samples.dart';
 import 'package:lost_and_found/view/tour/tour_screen.dart';
 import 'package:lost_and_found/view/tour/tour_widgets.dart';
 
@@ -57,7 +57,7 @@ class _SectionLabel extends StatelessWidget {
     return Text(
       text.toUpperCase(),
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        color: kTourAccent,
+        color: TourPalette.teal,
         letterSpacing: 1.3,
         fontWeight: FontWeight.w700,
       ),
@@ -209,7 +209,7 @@ class _ThenNowCardState extends State<_ThenNowCard>
                             top: 0,
                             bottom: 0,
                             width: 2,
-                            child: const ColoredBox(color: Colors.white),
+                            child: const ColoredBox(color: TourPalette.white),
                           ),
                           Positioned(
                             left: s * w - 18,
@@ -218,11 +218,13 @@ class _ThenNowCardState extends State<_ThenNowCard>
                               width: 36,
                               height: 36,
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: TourPalette.white,
                                 shape: BoxShape.circle,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.25),
+                                    color: TourPalette.black.withValues(
+                                      alpha: 0.25,
+                                    ),
                                     blurRadius: 10,
                                     offset: const Offset(0, 3),
                                   ),
@@ -301,13 +303,13 @@ class _Tag extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.5),
+          color: TourPalette.black.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(AppRadius.pill),
         ),
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Colors.white,
+            color: TourPalette.white,
             letterSpacing: 0.8,
             fontWeight: FontWeight.w700,
           ),

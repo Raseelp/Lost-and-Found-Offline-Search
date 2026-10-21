@@ -278,7 +278,7 @@ class _Options extends StatelessWidget {
                   border: Border.all(
                     color: i == selected
                         ? AppColors.primary
-                        : Colors.transparent,
+                        : AppColors.transparent,
                     width: 2,
                   ),
                 ),
@@ -420,7 +420,7 @@ class _Compare extends StatelessWidget {
                         top: 0,
                         bottom: 0,
                         width: 2,
-                        child: const ColoredBox(color: Colors.white),
+                        child: const ColoredBox(color: AppColors.onMedia),
                       ),
                       Positioned(
                         left: s * w - 20,
@@ -429,11 +429,11 @@ class _Compare extends StatelessWidget {
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.onMedia,
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.25),
+                                color: AppColors.shadow.withValues(alpha: 0.25),
                                 blurRadius: 10,
                                 offset: const Offset(0, 3),
                               ),
@@ -510,13 +510,13 @@ class _Tag extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.5),
+          color: AppColors.scrim.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(AppRadius.pill),
         ),
         child: Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Colors.white,
+            color: AppColors.onMedia,
             letterSpacing: 0.8,
             fontWeight: FontWeight.w700,
           ),

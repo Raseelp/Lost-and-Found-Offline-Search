@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/palettes/chip_palette.dart';
 
 // The processor the Library page shows, drawn from above on a 340 x 340 sheet: a green
 // substrate with rows of gold contact pads along its edges, a corner marker (pin 1) and
@@ -21,9 +22,6 @@ const Rect chipBoard = Rect.fromLTWH(22, 22, 296, 296);
 /// leaves the board a margin for the bond wires and the parts round them.
 const double chipDieScale = .87;
 
-const Color _gold = Color(0xFFF2D272);
-const Color _goldDull = Color(0xFF8E7A3C);
-const Color _goldDullLight = Color(0xFFB59F58);
 
 double _seg(double t, double a, double b) => ((t - a) / (b - a)).clamp(0.0, 1.0);
 
@@ -191,17 +189,17 @@ void _drawDullLanes(Canvas canvas, int bar) {
     ..style = PaintingStyle.stroke
     ..strokeCap = StrokeCap.round
     ..strokeWidth = 2.4
-    ..color = const Color(0xFF4F5A52);
+    ..color = ChipPalette.gray650;
   final shine = Paint()
     ..style = PaintingStyle.stroke
     ..strokeCap = StrokeCap.round
     ..strokeWidth = .9
-    ..color = Colors.white.withValues(alpha: .14);
+    ..color = ChipPalette.white.withValues(alpha: .14);
   final shade = Paint()
     ..style = PaintingStyle.stroke
     ..strokeCap = StrokeCap.round
     ..strokeWidth = 3
-    ..color = Colors.black.withValues(alpha: .3);
+    ..color = ChipPalette.black.withValues(alpha: .3);
   for (var i = 0; i < chipWireCount; i++) {
     final path = _wirePaths[bar][i];
     canvas.drawPath(path.shift(const Offset(1.1, 1.6)), shade);
@@ -235,9 +233,9 @@ void paintChipLanes(
       ..strokeWidth = .9;
     final path = _wirePaths[bar][i];
     // Brought up, it takes on its colour (over the dull wire, which has its shadow already).
-    body.color = Color.lerp(const Color(0xFF4F5A52), color, up * alpha)!;
+    body.color = Color.lerp(ChipPalette.gray650, color, up * alpha)!;
     canvas.drawPath(path, body);
-    shine.color = Colors.white.withValues(alpha: (.14 + .46 * up) * (.4 + .6 * alpha));
+    shine.color = ChipPalette.white.withValues(alpha: (.14 + .46 * up) * (.4 + .6 * alpha));
     canvas.drawPath(path.shift(const Offset(-.5, -.5)), shine);
   }
 }
@@ -250,15 +248,15 @@ void _drawBoard(Canvas canvas) {
   for (var k = 1; k <= 4; k++) {
     canvas.drawRRect(
       board.shift(Offset(0, 1.5 * k)),
-      Paint()..color = const Color(0xFF1A1D1C).withValues(alpha: .04),
+      Paint()..color = ChipPalette.gray900.withValues(alpha: .04),
     );
   }
   canvas.drawRRect(
     board,
     Paint()
       ..shader = ui.Gradient.linear(chipBoard.topLeft, chipBoard.bottomRight, [
-        const Color(0xFF2A604B),
-        const Color(0xFF1B4535),
+        ChipPalette.mint750,
+        ChipPalette.mint800,
       ]),
   );
   canvas.save();
@@ -271,7 +269,7 @@ void _drawBoard(Canvas canvas) {
       chipBoard.left + rnd.nextDouble() * chipBoard.width,
       chipBoard.top + rnd.nextDouble() * chipBoard.height,
     );
-    speck.color = (rnd.nextBool() ? Colors.white : Colors.black).withValues(alpha: .05 + rnd.nextDouble() * .06);
+    speck.color = (rnd.nextBool() ? ChipPalette.white : ChipPalette.black).withValues(alpha: .05 + rnd.nextDouble() * .06);
     canvas.drawCircle(at, .5 + rnd.nextDouble() * .7, speck);
   }
   // Edge light, top and left; shade, bottom and right.
@@ -280,14 +278,14 @@ void _drawBoard(Canvas canvas) {
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.6
-      ..color = Colors.white.withValues(alpha: .16),
+      ..color = ChipPalette.white.withValues(alpha: .16),
   );
   canvas.drawRRect(
     board.shift(const Offset(-1.4, -1.4)),
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.6
-      ..color = Colors.black.withValues(alpha: .22),
+      ..color = ChipPalette.black.withValues(alpha: .22),
   );
   canvas.restore();
   canvas.drawRRect(
@@ -295,7 +293,7 @@ void _drawBoard(Canvas canvas) {
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2
-      ..color = const Color(0xFF0E2A20),
+      ..color = ChipPalette.mint900,
   );
   // The contact pads along the four edges (what a real chip plugs in by).
   const padFrom = 46.0, padTo = 294.0, padsPerSide = 18;
@@ -304,9 +302,9 @@ void _drawBoard(Canvas canvas) {
   final pad = Paint();
   void contact(Rect r) {
     final tall = r.height > r.width;
-    pad.color = _goldDull;
+    pad.color = ChipPalette.goldDull;
     canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(.8)), pad);
-    pad.color = _goldDullLight;
+    pad.color = ChipPalette.goldDullLight;
     canvas.drawRect(
       tall ? Rect.fromLTWH(r.left, r.top, r.width * .45, r.height) : Rect.fromLTWH(r.left, r.top, r.width, r.height * .45),
       pad,
@@ -331,7 +329,7 @@ void _drawBoard(Canvas canvas) {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = .9
-        ..color = const Color(0xFF0E2A20),
+        ..color = ChipPalette.mint900,
     );
   }
   canvas.restore();
@@ -354,13 +352,13 @@ void _drawBoard(Canvas canvas) {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = .5
-        ..color = Colors.white.withValues(alpha: .3),
+        ..color = ChipPalette.white.withValues(alpha: .3),
     );
     for (var i = 0; i < count; i++) {
       final r = Rect.fromLTWH(x + i * 8, y, 6.2, 3.4);
-      cap.color = const Color(0xFFCDB98A);
+      cap.color = ChipPalette.gold350;
       canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(.5)), cap);
-      cap.color = const Color(0xFFB7BDBB);
+      cap.color = ChipPalette.gray250;
       canvas.drawRect(Rect.fromLTWH(r.left, r.top, 1.4, r.height), cap);
       canvas.drawRect(Rect.fromLTWH(r.right - 1.4, r.top, 1.4, r.height), cap);
     }
@@ -368,10 +366,10 @@ void _drawBoard(Canvas canvas) {
 
   capacitors(286, 35.8, 2);
   capacitors(286, 299.8, 2);
-  final via = Paint()..color = const Color(0xFF9FB8AB).withValues(alpha: .55);
+  final via = Paint()..color = ChipPalette.green350.withValues(alpha: .55);
   for (final at in const [Offset(32, 98), Offset(32, 242), Offset(308, 98), Offset(308, 242)]) {
     canvas.drawCircle(at, 1.6, via);
-    canvas.drawCircle(at, .7, Paint()..color = const Color(0xFF10261D));
+    canvas.drawCircle(at, .7, Paint()..color = ChipPalette.mint900a);
   }
   // The alignment triangle in the corner.
   final marker = Path()
@@ -379,13 +377,13 @@ void _drawBoard(Canvas canvas) {
     ..lineTo(38, 25.5)
     ..lineTo(25.5, 38)
     ..close();
-  canvas.drawPath(marker, Paint()..color = _gold);
+  canvas.drawPath(marker, Paint()..color = ChipPalette.gold);
   canvas.drawPath(
     marker,
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = .8
-      ..color = _goldDull,
+      ..color = ChipPalette.goldDull,
   );
 }
 
@@ -605,20 +603,20 @@ void _fabricTexture(Canvas c, Rect r, Color ink, int seed, List<double> routers)
 // [paintChipDieLit]).
 void _drawDieLayer(Canvas canvas, Rect area, int perRow, {required bool lit}) {
   final l = _DieLayout(area, perRow);
-  final ink = Colors.white.withValues(alpha: lit ? .8 : .11);
+  final ink = ChipPalette.white.withValues(alpha: lit ? .8 : .11);
   final line = Paint()
     ..style = PaintingStyle.stroke
     ..strokeWidth = .8
-    ..color = Colors.white.withValues(alpha: lit ? .5 : .2);
+    ..color = ChipPalette.white.withValues(alpha: lit ? .5 : .2);
   final hair = Paint()
     ..style = PaintingStyle.stroke
     ..strokeWidth = .5
-    ..color = Colors.white.withValues(alpha: lit ? .32 : .1);
-  final warm = Paint()..color = lit ? Colors.white.withValues(alpha: .8) : const Color(0xFFD8B35A).withValues(alpha: .35);
+    ..color = ChipPalette.white.withValues(alpha: lit ? .32 : .1);
+  final warm = Paint()..color = lit ? ChipPalette.white.withValues(alpha: .8) : ChipPalette.gold400.withValues(alpha: .35);
 
   void block(Rect r, [double radius = 3.5]) {
     final shape = RRect.fromRectAndRadius(r, Radius.circular(radius));
-    if (!lit) canvas.drawRRect(shape, Paint()..color = Colors.black.withValues(alpha: .22));
+    if (!lit) canvas.drawRRect(shape, Paint()..color = ChipPalette.black.withValues(alpha: .22));
     canvas.drawRRect(shape, line);
   }
 
@@ -763,14 +761,14 @@ void _drawDieLayer(Canvas canvas, Rect area, int perRow, {required bool lit}) {
     // Routing channels between the columns of cores, and the clock spine across.
     final channel = Paint()
       ..strokeWidth = .5
-      ..color = Colors.white.withValues(alpha: .07);
+      ..color = ChipPalette.white.withValues(alpha: .07);
     for (var c = 0; c < perRow - 1; c++) {
       final x = area.left + 12 + (c + 1) * l.columnWidth + c * l.columnGap + l.columnGap / 2;
       canvas.drawLine(Offset(x, area.top + 12), Offset(x, area.top + 158), channel);
     }
     final spine = Paint()
       ..strokeWidth = .8
-      ..color = Colors.white.withValues(alpha: .12);
+      ..color = ChipPalette.white.withValues(alpha: .12);
     canvas.drawLine(Offset(area.left + 6, area.top + 160.5), Offset(area.right - 6, area.top + 160.5), spine);
   }
 }
@@ -778,21 +776,21 @@ void _drawDieLayer(Canvas canvas, Rect area, int perRow, {required bool lit}) {
 void _drawDie(Canvas canvas, Rect area, int perRow) {
   final rim = RRect.fromRectAndRadius(area.inflate(3.4), const Radius.circular(18));
   // The seal round the die.
-  canvas.drawRRect(rim, Paint()..color = const Color(0xFF14181A));
+  canvas.drawRRect(rim, Paint()..color = ChipPalette.slate900);
   canvas.drawRRect(
     rim.deflate(.5),
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = .8
-      ..color = Colors.white.withValues(alpha: .08),
+      ..color = ChipPalette.white.withValues(alpha: .08),
   );
   final die = RRect.fromRectAndRadius(area.inflate(1.8), const Radius.circular(16));
   canvas.drawRRect(
     die,
     Paint()
       ..shader = ui.Gradient.linear(die.outerRect.topLeft, die.outerRect.bottomRight, [
-        const Color(0xFF58606A),
-        const Color(0xFF30363D),
+        ChipPalette.slate600,
+        ChipPalette.slate800,
       ]),
   );
   canvas.save();
@@ -804,17 +802,17 @@ void _drawDie(Canvas canvas, Rect area, int perRow) {
       ..shader = ui.Gradient.sweep(
         area.center,
         [
-          const Color(0x2E8A6BC4),
-          const Color(0x2E4FA6A3),
-          const Color(0x2EC2A24E),
-          const Color(0x2EB26A8E),
-          const Color(0x2E8A6BC4),
+          ChipPalette.indigo400A18,
+          ChipPalette.teal500A18,
+          ChipPalette.gold450A18,
+          ChipPalette.pink450A18,
+          ChipPalette.indigo400A18,
         ],
         [0, .28, .52, .78, 1],
       ),
   );
   // A fine dot matrix over everything, as of the finest metal layer.
-  final dot = Paint()..color = Colors.white.withValues(alpha: .07);
+  final dot = Paint()..color = ChipPalette.white.withValues(alpha: .07);
   for (var y = area.top + 3; y < area.bottom; y += 4) {
     for (var x = area.left + 3; x < area.right; x += 4) {
       canvas.drawRect(Rect.fromLTWH(x, y, .8, .8), dot);
@@ -822,7 +820,7 @@ void _drawDie(Canvas canvas, Rect area, int perRow) {
   }
   _drawDieLayer(canvas, area, perRow, lit: false);
   // The bond pads along the top edge of the die, where the wires of the CLIP row start.
-  final bondPad = Paint()..color = const Color(0xFFC9CFD4);
+  final bondPad = Paint()..color = ChipPalette.slate200;
   for (var i = 0; i < chipWireCount; i++) {
     final x = _dieX(_wireX(i));
     canvas.drawRRect(
@@ -836,7 +834,7 @@ void _drawDie(Canvas canvas, Rect area, int perRow) {
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = .8
-      ..color = Colors.white.withValues(alpha: .16),
+      ..color = ChipPalette.white.withValues(alpha: .16),
   );
 }
 
@@ -893,15 +891,15 @@ void _drawMemory(Canvas canvas, Rect strip) {
     bank,
     Paint()
       ..shader = ui.Gradient.linear(strip.topCenter, strip.bottomCenter, [
-        const Color(0xFF1F3F33),
-        const Color(0xFF13281F),
+        ChipPalette.mint800a,
+        ChipPalette.mint900b,
       ]),
   );
   canvas.save();
   canvas.clipRRect(bank);
   // The chips of the bank, one under each place a picture lands (the same places the queue
   // and the people tray use).
-  final chip = Paint()..color = const Color(0xFF0E1214);
+  final chip = Paint()..color = ChipPalette.sky950;
   for (var k = 0; k < 7; k++) {
     final r = Rect.fromLTWH(strip.left + 6 + k * 38, strip.top + 11, 34, 34);
     canvas.drawRRect(RRect.fromRectAndRadius(r, const Radius.circular(4)), chip);
@@ -910,10 +908,10 @@ void _drawMemory(Canvas canvas, Rect strip) {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = .6
-        ..color = Colors.white.withValues(alpha: .14),
+        ..color = ChipPalette.white.withValues(alpha: .14),
     );
   }
-  final gold = Paint()..color = const Color(0xFFD6B85A);
+  final gold = Paint()..color = ChipPalette.gold400a;
   for (var i = 0; i < chipWireCount; i++) {
     final x = _dieX(_wireX(i));
     canvas.drawRect(Rect.fromLTWH(x - 3.2, strip.bottom - 6.4, 6.4, 6.4), gold);
@@ -924,7 +922,7 @@ void _drawMemory(Canvas canvas, Rect strip) {
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
-      ..color = Colors.white.withValues(alpha: .12),
+      ..color = ChipPalette.white.withValues(alpha: .12),
   );
 }
 
@@ -975,8 +973,8 @@ void _drawLidBase(Canvas canvas) {
     flange,
     Paint()
       ..shader = ui.Gradient.linear(_flange.topLeft, _flange.bottomRight, [
-        const Color(0xFFE4E7EA),
-        const Color(0xFFB4BAC1),
+        ChipPalette.slate100,
+        ChipPalette.slate250,
       ]),
   );
   canvas.drawPath(
@@ -984,11 +982,11 @@ void _drawLidBase(Canvas canvas) {
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2
-      ..color = const Color(0xFF858C94),
+      ..color = ChipPalette.slate450,
   );
   for (final at in const [Offset(292, 48), Offset(292, 292), Offset(48, 292)]) {
-    canvas.drawCircle(at + const Offset(.6, .6), 1.8, Paint()..color = Colors.white.withValues(alpha: .6));
-    canvas.drawCircle(at, 1.8, Paint()..color = const Color(0xFF8A9198));
+    canvas.drawCircle(at + const Offset(.6, .6), 1.8, Paint()..color = ChipPalette.white.withValues(alpha: .6));
+    canvas.drawCircle(at, 1.8, Paint()..color = ChipPalette.slate450a);
   }
   // The step up to the raised plate.
   final ramp = RRect.fromRectAndRadius(_plate.inflate(4), const Radius.circular(15));
@@ -996,8 +994,8 @@ void _drawLidBase(Canvas canvas) {
     ramp,
     Paint()
       ..shader = ui.Gradient.linear(ramp.outerRect.topLeft, ramp.outerRect.bottomRight, [
-        const Color(0xFFFAFBFC),
-        const Color(0xFF8F969D),
+        ChipPalette.gray50,
+        ChipPalette.slate400,
       ]),
   );
   // The plate: brushed steel.
@@ -1009,11 +1007,11 @@ void _drawLidBase(Canvas canvas) {
         _plate.topLeft,
         _plate.bottomRight,
         [
-          const Color(0xFFF2F4F6),
-          const Color(0xFFC7CDD3),
-          const Color(0xFFEBEEF0),
-          const Color(0xFFB0B7BE),
-          const Color(0xFFDDE1E5),
+          ChipPalette.sky50,
+          ChipPalette.slate200a,
+          ChipPalette.sky50a,
+          ChipPalette.slate300,
+          ChipPalette.slate100a,
         ],
         [0, .3, .52, .78, 1],
       ),
@@ -1026,7 +1024,7 @@ void _drawLidBase(Canvas canvas) {
     final y = _plate.top + rnd.nextDouble() * _plate.height;
     final x0 = _plate.left + rnd.nextDouble() * _plate.width * .7;
     final x1 = x0 + 40 + rnd.nextDouble() * _plate.width * .6;
-    brush.color = (i.isEven ? Colors.white : const Color(0xFF50575E)).withValues(alpha: .05 + rnd.nextDouble() * .07);
+    brush.color = (i.isEven ? ChipPalette.white : ChipPalette.slate650).withValues(alpha: .05 + rnd.nextDouble() * .07);
     canvas.drawLine(Offset(x0, y), Offset(x1, y + (rnd.nextDouble() - .5) * .8), brush);
   }
   // The bevel of the plate: light on the upper left, shade on the lower right.
@@ -1035,19 +1033,19 @@ void _drawLidBase(Canvas canvas) {
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.8
-      ..color = Colors.white.withValues(alpha: .95),
+      ..color = ChipPalette.white.withValues(alpha: .95),
   );
   canvas.drawRRect(
     plate.shift(const Offset(-1.4, -1.4)),
     Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.8
-      ..color = const Color(0xFF3B4147).withValues(alpha: .28),
+      ..color = ChipPalette.slate750.withValues(alpha: .28),
   );
   canvas.restore();
 }
 
-TextPainter _etchText(String text, double size, {double space = 1, FontWeight weight = FontWeight.w700, Color color = const Color(0xFF5B626A), double maxWidth = 200}) {
+TextPainter _etchText(String text, double size, {double space = 1, FontWeight weight = FontWeight.w700, Color color = ChipPalette.slate600a, double maxWidth = 200}) {
   TextPainter make(double s) => TextPainter(
     text: TextSpan(
       text: text,
@@ -1062,7 +1060,7 @@ TextPainter _etchText(String text, double size, {double space = 1, FontWeight we
 
 // One line of etching: a light edge under the dark line, as if cut into the metal.
 void _etchLine(Canvas canvas, String text, double centreY, double size, {double space = 1, FontWeight weight = FontWeight.w700, double maxWidth = 200}) {
-  final light = _etchText(text, size, space: space, weight: weight, color: Colors.white.withValues(alpha: .85), maxWidth: maxWidth);
+  final light = _etchText(text, size, space: space, weight: weight, color: ChipPalette.white.withValues(alpha: .85), maxWidth: maxWidth);
   final dark = _etchText(text, size, space: space, weight: weight, maxWidth: maxWidth);
   final at = Offset(170 - dark.width / 2, centreY - dark.height / 2);
   light.paint(canvas, at + const Offset(.8, .8));
@@ -1090,8 +1088,8 @@ void _drawRoom(Canvas canvas) {
     _roomBounds,
     Paint()
       ..shader = ui.Gradient.linear(Offset.zero, const Offset(0, 560), [
-        const Color(0xFF9AA2A9),
-        const Color(0xFF59616A),
+        ChipPalette.slate350,
+        ChipPalette.slate600b,
       ]),
   );
   void shape(Rect rect, double angle, Color color, double blur) {
@@ -1108,16 +1106,16 @@ void _drawRoom(Canvas canvas) {
   }
 
   // The window, with its frame in the middle.
-  shape(const Rect.fromLTWH(160, 170, 240, 190), -.5, Colors.white, 12);
-  shape(const Rect.fromLTWH(262, 170, 12, 200), -.5, const Color(0xFFB9C1C8), 5);
-  shape(const Rect.fromLTWH(150, 262, 250, 12), -.5, const Color(0xFFB9C1C8), 5);
+  shape(const Rect.fromLTWH(160, 170, 240, 190), -.5, ChipPalette.white, 12);
+  shape(const Rect.fromLTWH(262, 170, 12, 200), -.5, ChipPalette.slate250a, 5);
+  shape(const Rect.fromLTWH(150, 262, 250, 12), -.5, ChipPalette.slate250a, 5);
   // A strip light across the ceiling.
-  shape(const Rect.fromLTWH(380, 300, 60, 380), .75, const Color(0xE6FFFFFF), 11);
+  shape(const Rect.fromLTWH(380, 300, 60, 380), .75, ChipPalette.whiteA90, 11);
   // A lamp.
-  shape(const Rect.fromLTWH(70, 400, 52, 52), 0, const Color(0xE6FFFFFF), 14);
+  shape(const Rect.fromLTWH(70, 400, 52, 52), 0, ChipPalette.whiteA90, 14);
   // Something dark.
-  shape(const Rect.fromLTWH(420, 70, 150, 110), .3, const Color(0xFF1E252B), 10);
-  shape(const Rect.fromLTWH(60, 90, 130, 80), -.2, const Color(0xFF2A3138), 12);
+  shape(const Rect.fromLTWH(420, 70, 150, 110), .3, ChipPalette.sky850, 10);
+  shape(const Rect.fromLTWH(60, 90, 130, 80), -.2, ChipPalette.sky800, 12);
 }
 
 /// The steel heat spreader. [open] is how far it has come off (0 closed, 1 gone): it lifts a
@@ -1153,14 +1151,14 @@ void paintChipLid(
     (c) => c.drawPath(
       _flangePath(),
       Paint()
-        ..color = const Color(0xFF000000)
+        ..color = ChipPalette.black
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
     ),
     scale: 1.5,
   );
   canvas.save();
   canvas.translate(2 + 26 * lift, 4 + 30 * lift);
-  shadow.paint(canvas, Paint()..color = Colors.white.withValues(alpha: .34 * (1 - .55 * slide)));
+  shadow.paint(canvas, Paint()..color = ChipPalette.white.withValues(alpha: .34 * (1 - .55 * slide)));
   canvas.restore();
 
   _art('lid-base', _flange.inflate(6), _drawLidBase).paint(canvas);
@@ -1183,7 +1181,7 @@ void paintChipLid(
       Paint()
         ..blendMode = BlendMode.overlay
         ..filterQuality = FilterQuality.low
-        ..color = Colors.white.withValues(alpha: .6),
+        ..color = ChipPalette.white.withValues(alpha: .6),
     );
     canvas.restore();
   }
@@ -1195,10 +1193,10 @@ void paintChipLid(
   final doneArt = doneKey == null ? null : _art(doneKey, _plate, (c) => _drawLidText(c, done!));
   final showDone = doneArt != null && doneAmt > .01;
   if (1 - doneAmt > .01) {
-    idleArt.paint(canvas, Paint()..filterQuality = FilterQuality.medium..color = Colors.white.withValues(alpha: showDone ? 1 - doneAmt : 1));
+    idleArt.paint(canvas, Paint()..filterQuality = FilterQuality.medium..color = ChipPalette.white.withValues(alpha: showDone ? 1 - doneAmt : 1));
   }
   if (showDone) {
-    doneArt.paint(canvas, Paint()..filterQuality = FilterQuality.medium..color = Colors.white.withValues(alpha: doneAmt));
+    doneArt.paint(canvas, Paint()..filterQuality = FilterQuality.medium..color = ChipPalette.white.withValues(alpha: doneAmt));
   }
 
   // The bevel round the plate turns towards or away from the light as the phone is tilted: the
@@ -1216,8 +1214,8 @@ void paintChipLid(
         _plate.centerLeft - const Offset(4, 0),
         _plate.centerRight + const Offset(4, 0),
         [
-          Colors.white.withValues(alpha: .5 * bevel(-angleX)),
-          Colors.black.withValues(alpha: .1 + .25 * (1 - bevel(-angleX))),
+          ChipPalette.white.withValues(alpha: .5 * bevel(-angleX)),
+          ChipPalette.black.withValues(alpha: .1 + .25 * (1 - bevel(-angleX))),
         ],
       ),
   );
@@ -1229,8 +1227,8 @@ void paintChipLid(
         _plate.topCenter - const Offset(0, 4),
         _plate.bottomCenter + const Offset(0, 4),
         [
-          Colors.white.withValues(alpha: .3 * bevel(-angleY)),
-          Colors.black.withValues(alpha: .06 + .18 * (1 - bevel(-angleY))),
+          ChipPalette.white.withValues(alpha: .3 * bevel(-angleY)),
+          ChipPalette.black.withValues(alpha: .06 + .18 * (1 - bevel(-angleY))),
         ],
       ),
   );

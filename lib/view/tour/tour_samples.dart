@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lost_and_found/utils/palettes/tour_palette.dart';
 
 /// A photo or a short video the tour uses for its demos: public-domain (CC0) pictures and clips bundled with the
 /// app, so the demos work before anything is downloaded and without the person's own photos. Credits:
@@ -216,22 +217,13 @@ const List<SampleQuery> kSampleQueries = [
 ];
 
 // The tour's look: a light, airy page - soft white going to a pale mint, with a little mint and peach glowing
-// behind - and the app's teal for everything that acts.
-const Color kTourTop = Color(0xFFFBFDFC);
-const Color kTourBottom = Color(0xFFE8F1EE);
-const Color kTourMint = Color(0xFFBFE9E0);
-const Color kTourPeach = Color(0xFFFFD9C4);
+// behind - and the app's teal for everything that acts. Its colours are in TourPalette.
 
-/// Text on the page.
-const Color kTourText = Color(0xFF10211F);
-const Color kTourText80 = Color(0xFF3F504D);
-const Color kTourText60 = Color(0xFF5D6E6B);
-
-/// The teal that acts (buttons, rings, labels).
-const Color kTourAccent = Color(0xFF165E59);
-
-/// Hairlines and soft shadow for white cards.
-const Color kTourLine = Color(0xFFDBE3E1);
+/// The soft shadow of the tour's white cards.
 const List<BoxShadow> kTourSoftShadow = [
-  BoxShadow(color: Color(0x2410211F), blurRadius: 18, offset: Offset(0, 6)),
+  BoxShadow(
+    color: TourPalette.mint900A14,
+    blurRadius: 18,
+    offset: Offset(0, 6),
+  ),
 ];

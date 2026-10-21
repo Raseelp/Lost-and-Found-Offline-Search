@@ -419,7 +419,7 @@ class _BarButton extends StatelessWidget {
             margin: const EdgeInsets.only(left: 2),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: active ? AppColors.primary : Colors.transparent,
+              color: active ? AppColors.primary : AppColors.transparent,
             ),
             child: Icon(icon, size: 22, color: active ? AppColors.onPrimary : AppColors.ink),
           ),

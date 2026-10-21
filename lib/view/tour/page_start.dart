@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/palettes/tour_palette.dart';
 import 'package:lost_and_found/view/tour/depth_widgets.dart';
-import 'package:lost_and_found/view/tour/tour_samples.dart';
 import 'package:lost_and_found/view/tour/tour_screen.dart';
 import 'package:lost_and_found/view/tour/tour_widgets.dart';
 
@@ -38,14 +38,14 @@ class StartPage extends StatelessWidget {
               const Icon(
                 Icons.lock_outline_rounded,
                 size: 16,
-                color: kTourAccent,
+                color: TourPalette.teal,
               ),
               const SizedBox(width: AppSpacing.sm),
               Flexible(
                 child: Text(
                   'No account. Nothing is uploaded.',
                   style: textTheme.bodyMedium?.copyWith(
-                    color: kTourText,
+                    color: TourPalette.text,
                     height: 1.4,
                   ),
                 ),

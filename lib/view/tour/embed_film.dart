@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lost_and_found/utils/palettes/tour_palette.dart';
 import 'package:lost_and_found/view/tour/search_demo.dart';
 import 'package:lost_and_found/view/tour/tour_scores.dart';
 import 'package:lost_and_found/view/tour/tour_samples.dart';
@@ -16,8 +17,6 @@ import 'package:lost_and_found/view/widget/timeline_preview.dart'
     show bentoRects;
 
 // The app's primary teal, and the lighter teal the chip uses for its numbers.
-const Color _teal = Color(0xFF165E59);
-const Color _glow = Color(0xFF7FE3CC);
 
 double _seg(double t, double a, double b) =>
     ((t - a) / (b - a)).clamp(0.0, 1.0);
@@ -600,7 +599,10 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
               ..translate(-geo.side / 2, -geo.side / 2),
             child: child,
           );
-          return alpha >= 0.999 ? moved : Opacity(opacity: alpha, child: moved);
+          // Always wrapped: switching to an Opacity only once the fade begins replaced the chip's whole subtree (a new
+          // state, built and started from scratch) in the middle of the pull-back, which was the hitch there. At full
+          // opacity it paints the child directly, with no layer.
+          return Opacity(opacity: alpha.clamp(0.0, 1.0), child: moved);
         },
       ),
     );
@@ -730,7 +732,7 @@ class _FilmPainter extends CustomPainter {
     if (cover > 0) {
       canvas.drawRect(
         Offset.zero & size,
-        Paint()..color = kTourBottom.withValues(alpha: cover),
+        Paint()..color = TourPalette.bottom.withValues(alpha: cover),
       );
     }
   }
@@ -807,14 +809,14 @@ class _FilmPainter extends CustomPainter {
     // The mat: a pale green-grey, a little darker at its edge, with a thin line round it.
     canvas.drawRRect(
       shape,
-      Paint()..color = kTourMint.withValues(alpha: 0.2 * a),
+      Paint()..color = TourPalette.mint.withValues(alpha: 0.2 * a),
     );
     canvas.drawRRect(
       shape,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
-        ..color = _teal.withValues(alpha: 0.16 * a),
+        ..color = TourPalette.teal.withValues(alpha: 0.16 * a),
     );
     canvas.drawRawPoints(
       ui.PointMode.points,
@@ -822,7 +824,7 @@ class _FilmPainter extends CustomPainter {
       Paint()
         ..strokeCap = StrokeCap.round
         ..strokeWidth = 1.5
-        ..color = _teal.withValues(alpha: 0.16 * a),
+        ..color = TourPalette.teal.withValues(alpha: 0.16 * a),
     );
     canvas.drawRawPoints(
       ui.PointMode.points,
@@ -830,7 +832,7 @@ class _FilmPainter extends CustomPainter {
       Paint()
         ..strokeCap = StrokeCap.round
         ..strokeWidth = 2.6
-        ..color = _teal.withValues(alpha: 0.28 * a),
+        ..color = TourPalette.teal.withValues(alpha: 0.28 * a),
     );
     canvas.drawPath(
       _ruler,
@@ -838,7 +840,7 @@ class _FilmPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.9
         ..strokeCap = StrokeCap.round
-        ..color = _teal.withValues(alpha: 0.26 * a),
+        ..color = TourPalette.teal.withValues(alpha: 0.26 * a),
     );
   }
 
@@ -856,9 +858,9 @@ class _FilmPainter extends CustomPainter {
           centre,
           r,
           [
-            _glow.withValues(alpha: 0),
-            _glow.withValues(alpha: 0.12 * a),
-            _glow.withValues(alpha: 0),
+            TourPalette.glow.withValues(alpha: 0),
+            TourPalette.glow.withValues(alpha: 0.12 * a),
+            TourPalette.glow.withValues(alpha: 0),
           ],
           const [0.8, 0.98, 1.0],
         ),
@@ -869,7 +871,7 @@ class _FilmPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.4
-        ..color = Colors.white.withValues(alpha: 0.7 * a),
+        ..color = TourPalette.white.withValues(alpha: 0.7 * a),
     );
   }
 
@@ -888,7 +890,7 @@ class _FilmPainter extends CustomPainter {
         Paint()
           ..strokeWidth = 1.2
           ..strokeCap = StrokeCap.round
-          ..color = _teal.withValues(alpha: 0.55 * a),
+          ..color = TourPalette.teal.withValues(alpha: 0.55 * a),
       );
     }
   }
@@ -961,24 +963,24 @@ class _FilmPainter extends CustomPainter {
             rect.inflate(edge + 1.5).shift(Offset(0, 2.2 + 3 * pick)),
             Radius.circular(radius + 2),
           ),
-          fill..color = Colors.black.withValues(alpha: 0.05 * a * print),
+          fill..color = TourPalette.black.withValues(alpha: 0.05 * a * print),
         );
         canvas.drawRRect(
           RRect.fromRectAndRadius(
             rect.inflate(edge + 0.5).shift(Offset(0, 1.2 + 1.5 * pick)),
             Radius.circular(radius + 1),
           ),
-          fill..color = Colors.black.withValues(alpha: 0.11 * a * print),
+          fill..color = TourPalette.black.withValues(alpha: 0.11 * a * print),
         );
         canvas.drawRRect(
           RRect.fromRectAndRadius(
             rect.inflate(edge),
             Radius.circular(radius + 1),
           ),
-          fill..color = Colors.white.withValues(alpha: a),
+          fill..color = TourPalette.white.withValues(alpha: a),
         );
       }
-      image.color = Colors.white.withValues(alpha: a);
+      image.color = TourPalette.white.withValues(alpha: a);
       canvas.save();
       canvas.clipRRect(shape);
       if (cell.flip && !best) canvas.scale(-1, 1);
@@ -987,7 +989,7 @@ class _FilmPainter extends CustomPainter {
       if (read > 0 && collapse < 0.5) {
         canvas.drawRect(
           rect,
-          fill..color = Colors.white.withValues(alpha: 0.38 * read * a),
+          fill..color = TourPalette.white.withValues(alpha: 0.38 * read * a),
         );
       }
       canvas.restore();
@@ -1000,7 +1002,7 @@ class _FilmPainter extends CustomPainter {
             cell.score.toStringAsFixed(2),
             10,
             FontWeight.w700,
-            const Color(0xFF1A1D1C),
+            TourPalette.gray900,
           );
           // Outside the photo, away from the words.
           final away = pos - geo.query;
@@ -1020,15 +1022,15 @@ class _FilmPainter extends CustomPainter {
               box.shift(const Offset(0, 1)),
               Radius.circular(box.height / 2),
             ),
-            Paint()..color = Colors.black.withValues(alpha: 0.10 * tag),
+            Paint()..color = TourPalette.black.withValues(alpha: 0.10 * tag),
           );
           canvas.drawRRect(
             RRect.fromRectAndRadius(box, Radius.circular(box.height / 2)),
-            Paint()..color = Colors.white.withValues(alpha: tag),
+            Paint()..color = TourPalette.white.withValues(alpha: tag),
           );
           canvas.saveLayer(
             box,
-            Paint()..color = Colors.white.withValues(alpha: tag),
+            Paint()..color = TourPalette.white.withValues(alpha: tag),
           );
           text.paint(canvas, Offset(box.left + 5, box.top + 1));
           canvas.restore();
@@ -1050,12 +1052,7 @@ class _FilmPainter extends CustomPainter {
           control * (2 * f * (1 - f)) +
           q * (f * f);
       final scale = _lerp(1, 0.16, _ease(_seg(f, 0.2, 1)));
-      final label = _painter(
-        _query,
-        12,
-        FontWeight.w600,
-        const Color(0xFF1A1D1C),
-      );
+      final label = _painter(_query, 12, FontWeight.w600, TourPalette.gray900);
       final box = Rect.fromCenter(
         center: p,
         width: (label.width + 22) * scale,
@@ -1067,12 +1064,12 @@ class _FilmPainter extends CustomPainter {
           Radius.circular(14 * scale),
         ),
         Paint()
-          ..color = Colors.black.withValues(alpha: 0.16 * (1 - f))
+          ..color = TourPalette.black.withValues(alpha: 0.16 * (1 - f))
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
       );
       canvas.drawRRect(
         RRect.fromRectAndRadius(box, Radius.circular(14 * scale)),
-        Paint()..color = Colors.white.withValues(alpha: 1 - 0.4 * f),
+        Paint()..color = TourPalette.white.withValues(alpha: 1 - 0.4 * f),
       );
       if (scale > 0.5) {
         canvas.save();
@@ -1096,7 +1093,9 @@ class _FilmPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.2
-          ..color = _teal.withValues(alpha: 0.4 * (1 - p) * land * out),
+          ..color = TourPalette.teal.withValues(
+            alpha: 0.4 * (1 - p) * land * out,
+          ),
       );
     }
     // The ring that picks the nearest photos.
@@ -1108,7 +1107,7 @@ class _FilmPainter extends CustomPainter {
         canvas.drawCircle(
           q,
           r,
-          Paint()..color = _teal.withValues(alpha: 0.05 * ring),
+          Paint()..color = TourPalette.teal.withValues(alpha: 0.05 * ring),
         );
         canvas.drawCircle(
           q,
@@ -1116,7 +1115,7 @@ class _FilmPainter extends CustomPainter {
           Paint()
             ..style = PaintingStyle.stroke
             ..strokeWidth = 1.3
-            ..color = _teal.withValues(alpha: 0.7 * ring),
+            ..color = TourPalette.teal.withValues(alpha: 0.7 * ring),
         );
       }
     }
@@ -1125,23 +1124,23 @@ class _FilmPainter extends CustomPainter {
       q + const Offset(0, 2),
       8.5 * land,
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.25 * out)
+        ..color = TourPalette.black.withValues(alpha: 0.25 * out)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
     );
     canvas.drawCircle(
       q,
       8 * land,
-      Paint()..color = Colors.white.withValues(alpha: out),
+      Paint()..color = TourPalette.white.withValues(alpha: out),
     );
     canvas.drawCircle(
       q,
       5.2 * land,
-      Paint()..color = _teal.withValues(alpha: out),
+      Paint()..color = TourPalette.teal.withValues(alpha: out),
     );
     canvas.drawCircle(
       q,
       1.8 * land,
-      Paint()..color = Colors.white.withValues(alpha: out),
+      Paint()..color = TourPalette.white.withValues(alpha: out),
     );
   }
 
@@ -1174,7 +1173,7 @@ class _FilmPainter extends CustomPainter {
       canvas.drawRRect(
         shape.shift(Offset(0, 5 * f)),
         Paint()
-          ..color = Colors.black.withValues(alpha: 0.28 * f)
+          ..color = TourPalette.black.withValues(alpha: 0.28 * f)
           ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6 * f + 0.1),
       );
       canvas.save();
@@ -1196,7 +1195,7 @@ class _FilmPainter extends CustomPainter {
           cell.score.toStringAsFixed(2),
           cell.rank == 0 ? 12.5 : 10.5,
           FontWeight.w700,
-          const Color(0xFF1A1D1C),
+          TourPalette.gray900,
         );
         final padX = cell.rank == 0 ? 8.0 : 5.0;
         final box = Rect.fromLTWH(
@@ -1207,11 +1206,11 @@ class _FilmPainter extends CustomPainter {
         );
         canvas.drawRRect(
           RRect.fromRectAndRadius(box, Radius.circular(box.height / 2)),
-          Paint()..color = Colors.white.withValues(alpha: pill),
+          Paint()..color = TourPalette.white.withValues(alpha: pill),
         );
         canvas.saveLayer(
           box,
-          Paint()..color = Colors.white.withValues(alpha: pill),
+          Paint()..color = TourPalette.white.withValues(alpha: pill),
         );
         text.paint(canvas, Offset(box.left + padX, box.top + 1.5));
         canvas.restore();
@@ -1223,7 +1222,7 @@ class _FilmPainter extends CustomPainter {
             'Best match',
             10.5,
             FontWeight.w500,
-            Colors.white,
+            TourPalette.white,
           );
           final box = Rect.fromLTWH(
             rect.left + 8,
@@ -1233,11 +1232,11 @@ class _FilmPainter extends CustomPainter {
           );
           canvas.drawRRect(
             RRect.fromRectAndRadius(box, Radius.circular(box.height / 2)),
-            Paint()..color = Colors.black.withValues(alpha: 0.5 * label),
+            Paint()..color = TourPalette.black.withValues(alpha: 0.5 * label),
           );
           canvas.saveLayer(
             box.inflate(2),
-            Paint()..color = Colors.white.withValues(alpha: label),
+            Paint()..color = TourPalette.white.withValues(alpha: label),
           );
           text.paint(canvas, Offset(box.left + 10, box.top + 4));
           canvas.restore();
@@ -1289,13 +1288,13 @@ class _FilmPainter extends CustomPainter {
       at + const Offset(0, 3),
       r,
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.18 * alpha)
+        ..color = TourPalette.black.withValues(alpha: 0.18 * alpha)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
     );
     canvas.drawCircle(
       at,
       r,
-      Paint()..color = Colors.white.withValues(alpha: 0.82 * alpha),
+      Paint()..color = TourPalette.white.withValues(alpha: 0.82 * alpha),
     );
     canvas.drawCircle(
       at,
@@ -1303,7 +1302,7 @@ class _FilmPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.6
-        ..color = _teal.withValues(alpha: 0.55 * alpha),
+        ..color = TourPalette.teal.withValues(alpha: 0.55 * alpha),
     );
     for (final p in presses) {
       final ring = _seg(t, p, p + 0.55);
@@ -1314,7 +1313,7 @@ class _FilmPainter extends CustomPainter {
           Paint()
             ..style = PaintingStyle.stroke
             ..strokeWidth = 2
-            ..color = _teal.withValues(alpha: 0.5 * (1 - ring)),
+            ..color = TourPalette.teal.withValues(alpha: 0.5 * (1 - ring)),
         );
       }
     }

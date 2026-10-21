@@ -775,7 +775,7 @@ class _ResultTileState extends State<_ResultTile>
   Widget build(BuildContext context) {
     final activeBytes = _upgradedBytes ?? widget.bytes;
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.lg),
         onTap: widget.onTap,
@@ -859,11 +859,11 @@ class _ResultTileState extends State<_ResultTile>
                                       begin: Alignment(-1.6 + 3.2 * t, -1),
                                       end: Alignment(-0.5 + 3.2 * t, 1),
                                       colors: [
-                                        Colors.transparent,
+                                        AppColors.transparent,
                                         AppColors.primaryFocus.withValues(
                                           alpha: sheenStrength * 0.16,
                                         ),
-                                        Colors.transparent,
+                                        AppColors.transparent,
                                       ],
                                     ),
                                   ),
@@ -914,12 +914,12 @@ class _ResultTileState extends State<_ResultTile>
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.55),
+                          color: AppColors.scrim.withValues(alpha: 0.55),
                           borderRadius: BorderRadius.circular(AppRadius.pill),
                         ),
                         child: const Icon(
                           Icons.play_arrow_rounded,
-                          color: Colors.white,
+                          color: AppColors.onMedia,
                           size: 13,
                         ),
                       ),
@@ -953,7 +953,7 @@ class _NewTag extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.primary,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.4),
+                  border: Border.all(color: AppColors.onMedia, width: 1.4),
                 ),
               )
             : Container(
@@ -961,7 +961,7 @@ class _NewTag extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.primary,
                   borderRadius: BorderRadius.circular(AppRadius.pill),
-                  border: Border.all(color: Colors.white.withValues(alpha: .85), width: 1),
+                  border: Border.all(color: AppColors.onMedia.withValues(alpha: .85), width: 1),
                 ),
                 child: const Text(
                   'NEW',
@@ -990,7 +990,7 @@ class _LayoutPickerButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(AppRadius.pill),
         onTap: () => _showLayoutPicker(context, controller),
@@ -1029,7 +1029,7 @@ class _LayoutPickerButton extends StatelessWidget {
 void _showLayoutPicker(BuildContext context, NativeController controller) {
   showModalBottomSheet<void>(
     context: context,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.transparent,
     builder: (_) => _LayoutSheet(controller: controller),
   );
 }

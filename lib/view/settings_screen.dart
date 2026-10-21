@@ -132,15 +132,30 @@ class SettingsScreen extends StatelessWidget {
                                   ? null
                                   : collections.resyncAll,
                             ),
-                            _TapRow(
-                              icon: Icons.restart_alt_rounded,
-                              title: 'Restore default collections',
-                              subtitle: collections.hasCustomizedBuiltIns
-                                  ? 'Bring back deleted or hidden ones and undo edits'
-                                  : 'Nothing to restore',
-                              onTap: collections.hasCustomizedBuiltIns
-                                  ? collections.restoreDefaults
-                                  : null,
+                            GetBuilder<MemoriesController>(
+                              builder: (memories) {
+                                final restorable =
+                                    collections.hasCustomizedBuiltIns ||
+                                    memories.hidden;
+                                return _TapRow(
+                                  icon: Icons.restart_alt_rounded,
+                                  title: 'Restore default collections',
+                                  subtitle: restorable
+                                      ? 'Bring back deleted or hidden ones (and On this day) and undo edits'
+                                      : 'Nothing to restore',
+                                  onTap: restorable
+                                      ? () {
+                                          if (memories.hidden) {
+                                            memories.setHidden(false);
+                                          }
+                                          if (collections
+                                              .hasCustomizedBuiltIns) {
+                                            collections.restoreDefaults();
+                                          }
+                                        }
+                                      : null,
+                                );
+                              },
                             ),
                           ],
                         ),

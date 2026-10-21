@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
+import 'package:lost_and_found/utils/palettes/tour_palette.dart';
 import 'package:lost_and_found/view/tour/tour_widgets.dart';
 import 'package:lost_and_found/view/widget/photo_faces_layer.dart';
 
@@ -219,7 +220,7 @@ class _TourFaceDemoState extends State<TourFaceDemo>
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(AppRadius.xl),
                 child: ColoredBox(
-                  color: Colors.black,
+                  color: TourPalette.black,
                   child: LayoutBuilder(
                     builder: (context, box) {
                       final size = box.biggest;
@@ -327,11 +328,11 @@ class _TourFaceDemoState extends State<TourFaceDemo>
                                 child: DecoratedBox(
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: Colors.white.withValues(
+                                    color: TourPalette.white.withValues(
                                       alpha: 0.35 * (1 - t),
                                     ),
                                     border: Border.all(
-                                      color: Colors.white.withValues(
+                                      color: TourPalette.white.withValues(
                                         alpha: 0.8 * (1 - t),
                                       ),
                                       width: 1.5,

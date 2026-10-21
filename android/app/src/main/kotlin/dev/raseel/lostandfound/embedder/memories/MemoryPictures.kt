@@ -247,8 +247,13 @@ object MemoryPictures {
         }
     }
 
-    /** A picture of the photo or video, about [side] across at its longest (upright). */
+    /**
+     * A picture of the photo or video, about [side] across at its longest (upright). A photo is read from the
+     * photo itself: the system's thumbnail of it is a small cached one that goes soft once it is stretched over
+     * a notification's picture. A video has no such picture to read, so it gets the system's.
+     */
     fun thumbnail(context: Context, uri: Uri, video: Boolean, side: Int): Bitmap? {
+        if (!video) FaceImageLoader.load(context, uri, side)?.let { return it }
         if (Build.VERSION.SDK_INT >= 29) {
             try {
                 return context.contentResolver.loadThumbnail(uri, Size(side, side), null)

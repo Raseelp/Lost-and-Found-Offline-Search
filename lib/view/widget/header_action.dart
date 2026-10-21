@@ -23,7 +23,7 @@ class HeaderActionPill extends StatelessWidget {
     return Opacity(
       opacity: onTap == null ? 0.45 : 1,
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(AppRadius.pill),
           onTap: onTap,

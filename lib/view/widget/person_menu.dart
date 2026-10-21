@@ -606,7 +606,7 @@ class _OrbitButton extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Material(
-          color: Colors.transparent,
+          color: AppColors.transparent,
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
@@ -820,7 +820,7 @@ class _BubbleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: filled ? color : Colors.transparent,
+      color: filled ? color : AppColors.transparent,
       borderRadius: BorderRadius.circular(AppRadius.pill),
       child: InkWell(
         onTap: onTap,

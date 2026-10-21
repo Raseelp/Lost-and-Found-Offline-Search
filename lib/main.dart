@@ -17,7 +17,7 @@ const SystemUiOverlayStyle kAppOverlayStyle = SystemUiOverlayStyle(
   systemNavigationBarDividerColor: AppColors.canvas,
   systemNavigationBarContrastEnforced: false,
   systemNavigationBarIconBrightness: Brightness.dark,
-  statusBarColor: Colors.transparent,
+  statusBarColor: AppColors.transparent,
   statusBarIconBrightness: Brightness.dark,
 );
 
@@ -113,7 +113,7 @@ class LostAndFoundApp extends StatelessWidget {
         colorScheme: colorScheme,
         textTheme: textTheme,
         appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.transparent,
           elevation: 0,
           centerTitle: false,
           foregroundColor: AppColors.ink,

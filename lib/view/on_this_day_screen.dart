@@ -6,6 +6,7 @@ import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/day_photos_screen.dart';
+import 'package:lost_and_found/view/widget/collection_widgets.dart';
 import 'package:lost_and_found/view/widget/memory_widgets.dart';
 import 'package:lost_and_found/view/widget/timeline_preview.dart';
 
@@ -105,6 +106,21 @@ class _OnThisDayScreenState extends State<OnThisDayScreen> {
                         ),
                         onPressed: () => Navigator.of(context).maybePop(),
                       ),
+                      const Spacer(),
+                      // The tools of a collection that apply: the zip export, and Hide.
+                      if (!today.isEmpty)
+                        IconButton(
+                          tooltip: 'More',
+                          icon: const Icon(
+                            Icons.more_horiz_rounded,
+                            color: AppColors.ink,
+                          ),
+                          onPressed: () => showOnThisDayMenu(
+                            context,
+                            memories,
+                            onHidden: () => Navigator.of(context).maybePop(),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -411,6 +427,10 @@ class _YearSection extends StatelessWidget {
                     photo: photos[i].preview,
                     loader: loader,
                     large: rects[i].width > 150,
+                    sharp: PreviewLoader.wantsSharp(
+                      rects[i].size,
+                      MediaQuery.devicePixelRatioOf(context),
+                    ),
                     radius: AppRadius.lg,
                     onTap: i == photos.length - 1 && more > 0
                         ? openAll
@@ -421,12 +441,12 @@ class _YearSection extends StatelessWidget {
                           ),
                     overlay: i == photos.length - 1 && more > 0
                         ? ColoredBox(
-                            color: Colors.black.withValues(alpha: 0.45),
+                            color: AppColors.scrim.withValues(alpha: 0.45),
                             child: Center(
                               child: Text(
                                 '+$more',
                                 style: textTheme.titleMedium?.copyWith(
-                                  color: Colors.white,
+                                  color: AppColors.onMedia,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),

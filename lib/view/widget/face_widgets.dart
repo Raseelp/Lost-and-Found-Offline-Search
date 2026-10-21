@@ -186,12 +186,12 @@ class _PersonTileState extends State<PersonTile> with TickerProviderStateMixin {
     final radius = size * 0.24;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.canvas,
         borderRadius: BorderRadius.circular(radius),
         boxShadow: [
           top
-              ? BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 5))
-              : BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 6, offset: const Offset(0, 2)),
+              ? BoxShadow(color: AppColors.shadow.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 5))
+              : BoxShadow(color: AppColors.shadow.withValues(alpha: 0.12), blurRadius: 6, offset: const Offset(0, 2)),
         ],
       ),
       child: Padding(
@@ -258,10 +258,10 @@ class _PersonTileState extends State<PersonTile> with TickerProviderStateMixin {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(area * 0.3),
                           border: Border.all(
-                            color: selected ? AppColors.primary : Colors.transparent,
+                            color: selected ? AppColors.primary : AppColors.transparent,
                             width: 3,
                           ),
-                          color: selected ? AppColors.primary.withValues(alpha: 0.08) : Colors.transparent,
+                          color: selected ? AppColors.primary.withValues(alpha: 0.08) : AppColors.transparent,
                         ),
                       ),
                       AnimatedScale(
@@ -474,7 +474,7 @@ Future<T?> showFacesSheet<T>(
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.transparent,
     builder: (sheetContext) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.xl),
@@ -535,7 +535,7 @@ Future<NamePersonResult?> showNamePersonDialog(
   final field = TextEditingController();
   return showDialog<NamePersonResult>(
     context: context,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: AppColors.scrim.withValues(alpha: 0.45),
     builder: (ctx) => Dialog(
       backgroundColor: AppColors.canvas,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
@@ -609,7 +609,7 @@ Future<String?> showRenamePersonDialog(BuildContext context, String? current) {
   final field = TextEditingController(text: current ?? '');
   return showDialog<String>(
     context: context,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: AppColors.scrim.withValues(alpha: 0.45),
     builder: (ctx) => Dialog(
       backgroundColor: AppColors.canvas,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),

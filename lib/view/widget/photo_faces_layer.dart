@@ -6,19 +6,21 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
 import 'package:lost_and_found/services/native_services.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/palettes/face_palette.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 
 // The colours of the selection outline: the app's teal (lightened so it glows on a
 // photo) flowing into cool blue, violet, pink and warm gold, and back to teal.
 const List<Color> _ringColors = [
-  Color(0xFF5FE0CF),
-  Color(0xFF7AD7FF),
-  Color(0xFFB388FF),
-  Color(0xFFFF8AD8),
-  Color(0xFFFFC46B),
-  Color(0xFF5FE0CF),
+  FacePalette.mint350,
+  FacePalette.sky250,
+  FacePalette.indigo250,
+  FacePalette.pink250,
+  FacePalette.orange300,
+  FacePalette.mint350,
 ];
 
 // Everything below is drawn WITHOUT blur filters and with the transparency baked into the
@@ -497,7 +499,7 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
               offset: Offset(0, AppSpacing.xs * (1 - opacity)),
               child: const _FlowText(
                 'Tap a face to see who',
-                leading: Icon(Icons.face_outlined, size: 20, color: Colors.white),
+                leading: Icon(Icons.face_outlined, size: 20, color: FacePalette.white),
               ),
             ),
           ),
@@ -557,9 +559,9 @@ class _Glass extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.46),
+        color: FacePalette.black.withValues(alpha: 0.46),
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+        border: Border.all(color: FacePalette.white.withValues(alpha: 0.2)),
       ),
       child: child,
     );
@@ -615,14 +617,14 @@ class _FlowTextState extends State<_FlowText> with TickerProviderStateMixin {
     final size = (base?.fontSize ?? 14) + 1;
     // The text itself (tinted by the moving highlight) and, beneath it, the same letters
     // in nothing but a soft shadow - a shadow put on the tinted text would be tinted too.
-    final fill = base?.copyWith(color: Colors.white, fontSize: size, fontWeight: FontWeight.w600);
+    final fill = base?.copyWith(color: FacePalette.white, fontSize: size, fontWeight: FontWeight.w600);
     final shade = base?.copyWith(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       fontSize: size,
       fontWeight: FontWeight.w600,
       shadows: [
-        Shadow(color: Colors.black.withValues(alpha: 0.6), blurRadius: 9),
-        Shadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 2, offset: const Offset(0, 1)),
+        Shadow(color: FacePalette.black.withValues(alpha: 0.6), blurRadius: 9),
+        Shadow(color: FacePalette.black.withValues(alpha: 0.4), blurRadius: 2, offset: const Offset(0, 1)),
       ],
     );
     final letters = widget.text.split('');
@@ -667,13 +669,13 @@ class _FlowTextState extends State<_FlowText> with TickerProviderStateMixin {
                     blendMode: BlendMode.srcIn,
                     shaderCallback: (rect) => LinearGradient(
                       colors: const [
-                        Color(0xC8FFFFFF),
-                        Color(0xC8FFFFFF),
-                        Color(0xFF9FF0E4),
-                        Color(0xFFFFFFFF),
-                        Color(0xFFFFD0F0),
-                        Color(0xC8FFFFFF),
-                        Color(0xC8FFFFFF),
+                        FacePalette.whiteA78,
+                        FacePalette.whiteA78,
+                        FacePalette.mint200,
+                        FacePalette.white,
+                        FacePalette.pink100,
+                        FacePalette.whiteA78,
+                        FacePalette.whiteA78,
                       ],
                       stops: const [0.0, 0.3, 0.42, 0.5, 0.58, 0.7, 1.0],
                       // From fully off the left edge to fully off the right, once per loop.
@@ -754,7 +756,7 @@ class _TwinkleStarPainter extends CustomPainter {
     final colour = Color.lerp(_ringColors[i0], _ringColors[i0 + 1], f - f.floor())!;
     _light(canvas, c, 11, colour, 0.55);
     canvas.drawPath(star(r, a * 0.5), Paint()..color = colour.withValues(alpha: 0.95));
-    canvas.drawPath(star(r * 0.55, -a * 0.8 + math.pi / 4), Paint()..color = Colors.white.withValues(alpha: 0.95));
+    canvas.drawPath(star(r * 0.55, -a * 0.8 + math.pi / 4), Paint()..color = FacePalette.white.withValues(alpha: 0.95));
   }
 
   @override
@@ -790,17 +792,17 @@ class _PersonChip extends StatelessWidget {
                     person.name ?? 'Unnamed',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: textTheme.titleSmall?.copyWith(color: Colors.white),
+                    style: textTheme.titleSmall?.copyWith(color: FacePalette.white),
                   ),
                   Text(
                     photos == 1 ? '1 photo' : '$photos photos',
-                    style: textTheme.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.72)),
+                    style: textTheme.bodySmall?.copyWith(color: FacePalette.white.withValues(alpha: 0.72)),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: AppSpacing.xs),
-            Icon(Icons.chevron_right_rounded, size: 22, color: Colors.white.withValues(alpha: 0.8)),
+            Icon(Icons.chevron_right_rounded, size: 22, color: FacePalette.white.withValues(alpha: 0.8)),
           ],
         ),
       ),
@@ -845,7 +847,7 @@ class _RingPainter extends CustomPainter {
     final everything = Path()..addRect(Offset.zero & size);
     canvas.drawPath(
       Path.combine(PathOperation.difference, everything, hole),
-      Paint()..color = Colors.black.withValues(alpha: 0.5 * t),
+      Paint()..color = FacePalette.black.withValues(alpha: 0.5 * t),
     );
 
     // The outline settles in from a little wider.
@@ -867,8 +869,8 @@ class _RingPainter extends CustomPainter {
     for (var k = 0; k < 3; k++) {
       final a = roll.start + roll.dir * spin * 1.6 + k * 2 * math.pi / 3;
       final p = center + Offset(math.cos(a), math.sin(a)) * _blobRadius(a, r, phase, wobble, roll.offset);
-      _light(canvas, p, 9, Colors.white, 0.5 * t);
-      canvas.drawCircle(p, 1.7, Paint()..color = Colors.white.withValues(alpha: t));
+      _light(canvas, p, 9, FacePalette.white, 0.5 * t);
+      canvas.drawCircle(p, 1.7, Paint()..color = FacePalette.white.withValues(alpha: t));
     }
   }
 
@@ -942,8 +944,8 @@ class _HintPainter extends CustomPainter {
       }
     }
     path.close();
-    _light(canvas, c, r * 2.2, const Color(0xFF9FF0E4), 0.55 * opacity);
-    canvas.drawPath(path, Paint()..color = Colors.white.withValues(alpha: 0.95 * opacity));
+    _light(canvas, c, r * 2.2, FacePalette.mint200, 0.55 * opacity);
+    canvas.drawPath(path, Paint()..color = FacePalette.white.withValues(alpha: 0.95 * opacity));
   }
 
   @override
@@ -989,11 +991,11 @@ class _Orb {
 
 class _PhotoScanGlowState extends State<PhotoScanGlow> with TickerProviderStateMixin {
   static const _palette = [
-    Color(0xFF5FE0CF),
-    Color(0xFF7AD7FF),
-    Color(0xFFB388FF),
-    Color(0xFFFF8AD8),
-    Color(0xFFFFC46B),
+    FacePalette.mint350,
+    FacePalette.sky250,
+    FacePalette.indigo250,
+    FacePalette.pink250,
+    FacePalette.orange300,
   ];
 
   // One long loop; every orb turns a whole number of times in it.
@@ -1268,7 +1270,7 @@ class FaceHintLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return const _FlowText(
       'Tap a face to see who',
-      leading: Icon(Icons.face_outlined, size: 20, color: Colors.white),
+      leading: Icon(Icons.face_outlined, size: 20, color: FacePalette.white),
     );
   }
 }
@@ -1296,15 +1298,15 @@ class FaceChipDemo extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name, maxLines: 1, style: textTheme.titleSmall?.copyWith(color: Colors.white)),
+              Text(name, maxLines: 1, style: textTheme.titleSmall?.copyWith(color: FacePalette.white)),
               Text(
                 photos == 1 ? '1 photo' : '$photos photos',
-                style: textTheme.bodySmall?.copyWith(color: Colors.white.withValues(alpha: 0.72)),
+                style: textTheme.bodySmall?.copyWith(color: FacePalette.white.withValues(alpha: 0.72)),
               ),
             ],
           ),
           const SizedBox(width: AppSpacing.xs),
-          Icon(Icons.chevron_right_rounded, size: 22, color: Colors.white.withValues(alpha: 0.8)),
+          Icon(Icons.chevron_right_rounded, size: 22, color: FacePalette.white.withValues(alpha: 0.8)),
         ],
       ),
     );

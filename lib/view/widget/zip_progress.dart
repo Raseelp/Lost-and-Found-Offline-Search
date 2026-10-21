@@ -462,10 +462,10 @@ class _Thumb extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadius.sm + 1),
-        border: Border.all(color: Colors.white, width: 1.8),
+        border: Border.all(color: AppColors.canvas, width: 1.8),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: .22),
+            color: AppColors.shadow.withValues(alpha: .22),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),

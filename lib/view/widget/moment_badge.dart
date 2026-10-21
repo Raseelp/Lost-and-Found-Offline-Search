@@ -4,10 +4,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
 import 'package:lost_and_found/models/people_timeline.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/palettes/moment_palette.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 
 /// The paper of the moment marks: a warm cream, readable on a bright or a dark photo.
-const Color kMomentPaper = Color(0xFFFBF3E4);
 
 /// What the photo with [uri] is, if it is one of the moments (see [FacesController.momentFor]), looked
 /// up again whenever the people or their dates change. Nothing when it is not.
@@ -87,15 +87,15 @@ class _RibbonPainter extends CustomPainter {
       ..lineTo(w / 2, h - notch)
       ..lineTo(0, h)
       ..close();
-    canvas.drawShadow(path, Colors.black, 3, false);
-    canvas.drawPath(path, Paint()..color = kMomentPaper);
+    canvas.drawShadow(path, AppColors.shadow, 3, false);
+    canvas.drawPath(path, Paint()..color = MomentPalette.paper);
     // A hairline, so it still shows on a cream-coloured photo.
     canvas.drawPath(
       path,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 0.6
-        ..color = Colors.black.withValues(alpha: 0.18),
+        ..color = AppColors.scrim.withValues(alpha: 0.18),
     );
   }
 
@@ -151,7 +151,7 @@ class _LowerThird extends StatelessWidget {
 
   final PhotoMoment moment;
 
-  static const _shadow = [Shadow(color: Color(0x99000000), blurRadius: 6)];
+  static const _shadow = [Shadow(color: MomentPalette.blackA60, blurRadius: 6)];
 
   @override
   Widget build(BuildContext context) {
@@ -173,10 +173,10 @@ class _LowerThird extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.transparent,
-                      Colors.black,
-                      Colors.black,
-                      Colors.transparent,
+                      AppColors.transparent,
+                      AppColors.scrim,
+                      AppColors.scrim,
+                      AppColors.transparent,
                     ],
                     stops: [0, 0.3, 0.7, 1],
                   ).createShader(rect),
@@ -184,9 +184,9 @@ class _LowerThird extends StatelessWidget {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          Colors.black.withValues(alpha: 0.62),
-                          Colors.black.withValues(alpha: 0.44),
-                          Colors.black.withValues(alpha: 0),
+                          AppColors.scrim.withValues(alpha: 0.62),
+                          AppColors.scrim.withValues(alpha: 0.44),
+                          AppColors.scrim.withValues(alpha: 0),
                         ],
                         stops: const [0, 0.55, 1],
                       ),
@@ -213,7 +213,7 @@ class _LowerThird extends StatelessWidget {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: kMomentPaper,
+                                      color: MomentPalette.paper,
                                       width: 1.6,
                                     ),
                                   ),
@@ -239,14 +239,14 @@ class _LowerThird extends StatelessWidget {
                               const Icon(
                                 Icons.auto_awesome_rounded,
                                 size: 11,
-                                color: kMomentPaper,
+                                color: MomentPalette.paper,
                                 shadows: _shadow,
                               ),
                               const SizedBox(width: 5),
                               Text(
                                 moment.when.toUpperCase(),
                                 style: const TextStyle(
-                                  color: kMomentPaper,
+                                  color: MomentPalette.paper,
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 1.6,
@@ -262,7 +262,7 @@ class _LowerThird extends StatelessWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.instrumentSerif(
-                              color: Colors.white,
+                              color: AppColors.onMedia,
                               fontSize: 19.5,
                               fontStyle: FontStyle.italic,
                               height: 1.1,
@@ -276,7 +276,9 @@ class _LowerThird extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.78),
+                                color: AppColors.onMedia.withValues(
+                                  alpha: 0.78,
+                                ),
                                 fontSize: 12,
                                 height: 1.2,
                                 shadows: _shadow,

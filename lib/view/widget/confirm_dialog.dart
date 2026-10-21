@@ -19,7 +19,7 @@ Future<void> showConfirmDialog(
 }) async {
   final confirmed = await showDialog<bool>(
     context: context,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: AppColors.scrim.withValues(alpha: 0.45),
     builder: (ctx) => Dialog(
       backgroundColor: AppColors.canvas,
       shape: RoundedRectangleBorder(

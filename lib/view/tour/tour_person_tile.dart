@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/palettes/tour_palette.dart';
 
 /// One person as the People tab shows them (see PersonTile): a small tilted stack of their faces, the cover on
 /// top and two more behind it leaning the other way, then the name and how many photos. The stack fans out one
@@ -88,17 +89,17 @@ class _TourPersonTileState extends State<TourPersonTile>
     final radius = size * 0.24;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: TourPalette.white,
         borderRadius: BorderRadius.circular(radius),
         boxShadow: [
           top
               ? BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
+                  color: TourPalette.black.withValues(alpha: 0.2),
                   blurRadius: 10,
                   offset: const Offset(0, 5),
                 )
               : BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.12),
+                  color: TourPalette.black.withValues(alpha: 0.12),
                   blurRadius: 6,
                   offset: const Offset(0, 2),
                 ),

@@ -135,7 +135,8 @@ class _MonthPhotosScreenState extends State<MonthPhotosScreen> {
   Future<void> _open(PreviewPhoto photo) async {
     if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
     final native = Get.find<NativeController>();
-    final bytes = _loader.peek(photo, large: true) ??
+    final bytes = _loader.peek(photo, large: true, sharp: true) ??
+        _loader.peek(photo, large: true) ??
         _loader.peek(photo, large: false) ??
         await _loader.get(photo, large: false);
     if (bytes == null || !mounted) return;
@@ -268,7 +269,7 @@ class _MonthPhotosScreenState extends State<MonthPhotosScreen> {
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(AppRadius.md),
                                       border: Border.all(
-                                        color: flash ? AppColors.primary : Colors.transparent,
+                                        color: flash ? AppColors.primary : AppColors.transparent,
                                         width: 3,
                                       ),
                                     ),
@@ -288,7 +289,7 @@ class _MonthPhotosScreenState extends State<MonthPhotosScreen> {
                                             const Positioned(
                                               right: 6,
                                               top: 6,
-                                              child: Icon(Icons.play_circle_fill_rounded, size: 20, color: Colors.white),
+                                              child: Icon(Icons.play_circle_fill_rounded, size: 20, color: AppColors.onMedia),
                                             ),
                                           Positioned(left: 9, top: 0, child: MomentTag(uri: photo.uri)),
                                         ],

@@ -20,6 +20,7 @@ Future<void> openMemoryPhoto(
   if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
   final native = Get.find<NativeController>();
   final bytes =
+      loader.peek(photo, large: true, sharp: true) ??
       loader.peek(photo, large: true) ??
       loader.peek(photo, large: false) ??
       await loader.get(photo, large: false);
@@ -55,6 +56,7 @@ class MemoryTile extends StatelessWidget {
     required this.photo,
     required this.loader,
     this.large = false,
+    this.sharp = false,
     this.radius = 14,
     this.onTap,
     this.overlay,
@@ -63,6 +65,9 @@ class MemoryTile extends StatelessWidget {
   final PreviewPhoto photo;
   final PreviewLoader loader;
   final bool large;
+
+  /// Shown big enough that the large version is not sharp: the biggest one is fetched and faded in too.
+  final bool sharp;
   final double radius;
   final VoidCallback? onTap;
 
@@ -83,6 +88,7 @@ class MemoryTile extends StatelessWidget {
               photo: photo,
               loader: loader,
               large: large,
+              sharp: sharp,
               fill: AppColors.parchment,
               alignment: const Alignment(0, -0.25),
             ),
@@ -93,7 +99,7 @@ class MemoryTile extends StatelessWidget {
                 child: Icon(
                   Icons.play_circle_fill_rounded,
                   size: 20,
-                  color: Colors.white,
+                  color: AppColors.onMedia,
                 ),
               ),
             if (overlay != null) Positioned.fill(child: overlay!),

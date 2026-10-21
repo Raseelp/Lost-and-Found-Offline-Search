@@ -203,11 +203,11 @@ class _Portrait extends StatelessWidget {
             height: 60,
             padding: const EdgeInsets.all(2.5),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.canvas,
               borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.14),
+                  color: AppColors.shadow.withValues(alpha: 0.14),
                   blurRadius: 8,
                   offset: const Offset(0, 3),
                 ),

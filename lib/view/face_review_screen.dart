@@ -117,12 +117,12 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                       decoration: BoxDecoration(
-                                        color: Colors.black.withValues(alpha: 0.55),
+                                        color: AppColors.scrim.withValues(alpha: 0.55),
                                         borderRadius: BorderRadius.circular(AppRadius.pill),
                                       ),
                                       child: const Text(
                                         'faint',
-                                        style: TextStyle(color: Colors.white, fontSize: 9),
+                                        style: TextStyle(color: AppColors.onMedia, fontSize: 9),
                                       ),
                                     ),
                                   ),

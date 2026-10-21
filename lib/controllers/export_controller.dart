@@ -5,8 +5,11 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/controllers/collections_controller.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/controllers/memories_controller.dart';
 import 'package:lost_and_found/models/collection_model.dart';
+import 'package:lost_and_found/models/memories.dart';
 import 'package:lost_and_found/services/native_services.dart';
+import 'package:lost_and_found/view/day_photos_screen.dart' show dayOf;
 
 /// One photo or video of an album to be exported, and how big it is.
 class ExportItem {
@@ -19,7 +22,7 @@ class ExportItem {
   final int size;
 }
 
-/// A collection or a person that can go in a zip. Its items and sizes are looked up once it is
+/// A collection, a person, or the "On this day" memories that can go in a zip. Its items and sizes are looked up once it is
 /// ticked (a collection's members and a person's photos are asked for in full, not just the
 /// first screenful).
 class ExportAlbum {
@@ -29,9 +32,10 @@ class ExportAlbum {
     required this.approxCount,
     this.collection,
     this.person,
+    this.memory,
   });
 
-  /// "c:" and a collection id, or "p:" and a person id.
+  /// "c:" and a collection id, "p:" and a person id, or [ExportController.memoryKey].
   final String key;
   final String name;
 
@@ -39,6 +43,9 @@ class ExportAlbum {
   final int approxCount;
   final SmartCollection? collection;
   final Person? person;
+
+  /// Set for the "On this day" memories: everything from today's date in the past years.
+  final OnThisDay? memory;
 
   bool get isPerson => person != null;
 
@@ -194,7 +201,17 @@ class ExportController extends GetxController {
     final collectionsController = Get.isRegistered<CollectionsController>()
         ? Get.find<CollectionsController>()
         : null;
+    final memories = Get.isRegistered<MemoriesController>()
+        ? Get.find<MemoriesController>().today
+        : OnThisDay.empty;
     collections = [
+      if (!memories.isEmpty && memories.total > 0)
+        ExportAlbum(
+          key: memoryKey,
+          name: 'On this day - ${memories.dateLabel}',
+          approxCount: memories.total,
+          memory: memories,
+        ),
       if (collectionsController != null)
         for (final c in collectionsController.visible)
           if (collectionsController.statsFor(c.id).count > 0)
@@ -265,6 +282,7 @@ class ExportController extends GetxController {
   }
 
   /// Key of the album of [collection] / [person], for [open]'s [select].
+  static const String memoryKey = 'm:today';
   static String collectionKey(String id) => 'c:$id';
   static String personKey(int id) => 'p:$id';
 
@@ -417,6 +435,21 @@ class ExportController extends GetxController {
       final List<Map<String, dynamic>> raw;
       if (album.person != null) {
         raw = await NativeServices().personPhotos(album.person!.id);
+      } else if (album.memory != null) {
+        // Every photo and video of the date in each year shown (not only the few the screen picks).
+        final today = album.memory!;
+        raw = [];
+        for (final year in today.years) {
+          final day = dayOf(year, today);
+          final photos = await NativeServices().memoryDay(
+            day.from,
+            DateTime(day.from.year, day.from.month, day.from.day + day.days),
+            limit: 100000,
+          );
+          for (final p in photos) {
+            raw.add({'path': p.uri, 'isVideo': p.isVideo});
+          }
+        }
       } else {
         raw = await Get.find<CollectionsController>().allMembersOf(
           album.collection!,
@@ -646,7 +679,11 @@ class ExportController extends GetxController {
         for (final album in selectedAlbums)
           {
             'name': album.name,
-            'kind': album.isPerson ? 'person' : 'collection',
+            'kind': album.isPerson
+                ? 'person'
+                : album.memory != null
+                ? 'memory'
+                : 'collection',
             'items': [
               for (final item in album.items)
                 if (item.size >= 0) {'uri': item.uri, 'isVideo': item.isVideo},

@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/palettes/viewer_palette.dart';
 
 /// For the photo and video viewers, whose background is black: light
 /// status/navigation icons (the app-wide style has dark ones for the light
 /// theme), with the navigation bar painted black to match the viewers' background.
 const SystemUiOverlayStyle kMediaOverlayStyle = SystemUiOverlayStyle(
-  systemNavigationBarColor: Colors.black,
-  systemNavigationBarDividerColor: Colors.black,
+  systemNavigationBarColor: AppColors.mediaBackdrop,
+  systemNavigationBarDividerColor: AppColors.mediaBackdrop,
   systemNavigationBarContrastEnforced: false,
   systemNavigationBarIconBrightness: Brightness.light,
-  statusBarColor: Colors.transparent,
+  statusBarColor: AppColors.transparent,
   statusBarIconBrightness: Brightness.light,
 );
 
@@ -42,11 +44,11 @@ class MediaChromeButton extends StatelessWidget {
       foregroundPainter: _RimPainter(active),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: active ? 0.5 : 0.38),
+          color: AppColors.scrim.withValues(alpha: active ? 0.5 : 0.38),
           shape: BoxShape.circle,
         ),
         child: IconButton(
-          icon: Icon(icon, color: Colors.white, size: 22),
+          icon: Icon(icon, color: AppColors.onMedia, size: 22),
           tooltip: tooltip,
           onPressed: onTap,
         ),
@@ -58,12 +60,12 @@ class MediaChromeButton extends StatelessWidget {
 // The colours of the ring: the app's teal (lightened to read on a photo) through
 // blue, violet, pink and gold, and back.
 const List<Color> _rimColors = [
-  Color(0xFF5FE0CF),
-  Color(0xFF7AD7FF),
-  Color(0xFFB388FF),
-  Color(0xFFFF8AD8),
-  Color(0xFFFFC46B),
-  Color(0xFF5FE0CF),
+  AppColors.mediaAccent,
+  ViewerPalette.sky250,
+  ViewerPalette.indigo250,
+  ViewerPalette.pink250,
+  ViewerPalette.orange300,
+  AppColors.mediaAccent,
 ];
 
 class _RimPainter extends CustomPainter {

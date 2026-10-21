@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/palettes/tour_palette.dart';
 import 'package:lost_and_found/view/tour/tour_samples.dart';
 import 'package:lost_and_found/view/tour/tour_widgets.dart';
 import 'package:video_player/video_player.dart';
@@ -235,7 +236,7 @@ class _TourSearchDemoState extends State<TourSearchDemo> {
                       widget.caption,
                       textAlign: TextAlign.center,
                       style: textTheme.labelSmall?.copyWith(
-                        color: kTourText60,
+                        color: TourPalette.text60,
                         fontWeight: FontWeight.w400,
                       ),
                     ),
@@ -284,7 +285,7 @@ class _TourSearchDemoState extends State<TourSearchDemo> {
             borderRadius: BorderRadius.circular(AppRadius.lg),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.28),
+                color: TourPalette.black.withValues(alpha: 0.28),
                 blurRadius: 12,
                 offset: const Offset(0, 5),
               ),
@@ -316,7 +317,7 @@ class _TourSearchDemoState extends State<TourSearchDemo> {
                     child: Icon(
                       Icons.play_circle_fill_rounded,
                       size: 20,
-                      color: Colors.white,
+                      color: TourPalette.white,
                     ),
                   ),
                 if (visible && rank == 0 && _matched)
@@ -376,11 +377,11 @@ class TourSearchBar extends StatelessWidget {
       height: 48,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: TourPalette.white,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: Color.lerp(
-              const Color(0x14102220),
+              TourPalette.mint900A8,
               AppColors.primary.withValues(alpha: 0.55),
               ring,
             )!,
@@ -399,7 +400,7 @@ class TourSearchBar extends StatelessWidget {
               blurRadius: 18,
             ),
             BoxShadow(
-              color: const Color(0xFF102220).withValues(alpha: 0.06),
+              color: TourPalette.mint900.withValues(alpha: 0.06),
               blurRadius: 3,
               offset: const Offset(0, 1),
             ),
@@ -413,7 +414,7 @@ class TourSearchBar extends StatelessWidget {
               height: 34,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                color: Color(0x12165E59),
+                color: TourPalette.teal750A7,
               ),
               child: const Icon(
                 Icons.search_rounded,
@@ -474,7 +475,7 @@ class TourSearchBar extends StatelessWidget {
                 child: const Icon(
                   Icons.arrow_forward_rounded,
                   size: 19,
-                  color: Colors.white,
+                  color: TourPalette.white,
                 ),
               ),
             ),
@@ -512,7 +513,7 @@ class _MentionList extends StatelessWidget {
         elevation: 8,
         shadowColor: AppColors.ink.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        color: Colors.white,
+        color: TourPalette.white,
         child: SizedBox(
           width: 230,
           child: Padding(
@@ -530,7 +531,7 @@ class _MentionList extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: choosing && people.length == 1
                           ? AppColors.primary.withValues(alpha: 0.1)
-                          : Colors.transparent,
+                          : AppColors.transparent,
                       borderRadius: BorderRadius.circular(AppRadius.md),
                     ),
                     child: Row(
@@ -571,13 +572,13 @@ class TourBestMatch extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.5),
+        color: TourPalette.black.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
       child: Text(
         'Best match',
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: Colors.white,
+          color: TourPalette.white,
           letterSpacing: 0.4,
         ),
       ),

@@ -495,6 +495,23 @@ class _AlbumRow extends StatelessWidget {
     if (album.person != null) {
       return FaceAvatar(faceId: album.person!.coverFaceId, size: 46);
     }
+    if (album.memory != null) {
+      return SizedBox(
+        width: 46,
+        height: 46,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.parchment,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+          ),
+          child: const Icon(
+            Icons.auto_awesome_rounded,
+            color: AppColors.primary,
+            size: 22,
+          ),
+        ),
+      );
+    }
     final Uint8List? cover = Get.isRegistered<CollectionsController>()
         ? Get.find<CollectionsController>().coverFor(album.collection!.id)
         : null;

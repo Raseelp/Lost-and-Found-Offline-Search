@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'package:lost_and_found/controllers/collections_controller.dart';
 import 'package:lost_and_found/controllers/export_controller.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/controllers/memories_controller.dart';
 import 'package:lost_and_found/models/collection_model.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
@@ -124,13 +125,13 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
   Widget _print(Uint8List? bytes, {required bool top, required Color glow}) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.canvas,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         boxShadow: [
           // The top photo throws a coloured shadow; the ones behind a plain soft one.
           top
               ? BoxShadow(color: glow.withValues(alpha: 0.5), blurRadius: 26, spreadRadius: -6, offset: const Offset(0, 18))
-              : BoxShadow(color: Colors.black.withValues(alpha: 0.13), blurRadius: 8, offset: const Offset(0, 3)),
+              : BoxShadow(color: AppColors.shadow.withValues(alpha: 0.13), blurRadius: 8, offset: const Offset(0, 3)),
         ],
       ),
       child: Padding(
@@ -295,12 +296,12 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(AppRadius.xl),
                               border: Border.all(
-                                color: widget.selected ? AppColors.primary : Colors.transparent,
+                                color: widget.selected ? AppColors.primary : AppColors.transparent,
                                 width: 3,
                               ),
                               color: widget.selected
                                   ? AppColors.primary.withValues(alpha: 0.10)
-                                  : Colors.transparent,
+                                  : AppColors.transparent,
                             ),
                           ),
                         ),
@@ -315,7 +316,7 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
                           height: 26,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: widget.selected ? AppColors.primary : Colors.white.withValues(alpha: 0.9),
+                            color: widget.selected ? AppColors.primary : AppColors.canvas.withValues(alpha: 0.9),
                             border: Border.all(
                               color: widget.selected ? AppColors.primary : AppColors.hairline,
                               width: 1.5,
@@ -360,7 +361,7 @@ class CollectionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -415,7 +416,7 @@ Future<void> showSaveCollectionSheet(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.transparent,
     builder: (_) => _SaveCollectionSheet(
       title: title ?? 'Save as collection',
       initialName: initialName,
@@ -650,7 +651,7 @@ void showCollectionMenu(
 ) {
   showModalBottomSheet<void>(
     context: context,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.transparent,
     builder: (sheetContext) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(AppSpacing.xl, 0, AppSpacing.xl, AppSpacing.xl),
@@ -721,6 +722,71 @@ void showCollectionMenu(
                     confirmLabel: 'Delete',
                     onConfirm: () => controller.deleteCollection(collection.id),
                   );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Long-press menu for the "On this day" card: it is not a saved search, so there is nothing to
+/// rename or change - it can be exported, or taken off the tab (and brought back from there).
+/// [onHidden] runs after it is hidden (the memories screen closes itself).
+void showOnThisDayMenu(
+  BuildContext context,
+  MemoriesController memories, {
+  VoidCallback? onHidden,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppColors.transparent,
+    builder: (sheetContext) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.xl,
+          0,
+          AppSpacing.xl,
+          AppSpacing.xl,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.canvas,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.base),
+                child: Text(
+                  'On this day  ·  ${memories.today.dateLabel}',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              const Divider(height: 1, color: AppColors.hairline),
+              _MenuRow(
+                icon: Icons.folder_zip_outlined,
+                label: 'Export as zip',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  openExportZip(
+                    context,
+                    select: {ExportController.memoryKey},
+                  );
+                },
+              ),
+              const Divider(height: 1, color: AppColors.dividerSoft),
+              _MenuRow(
+                icon: Icons.visibility_off_outlined,
+                label: 'Hide',
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  memories.setHidden(true);
+                  onHidden?.call();
                 },
               ),
             ],
