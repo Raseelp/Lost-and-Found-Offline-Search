@@ -289,7 +289,8 @@ class NativeServices {
   /// given out once). Empty when there are none, or on any failure.
   Future<List<String>> takeLatestScan() async {
     try {
-      return await _channel.invokeListMethod<String>('takeLatestScan') ?? const [];
+      return await _channel.invokeListMethod<String>('takeLatestScan') ??
+          const [];
     } catch (_) {
       return const [];
     }
@@ -309,12 +310,17 @@ class NativeServices {
 
   /// Name, size (bytes, -1 if it cannot be read) and dates (ms, 0 if unknown) of each of [uris].
   Future<List<ExportItemInfo>> exportItemInfo(List<String> uris) async {
-    final list = await _channel.invokeListMethod<dynamic>('exportItemInfo', {'uris': uris});
-    return (list ?? const []).map((e) => ExportItemInfo.fromMap(e as Map)).toList();
+    final list = await _channel.invokeListMethod<dynamic>('exportItemInfo', {
+      'uris': uris,
+    });
+    return (list ?? const [])
+        .map((e) => ExportItemInfo.fromMap(e as Map))
+        .toList();
   }
 
   /// Room left on the phone's storage in bytes; -1 if it cannot be told.
-  Future<int> exportFreeSpace() async => await _channel.invokeMethod<int>('exportFreeSpace') ?? -1;
+  Future<int> exportFreeSpace() async =>
+      await _channel.invokeMethod<int>('exportFreeSpace') ?? -1;
 
   /// Whether a zip can be saved in Downloads without choosing a folder (Android 10 and later).
   Future<bool> exportDownloadsAvailable() async =>
@@ -323,19 +329,24 @@ class NativeServices {
   /// Starts making the zip described by [job] (see ExportController); false if one is already
   /// being made.
   Future<bool> startZipExport(String job) async =>
-      await _channel.invokeMethod<bool>('startZipExport', {'job': job}) ?? false;
+      await _channel.invokeMethod<bool>('startZipExport', {'job': job}) ??
+      false;
 
   Future<ZipExportStatus> zipExportStatus() async {
-    final map = await _channel.invokeMapMethod<String, dynamic>('zipExportStatus');
+    final map = await _channel.invokeMapMethod<String, dynamic>(
+      'zipExportStatus',
+    );
     return ZipExportStatus.fromMap(map ?? const {});
   }
 
-  Future<void> cancelZipExport() => _channel.invokeMethod<bool>('cancelZipExport');
+  Future<void> cancelZipExport() =>
+      _channel.invokeMethod<bool>('cancelZipExport');
 
   Future<bool> shareZips(List<String> uris) async =>
       await _channel.invokeMethod<bool>('shareZips', {'uris': uris}) ?? false;
 
-  Future<bool> openDownloads() async => await _channel.invokeMethod<bool>('openDownloads') ?? false;
+  Future<bool> openDownloads() async =>
+      await _channel.invokeMethod<bool>('openDownloads') ?? false;
 
   static Future<Map<String, dynamic>?>? _buildInfo;
 
@@ -365,9 +376,7 @@ class NativeServices {
 
   // ---- Faces ----
 
-  static const _faceProgressChannel = EventChannel(
-    'lostandfound/faceProgress',
-  );
+  static const _faceProgressChannel = EventChannel('lostandfound/faceProgress');
 
   /// Live status ticks from the face scan (also delivered while it runs in the
   /// background). Same fields as [FaceStatus].
@@ -395,7 +404,10 @@ class NativeServices {
   /// When everyone appears, month by month. Looks up the dates of photos and videos not looked at
   /// yet for up to [budgetMs] first, so call again while [TimelineData.pending] is above 0.
   Future<TimelineData> peopleTimeline({int budgetMs = 800}) async {
-    final map = await _channel.invokeMapMethod<String, dynamic>('peopleTimeline', {'budgetMs': budgetMs});
+    final map = await _channel.invokeMapMethod<String, dynamic>(
+      'peopleTimeline',
+      {'budgetMs': budgetMs},
+    );
     return TimelineData.fromMap(map!);
   }
 
@@ -403,18 +415,29 @@ class NativeServices {
   /// filmstrip on the timeline).
   Future<List<PreviewPhoto>> timelinePicks() async {
     final list = await _channel.invokeListMethod<dynamic>('timelinePicks');
-    return [for (final e in list ?? const []) PreviewPhoto.fromMap(e as Map<dynamic, dynamic>)];
+    return [
+      for (final e in list ?? const [])
+        PreviewPhoto.fromMap(e as Map<dynamic, dynamic>),
+    ];
   }
 
   /// Each of [personIds]' clearest photo or video taken from [from] up to [to] (people with
   /// nothing then are left out).
-  Future<List<PreviewPhoto>> timelineMonthPhotos(DateTime from, DateTime to, List<int> personIds) async {
-    final list = await _channel.invokeListMethod<dynamic>('timelineMonthPhotos', {
-      'startMs': from.millisecondsSinceEpoch,
-      'endMs': to.millisecondsSinceEpoch,
-      'personIds': personIds,
-    });
-    return [for (final e in list ?? const []) PreviewPhoto.fromMap(e as Map<dynamic, dynamic>)];
+  Future<List<PreviewPhoto>> timelineMonthPhotos(
+    DateTime from,
+    DateTime to,
+    List<int> personIds,
+  ) async {
+    final list = await _channel
+        .invokeListMethod<dynamic>('timelineMonthPhotos', {
+          'startMs': from.millisecondsSinceEpoch,
+          'endMs': to.millisecondsSinceEpoch,
+          'personIds': personIds,
+        });
+    return [
+      for (final e in list ?? const [])
+        PreviewPhoto.fromMap(e as Map<dynamic, dynamic>),
+    ];
   }
 
   /// The best [limit] photos and videos from [from] up to [to], and how many there are in all.
@@ -424,16 +447,18 @@ class NativeServices {
     int limit = 9,
     int burstMs = 20000,
   }) async {
-    final map = await _channel.invokeMapMethod<String, dynamic>('timelineMonthMedia', {
-      'startMs': from.millisecondsSinceEpoch,
-      'endMs': to.millisecondsSinceEpoch,
-      'limit': limit,
-      'burstMs': burstMs,
-    });
+    final map = await _channel
+        .invokeMapMethod<String, dynamic>('timelineMonthMedia', {
+          'startMs': from.millisecondsSinceEpoch,
+          'endMs': to.millisecondsSinceEpoch,
+          'limit': limit,
+          'burstMs': burstMs,
+        });
     return (
       total: (map?['total'] as num?)?.toInt() ?? 0,
       photos: [
-        for (final e in (map?['items'] as List? ?? const [])) PreviewPhoto.fromMap(e as Map<dynamic, dynamic>),
+        for (final e in (map?['items'] as List? ?? const []))
+          PreviewPhoto.fromMap(e as Map<dynamic, dynamic>),
       ],
     );
   }
@@ -443,8 +468,14 @@ class NativeServices {
   /// Brings the dates of everything indexed up to date, for up to [budgetMs]; call again while
   /// [pending] is above 0.
   Future<({int total, int pending})> memoryPrepare({int budgetMs = 600}) async {
-    final map = await _channel.invokeMapMethod<String, dynamic>('memoryPrepare', {'budgetMs': budgetMs});
-    return (total: (map?['total'] as num?)?.toInt() ?? 0, pending: (map?['pending'] as num?)?.toInt() ?? 0);
+    final map = await _channel.invokeMapMethod<String, dynamic>(
+      'memoryPrepare',
+      {'budgetMs': budgetMs},
+    );
+    return (
+      total: (map?['total'] as num?)?.toInt() ?? 0,
+      pending: (map?['pending'] as num?)?.toInt() ?? 0,
+    );
   }
 
   /// Today's date in the past years of the library.
@@ -456,7 +487,9 @@ class NativeServices {
   /// A person's clearest photo of their first year and of their latest, or null when there is not
   /// enough to compare.
   Future<ThenNow?> thenAndNow(int personId) async {
-    final map = await _channel.invokeMapMethod<String, dynamic>('thenAndNow', {'personId': personId});
+    final map = await _channel.invokeMapMethod<String, dynamic>('thenAndNow', {
+      'personId': personId,
+    });
     return map == null ? null : ThenNow.fromMap(map);
   }
 
@@ -477,30 +510,43 @@ class NativeServices {
   }
 
   /// Every photo and video from [from] up to [to] (one day of a past year).
-  Future<List<PreviewPhoto>> memoryDay(DateTime from, DateTime to, {int limit = 2000}) async {
+  Future<List<PreviewPhoto>> memoryDay(
+    DateTime from,
+    DateTime to, {
+    int limit = 2000,
+  }) async {
     final map = await _channel.invokeMapMethod<String, dynamic>('memoryDay', {
       'startMs': from.millisecondsSinceEpoch,
       'endMs': to.millisecondsSinceEpoch,
       'limit': limit,
     });
-    return [for (final e in (map?['items'] as List? ?? const [])) PreviewPhoto.fromMap(e as Map<dynamic, dynamic>)];
+    return [
+      for (final e in (map?['items'] as List? ?? const []))
+        PreviewPhoto.fromMap(e as Map<dynamic, dynamic>),
+    ];
   }
 
   /// Whether battery saver is on, and how many video decoders the phone can run at once.
   Future<({bool powerSave, int maxDecoders})> videoEnv() async {
     final map = await _channel.invokeMapMethod<String, dynamic>('videoEnv');
-    return (powerSave: map?['powerSave'] == true, maxDecoders: (map?['maxDecoders'] as num?)?.toInt() ?? 1);
+    return (
+      powerSave: map?['powerSave'] == true,
+      maxDecoders: (map?['maxDecoders'] as num?)?.toInt() ?? 1,
+    );
   }
 
   Future<MemorySettings> memorySettings() async {
-    final map = await _channel.invokeMapMethod<String, dynamic>('memorySettings');
+    final map = await _channel.invokeMapMethod<String, dynamic>(
+      'memorySettings',
+    );
     return map == null ? const MemorySettings() : MemorySettings.fromMap(map);
   }
 
   Future<MemorySettings> setMemorySettings({bool? enabled}) async {
-    final map = await _channel.invokeMapMethod<String, dynamic>('setMemorySettings', {
-      if (enabled != null) 'enabled': enabled,
-    });
+    final map = await _channel.invokeMapMethod<String, dynamic>(
+      'setMemorySettings',
+      {if (enabled != null) 'enabled': enabled},
+    );
     return map == null ? const MemorySettings() : MemorySettings.fromMap(map);
   }
 
@@ -513,7 +559,9 @@ class NativeServices {
 
   /// The memory a tapped notification wants opened (taken once): its kind and year, or null.
   Future<({String kind, int year, int personId})?> takeLaunchMemory() async {
-    final map = await _channel.invokeMapMethod<String, dynamic>('takeLaunchMemory');
+    final map = await _channel.invokeMapMethod<String, dynamic>(
+      'takeLaunchMemory',
+    );
     if (map == null) return null;
     return (
       kind: map['kind'] as String? ?? '',
@@ -1038,7 +1086,8 @@ class Person {
     photoCount: (m['photoCount'] as num).toInt(),
     coverFaceId: (m['coverFaceId'] as num).toInt(),
     stackFaceIds: [
-      for (final id in (m['stackFaceIds'] as List? ?? const [])) (id as num).toInt(),
+      for (final id in (m['stackFaceIds'] as List? ?? const []))
+        (id as num).toInt(),
     ],
   );
 }
@@ -1470,8 +1519,13 @@ class FaceStatus {
 
   /// Rough time left, from this run's pace; null until there is enough to go on.
   Duration? get eta {
-    if (!running || paused || following || runProcessed < 10 || elapsedMs < 4000)
+    if (!running ||
+        paused ||
+        following ||
+        runProcessed < 10 ||
+        elapsedMs < 4000) {
       return null;
+    }
     final remaining = total - processed;
     if (remaining <= 0) return null;
     final perPhotoMs = elapsedMs / runProcessed;
@@ -1590,7 +1644,12 @@ class FaceModels {
 
 /// What the zip export needs to know about one photo or video.
 class ExportItemInfo {
-  const ExportItemInfo({required this.name, required this.size, required this.takenMs, required this.modifiedMs});
+  const ExportItemInfo({
+    required this.name,
+    required this.size,
+    required this.takenMs,
+    required this.modifiedMs,
+  });
 
   final String name;
 
@@ -1610,7 +1669,11 @@ class ExportItemInfo {
 
 /// A zip that has been made.
 class ZipExportResult {
-  const ZipExportResult({required this.name, required this.uri, required this.bytes});
+  const ZipExportResult({
+    required this.name,
+    required this.uri,
+    required this.bytes,
+  });
 
   final String name, uri;
   final int bytes;
@@ -1637,13 +1700,20 @@ class ZipExportStatus {
 
   /// idle, preparing, writing, done, failed or cancelled.
   final String phase;
-  final int filesTotal, filesDone, bytesTotal, bytesDone, partsTotal, part, skipped;
+  final int filesTotal,
+      filesDone,
+      bytesTotal,
+      bytesDone,
+      partsTotal,
+      part,
+      skipped;
   final String currentName, error;
   final List<ZipExportResult> results;
 
   bool get running => phase == 'preparing' || phase == 'writing';
 
-  double get fraction => bytesTotal > 0 ? (bytesDone / bytesTotal).clamp(0.0, 1.0) : 0.0;
+  double get fraction =>
+      bytesTotal > 0 ? (bytesDone / bytesTotal).clamp(0.0, 1.0) : 0.0;
 
   factory ZipExportStatus.fromMap(Map<dynamic, dynamic> m) => ZipExportStatus(
     id: (m['id'] as num?)?.toInt() ?? 0,
