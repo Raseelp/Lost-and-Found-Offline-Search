@@ -102,7 +102,10 @@ object ImagePreprocessor {
 
             context.contentResolver.openInputStream(uri)?.use { stream2 ->
                 val decodeOptions = BitmapFactory.Options().apply {
-                    inPreferredConfig = Bitmap.Config.RGB_565
+                    // Full colour: RGB_565 keeps 5/6/5 bits per channel, which moved the vectors of test photos
+                    // from Apple's own preprocessing noticeably more (cosine 0.994 on average, against 0.997). The
+                    // decoded picture is only 256-511 px across, so the memory is not a concern.
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
                     inSampleSize = sampleSize
                     inMutable = false
                 }

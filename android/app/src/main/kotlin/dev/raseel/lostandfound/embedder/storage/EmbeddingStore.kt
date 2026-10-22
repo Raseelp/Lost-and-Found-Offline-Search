@@ -109,6 +109,11 @@ class EmbeddingStore(private val context: Context) {
         prefs.edit().remove(KEY_RESET_FROM).apply()
     }
 
+    // The new index has begun to fill: there is nothing left to tell the person to do.
+    private fun noteScanned() {
+        if (modelResetFrom() != 0) clearModelReset()
+    }
+
     fun append(record: EmbeddingRecord) {
         require(record.embedding.size == EMBEDDING_DIM) {
             "Embedding must be $EMBEDDING_DIM dimensions"
@@ -120,6 +125,7 @@ class EmbeddingStore(private val context: Context) {
                 writeRecord(out, record)
             }
             cachedRecords = null
+            noteScanned()
         }
     }
 
@@ -139,6 +145,7 @@ class EmbeddingStore(private val context: Context) {
                 }
             }
             cachedRecords = null
+            noteScanned()
         }
     }
 
