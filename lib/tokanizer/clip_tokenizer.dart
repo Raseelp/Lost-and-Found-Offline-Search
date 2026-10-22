@@ -58,8 +58,10 @@ class ClipTokenizer {
   }
 
   Iterable<String> _splitWords(String text) {
+    // CLIP's own pattern (open_clip's SimpleTokenizer): a word does not take the space before it along - that is
+    // GPT-2's pattern, and with it every space became a token of its own - and a number is cut into single digits.
     final regex = RegExp(
-      r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+""",
+      r"""'s|'t|'re|'ve|'m|'ll|'d|\p{L}+|\p{N}|[^\s\p{L}\p{N}]+""",
       unicode: true,
     );
 
@@ -68,7 +70,8 @@ class ClipTokenizer {
 
   List<int> _padOrTruncate(List<int> tokens) {
     if (tokens.length > maxLength) {
-      return tokens.sublist(0, maxLength);
+      // A text that is too long is cut, and still ends with the end token (as the model's tokenizer does).
+      return [...tokens.sublist(0, maxLength - 1), endToken];
     }
 
     final padded = List<int>.filled(maxLength, 0);
