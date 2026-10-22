@@ -307,6 +307,7 @@ class SettingsScreen extends StatelessWidget {
                           ),
                           const _BuildRow(),
                           const _SourceRow(),
+                          const _LicenseRow(),
                         ],
                       ),
                       const SizedBox(height: AppSpacing.xl),
@@ -828,6 +829,34 @@ class _SourceRow extends StatelessWidget {
       title: 'Source code on GitHub',
       subtitle: 'Free, ad-free and fully open source.',
       onTap: () => _open(context),
+    );
+  }
+}
+
+/// The app's license notice (the AGPL asks for one in the app), and the licenses of the packages
+/// it is built with.
+class _LicenseRow extends StatelessWidget {
+  const _LicenseRow();
+
+  static const _legalese =
+      'Copyright (C) 2026 Raseel.\n\n'
+      'This program is free software: you can redistribute it and/or modify it under the terms '
+      'of the GNU Affero General Public License, version 3.\n\n'
+      'It is distributed WITHOUT ANY WARRANTY; without even the implied warranty of '
+      'MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n'
+      'The full license and the source code: $kRepoUrl';
+
+  @override
+  Widget build(BuildContext context) {
+    return _TapRow(
+      icon: Icons.description_outlined,
+      title: 'License',
+      subtitle: 'GNU AGPL-3.0, with no warranty. Tap for details.',
+      onTap: () => showLicensePage(
+        context: context,
+        applicationName: 'Lost & Found',
+        applicationLegalese: _legalese,
+      ),
     );
   }
 }
