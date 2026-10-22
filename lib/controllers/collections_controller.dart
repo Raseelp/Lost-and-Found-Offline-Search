@@ -25,8 +25,11 @@ import 'package:lost_and_found/tokanizer/clip_tokenizer.dart';
 // just means off the list until restored from Settings.
 class CollectionsController extends GetxController {
   // Cached query embeddings are only valid for the model that produced
-  // them - bump this if the CLIP model is ever swapped.
-  static const _modelVersion = 'clip-vit-b32-openai-v1';
+  // them - bump this if the search model is ever swapped (or how a text or a
+  // photo is prepared for it changes). A photo collection's own seed vector
+  // is checked against it too.
+  static const modelVersion = 'mobileclip-s2-apple-2024-v1';
+  static const _modelVersion = modelVersion;
   static const _embeddingsKey = 'collection_embeddings';
   static const int maxPinned = 6;
   static const int _memberLimit = 200;
@@ -374,7 +377,7 @@ class CollectionsController extends GetxController {
   String _signature(SmartCollection c) => '$_modelVersion|${c.embeddingSignature}';
 
   bool _hasValidEmbedding(SmartCollection c) {
-    if (c.seedEmbedding != null) return true;
+    if (c.seedEmbedding != null) return c.seedModel == _modelVersion;
     final cached = _embeddingCache[c.id];
     return cached != null && cached['sig'] == _signature(c);
   }
@@ -392,8 +395,10 @@ class CollectionsController extends GetxController {
   // normalized again - averaging several phrasings of the same idea is
   // noticeably more robust than any single one.
   Future<List<double>> _embeddingFor(SmartCollection c) async {
-    // A photo-seeded collection carries its own embedding - nothing to encode.
-    if (c.seedEmbedding != null) return c.seedEmbedding!;
+    // A photo-seeded collection carries its own embedding - nothing to encode - as long as the current search
+    // model made it.
+    if (c.seedEmbedding != null && c.seedModel == _modelVersion) return c.seedEmbedding!;
+    if (c.isPhotos) return _seedAgain(c);
 
     final cached = _embeddingCache[c.id];
     if (cached != null && cached['sig'] == _signature(c)) {
@@ -413,6 +418,22 @@ class CollectionsController extends GetxController {
     _embeddingCache[c.id] = {'sig': _signature(c), 'emb': result};
     unawaited(_saveEmbeddingCache());
     return result;
+  }
+
+  // A photo collection saved with the previous search model: its photo is embedded again with the current one and
+  // kept (so this happens once). If the photo can no longer be read there is nothing to do but leave the collection
+  // empty - the old vector means nothing to the new model.
+  Future<List<double>> _seedAgain(SmartCollection c) async {
+    final uri = c.seedUri;
+    if (uri == null) throw StateError('Collection ${c.id} has no photo to embed again');
+    final fresh = _normalized(
+      await NativeServices().encodeImage(uri: uri, timestampMs: c.seedTimestampMs ?? 0),
+    );
+    if (fresh.isEmpty) throw StateError('The photo of ${c.id} could not be embedded again');
+    final updated = c.copyWith(seedEmbedding: fresh, seedModel: _modelVersion);
+    await _db.upsertCollection(updated, hiddenState: _stateOf(c.id));
+    await _reload(refresh: false);
+    return fresh;
   }
 
   Future<Map<String, dynamic>> _specFor(SmartCollection c) async => {
@@ -668,6 +689,7 @@ class CollectionsController extends GetxController {
       seedEmbedding: embedding,
       seedUri: uri,
       seedTimestampMs: native.lastImageSeedTimestampMs,
+      seedModel: _modelVersion,
     );
     return _addAndSync(collection);
   }

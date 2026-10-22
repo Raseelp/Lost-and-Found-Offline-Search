@@ -122,10 +122,10 @@ class EmbeddingEngine(
         private const val BENCH_REPORT_EVERY_IMAGES = 40
         private const val BENCH_BATCH_MIN_MS = 1000L
 
-        // Every image/frame's FloatArray is always exactly 3x224x224 - fixed
+        // Every image/frame's FloatArray is always exactly 3x256x256 - fixed
         // by ImagePreprocessor - so batching can rely on this instead of
         // inspecting each array's length at runtime.
-        private const val VISION_INPUT_SIZE = 224
+        private const val VISION_INPUT_SIZE = 256
     }
 
     init {
@@ -1297,7 +1297,9 @@ class EmbeddingEngine(
         val totalEmbeddings: Int,
         val images: Int,
         val videos: Int,
-        val sizeBytes: Long
+        val sizeBytes: Long,
+        // The model that made an index this app had to drop (0: none) - see EmbeddingStore.modelResetFrom.
+        val modelResetFrom: Int
     )
 
     fun getLibraryStats(): LibraryStats {
@@ -1318,11 +1320,15 @@ class EmbeddingEngine(
             totalEmbeddings = records.size,
             images = images.size,
             videos = videos.size,
-            sizeBytes = store.sizeBytes()
+            sizeBytes = store.sizeBytes(),
+            modelResetFrom = store.modelResetFrom()
         )
     }
 
     fun clearAll() = store.clear()
+
+    /** The person has been told that the index was dropped for a new model. */
+    fun clearModelReset() = store.clearModelReset()
 
     /** See [EmbeddingStore.generation] and [EmbeddingStore.scanMeta]. */
     fun storeGeneration(): Long = store.generation()

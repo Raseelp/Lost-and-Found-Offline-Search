@@ -6,11 +6,15 @@ class LibraryStats {
   final int videos;
   final int sizeBytes;
 
+  /// The search model that made an index the app had to drop because it now uses another one (0: none was).
+  final int modelResetFrom;
+
   const LibraryStats({
     required this.totalEmbeddings,
     required this.images,
     required this.videos,
     required this.sizeBytes,
+    this.modelResetFrom = 0,
   });
 
   factory LibraryStats.fromMap(Map<dynamic, dynamic> map) {
@@ -19,6 +23,7 @@ class LibraryStats {
       images: (map['images'] as num?)?.toInt() ?? 0,
       videos: (map['videos'] as num?)?.toInt() ?? 0,
       sizeBytes: (map['sizeBytes'] as num?)?.toInt() ?? 0,
+      modelResetFrom: (map['modelResetFrom'] as num?)?.toInt() ?? 0,
     );
   }
 

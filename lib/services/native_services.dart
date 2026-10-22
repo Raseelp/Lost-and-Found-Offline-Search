@@ -955,6 +955,11 @@ class NativeServices {
   Future<void> setBenchLogsEnabled(bool value) =>
       _channel.invokeMethod('setBenchLogs', {'enabled': value});
 
+  /// The person has been told that their index was dropped for a new search model.
+  Future<void> acknowledgeModelReset() async {
+    await _channel.invokeMethod('acknowledgeModelReset');
+  }
+
   Future<void> clearEmbeddings() async {
     await _channel.invokeMethod('clearEmbeddings');
   }

@@ -6,21 +6,12 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import kotlin.math.ceil
 
+// Prepares a photo for MobileCLIP-S2, the way Apple's own preprocessing does: the shorter side to 256 (bilinear),
+// the middle 256 x 256, each pixel scaled to 0..1 - and nothing more. Unlike the OpenAI CLIP models this one was
+// trained without the mean/std normalisation, so adding it would only damage the result.
 object ImagePreprocessor {
 
-    private const val IMAGE_SIZE = 224
-
-    private val MEAN = floatArrayOf(
-        0.48145466f,
-        0.4578275f,
-        0.40821073f
-    )
-
-    private val STD = floatArrayOf(
-        0.26862954f,
-        0.26130258f,
-        0.27577711f
-    )
+    private const val IMAGE_SIZE = 256
 
     fun loadAsFloatArray(
         context: Context,
@@ -36,13 +27,10 @@ object ImagePreprocessor {
         }
     }
 
-    // CHW, RGB, each channel's 0..255 pixel value scaled to 0..1 then
-    // (v - mean) / std - exactly what org.pytorch.torchvision's
-    // TensorImageUtils.bitmapToFloat32Tensor used to produce with this same
-    // MEAN/STD, just as a plain FloatArray instead of a PyTorch Tensor now
-    // that inference goes through ONNX Runtime. getPixels always returns
-    // standard 32-bit ARGB regardless of the Bitmap's own Config (RGB_565
-    // included), so this doesn't care how the bitmap was decoded.
+    // CHW, RGB, each channel's 0..255 pixel value scaled to 0..1. getPixels
+    // always returns standard 32-bit ARGB regardless of the Bitmap's own
+    // Config (RGB_565 included), so this doesn't care how the bitmap was
+    // decoded.
     fun bitmapToFloatArray(bitmap: Bitmap): FloatArray {
         val cropped = resizeAndCenterCrop(bitmap)
         val size = IMAGE_SIZE
@@ -53,9 +41,9 @@ object ImagePreprocessor {
         val data = FloatArray(3 * plane)
         for (i in 0 until plane) {
             val p = pixels[i]
-            data[i] = ((p shr 16 and 0xFF) / 255f - MEAN[0]) / STD[0]
-            data[plane + i] = ((p shr 8 and 0xFF) / 255f - MEAN[1]) / STD[1]
-            data[2 * plane + i] = ((p and 0xFF) / 255f - MEAN[2]) / STD[2]
+            data[i] = (p shr 16 and 0xFF) / 255f
+            data[plane + i] = (p shr 8 and 0xFF) / 255f
+            data[2 * plane + i] = (p and 0xFF) / 255f
         }
 
         // Only recycle the cropped copy, never the original passed in
@@ -66,11 +54,10 @@ object ImagePreprocessor {
         return data
     }
 
-    // CLIP's own preprocessing resizes the shorter side to 224 and center-
-    // crops the rest, so a photo keeps its real proportions - only the
+    // The model's own preprocessing resizes the shorter side to 256 and
+    // center-crops the rest, so a photo keeps its real proportions - only the
     // excess on the long side gets trimmed. Stretching straight to a
-    // 224x224 square (what this used to do) warps every non-square photo,
-    // which is most of them.
+    // 256x256 square would warp every non-square photo, which is most of them.
     private fun resizeAndCenterCrop(bitmap: Bitmap): Bitmap {
         val width = bitmap.width
         val height = bitmap.height

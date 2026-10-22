@@ -184,6 +184,10 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   // images/videos are distinct media item counts; indexSizeBytes is the
   // on-disk size of the embeddings store itself.
   int totalEmbeddings = 0;
+
+  /// The search model that made an index the app dropped when it switched to another one (0: none was). While it
+  /// is set the Library tab tells the person that their photos have to be scanned again.
+  int modelResetFrom = 0;
   int totalImages = 0;
   int totalVideos = 0;
   int indexSizeBytes = 0;
@@ -1192,9 +1196,21 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   // this is also called periodically while a scan is running (see
   // _listenToScanProgress) so the numbers climb in real time instead of
   // only updating once the whole scan completes.
+  /// The person has seen that the index was dropped for a new search model (and what to do about it).
+  Future<void> acknowledgeModelReset() async {
+    modelResetFrom = 0;
+    update();
+    try {
+      await NativeServices().acknowledgeModelReset();
+    } catch (e) {
+      debugPrint('Failed to acknowledge the model reset: $e');
+    }
+  }
+
   Future<void> refreshLibraryStats() async {
     final stats = await NativeServices().getLibraryStats();
     totalEmbeddings = stats.totalEmbeddings;
+    modelResetFrom = stats.modelResetFrom;
     totalImages = stats.images;
     totalVideos = stats.videos;
     indexSizeBytes = stats.sizeBytes;

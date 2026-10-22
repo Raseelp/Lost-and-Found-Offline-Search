@@ -493,7 +493,8 @@ class MainActivity : FlutterActivity() {
                                     "totalEmbeddings" to stats.totalEmbeddings,
                                     "images" to stats.images,
                                     "videos" to stats.videos,
-                                    "sizeBytes" to stats.sizeBytes
+                                    "sizeBytes" to stats.sizeBytes,
+                                    "modelResetFrom" to stats.modelResetFrom
                                 )
                             )
                         }
@@ -502,6 +503,12 @@ class MainActivity : FlutterActivity() {
 
                 "clearEmbeddings" -> {
                     embeddingEngine.clearAll()
+                    result.success(true)
+                }
+
+                // The Library tab has told the person that their index was dropped for a new search model.
+                "acknowledgeModelReset" -> {
+                    embeddingEngine.clearModelReset()
                     result.success(true)
                 }
 

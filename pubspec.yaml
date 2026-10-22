@@ -34,6 +34,8 @@ flutter:
   assets:
     - assets/clip_tokenizer/vocab.json
     - assets/clip_tokenizer/merges.txt
+    # The license of the search model's weights (Apple's), shown with the app's other licenses.
+    - assets/licenses/
     # Fonts are bundled (google_fonts finds them here), so the app never fetches them from the internet.
     - assets/fonts/
     # The first-run tour's sample photos.

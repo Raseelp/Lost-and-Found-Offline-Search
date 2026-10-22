@@ -12,7 +12,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 
-// Downloads, verifies, and deletes the on-device CLIP model files.
+// Downloads, verifies, and deletes the on-device search model files.
 // Files live in context.filesDir - private, no permission needed, cleaned
 // up on uninstall.
 class ModelManager(private val context: Context) {
@@ -61,6 +61,7 @@ class ModelManager(private val context: Context) {
         private const val READ_TIMEOUT_MS = 30_000
         private const val BUFFER_SIZE = 64 * 1024
         private const val FREE_SPACE_MULTIPLIER = 1.3
+        private const val REPLACED_REMOVED_KEY = "old_clip_models_removed"
     }
 
     fun localFile(model: RemoteModel): File = File(context.filesDir, model.fileName)
@@ -90,9 +91,30 @@ class ModelManager(private val context: Context) {
         return matches
     }
 
-    // Search and indexing need only the CLIP models - the face model is optional
+    // Search and indexing need only the search models - the face model is optional
     // and never holds those back.
-    fun areModelsReady(): Boolean = ModelCatalog.MODELS.all { isModelVerified(it) }
+    fun areModelsReady(): Boolean {
+        val ready = ModelCatalog.MODELS.all { isModelVerified(it) }
+        if (ready) removeReplacedSearchModels()
+        return ready
+    }
+
+    // The search models used to be OpenAI's CLIP ViT-B/32 (about 600 MB, two files under other names). Once the new
+    // ones are in place those are of no use to anything: removed, once - and only then, so that a download that
+    // fails does not leave the person with no models at all.
+    private fun removeReplacedSearchModels() {
+        if (prefs.getBoolean(REPLACED_REMOVED_KEY, false)) return
+        for (name in listOf("clip_vision.onnx", "clip_text.onnx")) {
+            File(context.filesDir, name).delete()
+            File(context.filesDir, "$name.part").delete()
+        }
+        val stale = prefs.all.keys.filter { it.startsWith("verified_vision_") || it.startsWith("verified_text_") }
+            .filter { key -> ModelCatalog.MODELS.none { verifiedKey(it) == key } }
+        prefs.edit().apply {
+            stale.forEach { remove(it) }
+            putBoolean(REPLACED_REMOVED_KEY, true)
+        }.apply()
+    }
 
     fun getModelStatuses(): List<ModelStatus> = ModelCatalog.ALL.map { m ->
         val f = localFile(m)
@@ -121,7 +143,7 @@ class ModelManager(private val context: Context) {
         isCancelled = true
     }
 
-    /** Deletes the CLIP models (search and indexing stop until they are downloaded again). */
+    /** Deletes the search models (search and indexing stop until they are downloaded again). */
     fun deleteModels() = delete(ModelCatalog.MODELS)
 
     private fun delete(models: List<RemoteModel>) {
