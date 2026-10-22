@@ -15,26 +15,29 @@ data class RemoteModel(
 )
 
 object ModelGroup {
-    /** The CLIP models: needed for searching and indexing. */
+    /** The search models (Apple's MobileCLIP-S0): needed for searching and indexing. */
     const val SEARCH = "search"
 }
 
 object ModelCatalog {
 
     val MODELS: List<RemoteModel> = listOf(
+        // Made by export_clip/export_mobileclip.py from Apple's 2024 MobileCLIP-S0 checkpoint (where it came from
+        // and under what licence: export_clip/MOBILECLIP_SOURCE.md). Image tower fp32 (fp16 gave NaN on a real
+        // phone), text tower int8.
         RemoteModel(
             id = "vision",
-            fileName = "clip_vision.onnx",
-            url = "${BuildConfig.MODEL_BASE_URL}/clip_vision.onnx",
-            sha256 = "2d0f282b6182bef9a3493661c6cc4071ab0316db4171ea60481457581b3b04a0",
-            sizeBytes = 351777098L
+            fileName = "mobileclip_s0_vision.onnx",
+            url = "${BuildConfig.MODEL_BASE_URL}/mobileclip_s0_vision.onnx",
+            sha256 = "2404c7f922d3d64552eb9643ff5c6325dab0d3c8b0ab8b51531fc68bf62fdbdf",
+            sizeBytes = 45575684L
         ),
         RemoteModel(
             id = "text",
-            fileName = "clip_text.onnx",
-            url = "${BuildConfig.MODEL_BASE_URL}/clip_text.onnx",
-            sha256 = "cf2ea6228b51ff5ffcb0f4d2a54a4e94cfeaeca7fa48345e817a33672e2f6d5d",
-            sizeBytes = 254340822L
+            fileName = "mobileclip_s0_text.onnx",
+            url = "${BuildConfig.MODEL_BASE_URL}/mobileclip_s0_text.onnx",
+            sha256 = "6412755124a4125282cc4fc7b22ea9bdd4671ff07ca59494b1e7545b003327bd",
+            sizeBytes = 58652554L
         )
     )
 

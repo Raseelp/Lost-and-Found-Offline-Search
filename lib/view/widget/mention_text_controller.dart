@@ -137,16 +137,18 @@ class MentionTextEditingController extends TextEditingController {
     final claimed = _explicit.map((m) => m.person.id).toSet();
 
     for (final person in named) {
-      if (claimed.contains(person.id))
+      if (claimed.contains(person.id)) {
         continue; // already mentioned, via an explicit pick
+      }
       final name = person.name!;
       final matches = _wholeWordMatches(newText, name);
       if (matches.isEmpty) continue;
       final sharedByOthers = named.any(
         (p) => p.id != person.id && p.name == name,
       );
-      if (sharedByOthers)
+      if (sharedByOthers) {
         continue; // ambiguous - "@" is how you resolve this, not a guess
+      }
       final span = matches.first;
       // An explicit pick can sit right next to (or overlap, mid-edit) a plain match - it wins.
       final overlapsExplicit = _explicit.any(

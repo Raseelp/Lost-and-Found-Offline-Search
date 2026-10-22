@@ -4,6 +4,7 @@ import 'package:get/route_manager.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lost_and_found/bindings/init_bindings.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/utils/model_licenses.dart';
 import 'package:lost_and_found/view/app_gate.dart';
 
 // System bars for the app's light screens: draw behind them (edge-to-edge, so
@@ -25,6 +26,7 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   // The fonts are in assets/fonts: the app never goes to the internet for them.
   GoogleFonts.config.allowRuntimeFetching = false;
+  registerModelLicenses();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(kAppOverlayStyle);
   runApp(const LostAndFoundApp());

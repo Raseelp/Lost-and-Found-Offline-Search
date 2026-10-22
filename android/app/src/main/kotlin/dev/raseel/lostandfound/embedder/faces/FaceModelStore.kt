@@ -92,7 +92,9 @@ class FaceModelStore(private val context: Context) {
     /** Opens a session with explicit settings (used by the tuner's benchmark). */
     fun openSession(model: LocatedFaceModel, config: RunConfig): OrtSession {
         val options = OrtSession.SessionOptions().apply {
-            setIntraOpNumThreads(config.threads)
+            // XNNPACK has a thread pool of its own (sized below); a second one here would make the two compete for
+            // the cores, which ONNX Runtime warns about.
+            setIntraOpNumThreads(if (config.provider == "xnnpack") 1 else config.threads)
             setInterOpNumThreads(1)
             config.affinity?.let { addConfigEntry("session.intra_op_thread_affinities", it) }
             when (config.provider) {

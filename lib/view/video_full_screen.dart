@@ -164,8 +164,9 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     _controller.dispose();
     // Coming back to the results, the search box was getting its focus (and keyboard) back.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (Get.isRegistered<NativeController>())
+      if (Get.isRegistered<NativeController>()) {
         Get.find<NativeController>().searchFocusNode.unfocus();
+      }
     });
     super.dispose();
   }
@@ -377,8 +378,9 @@ class _VideoViewScreenState extends State<VideoViewScreen>
         if (grew) _peoplePulse++;
         _people = found;
         if (_focusPerson != null &&
-            !found.any((p) => p.person.id == _focusPerson))
+            !found.any((p) => p.person.id == _focusPerson)) {
           _focusPerson = null;
+        }
       });
     } catch (_) {
       // No strip - the video plays as ever.
@@ -391,8 +393,12 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     if (!_initialized || _pickingFrame) return;
     final v = _controller.value;
     if (v.isPlaying) {
-      if (!_wasPlaying || _faces.isNotEmpty || _looking || _stillTimer != null)
+      if (!_wasPlaying ||
+          _faces.isNotEmpty ||
+          _looking ||
+          _stillTimer != null) {
         _leaveStill();
+      }
       _wasPlaying = true;
       return;
     }
@@ -455,8 +461,9 @@ class _VideoViewScreenState extends State<VideoViewScreen>
   void _cancelPending() {
     final token = _pendingToken;
     _pendingToken = null;
-    if (token != null)
+    if (token != null) {
       NativeServices().cancelPhotoFaces(token).catchError((_) {});
+    }
   }
 
   // [merge]: a quiet second look at a moment whose outlines are already up (from the scan): it
@@ -714,8 +721,9 @@ class _VideoViewScreenState extends State<VideoViewScreen>
       });
       // A quiet look afterwards for anyone else in the picture that wasn't stored.
       Future.delayed(const Duration(milliseconds: 800), () {
-        if (mounted && _instantMs == target && !_controller.value.isPlaying)
+        if (mounted && _instantMs == target && !_controller.value.isPlaying) {
           _lookAt(target, merge: true);
+        }
       });
       // The outline is drawing in now; the circle-turned-band melts into it.
       if (_flight != null) {
@@ -742,8 +750,9 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     for (var i = 0; i < 30; i++) {
       if (!mounted || jump != _jumpId) return;
       final v = _controller.value;
-      if ((v.position.inMilliseconds - target).abs() < 200 && !v.isBuffering)
+      if ((v.position.inMilliseconds - target).abs() < 200 && !v.isBuffering) {
         break;
+      }
       await Future.delayed(const Duration(milliseconds: 40));
     }
     await Future.delayed(const Duration(milliseconds: 140));
@@ -914,7 +923,9 @@ class _VideoViewScreenState extends State<VideoViewScreen>
 
                     if (!_initialized && _initError == null)
                       const Center(
-                        child: CircularProgressIndicator(color: AppColors.onMedia),
+                        child: CircularProgressIndicator(
+                          color: AppColors.onMedia,
+                        ),
                       ),
 
                     if (_initError != null)
@@ -1109,7 +1120,9 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                                   IgnorePointer(
                                     child: MomentCaption(
                                       uri: widget.videoUri,
-                                      outer: const EdgeInsets.only(top: AppSpacing.xs),
+                                      outer: const EdgeInsets.only(
+                                        top: AppSpacing.xs,
+                                      ),
                                     ),
                                   ),
 
@@ -1373,8 +1386,10 @@ class _FramePickBarState extends State<_FramePickBar> {
 
   void _seek(double v, {bool force = false}) {
     final now = DateTime.now();
-    if (!force && now.difference(_lastSeek) < const Duration(milliseconds: 90))
+    if (!force &&
+        now.difference(_lastSeek) < const Duration(milliseconds: 90)) {
       return;
+    }
     _lastSeek = now;
     widget.controller.seekTo(Duration(milliseconds: v.round()));
   }
@@ -1818,8 +1833,10 @@ class _VideoScrubberState extends State<_VideoScrubber> {
   void _seek(double fraction, {bool force = false}) {
     // Seeking on every drag event floods the player; one every ~70 ms is plenty, and the last one always lands.
     final now = DateTime.now();
-    if (!force && now.difference(_lastSeek) < const Duration(milliseconds: 70))
+    if (!force &&
+        now.difference(_lastSeek) < const Duration(milliseconds: 70)) {
       return;
+    }
     _lastSeek = now;
     final ms = widget.controller.value.duration.inMilliseconds;
     widget.controller.seekTo(Duration(milliseconds: (fraction * ms).round()));

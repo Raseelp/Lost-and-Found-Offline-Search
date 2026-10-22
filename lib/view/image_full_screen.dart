@@ -99,8 +99,9 @@ class _ImageViewScreenState extends State<ImageViewScreen>
     final seen = <int>{};
     final out = <VideoPerson>[];
     for (final f in sorted) {
-      if (seen.add(f.person.id))
+      if (seen.add(f.person.id)) {
         out.add(VideoPerson(person: f.person, times: const []));
+      }
     }
     return out;
   }
@@ -510,7 +511,10 @@ class _ImageViewScreenState extends State<ImageViewScreen>
                   // whole gang, a reunion), it says so, under the top buttons.
                   if (!controller.showMetadata)
                     Positioned(
-                      top: MediaQuery.of(context).padding.top + 48 + AppSpacing.sm * 2,
+                      top:
+                          MediaQuery.of(context).padding.top +
+                          48 +
+                          AppSpacing.sm * 2,
                       left: 0,
                       right: 0,
                       child: IgnorePointer(child: MomentCaption(uri: uri)),

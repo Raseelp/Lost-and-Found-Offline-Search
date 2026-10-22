@@ -21,6 +21,7 @@ class SmartCollection {
     this.seedEmbedding,
     this.seedUri,
     this.seedTimestampMs,
+    this.seedModel,
     this.personIds = const [],
   });
 
@@ -62,6 +63,11 @@ class SmartCollection {
   final String? seedUri;
   final int? seedTimestampMs;
 
+  /// The search model that made [seedEmbedding] (see CollectionsController.modelVersion). A vector from another
+  /// model cannot be compared with the library's, so a photo collection whose seed was made by another one has the
+  /// photo embedded again (null: made before this was recorded, by the OpenAI CLIP model the app used then).
+  final String? seedModel;
+
   /// Recognised-person ids mentioned when this collection was made (e.g.
   /// "@Raseel at the beach") - narrows membership to photos/videos with all
   /// of them in it, same "together" rule the search box's own @-mention
@@ -98,6 +104,9 @@ class SmartCollection {
     // (restoring a built-in's own override).
     String? explainQuery,
     List<int>? personIds,
+    // A photo collection whose photo has been embedded again by the current search model.
+    List<double>? seedEmbedding,
+    String? seedModel,
   }) {
     return SmartCollection(
       id: id,
@@ -110,9 +119,10 @@ class SmartCollection {
       isBuiltIn: isBuiltIn,
       createdAt: createdAt,
       kind: kind,
-      seedEmbedding: seedEmbedding,
+      seedEmbedding: seedEmbedding ?? this.seedEmbedding,
       seedUri: seedUri,
       seedTimestampMs: seedTimestampMs,
+      seedModel: seedModel ?? this.seedModel,
       personIds: personIds ?? this.personIds,
     );
   }
@@ -129,7 +139,12 @@ class SmartCollection {
     'createdAt': createdAt,
     'kind': kind,
     'seed': isPhotos
-        ? jsonEncode({'embedding': seedEmbedding, 'uri': seedUri, 'timestampMs': seedTimestampMs})
+        ? jsonEncode({
+            'embedding': seedEmbedding,
+            'uri': seedUri,
+            'timestampMs': seedTimestampMs,
+            'model': seedModel,
+          })
         : null,
     'personIds': personIds.isEmpty ? null : jsonEncode(personIds),
   };
@@ -146,6 +161,7 @@ class SmartCollection {
       seedEmbedding: (seed?['embedding'] as List?)?.map((e) => (e as num).toDouble()).toList(),
       seedUri: seed?['uri'] as String?,
       seedTimestampMs: (seed?['timestampMs'] as num?)?.toInt(),
+      seedModel: seed?['model'] as String?,
       id: row['id'] as String,
       name: row['name'] as String? ?? '',
       prompts: (jsonDecode(row['prompts'] as String? ?? '[]') as List).cast<String>(),

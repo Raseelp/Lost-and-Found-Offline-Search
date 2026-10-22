@@ -90,7 +90,6 @@ class NativeController extends GetxController with WidgetsBindingObserver {
         sliderValue = limit.clamp(10, 100).toDouble();
       }
 
-
       final failedRaw = prefs.getString(_failedByFolderKey);
       if (failedRaw != null) {
         final decoded = jsonDecode(failedRaw) as Map;
@@ -184,6 +183,10 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   // images/videos are distinct media item counts; indexSizeBytes is the
   // on-disk size of the embeddings store itself.
   int totalEmbeddings = 0;
+
+  /// The search model that made an index the app dropped when it switched to another one (0: none was). While it
+  /// is set the Library tab tells the person that their photos have to be scanned again.
+  int modelResetFrom = 0;
   int totalImages = 0;
   int totalVideos = 0;
   int indexSizeBytes = 0;
@@ -354,6 +357,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
       update();
     });
   }
+
   // While faces follow the scan: how many photos wait for the next face batch, how long since
   // the last batch ended, the rule they fill towards, and when this was reported.
   int? faceQueueCount;
@@ -396,8 +400,9 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   Duration? get downloadEta {
     final rate = downloadBytesPerSecond;
     final progress = downloadProgress;
-    if (rate == null || rate <= 0 || progress.overallTotalBytes == 0)
+    if (rate == null || rate <= 0 || progress.overallTotalBytes == 0) {
       return null;
+    }
     final left = progress.overallTotalBytes - progress.overallBytesDownloaded;
     if (left <= 0) return null;
     return Duration(seconds: (left / rate).round());
@@ -626,8 +631,9 @@ class NativeController extends GetxController with WidgetsBindingObserver {
               limit: 13,
               contentMode: ContentMode.both,
             );
-      if (token != _similarToken)
+      if (token != _similarToken) {
         return; // superseded while the search was in flight
+      }
 
       similarResults = raw
           .where((item) => (item['path'] as String?) != uri)
@@ -715,7 +721,11 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   // The one submit action, whichever input is active - an attached image
   // takes priority over typed text (matching what's actually shown in the
   // search bar), never both at once.
+  // Counts the searches, so a search that was replaced by a newer one stops loading its tiles.
+  int _searchRun = 0;
+
   Future<void> runSearch() async {
+    final run = ++_searchRun;
     final imageUri = pickedSearchImageUri;
     final rawQuery = searchTextController.text.trim();
     if (imageUri == null && rawQuery.isEmpty) return;
@@ -776,35 +786,44 @@ class NativeController extends GetxController with WidgetsBindingObserver {
 
       debugPrint(searchResults.toString());
 
-      for (final item in searchResults) {
-        final uri = item['path'] as String;
-        final isVideo = item['isVideo'] as bool? ?? false;
-        final timestampMs = (item['timestampMs'] as num?)?.toInt() ?? 0;
-        final cacheKey = isVideo ? '$uri@$timestampMs' : uri;
-
-        if (!imageCache.containsKey(cacheKey)) {
+      // The tiles load three at a time (the native side decodes on three threads), each
+      // worker taking the next result as soon as it is free, instead of one after another.
+      final pending = [
+        for (final item in searchResults)
+          if (!imageCache.containsKey(cacheKeyForResult(item))) item,
+      ];
+      var nextPending = 0;
+      Future<void> loadTiles() async {
+        while (run == _searchRun && nextPending < pending.length) {
+          final item = pending[nextPending++];
+          final uri = item['path'] as String;
+          final isVideo = item['isVideo'] as bool? ?? false;
+          final timestampMs = (item['timestampMs'] as num?)?.toInt() ?? 0;
           try {
             if (isVideo) {
               final bytes = await NativeServices().loadVideoThumbnail(
                 uri: uri,
                 timestampMs: timestampMs,
               );
-              imageCache[cacheKey] = bytes;
+              imageCache[cacheKeyForResult(item)] = bytes;
             } else {
               final bytes = await NativeServices().loadImageBytes(
                 uri: uri,
                 isCompressed: true,
               );
-              imageCache[cacheKey] = bytes;
+              imageCache[cacheKeyForResult(item)] = bytes;
             }
           } catch (_) {}
         }
       }
+
+      await Future.wait([for (var i = 0; i < 3; i++) loadTiles()]);
     } on ModelsNotReadyError {
       modelsReady = false;
       error = 'Models are not downloaded yet.';
     } finally {
-      isSearching = false;
+      // Not when a newer search has taken over: it is still going and clears this itself.
+      if (run == _searchRun) isSearching = false;
       update();
     }
   }
@@ -835,7 +854,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     for (final item in items) {
       if (_recentThumbInFlight.length >= _recentThumbParallel) break;
       final key = _recentThumbKey(item);
-      if (recentThumbBytes.containsKey(key) || _recentThumbInFlight.contains(key)) {
+      if (recentThumbBytes.containsKey(key) ||
+          _recentThumbInFlight.contains(key)) {
         continue;
       }
       _recentThumbInFlight.add(key);
@@ -1192,9 +1212,21 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   // this is also called periodically while a scan is running (see
   // _listenToScanProgress) so the numbers climb in real time instead of
   // only updating once the whole scan completes.
+  /// The person has seen that the index was dropped for a new search model (and what to do about it).
+  Future<void> acknowledgeModelReset() async {
+    modelResetFrom = 0;
+    update();
+    try {
+      await NativeServices().acknowledgeModelReset();
+    } catch (e) {
+      debugPrint('Failed to acknowledge the model reset: $e');
+    }
+  }
+
   Future<void> refreshLibraryStats() async {
     final stats = await NativeServices().getLibraryStats();
     totalEmbeddings = stats.totalEmbeddings;
+    modelResetFrom = stats.modelResetFrom;
     totalImages = stats.images;
     totalVideos = stats.videos;
     indexSizeBytes = stats.sizeBytes;
