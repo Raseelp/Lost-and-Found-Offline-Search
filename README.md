@@ -289,4 +289,28 @@ Oleh Dubyna under CC BY-SA 3.0. Every source is listed in `assets/tour/photos/CR
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Copyright (C) 2026 Raseel.
+
+Lost & Found is free and open source software under the **GNU Affero General Public License v3.0**
+(AGPL-3.0) — see [LICENSE](LICENSE). You can read, use, change and share it. If you share a changed
+version, or run one as a service for other people, you must release its full source code under the
+same license. It comes with no warranty.
+
+Versions released before this change (up to commit `4e88cab`) were under the MIT License and stay
+under it.
+
+**Commercial license.** To use Lost & Found in a closed-source or proprietary product, a separate
+commercial license is available from the author. Open an issue on GitHub to ask.
+
+**Name and icon.** The license covers the code, not the name "Lost & Found" or the app icon. See
+[TRADEMARKS.md](TRADEMARKS.md) before publishing a changed version.
+
+**Contributing.** See [CONTRIBUTING.md](CONTRIBUTING.md). Contributions are accepted under its
+contributor license agreement.
+
+**Parts with their own licenses.** These are not covered by the AGPL and keep their own terms:
+
+- The tour's sample photos, faces and clips — see Credits above and the `CREDITS.txt` files.
+- The fonts in `assets/fonts/` — SIL Open Font License 1.1 (the `OFL-*.txt` files).
+- The CLIP weights downloaded on first launch, and the Flutter and Android packages the app uses,
+  each under their own license.
