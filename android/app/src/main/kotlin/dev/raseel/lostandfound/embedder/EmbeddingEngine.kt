@@ -32,6 +32,8 @@ class EmbeddingEngine(
     private val ortEnv: OrtEnvironment = OrtEnvironment.getEnvironment()
     private var visionSession: OrtSession? = null
     private var textSession: OrtSession? = null
+    // What the image model runs on ("xnnpack x6", or "cpu" after a fallback), for the performance logs.
+    private var visionBackend = "not loaded"
     private val store: EmbeddingStore
 
     // A single OrtSession isn't safe to call run() on from two threads at
@@ -122,6 +124,19 @@ class EmbeddingEngine(
         private const val BENCH_REPORT_EVERY_IMAGES = 40
         private const val BENCH_BATCH_MIN_MS = 1000L
 
+        // Named on the timing lines of the performance logs, so numbers from different models are not mixed up.
+        private const val MODEL_LABEL = "mobileclip-s0(vision fp32, text int8)"
+
+        // Set while the image model is being set up on XNNPACK and cleared when that worked - see createVisionSession.
+        private const val ENGINE_PREFS = "embedding_engine"
+        private const val KEY_XNNPACK_TRYING = "xnnpack_trying"
+
+        // Threads of the image model. Measured on a phone with 2 fast and 6 slow cores: XNNPACK with 8 threads
+        // (258 ms per photo) beat the default threads (345) and 2 threads (270) on its own; running as a scan does
+        // (photos decoding on 2 other threads at the same time) 6 threads took 303 ms per photo on average against
+        // 327 for 8 and 374 for 4.
+        private const val VISION_THREADS_MAX = 6
+
         // Every image/frame's FloatArray is always exactly 3x256x256 - fixed
         // by ImagePreprocessor - so batching can rely on this instead of
         // inspecting each array's length at runtime.
@@ -144,18 +159,54 @@ class EmbeddingEngine(
 
         if (visionSession == null) {
             val visionModel = ModelCatalog.MODELS.first { it.id == "vision" }
-            visionSession = ortEnv.createSession(
-                modelManager.localFile(visionModel).absolutePath,
-                OrtSession.SessionOptions()
-            )
+            val startedNs = System.nanoTime()
+            visionSession = createVisionSession(modelManager.localFile(visionModel).absolutePath)
+            BenchLog.log(context) {
+                "model loaded: $MODEL_LABEL vision (${visionModel.sizeBytes / 1_000_000} MB, on $visionBackend) in " +
+                    "${(System.nanoTime() - startedNs) / 1_000_000}ms"
+            }
         }
         if (textSession == null) {
             val textModel = ModelCatalog.MODELS.first { it.id == "text" }
+            val startedNs = System.nanoTime()
             textSession = ortEnv.createSession(
                 modelManager.localFile(textModel).absolutePath,
                 OrtSession.SessionOptions()
             )
+            BenchLog.log(context) {
+                "model loaded: $MODEL_LABEL text (${textModel.sizeBytes / 1_000_000} MB) in " +
+                    "${(System.nanoTime() - startedNs) / 1_000_000}ms"
+            }
         }
+    }
+
+    // The image model on XNNPACK (ONNX Runtime's fast CPU kernels for phones). If this build of the runtime cannot
+    // take it, the plain CPU path gives the same numbers, only slower. A runtime that aborts the whole process while
+    // setting XNNPACK up (it did that for the face detector, on a real phone) cannot be caught, so a marker is written
+    // before the try and cleared after it: if it is still there, the last try never came back and is not repeated.
+    private fun createVisionSession(path: String): OrtSession {
+        val prefs = context.getSharedPreferences(ENGINE_PREFS, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_XNNPACK_TRYING, false)) {
+            Log.w(TAG, "the last try at XNNPACK never came back, using the plain CPU path")
+        } else {
+            val threads = Runtime.getRuntime().availableProcessors().coerceIn(2, VISION_THREADS_MAX)
+            prefs.edit().putBoolean(KEY_XNNPACK_TRYING, true).commit()
+            try {
+                val session = OrtSession.SessionOptions().use { options ->
+                    options.setIntraOpNumThreads(1)
+                    options.addXnnpack(mapOf("intra_op_num_threads" to threads.toString()))
+                    ortEnv.createSession(path, options)
+                }
+                visionBackend = "xnnpack x$threads"
+                prefs.edit().putBoolean(KEY_XNNPACK_TRYING, false).apply()
+                return session
+            } catch (e: Exception) {
+                Log.w(TAG, "XNNPACK is not available (${e.message}), using the plain CPU path", e)
+                prefs.edit().putBoolean(KEY_XNNPACK_TRYING, false).apply()
+            }
+        }
+        visionBackend = "cpu"
+        return OrtSession.SessionOptions().use { ortEnv.createSession(path, it) }
     }
 
     /** True if the last scan was stopped by the user rather than running to its end. */
@@ -182,6 +233,7 @@ class EmbeddingEngine(
                     val buffer = (result[0] as OnnxTensor).floatBuffer
                     val out = FloatArray(buffer.remaining())
                     buffer.get(out)
+                    check(EmbeddingMath.isFinite(out)) { "The text model gave NaN or infinite numbers" }
                     out
                 }
             }
@@ -204,7 +256,7 @@ class EmbeddingEngine(
         recentItems.clear()
         BenchLog.log(context) {
             "scan start: mode=$mode contentMode=$contentMode cpus=${Runtime.getRuntime().availableProcessors()} " +
-                "clip=onnx(default threads) chunk=$INFERENCE_BATCH_SIZE decodeThreads=$PREP_THREAD_COUNT | " +
+                "clip=$MODEL_LABEL chunk=$INFERENCE_BATCH_SIZE decodeThreads=$PREP_THREAD_COUNT | " +
                 BenchLog.device(context)
         }
         Log.d(TAG, "embedImages: start — mode=$mode contentMode=$contentMode")
@@ -695,7 +747,7 @@ class EmbeddingEngine(
                 } catch (e: Exception) {
                     null
                 }
-            )
+            ).map { onlyIfFinite(it) }
         }
 
         val batched = try {
@@ -712,7 +764,7 @@ class EmbeddingEngine(
             null
         }
 
-        if (batched != null) return batched
+        if (batched != null) return batched.map { onlyIfFinite(it) }
 
         return tensors.map { t ->
             try {
@@ -720,7 +772,16 @@ class EmbeddingEngine(
             } catch (e: Exception) {
                 null
             }
-        }
+        }.map { onlyIfFinite(it) }
+    }
+
+    // A vector with a NaN or infinite number in it would be stored and then rank every search the same (it did, with
+    // an image model that overflowed on one phone). Treated as a failed image instead: skipped, and tried again by
+    // the next scan.
+    private fun onlyIfFinite(embedding: FloatArray?): FloatArray? {
+        if (embedding == null || EmbeddingMath.isFinite(embedding)) return embedding
+        Log.w(TAG, "the image model gave NaN or infinite numbers; the image is skipped")
+        return null
     }
 
     // One `n`-item batch (or a single item, n=1) through the vision model -
@@ -987,6 +1048,7 @@ class EmbeddingEngine(
             if (pathFilter != null && record.imagePath !in pathFilter) continue
 
             val score = EmbeddingMath.dot(textEmbedding, record.embedding)
+            if (score.isNaN()) continue
 
             val result = SearchResult(
                 imagePath   = record.imagePath,
@@ -1022,6 +1084,7 @@ class EmbeddingEngine(
             if (!matchesContentFilter(record, contentFilter)) continue
 
             val score = EmbeddingMath.dot(imageEmbedding, record.embedding)
+            if (score.isNaN()) continue
 
             val result = SearchResult(
                 imagePath   = record.imagePath,

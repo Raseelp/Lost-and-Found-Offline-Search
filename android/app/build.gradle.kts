@@ -80,6 +80,9 @@ android {
 
     buildTypes {
         debug {
+            // A second app next to the real one (same name in the code, its own data): installing a debug build can
+            // never replace - or, with a different signing key, uninstall and wipe - the app that is in use.
+            applicationIdSuffix = ".debug"
             // model_host/serve.py - run `adb reverse tcp:8000 tcp:8000` first.
             buildConfigField("String", "MODEL_BASE_URL", "\"http://127.0.0.1:8000\"")
         }
@@ -94,7 +97,7 @@ android {
                 file("proguard-rules.pro")
             )
 
-            // Matches the "models-v1" GitHub Release tag - see model_host/README.md. The release holds the MobileCLIP-S2
+            // Matches the "models-v1" GitHub Release tag - see model_host/README.md. The release holds the MobileCLIP-S0
             // files this version downloads, and still the CLIP ViT-B/32 files that older versions download.
             buildConfigField(
                 "String",

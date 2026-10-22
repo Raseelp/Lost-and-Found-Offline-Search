@@ -6,7 +6,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import kotlin.math.ceil
 
-// Prepares a photo for MobileCLIP-S2, the way Apple's own preprocessing does: the shorter side to 256 (bilinear),
+// Prepares a photo for MobileCLIP-S0, the way Apple's own preprocessing does: the shorter side to 256 (bilinear),
 // the middle 256 x 256, each pixel scaled to 0..1 - and nothing more. Unlike the OpenAI CLIP models this one was
 // trained without the mean/std normalisation, so adding it would only damage the result.
 object ImagePreprocessor {

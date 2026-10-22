@@ -7,6 +7,6 @@ import 'package:flutter/services.dart' show rootBundle;
 void registerModelLicenses() {
   LicenseRegistry.addLicense(() async* {
     final text = await rootBundle.loadString('assets/licenses/apple_mobileclip_weights_2024.txt');
-    yield LicenseEntryWithLineBreaks(['MobileCLIP-S2 model weights (Apple)'], text);
+    yield LicenseEntryWithLineBreaks(['MobileCLIP-S0 model weights (Apple)'], text);
   });
 }

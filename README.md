@@ -232,7 +232,7 @@ Android only, for now (minimum Android 7.0 / API 24).
 - `android/app/src/main/kotlin/dev/raseel/lostandfound/` — the native side:
   `embedder/` (CLIP, scanning, the stores), `embedder/faces/` (detection,
   recognition, grouping), `export/` (the zip writer and its background work).
-- `export_clip/` — scripts that turn Apple's MobileCLIP-S2 into the two ONNX files the app downloads, and check them.
+- `export_clip/` — scripts that turn Apple's MobileCLIP-S0 into the two ONNX files the app downloads, and check them.
 - `model_host/` — a throwaway server for testing the model download.
 
 ## Building it yourself
@@ -240,7 +240,7 @@ Android only, for now (minimum Android 7.0 / API 24).
 One set of model weights is downloaded once on first launch — it is not
 bundled in the app or the repo:
 
-- **Search** — Apple's MobileCLIP-S2 (~140 MB: the image tower in fp16 and the text tower in int8).
+- **Search** — Apple's MobileCLIP-S0 (~104 MB: the image tower in fp32 and the text tower in int8).
 
 The face models are part of the app (in `android/app/src/main/assets/`): the
 face detector (SCRFD, ~3 MB) and the face recognition model (MobileFaceNet,
@@ -312,7 +312,7 @@ contributor license agreement.
 
 - The tour's sample photos, faces and clips — see Credits above and the `CREDITS.txt` files.
 - The fonts in `assets/fonts/` — SIL Open Font License 1.1 (the `OFL-*.txt` files).
-- The search model downloaded on first launch: Apple's MobileCLIP-S2, converted to ONNX, under the
+- The search model downloaded on first launch: Apple's MobileCLIP-S0, converted to ONNX, under the
   license Apple published with the weights in 2024 (a copy is in `export_clip/licenses/`; where the
-  weights came from is in `export_clip/MOBILECLIP_S2_SOURCE.md`). It is Apple's, not covered by the AGPL.
+  weights came from is in `export_clip/MOBILECLIP_SOURCE.md`). It is Apple's, not covered by the AGPL.
 - The Flutter and Android packages the app uses, each under their own license.

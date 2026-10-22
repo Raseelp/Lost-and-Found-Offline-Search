@@ -65,7 +65,7 @@ class SettingsScreen extends StatelessWidget {
                                 ? 'Search model'
                                 : 'Search model - not ready',
                             subtitle: modelsVerified
-                                ? 'MobileCLIP-S2 (Apple)  ·  finds photos by meaning  ·  ${ModelDownloadProgress.formatBytes(modelBytes)}  ·  verified'
+                                ? 'MobileCLIP-S0 (Apple)  ·  finds photos by meaning  ·  ${ModelDownloadProgress.formatBytes(modelBytes)}  ·  verified'
                                 : null,
                             trailing: modelsVerified
                                 ? const Icon(

@@ -53,7 +53,9 @@ object FaceTuner {
     // Bump to make every phone retune after this logic changes.
     // 3: back to trying the alternative backends on the recognition model only (version 2 also
     // tried XNNPACK on the detector, which crashed the app; the retune clears what it left).
-    private const val VERSION = 3
+    // 4: XNNPACK sessions no longer also start an ONNX Runtime thread pool of the same size, so what was
+    // measured for them before is out of date.
+    private const val VERSION = 4
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 

@@ -61,7 +61,7 @@ class ModelManager(private val context: Context) {
         private const val READ_TIMEOUT_MS = 30_000
         private const val BUFFER_SIZE = 64 * 1024
         private const val FREE_SPACE_MULTIPLIER = 1.3
-        private const val REPLACED_REMOVED_KEY = "old_clip_models_removed"
+        private const val REPLACED_REMOVED_KEY = "old_clip_models_removed_v2"
     }
 
     fun localFile(model: RemoteModel): File = File(context.filesDir, model.fileName)
@@ -99,12 +99,12 @@ class ModelManager(private val context: Context) {
         return ready
     }
 
-    // The search models used to be OpenAI's CLIP ViT-B/32 (about 600 MB, two files under other names). Once the new
-    // ones are in place those are of no use to anything: removed, once - and only then, so that a download that
-    // fails does not leave the person with no models at all.
+    // The search models used to be OpenAI's CLIP ViT-B/32 (about 600 MB, two files under other names), and for a
+    // short while MobileCLIP-S2. Once the new ones are in place those are of no use to anything: removed, once - and
+    // only then, so that a download that fails does not leave the person with no models at all.
     private fun removeReplacedSearchModels() {
         if (prefs.getBoolean(REPLACED_REMOVED_KEY, false)) return
-        for (name in listOf("clip_vision.onnx", "clip_text.onnx")) {
+        for (name in listOf("clip_vision.onnx", "clip_text.onnx", "mobileclip_s2_vision.onnx", "mobileclip_s2_text.onnx")) {
             File(context.filesDir, name).delete()
             File(context.filesDir, "$name.part").delete()
         }

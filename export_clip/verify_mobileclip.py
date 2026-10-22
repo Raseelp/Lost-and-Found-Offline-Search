@@ -1,7 +1,7 @@
-"""Checks the two exported MobileCLIP-S2 files against Apple's PyTorch model, and against the CLIP ViT-B/32 files
+"""Checks the two exported MobileCLIP files (S0 by default) against Apple's PyTorch model, and against the CLIP ViT-B/32 files
 they replace, on the tour's sample photos.
 
-  1. The ONNX image tower (fp16) against PyTorch (fp32): cosine similarity of each photo's vector; a batch of
+  1. The ONNX image tower (fp32) against PyTorch (fp32): cosine similarity of each photo's vector; a batch of
      several gives the same vectors as one at a time.
   2. The ONNX text tower (int8) against PyTorch (fp32), and the length of every vector (must be 1).
   3. The tokens the app's tokenizer produces against the ones Apple's model was trained with (read from a file the
@@ -10,7 +10,7 @@ they replace, on the tour's sample photos.
      for the exported files and for the old CLIP files.
 
 Usage (from this folder):
-  python verify_mobileclip_s2.py --code <folder holding Apple's `mobileclip` package>
+  python verify_mobileclip.py --code <folder holding Apple's `mobileclip` package>
 """
 import argparse
 import glob
@@ -24,7 +24,7 @@ import open_clip
 import torch
 from PIL import Image
 
-import export_mobileclip_s2 as export
+import export_mobileclip as export
 
 PHOTOS = os.path.join(os.path.dirname(__file__), "..", "assets", "tour", "photos")
 
@@ -77,18 +77,21 @@ def old_clip_pixels(img: Image.Image) -> np.ndarray:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--code", required=True)
-    ap.add_argument("--checkpoint", default="weights/mobileclip_s2.pt")
-    ap.add_argument("--out", default="out_mobileclip_s2")
+    ap.add_argument("--variant", default="s0", choices=sorted(export.TEXT_FP32_LAYER))
+    ap.add_argument("--checkpoint", default=None)
+    ap.add_argument("--out", default=None)
     args = ap.parse_args()
+    args.checkpoint = args.checkpoint or f"weights/mobileclip_{args.variant}.pt"
+    args.out = args.out or f"out_mobileclip_{args.variant}"
 
     torch.backends.mkldnn.enabled = False
     torch.backends.mkl.enabled = False
     export.prepare_torch()
-    model, preprocess = export.load_model(args.code, args.checkpoint)
+    model, preprocess = export.load_model(args.code, args.checkpoint, args.variant)
     tokenizer = open_clip.get_tokenizer("ViT-B-16")  # the tokenizer Apple's config names
 
-    vision = ort.InferenceSession(os.path.join(args.out, "mobileclip_s2_vision.onnx"), providers=["CPUExecutionProvider"])
-    text = ort.InferenceSession(os.path.join(args.out, "mobileclip_s2_text.onnx"), providers=["CPUExecutionProvider"])
+    vision = ort.InferenceSession(os.path.join(args.out, f"mobileclip_{args.variant}_vision.onnx"), providers=["CPUExecutionProvider"])
+    text = ort.InferenceSession(os.path.join(args.out, f"mobileclip_{args.variant}_text.onnx"), providers=["CPUExecutionProvider"])
     print("vision inputs", [(i.name, i.type, i.shape) for i in vision.get_inputs()], "outputs", [(o.name, o.type, o.shape) for o in vision.get_outputs()])
     print("text   inputs", [(i.name, i.type, i.shape) for i in text.get_inputs()], "outputs", [(o.name, o.type, o.shape) for o in text.get_outputs()])
 
@@ -106,7 +109,7 @@ def main():
     batched = np.concatenate([vision.run(None, {"pixel_values": px[i : i + 6]})[0] for i in range(0, len(px), 6)])
     cos = [cosine(a, b) for a, b in zip(ref_img, onnx_img)]
     cos_b = [cosine(a, b) for a, b in zip(onnx_img, batched)]
-    print(f"\nIMAGE  fp16 ONNX vs PyTorch fp32: cosine min {min(cos):.5f}  mean {np.mean(cos):.5f}")
+    print(f"\nIMAGE  fp32 ONNX vs PyTorch fp32: cosine min {min(cos):.5f}  mean {np.mean(cos):.5f}")
     print(f"IMAGE  batch of 6 vs one at a time: cosine min {min(cos_b):.6f}")
     print(f"IMAGE  vector lengths: {np.linalg.norm(onnx_img, axis=1).min():.5f} .. {np.linalg.norm(onnx_img, axis=1).max():.5f}")
 

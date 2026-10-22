@@ -18,6 +18,14 @@ object EmbeddingMath {
         return out
     }
 
+    /** False if any number is NaN or infinite. */
+    fun isFinite(vec: FloatArray): Boolean {
+        for (v in vec) {
+            if (!v.isFinite()) return false
+        }
+        return true
+    }
+
     fun dot(a: FloatArray, b: FloatArray): Float {
         var sum = 0f
         for (i in a.indices) {

@@ -568,8 +568,17 @@ class MainActivity : FlutterActivity() {
                         try {
                             val pathFilter = if (personIds.isEmpty()) null else
                                 faces.store.peopleMedia(personIds, "together").map { it.uri }.toSet()
+                            val startedNs = System.nanoTime()
                             val textEmbedding = embeddingEngine.encodeText(tokens.toIntArray())
+                            val encodedNs = System.nanoTime()
                             val results = embeddingEngine.searchByText(textEmbedding, topK, contentMode, pathFilter)
+                            val rankedNs = System.nanoTime()
+                            // Where a search's time goes (performance logs). Only numbers: nothing of what was
+                            // searched for, and no file names, since logs can end up in a shared bug report.
+                            BenchLog.log(applicationContext) {
+                                "search: encode text ${(encodedNs - startedNs) / 1_000_000}ms, rank ${(rankedNs - encodedNs) / 1_000_000}ms, " +
+                                    "${results.size} results | top scores ${results.take(5).map { "%.3f".format(it.score) }}"
+                            }
 
                             val mapped = results.map {
                                 mapOf(
@@ -849,7 +858,9 @@ class MainActivity : FlutterActivity() {
                         return@setMethodCallHandler
                     }
 
-                    searchExecutor.execute {
+                    // The thumbnail pool, not searchExecutor: a search's tiles load three at a time, and a
+                    // new search never waits behind the tiles of the previous one.
+                    thumbnailExecutor.execute {
                         try {
                             val uri = android.net.Uri.parse(uriString)
 

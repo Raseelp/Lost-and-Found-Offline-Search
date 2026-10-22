@@ -39,8 +39,9 @@ class EmbeddingStore(private val context: Context) {
         // made by another model is dropped (see dropIfOtherModel). Raise it whenever the search model, or how a
         // photo is prepared for it, changes.
         //   1: OpenAI CLIP ViT-B/32 (every file up to version 2 - those have no id in the header)
-        //   2: Apple MobileCLIP-S2, 2024 weights (image tower fp16, text tower int8), 256 px
-        const val MODEL_ID = 2
+        //   2: Apple MobileCLIP-S2, 2024 weights, image tower fp16 (gave NaN on a real phone: never shipped to anyone)
+        //   3: Apple MobileCLIP-S0, 2024 weights (image tower fp32, text tower int8), 256 px
+        const val MODEL_ID = 3
         private const val OLD_FILES_MODEL_ID = 1
         private const val KEY_RESET_FROM = "model_reset_from"
 

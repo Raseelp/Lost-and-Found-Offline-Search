@@ -28,7 +28,7 @@ class CollectionsController extends GetxController {
   // them - bump this if the search model is ever swapped (or how a text or a
   // photo is prepared for it changes). A photo collection's own seed vector
   // is checked against it too.
-  static const modelVersion = 'mobileclip-s2-apple-2024-v1';
+  static const modelVersion = 'mobileclip-s0-apple-2024-v1';
   static const _modelVersion = modelVersion;
   static const _embeddingsKey = 'collection_embeddings';
   static const int maxPinned = 6;
