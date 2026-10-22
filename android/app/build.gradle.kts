@@ -94,7 +94,8 @@ android {
                 file("proguard-rules.pro")
             )
 
-            // Matches the "models-v1" GitHub Release tag - see model_host/README.md.
+            // Matches the "models-v1" GitHub Release tag - see model_host/README.md. The release holds the MobileCLIP-S2
+            // files this version downloads, and still the CLIP ViT-B/32 files that older versions download.
             buildConfigField(
                 "String",
                 "MODEL_BASE_URL",
