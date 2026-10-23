@@ -1,257 +1,97 @@
 # Lost & Found: Offline Search
 
-Find your photos and videos by describing them, and browse them by who is in
-them — all on your phone, with no account and no cloud.
+Find your photos and videos by describing them, and by who is in them. Everything runs on your
+phone, with no account and no cloud.
 
-On-device semantic search for your photos and videos. Describe what you're
-looking for — "a dog on a beach", "the whiteboard from that meeting" — and
-it finds it, no matter what the file is named. It also recognises the people
-in your photos and groups them, so you can browse and search by who is in a
-picture.
+<!-- Screenshots: replace each placeholder with a phone screenshot (about 1080 px wide). -->
+<p align="center">
+  <img src="docs/screenshots/search.png" alt="Search" width="19%">
+  <img src="docs/screenshots/people.png" alt="People" width="19%">
+  <img src="docs/screenshots/timeline.png" alt="People timeline" width="19%">
+  <img src="docs/screenshots/on-this-day.png" alt="On this day" width="19%">
+  <img src="docs/screenshots/memory.png" alt="Daily memory notification" width="19%">
+</p>
 
-Everything runs locally. Your media is never uploaded anywhere; the search
-index and the face recognition are built and used entirely on your phone.
+Type "a birthday cake with candles" or "the whiteboard from that meeting" and Lost & Found finds it, whatever
+the file is called. It recognises the people in your photos and videos, so you can also search
+"Maya and Dev at the beach". The search index, the faces and the people are built and kept on
+the phone. Nothing is uploaded.
+
+## Features
+
+### Search
+- Find photos and videos by describing them in your own words.
+- Find similar photos by searching with a photo.
+- Search inside videos. A result opens at the matching moment.
+- Combine people and words, like "@Maya at the beach".
+- Search only photos, only videos, or both.
+- Index your whole phone, or only the folders you choose.
+
+### People
+- Faces in your photos and videos are grouped into people automatically.
+- Name people, or hide the ones you don't want to see.
+- Fix mistakes: merge two people, split one into two, or remove a wrong face.
+- Get merge suggestions, each with a certainty level.
+- Tap a face in a photo or a paused video to see who it is.
+- Find photos of a group: with anyone, on their own, or only that group.
+- See everyone on one shared timeline, with moments like a first photo together or a reunion.
+- Compare a person's early photos with their latest in Then and now.
+
+### Collections and export
+- Save a search as a collection. It updates itself as new photos are found.
+- Start with 21 built-in collections.
+- Export collections and people as zip files.
+- Split large exports into smaller parts.
+
+### Memories
+- See today's date in past years with On this day.
+- Get a photo memory each morning and evening (optional).
+
+### Viewer
+- Share, save a copy, set as wallpaper, or copy to the clipboard.
+- Watch silent video previews right in the grids.
+
+Details: [People](docs/people.md) · [Export](docs/export.md) · [Memories](docs/memories.md) ·
+[Changelog](CHANGELOG.md)
 
 ## How it works
 
-### Search
+Three on-device models do the work, all run with ONNX Runtime from native Kotlin code:
 
-- Point it at a folder or your whole phone. It walks through your photos
-  and videos and generates a CLIP embedding for each one (and for a handful
-  of sampled frames per video), stored in a local index.
-- Type a description, or hand it a reference photo, and it ranks your
-  library by similarity.
-- Indexing is the slow part and only has to happen once per file — after
-  that, search is instant.
-- Save searches as **Collections** and open them later (see below).
+| Job | Model | Size | Where it comes from |
+|---|---|---|---|
+| Search (text and images) | Apple MobileCLIP-S0: image tower fp32, text tower int8 | 104 MB | Downloaded once on first launch |
+| Face detection | SCRFD-2.5G (InsightFace) | 3 MB | Bundled in the app |
+| Face recognition | MobileFaceNet `w600k_mbf`, 512-number fingerprints | 13 MB | Bundled in the app |
 
-### Collections
+- Search: each photo (and 3 to 10 frames spread through each video, by length) is turned
+  into a 512-number vector by the image model. A search phrase is turned into a vector by the text
+  model, and results are the photos whose vectors are closest. Indexing is the slow part and
+  happens once per file; searching is instant.
+- People: faces are detected (a second pass over tiles finds small faces in big photos),
+  straightened, and turned into fingerprints. A face joins the person whose faces it matches;
+  each person keeps several "looks" (glasses, years apart) so they stay one person. Blurry,
+  tiny or turned-away faces can join a person but never start one.
+- Together: people narrow a search and the words rank what is left, so "Maya at the
+  beach" combines face recognition with the search model. Face finding runs in step with
+  indexing: every batch of photos indexed is scanned for faces, so people appear while the
+  first scan is still running.
 
-A collection is a saved search with a name of your own ("dog" saved as
-"Mittu"). Only the definition is stored: its photos and videos are looked up
-again from the index each time, so what a new scan finds shows up by itself.
-Items found by the latest scan carry a **New** tag and come first, in
-collections and on people's pages. Long-press a collection to edit, hide or
-export it; **Select** on the Collections tab picks several at once.
+More: [Architecture](docs/architecture.md)
 
-### Export as zip
+## Requirements
 
-Put collections and people in a zip to keep, send, or move to another phone.
-Your photos and videos are only read, never changed or removed.
+- Android 7.0 (API 24) or newer. Android only, for now.
+- A one-time download of the search model (104 MB). After that, the app works offline.
 
-- **Where from.** **Select collections** on the Collections tab (the bar at the
-  bottom then offers *Export as zip*), **Select people** on the People tab (the
-  bar offers *Photos together* and *Export as zip*), a collection's or person's
-  menu, or the *Export* button round a person's photo.
-- **What goes in.** Pick any number of collections and people (there is a
-  search box and *Select all*). Each becomes a folder in the zip with an
-  `Images` and a `Videos` folder inside. A photo in two chosen albums is stored
-  in both. Files are not compressed (photos and videos already are), keep their
-  names, and carry the date they were taken (else last changed).
-- **Settings.** A name (one album: its name; several: "Lost & Found export" and
-  the date), where to save (**Downloads › Lost & Found**, or any folder you
-  pick; before Android 10 a folder has to be picked), and a `list.json` with each
-  file's name, date and size (no original paths; on by default).
-- **Splitting.** From about 100 MB up, the zip can be cut into independent
-  parts (4 GB, 2 GB, 1 GB, 512 MB, or a size you choose). Each part is a
-  complete zip that opens on its own, and no file is ever cut across two of
-  them. A part expected to pass about 3 GB (or 60,000 files) uses the 64-bit zip format; smaller ones are plain zips every tool reads.
-- **Making it.** It runs as background work with a notification, so it carries
-  on if you leave the app. Cancelling, or a failure, deletes everything made so
-  far.
-
-### People (face recognition)
-
-A background scan finds and recognises the faces in your photos and groups
-them into people. It runs along with indexing (every so many photos the app
-finds their faces before it carries on), or from **Update people** on the People
-tab; it never starts by itself. It can be paused and resumed, and people appear
-as they are found.
-
-- **Detect → align → recognise → group.** A small detector (SCRFD) finds
-  faces, each is straightened, and a small recognition model (MobileFaceNet,
-  `w600k_mbf`, ~13 MB) turns it into a 512-number fingerprint. Faces are grouped by comparing
-  fingerprints. Blurry, tiny or turned-away faces never start a person; they
-  can only join one that already exists.
-- **Faces tab.** A grid of the people found, most photographed first. Open a
-  person to see all their photos; rename them; hide people you don't want
-  listed.
-- **Timeline.** *Timeline* on the People tab shows each person as a strip of
-  months, darker where there are more photos of them, on one shared axis of
-  years, like the timeline of a video editor: drag to move through the years,
-  pinch (or use *All / 5 years / 1 year / 3 months*) to zoom, and drag the
-  overview at the top to jump. A line in the middle is the playhead: whoever
-  has photos in the month under it lights up and the rest dim. The date of each photo
-  is the gallery's taken date, else the picture's own (EXIF), else a date in
-  its file name, else when the file was changed. Dates that cannot be right
-  (before 1990, in the future, a camera's reset clock) are ignored, and photos
-  without a date are counted per person. Above the strips a row of photos follows
-  the playhead (the best few photos of each month, in date order, the one at the
-  playhead large): winding through a busy month steps through its photos, and an
-  empty month holds the row still. The face of each person who has photos in the
-  month under the playhead turns into their own photo of that month. When the
-  years come to rest on a month the preview grows and that month opens out into
-  its photos in a collage, folding back into one photo when you move again; the
-  row of photos can be dragged too. Tapping a photo in the opened-out month opens a
-  screen with all of that month's photos and videos, day by day (the tapped one is
-  ringed). The preview is the top of the list: scrolling the list slims it step by
-  step (and it stays slim while you are down the list), scrolling back up grows
-  it step by step, and it opens out again once the list is back at the top - or as
-  soon as you slide a line or the row of photos, wherever the list is. Moving the
-  strips also slims it while the years move. Good moments
-  (the first photo together with the person they are photographed with most, a
-  return after a year or more away, a look back at a run that has gone quiet, the
-  whole gang in one photo, a reunion of people coming back together after a long gap,
-  a year's new faces) are kept in one place: the sparkle button at the top opens
-  *Your story*, a timeline of them year by year, each with the faces and one warm
-  line; tap one to take the timeline to that month. By default only your inner
-  circle (the named people photographed the most, about eight) get moments; a switch
-  lets everyone have them. Moments about people being together (the first photo together, the whole gang, a
-  reunion) only count clear faces, or ones you confirmed, in photos - never a blurry
-  face that was matched to someone loosely, and never a video, where people may
-  appear at different times. The photos that are moments say so wherever they show up:
-  a small cream bookmark with a sparkle hanging from the top edge of their tile in
-  search, collections, a person's photos and a month's photos, and a film-style
-  caption over the photo or video when it is opened (the faces, the date in small
-  capitals, the moment in italics, on a shade that fades in from the edge). Everything
-  is worked out on the phone.
-- **On this day.** A card on the Library tab shows today's date in the years before: how many
-  photos and videos there are from it, a little stack of the best, and - when two named people
-  first appeared in a photo together on this date - how many years of them it is. It opens a
-  screen with a section for each year (the photos that stand for it, and *See all* for the whole
-  day). With nothing on the date itself it shows the week round it. Every indexed photo and video
-  counts, not only those with people; only dates that can be believed are used (the gallery's taken
-  date, the picture's own, a date in its name - never when a file was copied), and screenshots are
-  left out. It is kept cheap on a big library: the dates are kept in a small catalog that follows the
-  search index by reading only what was added since last time (never the embeddings), looked up a
-  slice at a time in the background, and each past year is found with one range lookup on the date
-  index.
-- **Daily memory.** *Settings > Memories* turns on two notifications a day, at fixed times - early
-  morning (6:30), the first thing to see, and evening (7:30) - each only when there is something good.
-  The morning looks back (on this day, anniversaries, a few days of a trip, across the years); the
-  evening is about people (then and now, together since, a milestone, a lovely picture). Each comes
-  with its own look: a small rounded picture and heading when folded, and a full-width picture when
-  opened - the photos fill the card (rounded corners, no frames, no empty space) with small pills for
-  what the words do not say. *Then and now* is a split: the two photos with a slanted white seam, the
-  year on each and the time between on the seam; *together since* is a big photo of the two with the
-  first photo of the two tucked into the corner; a few days of a trip, or the same date across the
-  years, are a strip of full-height photos each with its day or year; everything else is one photo
-  edge to edge with its date. Text colours follow light and dark mode. A locked screen shows only
-  the words.
-  The kinds take turns: the one that has gone longest without goes next, never one that already went
-  out today or yesterday while another is there, the same person is not the subject again for 45 days,
-  and a photo is not shown again for 120 days. The kinds:
-  - *the anniversary of two named people's first photo together*, *a person's first day in your
-    photos* and *a person reaching 50, 100, 250, 500, 1000... photos*;
-  - *Then and now*: one person's start next to their latest; *Then and now, together*: two people;
-  - *Together since*: the years two people have been in photos together;
-  - *On this day* (worded differently from day to day, and for a crowd or a big day), *this date in
-    three or more years*, and *this week* when the date itself has nothing;
-  - *A few days to remember*: three or more busy days in a row round this date in a past year;
-  - *Remember this one?*: a lovely picture of someone, picked by the day.
-  A quiet slot sends nothing, and one held up for hours (the phone was off) is skipped. *Send one now*
-  tries a different kind each time without using up a slot. Tapping one opens the person's page, or
-  that day. All of it is worked out on the phone.
-- **Then and now.** On a person's page, their start next to their latest: one comparison with a
-  divider to drag between the two, and under it up to three small photos at each end to choose from
-  (tap one and it takes that end's place in the comparison). The photos come from *about* the start and
-  *about* now - the best of the first couple of months and of the latest couple, widening (2, 4, 8, 12,
-  18, 24 months) only until there are three different photos at each end - never simply the very first
-  and very last. Each end mixes kinds (on their own, with one other person, in a small group), the best
-  first, and each photo says who is in it ("On their own", "With Dev"); which are shown first changes
-  from day to day. It needs clear faces in photos with a believable date, at least four of them, over at
-  least six months (a lone photo with a wrong date never counts as the first or last time).
-- **Names always match the picture.** A person is only said to be in a photo (in a notification, a
-  moment, "together since", "on their own") when their face is confirmed, or is clear and big enough
-  to be more than someone in the background (at least 4% of the photo across). A notification names
-  only the people in the photo it shows, never everyone from that day. The morning and evening
-  notifications each keep their own place in the shade.
-- **Fixing mistakes.** *Review faces* takes out a face that isn't them.
-  *Same person as someone else* merges two groups, and the app suggests likely
-  merges (with a certainty level). Merges can be undone (**Undo a merge**), and
-  **Split into two people** separates a person who was two people mixed up.
-  Your edits stick: they are remembered for photos scanned later, and pairs you
-  said are different are never suggested again.
-- **Find photos by people.** Pick one or more people (*Select people* on the
-  Faces tab, or long-press a person) and see the photos with them — with
-  anyone, on their own, any of them, plus others, or only that group. From the
-  results you can add or remove people.
-- **Teaser on Search.** When the search box is idle, the people found so far
-  sit beside your collections.
-- **Videos too.** After the photos, the scan goes through your videos: it looks at
-  frames spread through each one (fast / balanced / thorough in the face options),
-  links a face across neighbouring frames into one track and recognises only the best
-  one or two faces of each track, so a clip costs a handful of recognitions, not
-  hundreds. Faces in video must be clearer than in photos (motion blur), a small
-  picture of each kept face is saved, and a video counts as one item however many frames
-  someone is in. People's pages and *Select people* mix photos and videos; a video opens
-  at the moment the person shows up. In the video viewer, the people found are a row of
-  faces above the playback bar: tap one to jump to where they appear (and see those
-  moments on the bar), tap again for their next appearance. It can be switched off in the
-  face options.
-- **Tap a face in a photo.** In the full-screen viewer, recognised faces can be
-  tapped: a morphing, glowing outline draws itself round the head and a small
-  card shows who it is — tap it to open that person. A photo the background
-  scan hasn't reached yet (or has only partly recognised) is scanned the moment
-  you open it, with a quiet glow and live progress ("Found 12 faces ·
-  identifying"), and is then marked complete so it isn't looked at again.
-- **Scan a video from its viewer.** A video the background scan hasn't reached has a
-  "find people" button in the top bar. Tapping it scans that video while it plays and
-  everything else keeps working: the same quiet glow, with live progress ("Scanning frame 7
-  of 20 · 5 faces"), and the people found appear as a row above the playback bar. Tapping the
-  button again scans again and replaces the first result.
-- **Tap a face in a paused video.** Pause a video (or scrub and let go): after a moment
-  the frame on screen is looked at and every face that matches someone you know gets the
-  same tappable outline as in a photo. This is looked up on the spot and stores nothing,
-  so it works even before the background scan has reached the video.
-
-The recognition pipeline is model-independent: the detector and the recognition
-model are described by their own specs, so either can be swapped without code
-changes. A tuning step times the model on your phone (threads, batching,
-hardware acceleration) and picks what is fastest.
-
-The Flutter UI talks to a native Android layer that runs CLIP (vision +
-text towers) and the face models both via ONNX Runtime, and stores
-embeddings and faces in small on-device stores (a binary store for CLIP, SQLite
-for faces).
+There are no prebuilt releases yet; build it from source (below).
 
 ## Privacy
 
-Nothing leaves the phone. The only network use is the one-time download of the
-search models (see below); your media, the index, the faces and the people are
-never uploaded.
+Nothing leaves the phone. The only network use is the one-time download of the search model.
+Your photos, the index, the faces and the people are never uploaded.
 
-## Status
-
-Android only, for now (minimum Android 7.0 / API 24).
-
-## Project layout
-
-- `lib/` — the Flutter app (`controllers/` with GetX, `view/`, `services/` for
-  the channel to the native side, `db/`).
-- `android/app/src/main/kotlin/dev/raseel/lostandfound/` — the native side:
-  `embedder/` (CLIP, scanning, the stores), `embedder/faces/` (detection,
-  recognition, grouping), `export/` (the zip writer and its background work).
-- `export_clip/` — scripts that turn Apple's MobileCLIP-S0 into the two ONNX files the app downloads, and check them.
-- `model_host/` — a throwaway server for testing the model download.
-
-## Building it yourself
-
-One set of model weights is downloaded once on first launch — it is not
-bundled in the app or the repo:
-
-- **Search** — Apple's MobileCLIP-S0 (~104 MB: the image tower in fp32 and the text tower in int8).
-
-The face models are part of the app (in `android/app/src/main/assets/`): the
-face detector (SCRFD, ~3 MB) and the face recognition model (MobileFaceNet,
-~13 MB).
-
-The setup screen downloads the search models with one button, with speed, time
-left and resume. They can be removed again from Settings, which returns you to
-the setup screen. See [model_host/README.md](model_host/README.md) for testing
-the download flow locally (including the checksums and how they are
-published), or `android/app/build.gradle.kts` for where the release build
-points to.
+## Building
 
 ```bash
 git clone https://github.com/Raseelp/Lost-and-Found-Offline-Search.git
@@ -260,59 +100,26 @@ flutter pub get
 flutter run
 ```
 
-The zip writer has a JVM unit test (it also checks that other zip tools can
-read what it writes):
+Tests, debug builds, performance logs and how the model files are made and hosted:
+[Development](docs/development.md).
 
-```bash
-cd android && ./gradlew :app:testDebugUnitTest
-```
+## Contributing
 
-To watch the face scan's timing on a device:
-
-```bash
-adb logcat -s FaceScanner FaceTuner
-```
-
-The performance logs for indexing and face finding (on unless turned off in
-Settings) use their own tag:
-
-```bash
-adb logcat -s LostFoundBench
-```
-
-## Credits
-
-The first-run tour's sample photos and clips are CC0 or public domain, except the photo in the face demo
-(`assets/tour/photos/supercup.jpg`, and the face crop `assets/tour/faces/suarez.jpg` made from it), which is by
-Oleh Dubyna under CC BY-SA 3.0. Every source is listed in `assets/tour/photos/CREDITS.txt`,
-`assets/tour/faces/CREDITS.txt` and `assets/tour/videos/CREDITS.txt`.
+Bug reports, ideas and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-Copyright (C) 2026 Raseel.
+Copyright (C) 2026 Raseel. Lost & Found is free and open source software under the
+[GNU Affero General Public License v3.0](LICENSE). Versions up to commit `4e88cab` were released
+under the MIT License and stay under it.
 
-Lost & Found is free and open source software under the **GNU Affero General Public License v3.0**
-(AGPL-3.0) — see [LICENSE](LICENSE). You can read, use, change and share it. If you share a changed
-version, or run one as a service for other people, you must release its full source code under the
-same license. It comes with no warranty.
-
-Versions released before this change (up to commit `4e88cab`) were under the MIT License and stay
-under it.
-
-**Commercial license.** To use Lost & Found in a closed-source or proprietary product, a separate
-commercial license is available from the author. Open an issue on GitHub to ask.
-
-**Name and icon.** The license covers the code, not the name "Lost & Found" or the app icon. See
-[TRADEMARKS.md](TRADEMARKS.md) before publishing a changed version.
-
-**Contributing.** See [CONTRIBUTING.md](CONTRIBUTING.md). Contributions are accepted under its
-contributor license agreement.
-
-**Parts with their own licenses.** These are not covered by the AGPL and keep their own terms:
-
-- The tour's sample photos, faces and clips — see Credits above and the `CREDITS.txt` files.
-- The fonts in `assets/fonts/` — SIL Open Font License 1.1 (the `OFL-*.txt` files).
-- The search model downloaded on first launch: Apple's MobileCLIP-S0, converted to ONNX, under the
-  license Apple published with the weights in 2024 (a copy is in `export_clip/licenses/`; where the
-  weights came from is in `export_clip/MOBILECLIP_SOURCE.md`). It is Apple's, not covered by the AGPL.
-- The Flutter and Android packages the app uses, each under their own license.
+- Commercial license: for use in a closed-source product, a separate commercial license is
+  available from the author. Open an issue on GitHub to ask.
+- Name and icon: not covered by the code license; see [TRADEMARKS.md](TRADEMARKS.md).
+- Parts with their own licenses, not covered by the AGPL:
+  - the search model, Apple's MobileCLIP-S0, under the license Apple published with the weights
+    in 2024 (`export_clip/licenses/`; source record in `export_clip/MOBILECLIP_SOURCE.md`);
+  - the tour's sample photos and clips, CC0 or public domain except one photo by Oleh Dubyna
+    under CC BY-SA 3.0 (sources in `assets/tour/*/CREDITS.txt`);
+  - the fonts in `assets/fonts/`, SIL Open Font License 1.1;
+  - the Flutter and Android packages the app uses, each under its own license.
