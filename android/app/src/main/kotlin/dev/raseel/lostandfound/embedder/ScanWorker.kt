@@ -107,6 +107,9 @@ class ScanWorker(
                     "skipped" to progress.skipped,
                     "failed" to progress.failed,
                     "done" to progress.done,
+                    // Stop was asked for and the scan is finishing the work in hand (a batch, a
+                    // video's frames, a face batch) before it ends: the app shows "Stopping".
+                    "stopping" to (embeddingEngine.wasCancelled() && !progress.done),
                     "path" to progress.path,
                     "recentItems" to progress.recentItems.map {
                         mapOf(

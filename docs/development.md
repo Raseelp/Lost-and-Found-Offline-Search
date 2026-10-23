@@ -31,6 +31,12 @@ cd android && ./gradlew :app:testDebugUnitTest
 Covers the zip writer (including that other zip tools can read its output), the search index
 header, and the memories, timeline and date logic.
 
+```bash
+flutter test
+```
+
+Dart tests in `test/`, for example stopping a scan (`stop_indexing_test.dart`).
+
 ## Logs
 
 ```bash

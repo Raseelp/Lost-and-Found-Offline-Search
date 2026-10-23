@@ -9,6 +9,11 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
 - README shortened to one line per feature; feature details moved to `docs/` (architecture,
   people, memories, export, development).
 
+### Fixed
+- Stop indexing now shows "Stopping…" with a spinner right away, and ignores further taps while
+  the scan finishes the photos in progress. Before, nothing changed for a few seconds, so it
+  looked like the tap had not worked.
+
 ## 2026-10-23
 
 ### Changed

@@ -193,6 +193,10 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   double sliderValue = 10;
   List<Map<String, dynamic>> searchResults = [];
   bool isScanning = false;
+  // Stop was tapped and the scan is finishing the work in hand (a batch of photos, a video's
+  // frames, a face batch) before it ends, which can take a few seconds. The Library tab shows
+  // "Stopping" and ignores further taps until the scan's final tick clears it.
+  bool isStopping = false;
   // Set by _checkForInterruptedScan when a scan was still running last time
   // this app process existed but isn't anymore (killed by the OS rather
   // than finished or explicitly stopped - see _persistInterruptedScanMarker)
@@ -983,6 +987,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     unawaited(checkBackgroundScanPermission());
 
     isScanning = true;
+    isStopping = false;
     interruptedScan = null;
     scanSummary = null;
     scanResult = IndexedFolder.empty();
@@ -1028,6 +1033,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
 
     if (result == null || result == false) {
       isScanning = false;
+      isStopping = false;
       _progressSub.cancel();
       unawaited(_clearInterruptedScanMarker());
 
@@ -1073,6 +1079,9 @@ class NativeController extends GetxController with WidgetsBindingObserver {
       }
       _previousProgress = newResult;
       scanResult = newResult;
+      // Also set when the stop came from somewhere else (WorkManager stopping the work, or a
+      // newer scan replacing this one), so the screen never invites a pointless second tap.
+      if (data['stopping'] == true) isStopping = true;
       final queued = data['faceQueue'];
       if (!newResult.done && queued is num) {
         faceQueueCount = queued.toInt();
@@ -1088,6 +1097,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
 
       if (scanResult.done) {
         isScanning = false;
+        isStopping = false;
         _progressSub.cancel();
         unawaited(_clearInterruptedScanMarker());
         // Only a scan that actually reached the end counts - a cancelled
@@ -1140,6 +1150,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     _previousProgress = restored;
     recentEmbeddingsPerSecond = 0;
     isScanning = true;
+    isStopping = progress['stopping'] == true;
     recentThumbnails = [];
     recentThumbBytes.clear();
     _recentThumbInFlight.clear();
@@ -1350,8 +1361,23 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     update();
   }
 
+  // Shows "Stopping" right away: the scan only ends once the work in hand is finished, and
+  // without feedback a second tap looked necessary. Repeated taps are ignored meanwhile.
   Future<void> stopScanning() async {
-    await NativeServices().cancelScanning();
+    if (!isScanning || isStopping) return;
+    isStopping = true;
+    update();
+    try {
+      final asked = await NativeServices().cancelScanning();
+      if (!asked && isScanning) {
+        isStopping = false;
+        update();
+      }
+    } catch (_) {
+      // The stop never reached the scan: offer the button again.
+      isStopping = false;
+      update();
+    }
   }
 
   // embedded is fetched fresh from native rather than accumulated here,

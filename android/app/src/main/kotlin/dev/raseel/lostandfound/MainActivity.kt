@@ -2144,8 +2144,11 @@ class MainActivity : FlutterActivity() {
                     // A scan that is running but has not reported yet (WorkManager starts one again
                     // by itself after the app was killed): say it is starting, so the app shows it
                     // instead of offering to start another.
+                    // "stopping" is read live from the engine: after Stop, no new progress tick may
+                    // come until the scan has ended, so the cached one can't say it.
                     result.success(
                         ScanForegroundService.activeProgress()
+                            ?.plus("stopping" to embeddingEngine.wasCancelled())
                             ?: if (ScanForegroundService.isScanActive) mapOf(
                                 "id" to "",
                                 "total" to 0,

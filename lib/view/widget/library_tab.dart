@@ -532,6 +532,7 @@ class _ChipHero extends StatelessWidget {
       ScanChipMode.idle => 'Index phone',
       ScanChipMode.complete =>
         'Scan complete, ${summary?.indexed ?? 0} indexed. Tap to dismiss',
+      ScanChipMode.scanning when controller.isStopping => 'Stopping indexing',
       ScanChipMode.scanning =>
         findingFaces
             ? (tuning
@@ -604,20 +605,24 @@ class _ScanningControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final stopping = controller.isStopping;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: AppSpacing.xl),
         Center(
           child: OrbitPill(
-            label: 'Stop indexing',
+            label: stopping ? 'Stopping…' : 'Stop indexing',
             icon: Icons.stop_rounded,
+            busy: stopping,
             onTap: controller.stopScanning,
           ),
         ),
         const SizedBox(height: AppSpacing.base),
         Text(
-          "Search already works on what's finished. This keeps going if you switch apps.",
+          stopping
+              ? 'Finishing the photos in progress and saving them. This takes a few seconds.'
+              : "Search already works on what's finished. This keeps going if you switch apps.",
           textAlign: TextAlign.center,
           style: textTheme.bodySmall?.copyWith(
             color: AppColors.ink48,
