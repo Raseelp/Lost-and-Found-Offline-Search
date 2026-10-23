@@ -5,7 +5,9 @@ package dev.raseel.lostandfound.embedder
 data class RecentEmbeddedItem(
     val uri: String,
     val isVideo: Boolean,
-    val timestampMs: Long
+    val timestampMs: Long,
+    // For a video, how many frames were read from it (0 for a photo).
+    val frames: Int = 0
 )
 
 data class ScanProgress(

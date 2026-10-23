@@ -11,10 +11,14 @@ class RecentEmbeddedItem {
   final bool isVideo;
   final int timestampMs;
 
+  /// For a video, how many frames were read from it (0 for a photo, or when not told).
+  final int frames;
+
   const RecentEmbeddedItem({
     required this.uri,
     required this.isVideo,
     required this.timestampMs,
+    this.frames = 0,
   });
 
   factory RecentEmbeddedItem.fromMap(Map<dynamic, dynamic> map) {
@@ -22,6 +26,7 @@ class RecentEmbeddedItem {
       uri: map['uri'] ?? '',
       isVideo: map['isVideo'] as bool? ?? false,
       timestampMs: (map['timestampMs'] as num?)?.toInt() ?? 0,
+      frames: (map['frames'] as num?)?.toInt() ?? 0,
     );
   }
 }

@@ -525,6 +525,8 @@ class _ChipHero extends StatelessWidget {
         OrbitPhoto(
           id: _thumbKey(item),
           bytes: controller.recentThumbBytes[_thumbKey(item)],
+          isVideo: item.isVideo,
+          frames: item.frames,
         ),
     ];
 

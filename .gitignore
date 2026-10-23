@@ -41,10 +41,8 @@ build/
 *.bin
 *.tflite
 
-# model_host/ is for local dev testing only - keep the tooling, ignore
-# anything a test run drops in there (models, screenshots, logs)
+# model_host/ holds the model files for the GitHub release - keep only the notes
 model_host/*
-!model_host/serve.py
 !model_host/README.md
 
 # =========================

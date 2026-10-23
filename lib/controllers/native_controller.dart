@@ -874,15 +874,13 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     String key,
   ) async {
     try {
-      final bytes = item.isVideo
-          ? await NativeServices().loadVideoThumbnail(
-              uri: item.uri,
-              timestampMs: item.timestampMs,
-            )
-          : await NativeServices().loadImageBytes(
-              uri: item.uri,
-              isCompressed: true,
-            );
+      // Small: the chip draws these at most 300 pixels wide, and a video's frame is made while
+      // holding the lock the scan's own video decoding needs.
+      final bytes = await NativeServices().loadThumbnail(
+        uri: item.uri,
+        isVideo: item.isVideo,
+        timestampMs: item.timestampMs,
+      );
 
       recentThumbBytes[key] = bytes;
       recentThumbnails.insert(0, item);

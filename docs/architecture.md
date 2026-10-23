@@ -137,4 +137,4 @@ search model is in Settings > Danger zone.
   scanning, the stores), `embedder/faces/` (detection, recognition, grouping, video faces),
   `embedder/memories/` (dates, notifications), `export/` (the zip writer).
 - `export_clip/`: scripts that make and check the search model files, and the model's licence texts.
-- `model_host/`: a small server for testing the model download locally.
+- `model_host/`: how the search model files are published, with their checksums.

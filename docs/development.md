@@ -19,8 +19,7 @@ A debug build installs as a second app (`.debug`) next to the real one, with its
 never replaces or wipes the app in use. It includes two developer screens that time the models on
 a phone: `ModelBenchActivity` and `ScanBenchActivity` (`android/app/src/debug/`).
 
-Debug builds download the search model from a local server: run `model_host/serve.py` on your
-computer and `adb reverse tcp:8000 tcp:8000` first. See [model_host/README.md](../model_host/README.md).
+Debug builds download the search model from the same GitHub release as release builds.
 
 ## Tests
 

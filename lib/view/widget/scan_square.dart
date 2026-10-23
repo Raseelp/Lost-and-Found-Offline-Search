@@ -61,12 +61,16 @@ class ScanChipStats {
   final int? etaMs;
 }
 
-/// A just-indexed photo to read in the square.
+/// A just-indexed photo (or video, shown by one of its frames) to read in the square.
 class OrbitPhoto {
-  const OrbitPhoto({required this.id, required this.bytes});
+  const OrbitPhoto({required this.id, required this.bytes, this.isVideo = false, this.frames = 0});
 
   final String id;
   final Uint8List? bytes;
+  final bool isVideo;
+
+  /// For a video, how many frames were read from it (0 when not told).
+  final int frames;
 }
 
 // The square is drawn on a 340 x 340 sheet that is scaled to fit.
@@ -344,18 +348,24 @@ class _Packet {
 
 // A thumbnail in the queue strip.
 class _QTile {
-  _QTile(this.pic, this.x);
+  _QTile(this.pic, this.x, [this.frames]);
 
   final _Pic pic;
   double x;
+
+  /// For a video, how many frames were read from it (0 when not told); null for a photo.
+  final int? frames;
 }
 
 // The photo the square is reading now.
 class _Shot {
-  _Shot(this.pics, this.start, this.layout) : cycle = _cycleFor(pics.length);
+  _Shot(this.pics, this.frames, this.start, this.layout) : cycle = _cycleFor(pics.length);
 
   /// The photos read together, oldest first.
   final List<_Pic> pics;
+
+  /// For each of [pics], null for a photo, or for a video how many frames were read from it.
+  final List<int?> frames;
   final double start;
   final double cycle;
 
@@ -1083,7 +1093,7 @@ class _SquareScanHeroState extends State<SquareScanHero>
     _idleSince = _now;
     final before = _queue.length;
     for (var i = 0; i < shot.pics.length; i++) {
-      _queue.add(_QTile(shot.pics[i], _layoutX(before + i, before + shot.pics.length)));
+      _queue.add(_QTile(shot.pics[i], _layoutX(before + i, before + shot.pics.length), shot.frames[i]));
     }
     final cap = widget.queue == null ? _lastMax : _queueMax;
     while (_queue.length > cap) {
@@ -1126,12 +1136,16 @@ class _SquareScanHeroState extends State<SquareScanHero>
     Future.wait([for (final photo in take) _ensure(photo.id, photo.bytes!)]).then((pics) {
       _starting = false;
       if (!mounted || widget.faceMode || _mode != ScanChipMode.scanning) return;
-      final ok = [
-        for (final pic in pics)
-          if (pic != null) pic,
-      ];
+      final ok = <_Pic>[];
+      final frames = <int?>[];
+      for (var i = 0; i < take.length; i++) {
+        final pic = pics[i];
+        if (pic == null) continue;
+        ok.add(pic);
+        frames.add(take[i].isVideo ? take[i].frames : null);
+      }
       if (ok.isEmpty) return;
-      _shot = _Shot(ok, _now, _pickLayout(ok.length));
+      _shot = _Shot(ok, frames, _now, _pickLayout(ok.length));
     });
   }
 
@@ -1690,8 +1704,46 @@ class _SquarePainter extends CustomPainter {
     if (loadStart >= 0) _memoryWeights(now, ((now - loadStart) / _loadSeconds).clamp(0.0, 1.0), ScanPalette.glow, 1);
     _memoryCells(now);
     for (final tile in scene._queue) {
-      _thumb(tile.pic, _tileRect(tile.x), 1);
+      final slot = _tileRect(tile.x);
+      _thumb(tile.pic, slot, 1);
+      if (tile.frames != null) _videoMark(slot, tile.frames!, 1);
     }
+  }
+
+  // The mark on a video's tile: a play sign, and how many frames were read from it.
+  void _videoMark(Rect r, int frames, double alpha) {
+    if (alpha <= .01) return;
+    final c = _c;
+    final k = math.min(1.6, r.width / _tileSize);
+    final white = ScanPalette.white.withValues(alpha: alpha.clamp(0.0, 1.0));
+    TextPainter? label;
+    if (frames > 0) {
+      label = TextPainter(
+        text: TextSpan(
+          text: '\u00d7$frames',
+          style: TextStyle(fontSize: 6.5 * k, height: 1, fontWeight: FontWeight.w700, color: white),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+    }
+    final h = 9 * k;
+    final w = h + (label == null ? 0 : label.width + 2 * k);
+    final pill = Rect.fromLTWH(r.left + 2.5 * k, r.bottom - 2.5 * k - h, w, h);
+    c.drawRRect(
+      RRect.fromRectAndRadius(pill, Radius.circular(h / 2)),
+      Paint()..color = ScanPalette.black.withValues(alpha: .62 * alpha),
+    );
+    final mid = Offset(pill.left + h / 2 + .4 * k, pill.center.dy);
+    final side = 2.2 * k;
+    c.drawPath(
+      Path()
+        ..moveTo(mid.dx - side * .8, mid.dy - side)
+        ..lineTo(mid.dx + side, mid.dy)
+        ..lineTo(mid.dx - side * .8, mid.dy + side)
+        ..close(),
+      Paint()..color = white,
+    );
+    label?.paint(c, Offset(pill.left + h - .5 * k, pill.center.dy - label.height / 2));
   }
 
   // The data bus between the die and the memory bank: a row of fine lines, lit while a picture
@@ -1933,7 +1985,12 @@ class _SquarePainter extends CustomPainter {
     final span = 1 - stagger * (n - 1);
     for (var i = 0; i < n; i++) {
       final u = ((t - stagger * i) / span).clamp(0.0, 1.0);
-      _readOne(shot.pics[i], cells[i], u, _tileRect(scene.landingX(i)), n > 1, now);
+      final frames = shot.frames[i];
+      if (frames == null) {
+        _readOne(shot.pics[i], cells[i], u, _tileRect(scene.landingX(i)), n > 1, now);
+      } else {
+        _burstOne(shot.pics[i], cells[i], u, _tileRect(scene.landingX(i)), n > 1, frames);
+      }
     }
   }
 
@@ -2098,6 +2155,247 @@ class _SquarePainter extends CustomPainter {
       c.restore();
       c.restore();
     }
+  }
+
+  // One video of the round. A video comes in as a strip of film that rolls in and stops at a
+  // frame; its timeline ticks once for each frame taken (with a shutter flash on the picture),
+  // the frames fan out as a small deck, one sweep reads them all, and the deck snaps back into
+  // one tile with the video mark and the number of frames, which drops into the strip at the
+  // same moment a photo would. (The film and the deck show the one frame the app has, from
+  // slightly different angles.)
+  void _burstOne(_Pic pic, Rect cell, double t, Rect slot, bool small, int frames) {
+    final c = _c;
+    final n = frames > 0 ? frames : 3;
+    final a = _ease(_seg(t, 0, .08));
+    // The film's edge above and below the frame, where the sprocket holes are.
+    final edge = small ? 5.0 : 9.0;
+    final pad = small ? 2.0 : 6.0;
+    final still = _contain(
+      pic.w / pic.h,
+      Rect.fromLTRB(cell.left + pad, cell.top + pad + edge, cell.right - pad, cell.bottom - pad - edge),
+    );
+    final pitch = still.width + (small ? 3 : 5);
+    final whole = still.shift(Offset((1 - _ease(_seg(t, 0, .28))) * pitch * .4, 0));
+    final workSide = math.min(cell.width, cell.height) * (small ? .8 : .74);
+    final work = Rect.fromCenter(center: cell.center, width: workSide, height: workSide);
+    final fan = _ease(_seg(t, .3, .48));
+    final snap = _ease(_seg(t, .72, .86));
+    final q = _ease(_seg(t, .88, .99));
+    final front = Rect.lerp(Rect.lerp(whole, work, fan)!, slot, q)!;
+    final radius = _lerp(small ? 5 : 7, 6, q);
+    final frontShape = RRect.fromRectAndRadius(front, Radius.circular(radius));
+    final overlay = 1 - _ease(_seg(q, .5, 1));
+    final spread = fan * (1 - snap);
+
+    // The sweep that reads the frames, top to bottom over the whole deck.
+    final reading = math.sin(math.pi * _seg(t, .48, .74));
+    final swept = _seg(t, .5, .7);
+
+    // The film, until the frames fan out: a short way of it either side of this frame (the
+    // frames next to it, darker, and the holes along both edges), rolling with it and fading
+    // out towards its ends, so it reads as film going on and not as copies of the frame.
+    final film = a * (1 - _ease(_seg(t, .3, .42))) * overlay;
+    if (film > .01) {
+      final reach = whole.width * (small ? .3 : .4);
+      final strip = Rect.fromLTRB(
+        math.max(cell.left, whole.left - reach),
+        whole.top - edge,
+        math.min(cell.right, whole.right + reach),
+        whole.bottom + edge,
+      );
+      c.save();
+      c.clipRRect(RRect.fromRectAndRadius(cell, Radius.circular(small ? 5 : 7)));
+      c.saveLayer(strip, Paint()..color = ScanPalette.white.withValues(alpha: film));
+      c.clipRect(strip);
+      c.drawRect(strip, Paint()..color = ScanPalette.black.withValues(alpha: .85));
+      final dim = Paint()..color = ScanPalette.black.withValues(alpha: .5);
+      for (final k in [-1, 1]) {
+        final r = whole.shift(Offset(k * pitch, 0));
+        final src = _coverSrc(pic, r.width / r.height, focus: Offset(.5 + k * .1, .5));
+        c.drawImageRect(pic.image, src, r, _imagePaint(1));
+        c.drawRect(r, dim);
+      }
+      final holeW = small ? 2.6 : 4.6, holeH = small ? 1.8 : 3.2;
+      final step = small ? 6.0 : 10.0;
+      final hole = Paint()..color = ScanPalette.white.withValues(alpha: .7);
+      final first = whole.left - ((whole.left - strip.left) / step).ceil() * step;
+      for (var x = first; x < strip.right; x += step) {
+        for (final y in [whole.top - edge / 2, whole.bottom + edge / 2]) {
+          c.drawRRect(
+            RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(x + step / 2, y), width: holeW, height: holeH), const Radius.circular(1)),
+            hole,
+          );
+        }
+      }
+      final w = strip.width;
+      c.drawRect(
+        strip,
+        Paint()
+          ..blendMode = BlendMode.dstIn
+          ..shader = LinearGradient(
+            colors: const [Color(0x00000000), Color(0xFF000000), Color(0xFF000000), Color(0x00000000)],
+            stops: [0, ((whole.left - strip.left) / w).clamp(0.0, 1.0), ((whole.right - strip.left) / w).clamp(0.0, 1.0), 1],
+          ).createShader(strip),
+      );
+      c.restore();
+      c.restore();
+    }
+
+    // The deck: the other frames, fanned out to both sides behind the front one.
+    final deck = math.min(n, small ? 3 : 5) - 1;
+    if (spread > .01) {
+      for (var j = deck; j >= 1; j--) {
+        final side = j.isOdd ? -1.0 : 1.0;
+        final step = (j + 1) ~/ 2;
+        final scale = 1 - .06 * step;
+        final card = Rect.fromCenter(
+          center: front.center + Offset(side * step * spread * front.width * .24, step * spread * 2),
+          width: front.width * scale,
+          height: front.height * scale,
+        );
+        c.save();
+        c.translate(card.center.dx, card.center.dy);
+        c.rotate(side * step * spread * .1);
+        c.translate(-card.center.dx, -card.center.dy);
+        final shape = RRect.fromRectAndRadius(card, Radius.circular(radius));
+        c.save();
+        c.clipRRect(shape);
+        final src = _coverSrc(pic, card.width / card.height, focus: Offset(.5 + side * step * .12, .5 - step * .04));
+        c.drawImageRect(pic.image, src, card, _imagePaint(a * spread));
+        c.drawRect(card, Paint()..color = ScanPalette.black.withValues(alpha: (.18 + .1 * step) * spread * a));
+        if (swept > 0) {
+          c.drawRect(
+            Rect.fromLTRB(card.left, card.top, card.right, card.top + card.height * swept),
+            Paint()..color = ScanPalette.glow.withValues(alpha: .22 * reading * spread * a),
+          );
+        }
+        c.restore();
+        c.drawRRect(
+          shape,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = small ? 1 : 1.4
+            ..color = ScanPalette.white.withValues(alpha: .7 * spread * a),
+        );
+        c.restore();
+      }
+    }
+
+    // The front frame, flashing each time a frame is taken.
+    final tick0 = .1, tickSpan = .2;
+    var flash = 0.0;
+    for (var j = 0; j < n; j++) {
+      final at = tick0 + tickSpan * j / n;
+      if (t >= at) flash = math.max(flash, 1 - _seg(t, at, at + .06));
+    }
+    c.save();
+    // While the film rolls in, the frame stays inside its own cell.
+    if (t < .3) c.clipRect(cell);
+    c.clipRRect(frontShape);
+    c.drawImageRect(pic.image, _coverSrc(pic, front.width / front.height), front, _imagePaint(a));
+    if (flash > .01) c.drawRect(front, Paint()..color = ScanPalette.white.withValues(alpha: .3 * flash * a * overlay));
+
+    // The sweep on the front frame: the patches it has passed light with their colour.
+    if (reading > .01 && overlay > .01) {
+      final cw = front.width / 7, ch = front.height / 7;
+      final rows = swept * 7;
+      final tones = pic.tones;
+      final tint = Paint();
+      for (var k = 0; k < 49; k++) {
+        if (k ~/ 7 >= rows) break;
+        final base = tones?[k] ?? AppColors.primary;
+        tint.color = base.withValues(alpha: (.55 * reading * a * overlay).clamp(0.0, 1.0));
+        c.drawRect(Rect.fromLTWH(front.left + (k % 7) * cw, front.top + (k ~/ 7) * ch, cw, ch).deflate(.5), tint);
+      }
+      final grid = Paint()
+        ..strokeWidth = .6
+        ..color = ScanPalette.white.withValues(alpha: .35 * reading * overlay);
+      for (var g = 1; g < 7; g++) {
+        c.drawLine(Offset(front.left + g * cw, front.top), Offset(front.left + g * cw, front.bottom), grid);
+        c.drawLine(Offset(front.left, front.top + g * ch), Offset(front.right, front.top + g * ch), grid);
+      }
+    }
+    c.restore();
+    if (reading > .01 && swept > 0 && swept < 1) {
+      // The line of the sweep, across the whole deck.
+      final reach = front.width * (.5 + spread * .24 * ((deck + 1) ~/ 2) + .04);
+      final y = front.top + front.height * swept;
+      c.drawLine(
+        Offset(front.center.dx - reach, y),
+        Offset(front.center.dx + reach, y),
+        Paint()
+          ..strokeWidth = small ? 1.2 : 1.8
+          ..strokeCap = StrokeCap.round
+          ..color = ScanPalette.white.withValues(alpha: .9 * reading * overlay),
+      );
+    }
+    _brackets(front, _ease(_seg(t, .2, .26)) * (1 - _ease(_seg(t, .34, .4))) * overlay, small);
+
+    // The video's timeline along the bottom of the frame, with a tick where each frame is
+    // taken from; a playhead runs along it and each tick flashes as it is passed.
+    final line = a * (1 - _ease(_seg(t, .3, .42))) * overlay;
+    if (line > .01) {
+      c.save();
+      c.clipRect(cell);
+      final bandH = small ? 8.0 : 13.0;
+      final band = Rect.fromLTWH(front.left, front.bottom - bandH, front.width, bandH);
+      c.save();
+      c.clipRRect(frontShape);
+      c.drawRect(band, Paint()..color = ScanPalette.black.withValues(alpha: .55 * line));
+      c.restore();
+      final pad = small ? 4.0 : 7.0;
+      final y = band.center.dy;
+      final x0 = band.left + pad, x1 = band.right - pad;
+      c.drawLine(
+        Offset(x0, y),
+        Offset(x1, y),
+        Paint()
+          ..strokeWidth = small ? 1 : 1.4
+          ..color = ScanPalette.white.withValues(alpha: .35 * line),
+      );
+      final tickH = small ? 2.4 : 3.6;
+      for (var j = 0; j < n; j++) {
+        final at = tick0 + tickSpan * j / n;
+        final x = _lerp(x0, x1, (j + .5) / n);
+        final lit = t >= at;
+        final f = lit ? 1 - _seg(t, at, at + .06) : 0.0;
+        if (f > .01) c.drawCircle(Offset(x, y), tickH * (1.2 + f), Paint()..color = ScanPalette.white.withValues(alpha: .45 * f * line));
+        c.drawLine(
+          Offset(x, y - tickH),
+          Offset(x, y + tickH),
+          Paint()
+            ..strokeWidth = small ? 1.2 : 1.8
+            ..strokeCap = StrokeCap.round
+            ..color = (lit ? ScanPalette.glow : ScanPalette.white).withValues(alpha: (lit ? 1 : .45) * line),
+        );
+      }
+      final head = _lerp(x0, x1, _seg(t, tick0, tick0 + tickSpan));
+      c.drawLine(
+        Offset(head, y - tickH - 1.5),
+        Offset(head, y + tickH + 1.5),
+        Paint()
+          ..strokeWidth = small ? 1 : 1.4
+          ..color = ScanPalette.white.withValues(alpha: line),
+      );
+      c.restore();
+    }
+
+    // What is happening, over the frame while the frames are taken and read (big cells only).
+    // Not how many frames: a small number would look like the video is only partly read.
+    final caption = a * (1 - snap) * overlay;
+    if (!small && caption > .01) {
+      _text(
+        'READING FRAMES',
+        Offset(front.center.dx, front.top + 10),
+        8,
+        ScanPalette.white.withValues(alpha: caption),
+        weight: FontWeight.w700,
+      );
+    }
+
+    // The deck has snapped into one tile: it carries the video mark into the strip.
+    final mark = a * snap;
+    if (mark > .01) _videoMark(front, frames, mark);
   }
 
   static final Map<String, TextPainter> _numberText = {};
@@ -2523,6 +2821,7 @@ class _SquarePainter extends CustomPainter {
         height: size,
       );
       _thumb(tiles[i].pic, rect, 1 - u);
+      if (tiles[i].frames != null) _videoMark(rect, tiles[i].frames!, 1 - u);
     }
   }
 

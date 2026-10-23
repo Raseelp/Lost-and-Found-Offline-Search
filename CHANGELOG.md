@@ -8,6 +8,15 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
 ### Changed
 - README shortened to one line per feature; feature details moved to `docs/` (architecture,
   people, memories, export, development).
+- Videos look different from photos in the scan chip. The video rolls in as a strip of film, its
+  timeline ticks once for each frame taken, the frames fan out and are read together, and the
+  video drops into the strip as one tile with a play mark and its number of frames.
+- The scan chip loads small thumbnails (400 pixels instead of 1600), so it does less work while
+  a scan runs.
+
+### Removed
+- The local model server for debug builds (`model_host/serve.py`). Debug builds now download the
+  search model from the GitHub release, like release builds.
 
 ### Fixed
 - Stop indexing now shows "Stopping…" with a spinner right away, and ignores further taps while

@@ -6,14 +6,10 @@
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
-    <!-- Debug-only: allow plain HTTP so ModelManager can hit the local dev
-         server (model_host/serve.py) while testing the download flow.
-         Release builds do NOT get this and must be served over HTTPS. -->
     <!-- The debug build is a second app next to the real one (see applicationIdSuffix in build.gradle.kts), with its
          own name so the two can be told apart, and the screen that times the search model (ModelBenchActivity). -->
     <application
         android:label="L&amp;F debug"
-        android:usesCleartextTraffic="true"
         tools:replace="android:label">
         <activity
             android:name="dev.raseel.lostandfound.embedder.ModelBenchActivity"

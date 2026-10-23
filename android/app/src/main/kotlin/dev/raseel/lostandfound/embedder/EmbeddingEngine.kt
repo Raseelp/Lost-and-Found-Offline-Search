@@ -578,7 +578,8 @@ class EmbeddingEngine(
                                 RecentEmbeddedItem(
                                     uri = video.uri.toString(),
                                     isVideo = true,
-                                    timestampMs = frameRecords.first().timestampMs
+                                    timestampMs = frameRecords.first().timestampMs,
+                                    frames = frameRecords.size
                                 )
                             )
 

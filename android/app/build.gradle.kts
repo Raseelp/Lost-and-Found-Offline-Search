@@ -57,9 +57,14 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // Fallback for the "profile" build type, which Flutter adds
-        // automatically and doesn't get its own override below.
-        buildConfigField("String", "MODEL_BASE_URL", "\"http://10.0.2.2:8000\"")
+        // Every build type downloads the search model from the "models-v1" GitHub Release tag - see
+        // model_host/README.md. The release holds the MobileCLIP-S0 files this version downloads, and still the CLIP
+        // ViT-B/32 files that older versions download.
+        buildConfigField(
+            "String",
+            "MODEL_BASE_URL",
+            "\"https://github.com/Raseelp/Lost-and-Found-Offline-Search/releases/download/models-v1\""
+        )
         buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
         buildConfigField("String", "GIT_COMMIT_DATE", "\"$gitCommitDate\"")
     }
@@ -83,8 +88,6 @@ android {
             // A second app next to the real one (same name in the code, its own data): installing a debug build can
             // never replace - or, with a different signing key, uninstall and wipe - the app that is in use.
             applicationIdSuffix = ".debug"
-            // model_host/serve.py - run `adb reverse tcp:8000 tcp:8000` first.
-            buildConfigField("String", "MODEL_BASE_URL", "\"http://127.0.0.1:8000\"")
         }
         release {
             signingConfig = signingConfigs.getByName("release")
@@ -95,14 +98,6 @@ android {
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 file("proguard-rules.pro")
-            )
-
-            // Matches the "models-v1" GitHub Release tag - see model_host/README.md. The release holds the MobileCLIP-S0
-            // files this version downloads, and still the CLIP ViT-B/32 files that older versions download.
-            buildConfigField(
-                "String",
-                "MODEL_BASE_URL",
-                "\"https://github.com/Raseelp/Lost-and-Found-Offline-Search/releases/download/models-v1\""
             )
         }
     }

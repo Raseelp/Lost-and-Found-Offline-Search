@@ -115,7 +115,8 @@ class ScanWorker(
                         mapOf(
                             "uri" to it.uri,
                             "isVideo" to it.isVideo,
-                            "timestampMs" to it.timestampMs
+                            "timestampMs" to it.timestampMs,
+                            "frames" to it.frames
                         )
                     }
                 )
