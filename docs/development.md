@@ -21,6 +21,19 @@ a phone: `ModelBenchActivity` and `ScanBenchActivity` (`android/app/src/debug/`)
 
 Debug builds download the search model from the same GitHub release as release builds.
 
+## Preview builds
+
+A preview build is compiled like a release, so it runs at full speed, but installs as a third app
+(`.preview`, named "L&F preview") with its own data, like a debug build. It is signed with the debug
+key, so it needs no release key and never replaces the app in use. It has no developer screens.
+
+```bash
+cd android && ./gradlew assemblePreview -Ptarget-platform=android-arm64
+```
+
+The APK is `build/app/outputs/apk/preview/app-preview.apk`. Flutter also copies it to
+`build/app/outputs/flutter-apk/app-release.apk`; that copy is the preview, not a release build.
+
 ## Tests
 
 ```bash

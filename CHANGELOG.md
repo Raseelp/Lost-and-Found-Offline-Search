@@ -11,6 +11,8 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   both, and names the collection from the words. Before anything is typed it offers a few ideas,
   and a collection can start from a photo instead of words.
 
+- A preview build (`.preview`): runs at release speed but installs next to the app in use, with its
+  own data. See `docs/development.md`.
 
 ### Changed
 - Collections tab: each collection is one cover photo filling a rounded tile, with its name, item

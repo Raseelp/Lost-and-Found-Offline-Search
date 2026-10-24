@@ -100,6 +100,26 @@ android {
                 file("proguard-rules.pro")
             )
         }
+        // A release build (compiled ahead of time, so it runs at full speed) that is a third app next to the real
+        // one, with its own data, like debug: for trying a change at real speed without replacing the app in use.
+        // Signed with the debug key, never the release key. Build it with `./gradlew assemblePreview` in android/.
+        create("preview") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            // Nothing is shrunk (as in release), so no ProGuard files: and the copy of this build type that Flutter
+            // gives each plugin must not point at the app's own.
+            proguardFiles.clear()
+            // The plugins have no build type of this name: they are built as for release.
+            matchingFallbacks += listOf("release")
+        }
+    }
+}
+
+// The preview's own app id. Not set on the build type: Flutter copies the app's build types into each plugin, and a
+// plugin (a library) may not have one.
+androidComponents {
+    onVariants(selector().withBuildType("preview")) { variant ->
+        variant.applicationId.set("dev.raseel.lostandfound.preview")
     }
 }
 

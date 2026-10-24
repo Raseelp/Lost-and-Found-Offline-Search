@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- The preview build is a third app next to the real one (see applicationIdSuffix in build.gradle.kts), with its
+         own name so the three can be told apart. -->
+    <application
+        android:label="L&amp;F preview"
+        tools:replace="android:label" />
+</manifest>
