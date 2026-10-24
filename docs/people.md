@@ -18,7 +18,7 @@ already exists.
 ## The People tab
 
 - A grid of the people found, most photographed first. Open a person to see all their photos and
-  videos; rename them; hide people you don't want listed (Settings > People > Hidden people).
+  videos; rename them (for someone without a name, tap **Add name** under their faces); hide people you don't want listed (Settings > People > Hidden people).
 - **Select people** in the bolt button (or long-press a person) to see photos of a group: with anyone, on their own,
   any of them, plus others, or only that group. People can be added or removed from the results.
 - Names work in search too: "Maya and Dev at the beach" finds photos with both, ranked by "at the

@@ -15,6 +15,10 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   own data. See `docs/development.md`.
 
 ### Changed
+- On the People tab, tapping "Add name" under someone without a name asks for their name. Before,
+  that took a long press or opening the person.
+- Search shows 20 results by default, up from 10. A number you have picked stays as it is.
+- The search button no longer opens the keyboard. It comes up when you tap the search box.
 - Collections you made that have something in them now come first on the Collections tab,
   before the built-in ones.
 - Collections tab: each collection is one cover photo filling a rounded tile, with its name, item
@@ -31,6 +35,7 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   a scan runs.
 
 ### Removed
+- The Skip button on the first-run tour. The tour replayed from Help can still be closed.
 - The local model server for debug builds (`model_host/serve.py`). Debug builds now download the
   search model from the GitHub release, like release builds.
 

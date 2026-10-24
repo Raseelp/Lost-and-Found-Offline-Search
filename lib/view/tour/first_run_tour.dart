@@ -19,7 +19,7 @@ List<TourPage> introPages() => [
 ];
 
 /// The tour on a first run: in place of the download screen, it starts the real download with its first
-/// button and shows how it is going on every page. Stays until finished or skipped (see [TourController]).
+/// button and shows how it is going on every page. Stays until finished (see [TourController]).
 class FirstRunTour extends StatefulWidget {
   const FirstRunTour({super.key});
 

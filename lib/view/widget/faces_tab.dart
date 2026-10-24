@@ -373,6 +373,10 @@ class _FacesTabState extends State<FacesTab> {
                       onLongPress: selecting
                           ? null
                           : () => showPersonMenu(context, faces, person),
+                      onAddName: () async {
+                        final name = await showRenamePersonDialog(context, null);
+                        if (name != null && name.isNotEmpty) await faces.rename(person, name);
+                      },
                     );
                   },
                 ),

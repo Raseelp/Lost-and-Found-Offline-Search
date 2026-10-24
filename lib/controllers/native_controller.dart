@@ -190,7 +190,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   int totalImages = 0;
   int totalVideos = 0;
   int indexSizeBytes = 0;
-  double sliderValue = 10;
+  double sliderValue = 20;
   List<Map<String, dynamic>> searchResults = [];
   bool isScanning = false;
   // Stop was tapped and the scan is finishing the work in hand (a batch of photos, a video's

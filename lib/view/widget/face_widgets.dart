@@ -132,6 +132,7 @@ class PersonTile extends StatefulWidget {
     required this.person,
     required this.onTap,
     this.onLongPress,
+    this.onAddName,
     this.selecting = false,
     this.selected = false,
     this.index = 0,
@@ -140,6 +141,10 @@ class PersonTile extends StatefulWidget {
   final Person person;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+
+  /// For a person without a name: tapping the words under the faces asks for one (instead of opening the
+  /// person). Not while choosing.
+  final VoidCallback? onAddName;
 
   // While picking several people: every tile shows a tick circle; ticked ones
   // get a ring around the stack.
@@ -229,6 +234,43 @@ class _PersonTileState extends State<PersonTile> with TickerProviderStateMixin {
     final angles = [lean, lean + dir * (9 + (h >> 3) % 5), lean - dir * (6 + (h >> 5) % 4)];
     final faces = <int?>[person.coverFaceId, for (final id in person.stackFaceIds.take(2)) id];
 
+    final addName = !named && widget.onAddName != null && !widget.selecting;
+    final label = Column(
+      children: [
+        if (addName)
+          // Looks like something to tap: the app's colour and a pencil.
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.edit_outlined, size: 14, color: AppColors.primary),
+              const SizedBox(width: AppSpacing.xs),
+              Flexible(
+                child: Text(
+                  'Add name',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleSmall?.copyWith(color: AppColors.primary),
+                ),
+              ),
+            ],
+          )
+        else
+          Text(
+            named ? person.name! : 'Add name',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.titleSmall?.copyWith(color: named ? AppColors.ink : AppColors.ink48),
+          ),
+        const SizedBox(height: 1),
+        Text(
+          person.photoCount == 1 ? '1 photo' : '${person.photoCount} photos',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: textTheme.bodySmall?.copyWith(color: AppColors.ink48),
+        ),
+      ],
+    );
+
     return InkWell(
       onTap: widget.onTap,
       onLongPress: widget.onLongPress,
@@ -317,19 +359,22 @@ class _PersonTileState extends State<PersonTile> with TickerProviderStateMixin {
               },
             ),
             const SizedBox(height: AppSpacing.sm),
-            Text(
-              named ? person.name! : 'Add name',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: textTheme.titleSmall?.copyWith(color: named ? AppColors.ink : AppColors.ink48),
-            ),
-            const SizedBox(height: 1),
-            Text(
-              person.photoCount == 1 ? '1 photo' : '${person.photoCount} photos',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: textTheme.bodySmall?.copyWith(color: AppColors.ink48),
-            ),
+            if (addName)
+              // The name and the count together are what is tapped (the faces still open the person), so the
+              // target is the full width and both lines tall without making the tile any taller. A tap that
+              // lands here by mistake only opens the name box, which closes without a change.
+              Semantics(
+                button: true,
+                label: 'Add a name, ${person.photoCount == 1 ? '1 photo' : '${person.photoCount} photos'}',
+                excludeSemantics: true,
+                child: InkWell(
+                  onTap: widget.onAddName,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  child: SizedBox(width: double.infinity, child: label),
+                ),
+              )
+            else
+              label,
           ],
         ),
       ),

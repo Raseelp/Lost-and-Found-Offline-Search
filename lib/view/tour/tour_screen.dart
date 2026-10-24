@@ -42,7 +42,8 @@ class TourPage {
 
 enum TourMode { firstRun, help }
 
-/// A tour: pages to swipe through, a download card that tucks into a small chip, a skip button, and one button
+/// A tour: pages to swipe through, a download card that tucks into a small chip, a close button (when replayed from
+/// Help), and one button
 /// at the bottom whose words follow the page and the download. Built to take any list of pages, so a
 /// "What's new" for a later version can be another list.
 class TourScreen extends StatefulWidget {
@@ -57,7 +58,7 @@ class TourScreen extends StatefulWidget {
   final List<TourPage> pages;
   final TourDownload download;
 
-  /// The last button was pressed, or the tour was skipped.
+  /// The last button was pressed, or the tour replayed from Help was closed.
   final VoidCallback onFinished;
   final TourMode mode;
 
@@ -318,21 +319,13 @@ class _TourScreenState extends State<TourScreen> {
                 ),
               ),
             ),
+            // The first-run tour is gone through to its end (it sets the app up); the one replayed from Help
+            // can be closed at any time.
             if (_help)
               IconButton(
                 tooltip: 'Close',
                 icon: const Icon(Icons.close_rounded, color: TourPalette.text),
                 onPressed: widget.onFinished,
-              )
-            else if (!_last)
-              TextButton(
-                onPressed: widget.onFinished,
-                child: Text(
-                  'Skip',
-                  style: textTheme.labelLarge?.copyWith(
-                    color: TourPalette.text80,
-                  ),
-                ),
               )
             else
               const SizedBox(width: 48),

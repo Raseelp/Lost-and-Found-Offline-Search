@@ -367,13 +367,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             if (i == _tabFaces) {
                               Get.find<FacesController>().refreshAll();
                             }
-                            // Search opens ready to type - once the tab is
-                            // actually showing (it's offstage until then).
-                            if (i == _tabSearch) {
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                controller.searchFocusNode.requestFocus();
-                              });
-                            } else {
+                            // Search opens without the keyboard: it comes up when the box is tapped, so
+                            // the suggestions and results under it are not covered straight away.
+                            if (i != _tabSearch) {
                               // Leaving the search tab - the box can still hold
                               // focus from an earlier visit (IndexedStack keeps
                               // every tab's tree alive, and Flutter's focus
