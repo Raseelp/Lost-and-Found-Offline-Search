@@ -7,7 +7,7 @@ How faces become people, what you can do with them, and how the timeline, moment
 
 A background scan finds and recognises the faces in your photos and groups them into people. It
 runs along with indexing (every batch of photos indexed is scanned for faces before indexing
-carries on), or from **Update people** on the People tab. It never starts by itself, can be paused
+carries on), or from **Update people** in the bolt button on the People tab. It never starts by itself, can be paused
 and resumed, and people appear as they are found.
 
 Each face goes through four steps: detect (SCRFD), straighten (5 landmarks), recognise
@@ -19,7 +19,7 @@ already exists.
 
 - A grid of the people found, most photographed first. Open a person to see all their photos and
   videos; rename them; hide people you don't want listed (Settings > People > Hidden people).
-- **Select people** (or long-press a person) to see photos of a group: with anyone, on their own,
+- **Select people** in the bolt button (or long-press a person) to see photos of a group: with anyone, on their own,
   any of them, plus others, or only that group. People can be added or removed from the results.
 - Names work in search too: "Maya and Dev at the beach" finds photos with both, ranked by "at the
   beach". Type "@" to pick a person from a list.
@@ -61,7 +61,7 @@ videos.
 
 ## People timeline
 
-**Timeline** on the People tab shows each person as a strip of months, darker where there are
+**Timeline**, in the bolt button on the People tab, shows each person as a strip of months, darker where there are
 more photos of them, on one shared axis of years, like a video editor's timeline.
 
 - Drag to move through the years; pinch, or use All / 5 years / 1 year / 3 months, to zoom; drag

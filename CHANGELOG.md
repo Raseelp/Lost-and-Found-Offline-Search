@@ -6,6 +6,11 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
 ## Unreleased
 
 ### Changed
+- Collections tab: each collection is one cover photo filling a rounded tile, with its name, item
+  count and a "New" tag. Covers load as tiles come on screen, at the size each tile needs.
+- The actions at the top of the Collections and People tabs (New collection, Select collections,
+  Timeline, Select people, Update people) moved to a round bolt button above the search button.
+  On a tab without actions, or while scrolling down, it merges into the search button.
 - README shortened to one line per feature; feature details moved to `docs/` (architecture,
   people, memories, export, development).
 - Videos look different from photos in the scan chip. The video rolls in as a strip of film, its

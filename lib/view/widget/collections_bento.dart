@@ -107,11 +107,11 @@ SliverGridDelegate bentoDelegate(List<BentoShape> shapes) {
     SliverQuiltedGridDelegate(
       crossAxisCount: 4,
       pattern: [for (final shape in shapes) bentoTile(shape)],
-      mainAxisSpacing: AppSpacing.md,
-      crossAxisSpacing: AppSpacing.md,
+      mainAxisSpacing: AppSpacing.sm,
+      crossAxisSpacing: AppSpacing.sm,
     ),
     crossAxisCount: 4,
-    spacing: AppSpacing.md,
+    spacing: AppSpacing.sm,
     tallness: kBentoTallness,
   );
 }

@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Icons;
-import 'package:flutter/painting.dart' show HSLColor;
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
@@ -65,6 +63,10 @@ class CollectionsController extends GetxController {
   final Map<String, CollectionStats> stats = {};
   // Card covers, keyed by CollectionCover.cacheKey.
   final Map<String, Uint8List> coverBytes = {};
+  // How large (long side, px) each of them was loaded: a tile asks for the size it needs, and a cover that was
+  // loaded smaller (for a small tile, or a chip) is loaded again bigger for a big tile.
+  final Map<String, int> _coverSize = {};
+  final Map<String, Future<Uint8List?>> _coverLoads = {};
   bool isScoring = false;
   bool _statsLoadedOnce = false;
   bool _refreshAgain = false;
@@ -139,52 +141,6 @@ class CollectionsController extends GetxController {
     final start = (day + salt) % covers.length;
     return [for (var k = 0; k < math.min(3, covers.length); k++) covers[(start + k) % covers.length]];
   }
-
-  // The main colour of each cover picture (by cache key), for the glow behind a tile's stack.
-  final Map<String, ui.Color> _glow = {};
-
-  /// The colour a collection's tile glows in: taken from the photo on top of its stack, once that
-  /// has arrived (null until then).
-  ui.Color? glowFor(String id) {
-    final stack = stackCovers(id);
-    return stack.isEmpty ? null : _glow[stack.first.cacheKey];
-  }
-
-  // A picture shrunk to a handful of pixels and averaged (leaning toward the more colourful
-  // ones, so a grey wall does not wash it out), then made lively enough to glow.
-  Future<void> _computeGlow(String key, Uint8List bytes) async {
-    try {
-      final codec = await ui.instantiateImageCodec(bytes, targetWidth: 12, targetHeight: 12);
-      final frame = await codec.getNextFrame();
-      final data = await frame.image.toByteData(format: ui.ImageByteFormat.rawRgba);
-      frame.image.dispose();
-      codec.dispose();
-      if (data == null) return;
-      var r = 0.0, g = 0.0, b = 0.0, total = 0.0;
-      for (var i = 0; i + 3 < data.lengthInBytes; i += 4) {
-        final pr = data.getUint8(i) / 255, pg = data.getUint8(i + 1) / 255, pb = data.getUint8(i + 2) / 255;
-        final hi = math.max(pr, math.max(pg, pb)), lo = math.min(pr, math.min(pg, pb));
-        final weight = 0.15 + (hi - lo);
-        r += pr * weight;
-        g += pg * weight;
-        b += pb * weight;
-        total += weight;
-      }
-      if (total == 0) return;
-      final avg = ui.Color.from(alpha: 1, red: r / total, green: g / total, blue: b / total);
-      final hsl = HSLColor.fromColor(avg);
-      _glow[key] = hsl
-          .withSaturation(hsl.saturation.clamp(0.4, 0.85))
-          .withLightness(hsl.lightness.clamp(0.42, 0.6))
-          .toColor();
-      _updateSoon();
-    } catch (_) {
-      // The tile keeps its fallback colour.
-    }
-  }
-
-  /// Their pictures, as far as they have arrived (null for one that has not).
-  List<Uint8List?> stackBytes(String id) => [for (final c in stackCovers(id)) coverBytes[c.cacheKey]];
 
   /// Whether any photo on the stack came in with the latest scan.
   bool hasNewCover(String id, bool Function(String uri) isNew) => stackCovers(id).any((c) => isNew(c.uri));
@@ -452,6 +408,7 @@ class CollectionsController extends GetxController {
     _embeddingCache.clear();
     stats.clear();
     coverBytes.clear();
+    _coverSize.clear();
     _heroBytes.clear();
     await _saveEmbeddingCache();
     update();
@@ -476,6 +433,7 @@ class CollectionsController extends GetxController {
       // full of photos that open onto nothing.
       stats.clear();
       coverBytes.clear();
+      _coverSize.clear();
       _heroBytes.clear();
       _rebuildLists();
     }
@@ -587,33 +545,12 @@ class CollectionsController extends GetxController {
   }
 
   Future<void> _loadCoversPass() async {
-    // The front picture of every tile first, then the two behind it, so tiles fill in fast.
-    final native = Get.isRegistered<NativeController>() ? Get.find<NativeController>() : null;
-    for (var layer = 0; layer < 3; layer++) {
-      var order = visible.toList();
-      if (layer == 0) {
-        // The featured card at the top of the tab first.
-        final featured = heroCandidates(isNew: native?.isInLatestScan ?? (_) => false);
-        order = [...featured, ...order.where((c) => !featured.contains(c))];
-      }
-      for (final c in order) {
-        final stack = stackCovers(c.id);
-        if (layer >= stack.length) continue;
-        final cover = stack[layer];
-        if (!coverBytes.containsKey(cover.cacheKey)) {
-          try {
-            coverBytes[cover.cacheKey] = await _loadThumb(cover.uri, cover.isVideo, cover.timestampMs);
-            _updateSoon();
-          } catch (_) {
-            // A missing picture just leaves that spot on the stack blank.
-          }
-        }
-        final loaded = coverBytes[cover.cacheKey];
-        if (layer == 0 && loaded != null && !_glow.containsKey(cover.cacheKey)) {
-          await _computeGlow(cover.cacheKey, loaded);
-        }
-      }
-      if (layer == 0) unawaited(_loadHeroImages());
+    // Only what is shown without a tile asking for it: the featured card (first, as it is at the top of the
+    // Collections tab) and the quick-access chips of the Search tab (a small picture each). The tiles of the
+    // tab load their own cover as they come on screen.
+    unawaited(_loadHeroImages());
+    for (final c in pinned) {
+      await loadCover(c.id, 420);
     }
     // The last pictures are not left waiting for the timer.
     _notifyTimer?.cancel();
@@ -621,14 +558,42 @@ class CollectionsController extends GetxController {
     update();
   }
 
-  Future<Uint8List> _loadThumb(String uri, bool isVideo, int timestampMs) {
+  /// The cover of collection [id] with its long side at least [size] px: the one in memory when it was loaded
+  /// that large already, else loaded now (null when the collection has no cover, or it cannot be read). A tile
+  /// asks for the size that fits it, so a big tile of the mosaic is not given a small picture.
+  Future<Uint8List?> loadCover(String id, int size) {
+    final cover = selectedCover(id);
+    if (cover == null) return Future.value(null);
+    final have = coverBytes[cover.cacheKey];
+    if (have != null && (_coverSize[cover.cacheKey] ?? 0) >= size) return Future.value(have);
+    final key = '${cover.cacheKey}@$size';
+    return _coverLoads[key] ??= _fetchCover(cover, size).whenComplete(() => _coverLoads.remove(key));
+  }
+
+  Future<Uint8List?> _fetchCover(CollectionCover cover, int size) async {
+    try {
+      final bytes = await _loadThumb(cover.uri, cover.isVideo, cover.timestampMs, size: size);
+      // Another, bigger request may have finished first: the bigger one stays.
+      if ((_coverSize[cover.cacheKey] ?? 0) < size) {
+        coverBytes[cover.cacheKey] = bytes;
+        _coverSize[cover.cacheKey] = size;
+        _updateSoon();
+      }
+      return coverBytes[cover.cacheKey] ?? bytes;
+    } catch (_) {
+      // A missing picture just leaves that tile with its icon.
+      return null;
+    }
+  }
+
+  Future<Uint8List> _loadThumb(String uri, bool isVideo, int timestampMs, {int? size}) {
     // Small, not full-screen sized: these only back tiles and cards (a video's
     // is also its poster in the viewer for a moment, hence a bit larger).
     return NativeServices().loadThumbnail(
       uri: uri,
       isVideo: isVideo,
       timestampMs: timestampMs,
-      size: isVideo ? 640 : 420,
+      size: size ?? (isVideo ? 640 : 420),
     );
   }
 

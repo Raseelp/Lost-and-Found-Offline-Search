@@ -16,7 +16,9 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/utils/floating_bar.dart';
 import 'package:lost_and_found/view/export_zip_screen.dart';
 import 'package:lost_and_found/view/people_filter_screen.dart';
+import 'package:lost_and_found/view/people_timeline_screen.dart';
 import 'package:lost_and_found/view/settings_screen.dart';
+import 'package:lost_and_found/view/widget/action_fab.dart';
 import 'package:lost_and_found/view/widget/collections_tab.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/view/widget/faces_tab.dart';
@@ -61,6 +63,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final MemoriesController _memories = Get.find<MemoriesController>();
 
+  // The round bolt button's state, to close its actions with the back button.
+  final GlobalKey<ActionFabState> _fabKey = GlobalKey<ActionFabState>();
+
   @override
   void initState() {
     super.initState();
@@ -79,6 +84,76 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _setShrunk(bool value) {
     if (_shrunk != value) setState(() => _shrunk = value);
+  }
+
+  // What the bolt button offers on the page showing: the actions that used to sit under the description
+  // at the top of the Collections and People tabs. None on the other tabs, and none while choosing.
+  List<FabAction> _fabActions(
+    NativeController native,
+    FacesController faces,
+    CollectionsController collections,
+  ) {
+    if (native.homeTab == _tabCollections) {
+      if (collections.selecting) return const [];
+      return [
+        FabAction(
+          icon: Icons.add_rounded,
+          label: 'New collection',
+          onTap: () => showNewCollectionSheet(context, collections),
+        ),
+        if (native.totalEmbeddings != 0 && collections.visible.isNotEmpty)
+          FabAction(
+            icon: Icons.collections_bookmark_outlined,
+            label: 'Select collections',
+            onTap: collections.startSelecting,
+          ),
+      ];
+    }
+    if (native.homeTab == _tabFaces) {
+      if (faces.selecting) return const [];
+      final status = faces.status;
+      final noModel = !status.ready || status.error == 'no_model';
+      // While a catch-up scan runs the tab shows its progress instead of this action.
+      final catchingUp =
+          faces.syncing && !status.userPaused && status.error == null;
+      // Choosing people, or seeing them over the years, needs at least two.
+      final several = faces.people.length >= 2;
+      return [
+        if (several)
+          FabAction(
+            icon: Icons.timeline_rounded,
+            label: 'Timeline',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PeopleTimelineScreen()),
+            ),
+          ),
+        if (several)
+          FabAction(
+            icon: Icons.groups_rounded,
+            label: 'Select people',
+            onTap: faces.startSelecting,
+          ),
+        if (!noModel && !catchingUp)
+          FabAction(
+            icon: Icons.sync_rounded,
+            label: 'Update people',
+            onTap: () => _updatePeople(faces),
+          ),
+      ];
+    }
+    return const [];
+  }
+
+  // Runs the face scan over whatever was missed (its progress shows on the tab), or says everything is
+  // already covered.
+  Future<void> _updatePeople(FacesController faces) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final started = await faces.syncFaces();
+    if (!started) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('People are up to date')),
+      );
+    }
   }
 
   bool _onScroll(ScrollNotification n) {
@@ -110,6 +185,11 @@ class _HomeScreenState extends State<HomeScreen> {
           canPop: controller.homeTab == _tabSearch,
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
+            // The bolt button's actions are open: back puts them away first.
+            if (_fabKey.currentState?.isOpen == true) {
+              _fabKey.currentState!.close();
+              return;
+            }
             // Choosing people: back first cancels that, and stays on the tab.
             if (Get.isRegistered<FacesController>()) {
               final faces = Get.find<FacesController>();
@@ -309,6 +389,20 @@ class _HomeScreenState extends State<HomeScreen> {
                             }
                           },
                           ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // The round bolt button above the search button, and the actions it fans out.
+                  Positioned.fill(
+                    child: GetBuilder<FacesController>(
+                      builder: (faces) => GetBuilder<CollectionsController>(
+                        builder: (collections) => ActionFab(
+                          key: _fabKey,
+                          actions: _fabActions(controller, faces, collections),
+                          visible: !keyboardOpen,
+                          shrunk: _shrunk,
+                          searchActive: controller.homeTab == _tabSearch,
                         ),
                       ),
                     ),
@@ -1098,9 +1192,15 @@ class _SearchButtonState extends State<_SearchButton>
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
-        child: AnimatedBuilder(
+        // While the bolt button's liquid runs into this button it draws this circle itself (see ActionFab).
+        child: ValueListenableBuilder<double>(
+          valueListenable: ActionFab.ownsSearch,
+          builder: (context, level, _) => AnimatedBuilder(
           animation: _burst,
           builder: (context, _) {
+            // Fades out (circle, frost, border and icon alike) while the bolt button's liquid draws the
+            // circle instead, and back in when it has let go.
+            final fade = 1 - level;
             final t = _burst.value;
             // Overshoots and settles: a tilt that swings past and back.
             final tilt = widget.active
@@ -1131,7 +1231,7 @@ class _SearchButtonState extends State<_SearchButton>
                     ),
                   ClipOval(
                     child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                      filter: ImageFilter.blur(sigmaX: 14 * fade, sigmaY: 14 * fade),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 340),
                         curve: Curves.easeOutCubic,
@@ -1141,15 +1241,16 @@ class _SearchButtonState extends State<_SearchButton>
                           shape: BoxShape.circle,
                           color: widget.active
                               ? AppColors.primary.withValues(
-                                  alpha: widget.shrunk ? 0.72 : 0.85,
+                                  alpha: (widget.shrunk ? 0.72 : 0.85) * fade,
                                 )
                               : AppColors.parchment.withValues(
-                                  alpha: widget.shrunk ? 0.55 : 0.72,
+                                  alpha: (widget.shrunk ? 0.55 : 0.72) * fade,
                                 ),
                           border: Border.all(
-                            color: widget.active
-                                ? AppColors.primary
-                                : AppColors.hairline,
+                            color: (widget.active
+                                    ? AppColors.primary
+                                    : AppColors.hairline)
+                                .withValues(alpha: fade),
                           ),
                         ),
                         child: Transform.rotate(
@@ -1158,9 +1259,10 @@ class _SearchButtonState extends State<_SearchButton>
                             scale: pop,
                             child: Icon(
                               Icons.search_rounded,
-                              color: widget.active
-                                  ? AppColors.onPrimary
-                                  : AppColors.ink,
+                              color: (widget.active
+                                      ? AppColors.onPrimary
+                                      : AppColors.ink)
+                                  .withValues(alpha: fade),
                               size: 26,
                             ),
                           ),
@@ -1172,6 +1274,7 @@ class _SearchButtonState extends State<_SearchButton>
               ),
             );
           },
+        ),
         ),
       ),
     );

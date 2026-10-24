@@ -17,3 +17,11 @@ double floatingBarClearance(BuildContext context) {
   if (media.viewInsets.bottom > 0) return AppSpacing.base;
   return media.padding.bottom + kFloatingBarHeight + kFloatingBarBottomGap + AppSpacing.base;
 }
+
+/// The same, on a tab where the round action button (ActionFab) floats above the bar: the button sits in the
+/// bottom right corner, so the last row would otherwise end up under it.
+double actionFabClearance(BuildContext context) {
+  final media = MediaQuery.of(context);
+  if (media.viewInsets.bottom > 0) return AppSpacing.base;
+  return floatingBarClearance(context) + kFloatingBarHeight + AppSpacing.md;
+}

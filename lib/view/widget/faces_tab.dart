@@ -11,8 +11,6 @@ import 'package:lost_and_found/view/merge_suggestions_screen.dart';
 import 'package:lost_and_found/view/person_screen.dart';
 import 'package:lost_and_found/view/widget/app_search_field.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
-import 'package:lost_and_found/view/widget/header_action.dart';
-import 'package:lost_and_found/view/people_timeline_screen.dart';
 import 'package:lost_and_found/view/widget/nothing_indexed.dart';
 import 'package:lost_and_found/view/widget/person_menu.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -218,14 +216,13 @@ class _FacesTabState extends State<FacesTab> {
                   duration: const Duration(milliseconds: 220),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
-                  child:
-                      progressPill ??
-                      (selecting
-                          ? const SizedBox.shrink(key: ValueKey('none'))
-                          : _SyncFacesButton(
-                              key: const ValueKey('button'),
-                              faces: faces,
-                            )),
+                  child: progressPill == null
+                      ? const SizedBox.shrink(key: ValueKey('none'))
+                      : Padding(
+                          key: const ValueKey('padded'),
+                          padding: const EdgeInsets.only(top: AppSpacing.md),
+                          child: progressPill,
+                        ),
                 ),
               );
 
@@ -255,13 +252,11 @@ class _FacesTabState extends State<FacesTab> {
                           height: 1.4,
                         ),
                       ),
-                      if (syncArea != null) ...[
-                        const SizedBox(height: AppSpacing.md),
+                      if (syncArea != null)
                         Align(
                           alignment: Alignment.centerLeft,
                           child: syncArea,
                         ),
-                      ],
                     ] else ...[
                       if (count > 0)
                         Text(
@@ -272,34 +267,11 @@ class _FacesTabState extends State<FacesTab> {
                             height: 1.4,
                           ),
                         ),
-                      if (count >= 2 || syncArea != null) ...[
-                        const SizedBox(height: AppSpacing.md),
-                        Wrap(
-                          spacing: AppSpacing.sm,
-                          runSpacing: AppSpacing.sm,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            // Choosing people, or seeing them over the years, needs at least two.
-                            if (count >= 2)
-                              HeaderActionPill(
-                                icon: Icons.timeline_rounded,
-                                label: 'Timeline',
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const PeopleTimelineScreen(),
-                                  ),
-                                ),
-                              ),
-                            if (count >= 2)
-                              HeaderActionPill(
-                                icon: Icons.groups_rounded,
-                                label: 'Select people',
-                                onTap: faces.startSelecting,
-                              ),
-                            if (syncArea != null) syncArea,
-                          ],
+                      if (syncArea != null)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: syncArea,
                         ),
-                      ],
                     ],
                   ],
                 ),
@@ -407,8 +379,9 @@ class _FacesTabState extends State<FacesTab> {
               ),
             SliverToBoxAdapter(
               child: SizedBox(
-                // The bar is taller while two or more are chosen.
-                height: floatingBarClearance(context) + (selecting ? 56 : 0),
+                // The bar is taller while two or more are chosen; otherwise the action button floats above
+                // it.
+                height: selecting ? floatingBarClearance(context) + 56 : actionFabClearance(context),
               ),
             ),
           ],
@@ -450,31 +423,6 @@ class _PeopleGrid extends StatelessWidget {
           ),
           delegate: SliverChildBuilderDelegate(itemBuilder, childCount: childCount),
         );
-      },
-    );
-  }
-}
-
-/// A small, quiet "Update people": runs the face scan over whatever was missed and
-/// brings up its progress, or says everything is already covered.
-class _SyncFacesButton extends StatelessWidget {
-  const _SyncFacesButton({super.key, required this.faces});
-
-  final FacesController faces;
-
-  @override
-  Widget build(BuildContext context) {
-    return HeaderActionPill(
-      icon: Icons.sync_rounded,
-      label: 'Update people',
-      onTap: () async {
-        final messenger = ScaffoldMessenger.of(context);
-        final started = await faces.syncFaces();
-        if (!started) {
-          messenger.showSnackBar(
-            const SnackBar(content: Text('People are up to date')),
-          );
-        }
       },
     );
   }

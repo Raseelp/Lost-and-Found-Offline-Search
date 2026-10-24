@@ -5,8 +5,8 @@ are only read, never changed or removed.
 
 ## Where to start it
 
-- **Select collections** on the Collections tab, then **Export as zip** in the bar at the bottom.
-- **Select people** on the People tab, then **Export as zip** (the bar also offers **Photos
+- **Select collections** from the bolt button on the Collections tab, then **Export as zip** in the bar at the bottom.
+- **Select people** from the bolt button on the People tab, then **Export as zip** (the bar also offers **Photos
   together**).
 - A collection's or person's menu, or the **Export** button on a person's page.
 - The On this day card's menu (every photo and video of the date across the years).
