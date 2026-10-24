@@ -7,10 +7,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.graphics.Color
 import android.os.Build
+import android.os.SystemClock
 import android.util.Log
-import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
@@ -19,6 +18,7 @@ import androidx.work.WorkManager
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import dev.raseel.lostandfound.MainActivity
+import dev.raseel.lostandfound.embedder.ScanNotification
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -100,6 +100,10 @@ class FaceScanWorker(context: Context, params: WorkerParameters) : CoroutineWork
     private val notifyLock = Any()
     private var ended = false
 
+    // How fast the photos (or videos) are gone through, starting over on each new phase.
+    private val rate = ScanNotification.Rate()
+    private var ratePhase: String? = null
+
     private fun foregroundInfo(notification: Notification): ForegroundInfo =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             ForegroundInfo(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
@@ -108,39 +112,59 @@ class FaceScanWorker(context: Context, params: WorkerParameters) : CoroutineWork
         }
 
     private fun buildNotification(processed: Int, total: Int, paused: Boolean, phase: String = "scan"): Notification {
-        val percent = if (total > 0) processed * 100 / total else 0
-        val title = when {
-            paused -> "Face grouping is waiting for indexing to finish"
-            phase == "tune" -> "Optimising face search for your phone (one time)"
-            total <= 0 -> "Preparing to find faces..."
-            phase == "refine" -> "Refining small faces  •  $percent%  •  $processed/$total"
-            phase == "videos" -> "Finding faces in videos  •  $percent%  •  $processed/$total"
-            else -> "Finding faces  •  $percent%  •  $processed/$total"
+        val counting = !paused && phase != "tune" && total > 0
+        if (!counting || phase != ratePhase) rate.reset()
+        ratePhase = if (counting) phase else null
+        val speed = if (counting) {
+            val perSecond = rate.add(SystemClock.elapsedRealtime(), processed)
+            if (phase == "videos") ScanNotification.speed(perSecond, "video", "videos")
+            else ScanNotification.speed(perSecond, "photo", "photos")
+        } else {
+            null
         }
+        // The face scan on its own (no indexing in it): only the faces, with what they are being found in.
+        val faces = when {
+            paused -> ScanNotification.Faces(
+                processed, total, "Finding faces", "Waits until indexing is done", null, waiting = true,
+            )
+            phase == "tune" -> ScanNotification.Faces(
+                processed, total, "Getting face search ready", "One time, for this phone", null, waiting = true,
+            )
+            total <= 0 -> ScanNotification.Faces(
+                processed, total, "Finding faces", "Getting the photos ready", null, waiting = true,
+            )
+            phase == "refine" -> ScanNotification.Faces(
+                processed, total, "Finding faces", "Looking closer at small faces", null, waiting = false, speed,
+            )
+            phase == "videos" -> ScanNotification.Faces(
+                processed, total, "Finding faces in videos", "Looking for faces in your videos", null, waiting = false,
+                speed,
+            )
+            else -> ScanNotification.Faces(
+                processed, total, "Finding faces", "Catching up on photos with no faces found yet", null, waiting = false,
+                speed,
+            )
+        }
+        // A tap opens the app on the Library tab, where the scan is.
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
+            action = MainActivity.ACTION_OPEN_LIBRARY
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val pending = PendingIntent.getActivity(
             applicationContext, 1, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        return NotificationCompat.Builder(applicationContext, CHANNEL_ID)
-            .setContentTitle(title)
-            .setContentText("Grouping the people in your photos, on this device only.")
-            .setSmallIcon(android.R.drawable.stat_notify_sync)
-            .setColor(Color.parseColor("#165E59"))
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setProgress(100, percent, total <= 0)
-            .setContentIntent(pending)
-            .setDeleteIntent(
-                dev.raseel.lostandfound.embedder.NotificationDismissReceiver.pending(
-                    applicationContext,
-                    dev.raseel.lostandfound.embedder.NotificationDismissReceiver.WHICH_FACES,
-                )
-            )
-            .build()
+        return ScanNotification.build(
+            applicationContext,
+            CHANNEL_ID,
+            indexing = null,
+            faces = faces,
+            contentIntent = pending,
+            deleteIntent = dev.raseel.lostandfound.embedder.NotificationDismissReceiver.pending(
+                applicationContext,
+                dev.raseel.lostandfound.embedder.NotificationDismissReceiver.WHICH_FACES,
+            ),
+        )
     }
 
     private fun createChannelIfNeeded() {

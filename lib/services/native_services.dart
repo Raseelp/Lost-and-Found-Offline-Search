@@ -557,6 +557,11 @@ class NativeServices {
     return map?['sent'] != null ? 'Sent: $message' : message;
   }
 
+  /// Whether the scan's notification was tapped since this was last asked (taken once).
+  Future<bool> takeOpenLibrary() async {
+    return await _channel.invokeMethod<bool>('takeOpenLibrary') ?? false;
+  }
+
   /// The memory a tapped notification wants opened (taken once): its kind and year, or null.
   Future<({String kind, int year, int personId})?> takeLaunchMemory() async {
     final map = await _channel.invokeMapMethod<String, dynamic>(

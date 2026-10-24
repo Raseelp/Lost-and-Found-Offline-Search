@@ -49,6 +49,20 @@ class EmbeddingEngine(
     private var lastEmit: Long = 0L
     private var startTimeMs: Long = 0L
 
+    // The photos and videos of the scan running now, and how many videos were already indexed. The photos are
+    // done before the videos, and everything already indexed counts as done from the start, so how far each
+    // has got follows from these and the number processed (see kindsDone).
+    private var kindPhotos = 0
+    private var kindVideos = 0
+    private var kindVideosKnown = 0
+
+    // How many photos and how many videos of this scan are done, when [processed] items are.
+    private fun kindsDone(processed: Int): Pair<Int, Int> {
+        val photos = (processed - kindVideosKnown).coerceIn(0, kindPhotos)
+        val videos = (processed - photos).coerceIn(0, kindVideos)
+        return photos to videos
+    }
+
     // How long this scan has spent waiting for the photos it handed over (see handOver).
     @Volatile
     private var pausedMs: Long = 0L
@@ -252,6 +266,9 @@ class EmbeddingEngine(
         startTimeMs = System.currentTimeMillis()
         lastEmit = startTimeMs
         pausedMs = 0L
+        kindPhotos = 0
+        kindVideos = 0
+        kindVideosKnown = 0
         clipTiming = ClipTiming()
         recentItems.clear()
         BenchLog.log(context) {
@@ -399,6 +416,9 @@ class EmbeddingEngine(
                 failed++
             }
         }
+        kindPhotos = imageFiles.size
+        kindVideos = videoFiles.size
+        kindVideosKnown = videoFiles.size - newVideos.size
         processed += skipped
         if (skipped > 0) {
             // Forced through even if it lands within the normal throttle
@@ -619,7 +639,11 @@ class EmbeddingEngine(
                 done = true,
                 path = label,
                 recentItems = recentItems.toList(),
-                failed = failed
+                failed = failed,
+                photos = kindPhotos,
+                videos = kindVideos,
+                photosDone = kindsDone(processed).first,
+                videosDone = kindsDone(processed).second,
             )
         )
 
@@ -1263,7 +1287,11 @@ class EmbeddingEngine(
                     done      = false,
                     path      = path,
                     failed    = failed,
-                    recentItems = recentItems.toList()
+                    recentItems = recentItems.toList(),
+                    photos    = kindPhotos,
+                    videos    = kindVideos,
+                    photosDone = kindsDone(processed).first,
+                    videosDone = kindsDone(processed).second,
                 )
             )
             lastEmit = now

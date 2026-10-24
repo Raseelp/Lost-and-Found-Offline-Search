@@ -131,7 +131,11 @@ class ScanWorker(
                     progress.total,
                     progress.embedded,
                     progress.elapsedMs,
-                    progress.activeMs
+                    progress.activeMs,
+                    progress.photos,
+                    progress.videos,
+                    progress.photosDone,
+                    progress.videosDone,
                 )
                 ScanForegroundService.postIfActive(applicationContext, notification)
             }

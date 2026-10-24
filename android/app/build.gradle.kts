@@ -26,7 +26,9 @@ plugins {
 
 android {
     namespace = "dev.raseel.lostandfound"
-    compileSdk = flutter.compileSdkVersion
+    // 36 (Android 16), above Flutter's default: the scan notification uses Android 16's progress style and asks for
+    // the status bar chip (see ScanNotification).
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {

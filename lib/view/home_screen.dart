@@ -10,6 +10,7 @@ import 'package:lost_and_found/controllers/export_controller.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
 import 'package:lost_and_found/controllers/memories_controller.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
+import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
@@ -56,7 +57,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // True while the user is scrolling down a list: the bar shrinks and settles
   // lower (see _FloatingNavBar). Scrolling back up, or reaching the top,
   // restores it.
@@ -72,15 +73,72 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     // A tapped "daily memory" notification opens its memory once the home screen is up.
     _memories.homeReady = true;
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _memories.checkLaunch();
+      if (!mounted) return;
+      _memories.checkLaunch();
+      _checkOpenLibrary();
     });
   }
 
   @override
   void dispose() {
     _memories.homeReady = false;
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkOpenLibrary();
+  }
+
+  // Shows home tab [i]: what a tap on the bar does ([tapped]), and what the scan's notification does to show
+  // the Library tab.
+  void _showTab(NativeController controller, int i, {bool tapped = true}) {
+    if (i != controller.homeTab) {
+      if (tapped) HapticFeedback.selectionClick();
+      // A newly shown tab is at rest, so the bar is full size.
+      _shrunk = false;
+    }
+    controller.setHomeTab(i);
+    // Choosing people belongs to the People tab: leaving it ends that.
+    if (i != _tabFaces && Get.isRegistered<FacesController>()) {
+      final faces = Get.find<FacesController>();
+      if (faces.selecting) faces.stopSelecting();
+    }
+    // Likewise choosing collections belongs to the Collections tab.
+    if (i != _tabCollections && Get.isRegistered<CollectionsController>()) {
+      final collections = Get.find<CollectionsController>();
+      if (collections.selecting) collections.stopSelecting();
+    }
+    // Opening Faces: refresh. (Looking never starts a scan.)
+    if (i == _tabFaces) {
+      Get.find<FacesController>().refreshAll();
+    }
+    // Search opens without the keyboard: it comes up when the box is tapped, so
+    // the suggestions and results under it are not covered straight away.
+    if (i != _tabSearch) {
+      // Leaving the search tab - the box can still hold focus from an earlier visit (IndexedStack keeps
+      // every tab's tree alive, and Flutter's focus history is app-wide, not scoped to whichever tab is
+      // actually showing). Left alone, that stale focus can resurface later with no relation to what's now
+      // open - popping back from a pushed detail screen (a collection, a person) that has no text field of
+      // its own restores focus to whatever last held it, which otherwise pops the keyboard back up over a
+      // completely different tab.
+      controller.searchFocusNode.unfocus();
+    }
+  }
+
+  // A tap on the scan's notification shows the Library tab, where the scan is,
+  // closing whatever was open on top of it.
+  Future<void> _checkOpenLibrary() async {
+    try {
+      if (!await NativeServices().takeOpenLibrary() || !mounted) return;
+      Get.until((route) => route.isFirst);
+      _showTab(Get.find<NativeController>(), _tabLibrary, tapped: false);
+    } catch (e) {
+      debugPrint('takeOpenLibrary failed: $e');
+    }
   }
 
   void _setShrunk(bool value) {
@@ -344,47 +402,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           index: controller.homeTab,
                           shrunk: _shrunk,
                           showActivityDot: controller.isScanning,
-                          onChanged: (i) {
-                            if (i != controller.homeTab) {
-                              HapticFeedback.selectionClick();
-                              // A newly shown tab is at rest, so the bar is full size.
-                              _shrunk = false;
-                            }
-                            controller.setHomeTab(i);
-                            // Choosing people belongs to the People tab: leaving it ends that.
-                            if (i != _tabFaces &&
-                                Get.isRegistered<FacesController>()) {
-                              final faces = Get.find<FacesController>();
-                              if (faces.selecting) faces.stopSelecting();
-                            }
-                            // Likewise choosing collections belongs to the Collections tab.
-                            if (i != _tabCollections &&
-                                Get.isRegistered<CollectionsController>()) {
-                              final collections = Get.find<CollectionsController>();
-                              if (collections.selecting) collections.stopSelecting();
-                            }
-                            // Opening Faces: refresh. (Looking never starts a scan.)
-                            if (i == _tabFaces) {
-                              Get.find<FacesController>().refreshAll();
-                            }
-                            // Search opens without the keyboard: it comes up when the box is tapped, so
-                            // the suggestions and results under it are not covered straight away.
-                            if (i != _tabSearch) {
-                              // Leaving the search tab - the box can still hold
-                              // focus from an earlier visit (IndexedStack keeps
-                              // every tab's tree alive, and Flutter's focus
-                              // history is app-wide, not scoped to whichever
-                              // tab is actually showing). Left alone, that
-                              // stale focus can resurface later with no
-                              // relation to what's now open - popping back
-                              // from a pushed detail screen (a collection, a
-                              // person) that has no text field of its own
-                              // restores focus to whatever last held it,
-                              // which otherwise pops the keyboard back up
-                              // over a completely different tab.
-                              controller.searchFocusNode.unfocus();
-                            }
-                          },
+                          onChanged: (i) => _showTab(controller, i),
                           ),
                         ),
                       ),

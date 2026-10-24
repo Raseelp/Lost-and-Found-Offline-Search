@@ -15,6 +15,12 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   own data. See `docs/development.md`.
 
 ### Changed
+- The scan notification is shorter and clearer. Indexing shows one bar in two parts, photos then
+  videos, each as long as its share, and names the part it is on ("Indexing photos · 7%").
+  Faces show only while they are being found, in the scan chip's violet, with a line saying what
+  they are found in. Both show how fast they go ("6.2 photos a second"). The time left is written
+  out ("about 1 h 20 min left"). On Android 16 it is a live update with the percentage in a chip
+  in the status bar. Tapping it opens the Library tab, where the scan is, instead of Search.
 - On the People tab, tapping "Add name" under someone without a name asks for their name. Before,
   that took a long press or opening the person.
 - Search shows 20 results by default, up from 10. A number you have picked stays as it is.

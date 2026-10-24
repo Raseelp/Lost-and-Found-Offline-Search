@@ -27,5 +27,11 @@ data class ScanProgress(
     // couldn't be decoded/embedded at all (corrupt, unsupported format, a
     // video with no readable frames). They're retried on every rescan,
     // which is why a finished library can still show a few "new" files.
-    val failed: Int = 0
+    val failed: Int = 0,
+    // Of [total], how many are photos and how many videos, and how many of each are done (photos are indexed
+    // first, then videos). 0 when not known.
+    val photos: Int = 0,
+    val videos: Int = 0,
+    val photosDone: Int = 0,
+    val videosDone: Int = 0
 )

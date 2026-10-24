@@ -59,6 +59,15 @@ import dev.raseel.lostandfound.embedder.models.ModelsNotReadyException
 
 class MainActivity : FlutterActivity() {
 
+    companion object {
+        // What a tap on the scan's notification (indexing or faces) opens with: the Library tab, where the scan is.
+        const val ACTION_OPEN_LIBRARY = "dev.raseel.lostandfound.OPEN_LIBRARY"
+    }
+
+    // The scan's notification was tapped, and the app has not yet shown the Library tab for it (takeOpenLibrary).
+    @Volatile
+    private var openLibrary = false
+
     private val CHANNEL = "lostandfound/native"
     private val PROGRESS_CHANNEL = "lostandfound/progress"
     private val FACE_PROGRESS_CHANNEL = "lostandfound/faceProgress"
@@ -174,6 +183,8 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         noteMemoryTap(intent)
+        // Not again when only recreated (turned, say): that tap was already shown.
+        if (savedInstanceState == null) noteLibraryTap(intent)
         // The daily memory, if the person turned it on: kept scheduled (a new install of the app or a restart does not lose it).
         try { MemoryScheduler.apply(applicationContext) } catch (_: Exception) {}
 
@@ -194,6 +205,11 @@ class MainActivity : FlutterActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         noteMemoryTap(intent)
+        noteLibraryTap(intent)
+    }
+
+    private fun noteLibraryTap(intent: Intent?) {
+        if (intent?.action == ACTION_OPEN_LIBRARY) openLibrary = true
     }
 
     // A tap on the daily memory's notification: remembered, and the app picks it up (takeLaunchMemory) to open the memory.
@@ -1255,6 +1271,12 @@ class MainActivity : FlutterActivity() {
                 "memoryTest" -> memoryTask(result) {
                     val outcome = MemoryDay.run(applicationContext, test = true, budgetMs = 4_000L)
                     mapOf("sent" to outcome.sent?.code, "message" to outcome.message)
+                }
+
+                // Whether the scan's notification was tapped since last asked (taken once).
+                "takeOpenLibrary" -> {
+                    result.success(openLibrary)
+                    openLibrary = false
                 }
 
                 // The memory a tapped notification wants opened (taken once), or null.

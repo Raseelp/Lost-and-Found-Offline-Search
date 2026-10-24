@@ -129,6 +129,17 @@ search model is in Settings > Danger zone.
 - **Scans** run as WorkManager work with a foreground notification (`ScanWorker`,
   `ScanForegroundService`), and can be paused and resumed.
 - **Face scans** after indexing: `FaceScanWorker`.
+- **Their notification** (`ScanNotification`, shared by both) shows what is happening now. Indexing:
+  one bar in two parts, photos (teal) then videos (lighter teal), each as long as its share, drawn
+  as a small picture because a notification layout cannot be given proportions; the scan reports
+  how many photos and videos it has and how far each is (`ScanProgress`). Faces: the scan chip's
+  violet, only while they are being found, with a line saying what they are found in. Both show
+  their speed over the last 10 seconds (`ScanNotification.Rate`); indexing's leaves out the time
+  spent waiting for faces, and starts over when it moves from photos to videos. On Android
+  16 it is the system's own progress notification, asking to be a live update so a chip with the
+  percentage shows in the status bar (Android never promotes a notification with its own layout).
+  A tap opens the app on the Library tab (`MainActivity.ACTION_OPEN_LIBRARY`, picked up by the home
+  screen through `takeOpenLibrary`).
 - **Daily memories**: `memories/DailyMemoryWorker`, two slots a day.
 - **Zip export**: `export/ZipExportWorker`.
 
