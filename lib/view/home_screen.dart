@@ -22,6 +22,7 @@ import 'package:lost_and_found/view/widget/action_fab.dart';
 import 'package:lost_and_found/view/widget/collections_tab.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/view/widget/faces_tab.dart';
+import 'package:lost_and_found/view/widget/new_collection_sheet.dart';
 import 'package:lost_and_found/view/widget/library_tab.dart';
 import 'package:lost_and_found/view/widget/search_tab.dart';
 

@@ -5,6 +5,13 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
 
 ## Unreleased
 
+### Added
+- A new "New collection" sheet. It previews what the words find (how many, the best few photos
+  and who is in them) as you type, takes other ways of saying it, can include photos, videos or
+  both, and names the collection from the words. Before anything is typed it offers a few ideas,
+  and a collection can start from a photo instead of words.
+
+
 ### Changed
 - Collections tab: each collection is one cover photo filling a rounded tile, with its name, item
   count and a "New" tag. Covers load as tiles come on screen, at the size each tile needs.

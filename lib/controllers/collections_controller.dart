@@ -361,19 +361,86 @@ class CollectionsController extends GetxController {
       return (cached['emb'] as List).cast<num>().map((e) => e.toDouble()).toList();
     }
 
+    final result = await _embedPrompts(c.prompts);
+    if (result == null) throw StateError('No prompts could be embedded for ${c.id}');
+    _embeddingCache[c.id] = {'sig': _signature(c), 'emb': result};
+    unawaited(_saveEmbeddingCache());
+    return result;
+  }
+
+  // The prompts' vectors averaged (null when none could be made).
+  Future<List<double>?> _embedPrompts(List<String> prompts) async {
     final tokenizer = await ClipTokenizer.load();
     List<double>? sum;
-    for (final prompt in c.prompts) {
+    for (final prompt in prompts) {
       final e = _normalized(await NativeServices().encodeText(tokenizer.tokenize(prompt)));
       if (e.isEmpty) continue;
       sum = sum == null ? e : [for (var i = 0; i < sum.length; i++) sum[i] + e[i]];
     }
-    if (sum == null) throw StateError('No prompts could be embedded for ${c.id}');
+    return sum == null ? null : _normalized(sum);
+  }
 
-    final result = _normalized(sum);
-    _embeddingCache[c.id] = {'sig': _signature(c), 'emb': result};
-    unawaited(_saveEmbeddingCache());
-    return result;
+  // ---- Preview (the new-collection sheet) ----
+
+  // The vectors of the words and photos previewed lately, so editing one phrase, or switching photos and videos,
+  // does not run the model again for the rest.
+  final Map<String, List<double>> _previewVectors = {};
+
+  /// What a collection made of these words (or, with [seedUri], of looking like that photo or video frame) would
+  /// hold now, found the same way a saved collection's members are: how many items, the best few, and the people
+  /// in them. Null when it cannot be worked out (nothing indexed, the search model not ready).
+  Future<CollectionPreview?> previewCollection({
+    List<String> prompts = const [],
+    String? seedUri,
+    int? seedTimestampMs,
+    String contentMode = 'both',
+    List<int> personIds = const [],
+    int shown = 5,
+  }) async {
+    try {
+      final words = [
+        for (final p in prompts)
+          if (p.trim().isNotEmpty) p.trim(),
+      ];
+      // Only people, no words: what a collection made of them scores against (see createCollection).
+      if (seedUri == null && words.isEmpty) words.add('a photo');
+      final key = seedUri != null ? 'photo|$seedUri@$seedTimestampMs' : 'words|${words.join('|')}';
+      final embedding = _previewVectors[key] ??
+          (seedUri != null
+              ? _normalized(await NativeServices().encodeImage(uri: seedUri, timestampMs: seedTimestampMs))
+              : await _embedPrompts(words) ?? const <double>[]);
+      // Nothing came out (the model not ready, say): not kept, so it is tried again next time.
+      if (embedding.isEmpty) return null;
+      _previewVectors[key] = embedding;
+      if (_previewVectors.length > 40) _previewVectors.remove(_previewVectors.keys.first);
+
+      final spec = {
+        'id': 'preview',
+        'embedding': embedding,
+        'contentMode': contentMode,
+        'k': SmartCollection.defaultSensitivity,
+        if (personIds.isNotEmpty) 'personIds': personIds,
+      };
+      final scored = await NativeServices().scoreCollections([spec]);
+      final count = scored.isEmpty ? 0 : (scored.first['count'] as num? ?? 0).toInt();
+      if (count == 0) return const CollectionPreview(count: 0, items: [], people: []);
+      // The best few to show, and enough of the rest to tell who is in them.
+      final members = await NativeServices().collectionMembers(spec, limit: 400);
+      final items = [for (final m in members.take(shown)) CollectionCover.fromMap(m)];
+      List<({int personId, int count})> people = const [];
+      try {
+        people = await NativeServices().peopleIn([
+          for (final m in members)
+            if ((m['videoUri'] as String? ?? '').isNotEmpty) m['videoUri'] as String else m['path'] as String,
+        ]);
+      } catch (_) {
+        // No faces to name: the preview is shown without them.
+      }
+      return CollectionPreview(count: count, items: items, people: people);
+    } catch (e) {
+      debugPrint('Collection preview failed: $e');
+      return null;
+    }
   }
 
   // A photo collection saved with the previous search model: its photo is embedded again with the current one and
@@ -630,12 +697,24 @@ class CollectionsController extends GetxController {
     final native = Get.find<NativeController>();
     final uri = native.lastImageSeedUri;
     if (uri == null) return null;
+    return createPhotoCollection(
+      name: name,
+      uri: uri,
+      timestampMs: native.lastImageSeedTimestampMs,
+      contentMode: native.getContentModeString(contentMode: native.searchContentMode),
+    );
+  }
 
+  /// A collection of the photos and videos that look like this one (or this frame of a video).
+  Future<SmartCollection?> createPhotoCollection({
+    required String name,
+    required String uri,
+    int? timestampMs,
+    String contentMode = 'both',
+  }) async {
     final List<double> embedding;
     try {
-      embedding = _normalized(
-        await NativeServices().encodeImage(uri: uri, timestampMs: native.lastImageSeedTimestampMs),
-      );
+      embedding = _normalized(await NativeServices().encodeImage(uri: uri, timestampMs: timestampMs));
     } catch (e) {
       debugPrint('Could not embed the seed photo: $e');
       return null;
@@ -648,12 +727,12 @@ class CollectionsController extends GetxController {
       name: name.trim().isEmpty ? 'Similar photos' : name.trim(),
       prompts: const ['photos like the one you saved'],
       icon: Icons.photo_library_outlined,
-      contentMode: native.getContentModeString(contentMode: native.searchContentMode),
+      contentMode: contentMode,
       createdAt: now,
       kind: SmartCollection.kindPhotos,
       seedEmbedding: embedding,
       seedUri: uri,
-      seedTimestampMs: native.lastImageSeedTimestampMs,
+      seedTimestampMs: timestampMs,
       seedModel: _modelVersion,
     );
     return _addAndSync(collection);
@@ -666,6 +745,7 @@ class CollectionsController extends GetxController {
     required String query,
     String contentMode = 'both',
     List<int> personIds = const [],
+    List<String> morePrompts = const [],
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     // A pure "@Raseel" collection has no real topic to embed - CLIP needs
@@ -678,7 +758,12 @@ class CollectionsController extends GetxController {
       SmartCollection(
         id: 'user_$now',
         name: name.trim().isEmpty ? query : name.trim(),
-        prompts: [effectiveQuery],
+        // Other ways of saying the same thing are averaged in: steadier than one phrase alone.
+        prompts: [
+          effectiveQuery,
+          for (final p in morePrompts)
+            if (p.trim().isNotEmpty) p.trim(),
+        ],
         contentMode: contentMode,
         createdAt: now,
         personIds: personIds,

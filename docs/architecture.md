@@ -55,7 +55,10 @@ in fp32 because an fp16 build returned NaN on a real phone.
    instead of the text's.
 6. **Collections** store only their definition (words, people, or a seed photo). Their results
    are looked up again from the index each time, so new photos show up by themselves. Saved
-   vectors record which model made them and are redone when the model changes.
+   vectors record which model made them and are redone when the model changes. A collection's
+   words can have other phrasings; their vectors are averaged. While a new collection is being
+   made, its sheet runs the same lookup for a preview (the count and the best few), and
+   `FaceStore.peopleIn` names the people in those matches.
 
 ## Faces
 

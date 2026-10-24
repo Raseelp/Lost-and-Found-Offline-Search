@@ -1151,6 +1151,26 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
             .map { (key, b) -> MediaItem(b.uri, key, b.isVideo, b.ts) }
     }
 
+    /** The people the app lists who are in these photos and videos (by uri), each with how many of them they are
+     *  clearly in, most first - what the new-collection sheet names under its preview. */
+    fun peopleIn(uris: Collection<String>): List<Pair<Long, Int>> {
+        val counts = HashMap<Long, Int>()
+        // SQLite takes at most 999 values in one statement.
+        for (chunk in uris.distinct().chunked(500)) {
+            val marks = chunk.joinToString(",") { "?" }
+            readableDatabase.rawQuery(
+                """SELECT f.person_id, COUNT(DISTINCT ph.uri)
+                   FROM faces f JOIN photos ph ON ph.hash = f.photo_hash JOIN people p ON p.id = f.person_id
+                   WHERE ph.uri IN ($marks) AND ${confident("f")} AND $listedPeople
+                   GROUP BY f.person_id""",
+                chunk.toTypedArray()
+            ).use {
+                while (it.moveToNext()) counts.merge(it.getLong(0), it.getInt(1), Int::plus)
+            }
+        }
+        return counts.entries.sortedByDescending { it.value }.map { it.key to it.value }
+    }
+
     // ---- when people appear (the People timeline) ----
 
     // A face that can be spoken of as being someone ("X and Y together", a first photo of them): the person

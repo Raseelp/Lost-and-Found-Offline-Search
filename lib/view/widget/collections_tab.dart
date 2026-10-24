@@ -26,25 +26,6 @@ void openCollectionScreen(
   ).push(MaterialPageRoute(builder: (_) => const CollectionScreen()));
 }
 
-/// The sheet that makes a new collection (from the action button, see ActionFab).
-void showNewCollectionSheet(
-  BuildContext context,
-  CollectionsController controller,
-) {
-  showSaveCollectionSheet(
-    context,
-    title: 'New collection',
-    showQuery: true,
-    // Stays on the tab: the new card appears at the top and plays its own
-    // "finding matches" animation - opening it straight away would hide that.
-    onSave: (name, query, personIds) => controller.createCollection(
-      name: name,
-      query: query,
-      personIds: personIds,
-    ),
-  );
-}
-
 // The full grid: the user's own collections first, then the built-ins that
 // aren't hidden. Long-press a card to edit/hide/delete.
 class CollectionsTab extends StatelessWidget {

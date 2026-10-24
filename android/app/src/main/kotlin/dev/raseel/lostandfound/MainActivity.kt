@@ -1034,6 +1034,12 @@ class MainActivity : FlutterActivity() {
                     faces.store.peopleCounts(ids)
                 }
 
+                // The people in these photos and videos, most first (see FaceStore.peopleIn).
+                "peopleIn" -> faceTask(result) {
+                    val uris = call.argument<List<String>>("uris") ?: emptyList()
+                    faces.store.peopleIn(uris).map { (id, count) -> mapOf("personId" to id, "count" to count) }
+                }
+
                 // When people appear: finds the date of photos and videos not looked up yet (for as
                 // long as [budgetMs] allows, so the app can show progress and ask again), then returns
                 // each listed person's months. See MediaDates and FaceStore.peopleTimeline.

@@ -204,3 +204,13 @@ class CollectionCover {
     );
   }
 }
+
+/// What a collection that is still being made would hold (see CollectionsController.previewCollection): how many
+/// items, the best few, and the people in them with how many of the items each is in, most first.
+class CollectionPreview {
+  const CollectionPreview({required this.count, required this.items, required this.people});
+
+  final int count;
+  final List<CollectionCover> items;
+  final List<({int personId, int count})> people;
+}

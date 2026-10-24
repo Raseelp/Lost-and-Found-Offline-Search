@@ -626,6 +626,16 @@ class NativeServices {
     };
   }
 
+  /// The people listed on the People tab who are in these photos and videos (by uri), each with how many of them
+  /// they are in, most first.
+  Future<List<({int personId, int count})>> peopleIn(List<String> uris) async {
+    final list = await _channel.invokeListMethod<dynamic>('peopleIn', {'uris': uris});
+    return [
+      for (final e in (list ?? const []).cast<Map>())
+        (personId: (e['personId'] as num).toInt(), count: (e['count'] as num).toInt()),
+    ];
+  }
+
   Future<List<PersonFace>> personFaces(int personId) async {
     final list = await _channel.invokeListMethod<dynamic>('personFaces', {
       'personId': personId,
