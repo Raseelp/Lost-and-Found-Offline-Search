@@ -78,20 +78,27 @@ List<BentoShape> bentoShapesFor(int count) {
 }
 
 /// For each slot of [shapes], which item goes there: the item with the highest count takes the
-/// first of the biggest slots, and so on down. Ties keep their order.
-List<int> bentoAssignment(List<BentoShape> shapes, List<int> counts) {
-  assert(shapes.length == counts.length);
-  final slots = List<int>.generate(shapes.length, (i) => i)
+/// first of the biggest slots, and so on down. Ties keep their order. The first [leading] items
+/// come before all the others, in the first slots of the grid whatever their size (the one with
+/// the highest count first).
+List<int> bentoAssignment(List<BentoShape> shapes, List<int> counts, {int leading = 0}) {
+  assert(shapes.length == counts.length && leading <= counts.length);
+  int byCount(int a, int b) {
+    final c = counts[b].compareTo(counts[a]);
+    return c != 0 ? c : a.compareTo(b);
+  }
+
+  final result = List<int>.filled(shapes.length, 0);
+  final first = List<int>.generate(leading, (i) => i)..sort(byCount);
+  for (var k = 0; k < leading; k++) {
+    result[k] = first[k];
+  }
+  final slots = List<int>.generate(shapes.length - leading, (i) => leading + i)
     ..sort((a, b) {
       final byArea = _area(shapes[b]).compareTo(_area(shapes[a]));
       return byArea != 0 ? byArea : a.compareTo(b);
     });
-  final items = List<int>.generate(counts.length, (i) => i)
-    ..sort((a, b) {
-      final byCount = counts[b].compareTo(counts[a]);
-      return byCount != 0 ? byCount : a.compareTo(b);
-    });
-  final result = List<int>.filled(shapes.length, 0);
+  final items = List<int>.generate(counts.length - leading, (i) => leading + i)..sort(byCount);
   for (var k = 0; k < slots.length; k++) {
     result[slots[k]] = items[k];
   }

@@ -148,10 +148,17 @@ class CollectionsTab extends StatelessWidget {
         !controller.syncing.contains(c.id) &&
         count(c) == 0;
 
+    // Collections you made that have something in them come first, then the rest. One being worked out right
+    // now (just made, say) is among them, so it does not jump to the front once its items are in.
+    bool yoursWithItems(SmartCollection c) =>
+        !c.isBuiltIn && (count(c) > 0 || controller.syncing.contains(c.id));
     final main = [
       for (final c in all)
-        if (!noMatches(c) && !c.isEveryday) c,
+        if (!noMatches(c) && !c.isEveryday && yoursWithItems(c)) c,
+      for (final c in all)
+        if (!noMatches(c) && !c.isEveryday && !yoursWithItems(c)) c,
     ];
+    final yours = main.where(yoursWithItems).length;
     final everyday = [
       for (final c in all)
         if (!noMatches(c) && c.isEveryday) c,
@@ -162,7 +169,7 @@ class CollectionsTab extends StatelessWidget {
     ];
 
     final shapes = bentoShapesFor(main.length);
-    final order = bentoAssignment(shapes, [for (final c in main) count(c)]);
+    final order = bentoAssignment(shapes, [for (final c in main) count(c)], leading: yours);
 
     return [
       if (main.isNotEmpty) _grid(context, main, shapes, order),

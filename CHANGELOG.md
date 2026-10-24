@@ -15,6 +15,8 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   own data. See `docs/development.md`.
 
 ### Changed
+- Collections you made that have something in them now come first on the Collections tab,
+  before the built-in ones.
 - Collections tab: each collection is one cover photo filling a rounded tile, with its name, item
   count and a "New" tag. Covers load as tiles come on screen, at the size each tile needs.
 - The actions at the top of the Collections and People tabs (New collection, Select collections,
