@@ -152,7 +152,7 @@ class FixedTextScale extends StatelessWidget {
   }
 }
 
-/// Keeps the text in the bars around the pages (the chip, Skip, the download card, the button) from growing past
+/// Keeps the text in the bars around the pages (the chip, Close, the download card, the button) from growing past
 /// 1.3 times: they sit on every page, and at the largest text sizes they would leave the pages no room. The
 /// pages themselves follow the phone's setting in full.
 class BarTextScale extends StatelessWidget {

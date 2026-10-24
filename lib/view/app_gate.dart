@@ -26,7 +26,7 @@ class AppGate extends StatelessWidget {
             );
           }
 
-          // A fresh install is shown the tour first. It stays up until it is finished or skipped, also when
+          // A fresh install is shown the tour first. It stays up until it is finished, also when
           // the download behind it ends.
           if (tour.shouldShow(modelsReady: controller.modelsReady)) {
             return const FirstRunTour();

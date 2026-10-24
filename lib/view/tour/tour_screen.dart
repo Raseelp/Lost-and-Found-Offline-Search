@@ -463,7 +463,7 @@ class _Ring extends StatelessWidget {
   }
 }
 
-/// Where the download is, small: a ring and the percentage, level with Skip.
+/// Where the download is, small: a ring and the percentage, at the top of the tour.
 class _DownloadChip extends StatelessWidget {
   const _DownloadChip({
     super.key,

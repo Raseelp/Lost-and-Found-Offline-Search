@@ -19,10 +19,10 @@ class TourController extends GetxController {
 
   bool loaded = false;
 
-  /// The latest version this phone has been through (or skipped); 0 for none.
+  /// The latest version this phone has been through; 0 for none.
   int seenVersion = 0;
 
-  /// The tour is on screen and stays until it is finished or skipped, even when the download behind it ends.
+  /// The tour is on screen and stays until it is finished, even when the download behind it ends.
   bool active = false;
 
   bool _decided = false;
@@ -72,7 +72,7 @@ class TourController extends GetxController {
     }
   }
 
-  /// The tour was finished or skipped: it does not come back by itself.
+  /// The tour was finished: it does not come back by itself.
   Future<void> finish() async {
     active = false;
     seenVersion = firstRunVersion;
