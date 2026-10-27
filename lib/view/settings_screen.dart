@@ -8,6 +8,7 @@ import 'package:lost_and_found/controllers/collections_controller.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
 import 'package:lost_and_found/controllers/grid_video_controller.dart';
 import 'package:lost_and_found/controllers/memories_controller.dart';
+import 'package:lost_and_found/controllers/stories_controller.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
 import 'package:lost_and_found/models/model_status.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
@@ -1081,6 +1082,30 @@ class _MemoriesSection extends StatelessWidget {
                     onTap: () async => say(await memories.sendTest()),
                   ),
                 ],
+                GetBuilder<StoriesController>(
+                  builder: (stories) => _SettingsRow(
+                    icon: Icons.web_stories_outlined,
+                    title: 'Stories reminder',
+                    subtitle: 'A note a day after you open your stories, when they have refreshed.',
+                    trailing: Switch(
+                      value: stories.reminderEnabled && stories.reminderAllowed,
+                      onChanged: (on) async {
+                        final ok = await stories.setReminder(on);
+                        if (on && !ok) say('Allow notifications for this app to get a note when your stories refresh.');
+                      },
+                    ),
+                  ),
+                ),
+                GetBuilder<StoriesController>(
+                  builder: (stories) => stories.reminderEnabled
+                      ? _TapRow(
+                          icon: Icons.send_rounded,
+                          title: 'Send one now',
+                          subtitle: 'See what the stories note looks like.',
+                          onTap: () async => say(await stories.sendTest()),
+                        )
+                      : const SizedBox.shrink(),
+                ),
               ],
             ),
           ],

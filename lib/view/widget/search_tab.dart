@@ -5,10 +5,8 @@ import 'package:get/get.dart';
 import 'package:lost_and_found/view/widget/app_search_field.dart';
 import 'package:lost_and_found/view/widget/nothing_indexed.dart';
 import 'package:lost_and_found/controllers/collections_controller.dart';
-import 'package:lost_and_found/controllers/faces_controller.dart';
-import 'package:lost_and_found/view/person_screen.dart';
-import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/view/widget/collection_widgets.dart';
+import 'package:lost_and_found/view/widget/story_rings.dart';
 import 'package:lost_and_found/view/widget/collections_tab.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
@@ -21,16 +19,9 @@ import 'package:lost_and_found/view/widget/search_filter_sheet.dart';
 import 'package:lost_and_found/view/widget/search_results.dart';
 
 class SearchTab extends StatelessWidget {
-  const SearchTab({
-    super.key,
-    required this.controller,
-    required this.onSeeAllCollections,
-  });
+  const SearchTab({super.key, required this.controller});
 
   final NativeController controller;
-
-  // Switches the home screen to the Collections tab.
-  final VoidCallback onSeeAllCollections;
 
   @override
   Widget build(BuildContext context) {
@@ -64,26 +55,20 @@ class SearchTab extends StatelessWidget {
             ),
           ),
         ),
+        // The rings are one bar that is large before a search and shrinks into a strip above the
+        // results (and grows back when "Stories" is tapped).
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+          sliver: SliverToBoxAdapter(
+            child: StoryRingsBar(controller: controller, compact: showResults),
+          ),
+        ),
         if (showResults)
           ...searchResultsSlivers(controller: controller)
         else
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-            sliver: SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  _CollectionChipRow(onSeeAll: onSeeAllCollections),
-                  _PeopleRow(
-                    onSeeAll: () {
-                      // Same as tapping the People tab: show it, refreshed.
-                      controller.setHomeTab(3);
-                      Get.find<FacesController>().refreshAll();
-                    },
-                  ),
-                  _SearchIdlePrompt(controller: controller),
-                ],
-              ),
-            ),
+            sliver: SliverToBoxAdapter(child: _SearchIdlePrompt(controller: controller)),
           ),
         SliverToBoxAdapter(child: SizedBox(height: floatingBarClearance(context))),
       ],
@@ -740,172 +725,6 @@ class _SaveCollectionButton extends StatelessWidget {
                   }
               },
             ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// A few pinned collections on the empty Search screen - shortcuts, with the
-// Collections tab as the real home for the full set.
-class _CollectionChipRow extends StatelessWidget {
-  const _CollectionChipRow({required this.onSeeAll});
-
-  final VoidCallback onSeeAll;
-
-  @override
-  Widget build(BuildContext context) {
-    return GetBuilder<CollectionsController>(
-      builder: (collections) {
-        final pinned = collections.pinned;
-        if (pinned.isEmpty) return const SizedBox.shrink();
-
-        return Padding(
-          padding: const EdgeInsets.only(top: AppSpacing.sm),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: AppSpacing.xs),
-                    child: Text(
-                      'COLLECTIONS',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.ink48,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: onSeeAll,
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.xs),
-                      child: Text(
-                        'See all',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              SizedBox(
-                height: 38,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: pinned.length,
-                  separatorBuilder: (_, _) =>
-                      const SizedBox(width: AppSpacing.sm),
-                  itemBuilder: (context, i) => CollectionChip(
-                    collection: pinned[i],
-                    count: collections.statsFor(pinned[i].id).count,
-                    coverBytes: collections.coverFor(pinned[i].id),
-                    onTap: () =>
-                        openCollectionScreen(context, collections, pinned[i]),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-// A few of the people found in the library, next to the collections on the
-// empty Search screen: faces to tap straight into someone's photos, with the
-// People tab as the home for everyone. Absent until there is someone to show.
-class _PeopleRow extends StatelessWidget {
-  const _PeopleRow({required this.onSeeAll});
-
-  final VoidCallback onSeeAll;
-
-  // Enough to fill and scroll a row without turning into the whole tab.
-  static const int _maxShown = 12;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return GetBuilder<FacesController>(
-      builder: (faces) {
-        final people = faces.people.take(_maxShown).toList();
-        if (people.isEmpty) return const SizedBox.shrink();
-
-        return Padding(
-          padding: const EdgeInsets.only(top: AppSpacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(left: AppSpacing.xs),
-                    child: Text(
-                      'PEOPLE',
-                      style: textTheme.labelSmall?.copyWith(color: AppColors.ink48, letterSpacing: 0.5),
-                    ),
-                  ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: onSeeAll,
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.xs),
-                      child: Text(
-                        'See all',
-                        style: textTheme.labelSmall?.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              SizedBox(
-                height: 90,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: people.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.md),
-                  itemBuilder: (context, i) {
-                    final person = people[i];
-                    final named = person.name != null;
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(AppRadius.lg),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => PersonScreen(person: person)),
-                      ),
-                      child: SizedBox(
-                        width: 66,
-                        child: Column(
-                          children: [
-                            FaceAvatar(faceId: person.coverFaceId, size: 60),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              named ? person.name! : 'Add name',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: textTheme.bodySmall?.copyWith(
-                                color: named ? AppColors.ink80 : AppColors.ink48,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
           ),
         );
       },

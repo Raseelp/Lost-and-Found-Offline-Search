@@ -4,6 +4,7 @@ import 'package:lost_and_found/controllers/faces_controller.dart';
 import 'package:lost_and_found/controllers/grid_video_controller.dart';
 import 'package:lost_and_found/controllers/memories_controller.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
+import 'package:lost_and_found/controllers/stories_controller.dart';
 import 'package:lost_and_found/controllers/tour_controller.dart';
 
 class InitBindings extends Bindings {
@@ -13,6 +14,7 @@ class InitBindings extends Bindings {
     Get.put(CollectionsController());
     Get.put(FacesController());
     Get.put(MemoriesController());
+    Get.put(StoriesController());
     Get.put(GridVideoController(), permanent: true);
     Get.put(TourController());
   }

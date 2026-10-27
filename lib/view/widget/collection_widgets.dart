@@ -312,65 +312,6 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
   }
 }
 
-// The Search tab's quick-access row - a pill with the collection's cover
-// photo as a small round avatar (its icon until one exists), its name, and
-// how many things are in it.
-class CollectionChip extends StatelessWidget {
-  const CollectionChip({
-    super.key,
-    required this.collection,
-    required this.count,
-    required this.coverBytes,
-    required this.onTap,
-  });
-
-  final SmartCollection collection;
-  final int count;
-  final Uint8List? coverBytes;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xs + 2,
-            AppSpacing.xs + 2,
-            AppSpacing.md,
-            AppSpacing.xs + 2,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.parchment,
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _ChipAvatar(bytes: coverBytes, icon: collection.icon),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                collection.name,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                '$count',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppColors.ink48),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Name (+ the phrase to search, when it isn't already known) for a new or
 /// edited collection. [onSave] gets the finished values - [query] already
 /// has any "@name" mentions stripped out (same as search's own
@@ -856,34 +797,6 @@ class _MenuRow extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ChipAvatar extends StatelessWidget {
-  const _ChipAvatar({required this.bytes, required this.icon});
-
-  final Uint8List? bytes;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipOval(
-      child: SizedBox(
-        width: 24,
-        height: 24,
-        child: bytes == null
-            ? ColoredBox(
-                color: AppColors.hairline,
-                child: Icon(icon, size: 14, color: AppColors.ink48),
-              )
-            : Image.memory(
-                bytes!,
-                fit: BoxFit.cover,
-                cacheWidth: 72,
-                cacheHeight: 72,
-              ),
       ),
     );
   }

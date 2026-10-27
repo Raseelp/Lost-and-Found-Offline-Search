@@ -550,6 +550,57 @@ class NativeServices {
     return map == null ? const MemorySettings() : MemorySettings.fromMap(map);
   }
 
+  /// When each of [uris] was taken (0: not known) and whether it is a screenshot or a screen recording; a file the
+  /// catalog does not have is left out. Used to choose the pictures of a story.
+  Future<Map<String, ({int takenMs, bool junk})>> mediaDates(List<String> uris) async {
+    if (uris.isEmpty) return const {};
+    try {
+      final list = await _channel.invokeListMethod<dynamic>('mediaDates', {'uris': uris});
+      return {
+        for (final e in (list ?? const []).cast<Map>())
+          e['uri'] as String: (takenMs: (e['takenMs'] as num?)?.toInt() ?? 0, junk: e['junk'] == true),
+      };
+    } catch (e) {
+      debugPrint('mediaDates failed: $e');
+      return const {};
+    }
+  }
+
+  /// The "your stories have refreshed" notification: [enabled] turns it on or off, [atMs] sets it for that time
+  /// (replacing the one waiting), [cancel] takes it away. [ringsJson]: who will be in the row of rings it shows when
+  /// opened out (a list of `{title, faceId | cover, video}` as text), kept for when it is made. Returns whether it
+  /// is on and whether the system lets the app show notifications.
+  Future<({bool enabled, bool allowed})> storiesReminder({
+    bool? enabled,
+    int? atMs,
+    bool cancel = false,
+    String? ringsJson,
+  }) async {
+    try {
+      final map = await _channel.invokeMapMethod<String, dynamic>('storiesReminder', {
+        if (enabled != null) 'enabled': enabled,
+        if (atMs != null) 'atMs': atMs,
+        if (cancel) 'cancel': true,
+        if (ringsJson != null) 'ringsJson': ringsJson,
+      });
+      return (enabled: map?['enabled'] != false, allowed: map?['allowed'] == true);
+    } catch (e) {
+      debugPrint('storiesReminder failed: $e');
+      return (enabled: true, allowed: false);
+    }
+  }
+
+  /// Shows the "your stories have refreshed" note now with these rings ([ringsJson], as for [storiesReminder]), to see
+  /// what it looks like. Whether it was shown (it is not when the system does not let the app show notifications).
+  Future<bool> storiesReminderTest(String ringsJson) async {
+    try {
+      return await _channel.invokeMethod<bool>('storiesReminderTest', {'ringsJson': ringsJson}) ?? false;
+    } catch (e) {
+      debugPrint('storiesReminderTest failed: $e');
+      return false;
+    }
+  }
+
   /// Sends today's memory now, to see what it looks like. The message says what happened.
   Future<String> memoryTest() async {
     final map = await _channel.invokeMapMethod<String, dynamic>('memoryTest');

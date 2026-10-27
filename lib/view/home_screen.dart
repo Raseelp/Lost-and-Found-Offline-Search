@@ -286,11 +286,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           child: IndexedStack(
                             index: controller.homeTab,
                             children: [
-                              SearchTab(
-                                controller: controller,
-                                onSeeAllCollections: () =>
-                                    controller.setHomeTab(_tabCollections),
-                              ),
+                              SearchTab(controller: controller),
                               GetBuilder<CollectionsController>(
                                 builder: (collections) => CollectionsTab(
                                   controller: collections,

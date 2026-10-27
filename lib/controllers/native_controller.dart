@@ -722,6 +722,27 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     update();
   }
 
+  /// Puts the Search tab back to before any search: no results, an empty bar. A search still
+  /// loading is dropped (its tiles stop loading).
+  void clearSearch() {
+    _searchRun++;
+    isSearching = false;
+    error = '';
+    searchResults = [];
+    imageCache.clear();
+    matchExplanation = [];
+    lastTextQuery = null;
+    lastMentionedPersonIds = [];
+    lastMentionedPeopleNames = [];
+    lastImageSeedUri = null;
+    lastImageSeedTimestampMs = null;
+    pickedSearchImageUri = null;
+    pickedSearchImageBytes = null;
+    pickedSearchVideoTimestampMs = null;
+    searchTextController.clear();
+    update();
+  }
+
   // The one submit action, whichever input is active - an attached image
   // takes priority over typed text (matching what's actually shown in the
   // search bar), never both at once.
@@ -750,7 +771,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
         final frameMs = pickedSearchVideoTimestampMs;
         lastImageSeedUri = imageUri;
         lastImageSeedTimestampMs = frameMs;
-        searchResults = frameMs != null
+        final found = frameMs != null
             ? await NativeServices().searchByVideoFrame(
                 uri: imageUri,
                 timestampMs: frameMs,
@@ -762,6 +783,9 @@ class NativeController extends GetxController with WidgetsBindingObserver {
                 limit: sliderValue.round().toInt(),
                 contentMode: searchContentMode,
               );
+        // The search was cleared (or replaced) while it ran.
+        if (run != _searchRun) return;
+        searchResults = found;
       } else {
         // Recognised people (typed plainly, or picked via "@" - "Person and Person2 at the
         // beach") narrow the search to photos/videos with all of them in it; their names are
@@ -780,12 +804,14 @@ class NativeController extends GetxController with WidgetsBindingObserver {
         lastMentionedPeopleNames = mentionedPeople.map((p) => p.name!).toList();
         lastImageSeedUri = null;
         lastImageSeedTimestampMs = null;
-        searchResults = await NativeServices().searchImages(
+        final found = await NativeServices().searchImages(
           query: query,
           limitNumber: sliderValue.round().toInt(),
           contentMode: searchContentMode,
           personIds: mentionedIds,
         );
+        if (run != _searchRun) return;
+        searchResults = found;
       }
 
       debugPrint(searchResults.toString());

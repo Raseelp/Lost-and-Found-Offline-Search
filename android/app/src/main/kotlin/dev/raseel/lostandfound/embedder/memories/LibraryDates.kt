@@ -179,6 +179,31 @@ class LibraryDates private constructor(context: Context) : SQLiteOpenHelper(cont
         return first to (edge("DESC") ?: first)
     }
 
+    /** When a file was taken (0 when it is not known, or not trustworthy) and whether it is a screenshot or a screen recording. */
+    class DateOf(val uri: String, val takenMs: Long, val junk: Boolean)
+
+    /** What the catalog knows about each of [uris] (those it has not got are left out). */
+    @Synchronized
+    fun datesFor(uris: List<String>): List<DateOf> {
+        val out = ArrayList<DateOf>(uris.size)
+        // Looked up by file, so the file has its own index (made once, here: the catalog only had one by date).
+        if (!uriIndexed) {
+            writableDatabase.execSQL("CREATE INDEX IF NOT EXISTS days_uri ON days(uri)")
+            uriIndexed = true
+        }
+        val db = readableDatabase
+        for (chunk in uris.chunked(400)) {
+            val marks = chunk.joinToString(",") { "?" }
+            db.rawQuery("SELECT uri, taken_ms, src, junk FROM days WHERE uri IN ($marks)", chunk.toTypedArray()).use {
+                while (it.moveToNext()) {
+                    val reliable = it.getInt(2) in 1..3
+                    out += DateOf(it.getString(0), if (reliable) it.getLong(1) else 0L, it.getInt(3) == 1)
+                }
+            }
+        }
+        return out
+    }
+
     /** How many photos and videos were taken from [startMs] up to [endMs]. */
     fun count(startMs: Long, endMs: Long): Int =
         readableDatabase.rawQuery(
@@ -195,6 +220,8 @@ class LibraryDates private constructor(context: Context) : SQLiteOpenHelper(cont
         ).use { while (it.moveToNext()) out += DayPhoto(it.getLong(0), it.getString(1), it.getInt(2) == 1, it.getLong(3)) }
         return out
     }
+
+    private var uriIndexed = false
 
     companion object {
         private const val BATCH = 300

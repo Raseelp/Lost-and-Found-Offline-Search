@@ -29,7 +29,6 @@ class CollectionsController extends GetxController {
   static const modelVersion = 'mobileclip-s0-apple-2024-v1';
   static const _modelVersion = modelVersion;
   static const _embeddingsKey = 'collection_embeddings';
-  static const int maxPinned = 6;
   static const int _memberLimit = 200;
 
   static const int _stateVisible = 0;
@@ -104,12 +103,6 @@ class CollectionsController extends GetxController {
   CollectionStats statsFor(String id) => stats[id] ?? CollectionStats.empty;
 
   int _stateOf(String id) => _state[id] ?? _stateVisible;
-
-  /// The row of quick-access chips on the Search tab.
-  List<SmartCollection> get pinned {
-    final withItems = visible.where((c) => statsFor(c.id).count > 0).toList();
-    return withItems.take(maxPinned).toList();
-  }
 
   bool isEdited(String id) => _edited.contains(id);
 
@@ -613,12 +606,9 @@ class CollectionsController extends GetxController {
 
   Future<void> _loadCoversPass() async {
     // Only what is shown without a tile asking for it: the featured card (first, as it is at the top of the
-    // Collections tab) and the quick-access chips of the Search tab (a small picture each). The tiles of the
-    // tab load their own cover as they come on screen.
+    // Collections tab). The tiles of the tab, and the story rings of the Search tab, load their own cover as
+    // they come on screen.
     unawaited(_loadHeroImages());
-    for (final c in pinned) {
-      await loadCover(c.id, 420);
-    }
     // The last pictures are not left waiting for the timer.
     _notifyTimer?.cancel();
     _notifyTimer = null;
@@ -889,6 +879,19 @@ class CollectionsController extends GetxController {
     try {
       return await NativeServices().collectionMembers(await _specFor(collection), limit: 100000);
     } on ModelsNotReadyError {
+      return const [];
+    }
+  }
+
+  /// The best matches of [collection], for a story: a few dozen, not the whole collection. Empty
+  /// if the models are not ready.
+  Future<List<Map<String, dynamic>>> membersForStory(SmartCollection collection, {int limit = 30}) async {
+    try {
+      return await NativeServices().collectionMembers(await _specFor(collection), limit: limit);
+    } on ModelsNotReadyError {
+      return const [];
+    } catch (e) {
+      debugPrint('Failed to load story members: $e');
       return const [];
     }
   }

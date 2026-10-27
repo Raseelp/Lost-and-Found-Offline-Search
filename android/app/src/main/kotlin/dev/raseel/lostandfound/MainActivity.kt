@@ -53,6 +53,7 @@ import dev.raseel.lostandfound.embedder.memories.ThenNow
 import dev.raseel.lostandfound.embedder.memories.DayYear
 import dev.raseel.lostandfound.embedder.memories.Plan
 import dev.raseel.lostandfound.embedder.memories.PlanPhoto
+import dev.raseel.lostandfound.embedder.memories.StoriesReminder
 import dev.raseel.lostandfound.embedder.models.ModelCatalog
 import dev.raseel.lostandfound.embedder.models.ModelManager
 import dev.raseel.lostandfound.embedder.models.ModelsNotReadyException
@@ -1160,6 +1161,41 @@ class MainActivity : FlutterActivity() {
                     dates.sync(embeddingEngine)
                     val pending = dates.resolve(applicationContext, faceStore, budget)
                     mapOf("total" to dates.progress().first, "pending" to pending)
+                }
+
+                // When each of these files was taken, and whether it is a screenshot, for the stories: brings the
+                // catalog of dates up to date first (for a short while), then answers from it.
+                "mediaDates" -> memoryTask(result) {
+                    val uris = call.argument<List<String>>("uris") ?: emptyList()
+                    val dates = LibraryDates.get(applicationContext)
+                    try {
+                        dates.sync(embeddingEngine)
+                        dates.resolve(applicationContext, faces.store, 150L)
+                    } catch (e: Exception) {
+                        android.util.Log.w("MainActivity", "dates for stories failed: ${e.message}")
+                    }
+                    dates.datesFor(uris).map { mapOf("uri" to it.uri, "takenMs" to it.takenMs, "junk" to it.junk) }
+                }
+
+                // The "your stories have refreshed" notification: on or off, set for a time, or taken away.
+                "storiesReminder" -> {
+                    call.argument<Boolean>("enabled")?.let { StoriesReminder.setEnabled(applicationContext, it) }
+                    // Who will be in the note (a list of rings as text), kept for when it is made.
+                    if (call.hasArgument("ringsJson")) StoriesReminder.setRings(applicationContext, call.argument<String>("ringsJson"))
+                    if (call.argument<Boolean>("cancel") == true) StoriesReminder.cancel(applicationContext)
+                    call.argument<Number>("atMs")?.let { StoriesReminder.schedule(applicationContext, it.toLong()) }
+                    result.success(
+                        mapOf(
+                            "enabled" to StoriesReminder.enabled(applicationContext),
+                            "allowed" to MemoryNotifier.allowed(applicationContext),
+                        )
+                    )
+                }
+
+                // Shows the "stories have refreshed" note now, with these rings, to see what it looks like (it does not
+                // touch the one that is set). Whether it was shown.
+                "storiesReminderTest" -> memoryTask(result) {
+                    StoriesReminder.post(applicationContext, call.argument<String>("ringsJson"), test = true)
                 }
 
                 // This date in past years (and, when it has nothing, the week round it), with the first photos
