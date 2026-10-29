@@ -30,6 +30,18 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   own data. See `docs/development.md`.
 
 ### Changed
+- The circles round a person's photo sit further out, so no caption covers the photo, and their words can
+  be tapped too. Four circles go round it: With someone, Save photos, Hide and a quieter Fix mistakes at
+  the bottom. Tapping Fix mistakes moves the others up round the ring while it turns into Shown twice and
+  Not them and Mixed up come out of it; a small close on the photo folds them back.
+  Tapping a circle asks a question about that person and plays a short looping film of what it does, made
+  from their own faces and photos, in place of the paragraph that explained it.
+- Clearer words in the menu you get by holding a person, and on their page: Save all their photos, Photos
+  with someone else, Merge duplicates, Separate two people and Check their faces, each with a line saying
+  what it is for. The three that fix mistakes are now together at the bottom under "Fix mistakes".
+- The bolt button no longer strikes (no shake, flash, ring, lightning or flicker). Its actions now bud out of
+  it like drops of the same liquid, pinch off and settle, and are drawn back in the same way; the bolt turns
+  into a close mark while they are out, with one light tap of haptics.
 - With nothing indexed yet, Search, Collections, Faces and the zip export each show a small moving
   picture of what they will hold, made of the tour's sample photos: example searches putting the best
   photos first (as in the tour), collection tiles getting covers, people as stacks of faces with some

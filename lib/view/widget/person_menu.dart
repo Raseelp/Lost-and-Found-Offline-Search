@@ -14,6 +14,7 @@ import 'package:lost_and_found/view/export_zip_screen.dart';
 import 'package:lost_and_found/view/face_review_screen.dart';
 import 'package:lost_and_found/view/split_person_screen.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
+import 'package:lost_and_found/view/widget/person_demo.dart';
 
 /// Everything you can do with one person, in one menu - opened by holding a face in
 /// the People tab. (Their own page shows these as [PersonHeadActions] instead - the
@@ -26,12 +27,16 @@ void showPersonMenu(
   showFacesSheet<void>(
     context,
     title: person.name ?? 'This person',
-    builder: (sheet) => Column(
+    // Everyday things first; the three that fix the app's mistakes after, under their own heading, each
+    // saying which mistake it is for (so they are not confused with one another). Scrolls on a short screen.
+    builder: (sheet) => SingleChildScrollView(
+      child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         SheetRow(
           icon: Icons.edit_outlined,
           label: person.name == null ? 'Add a name' : 'Rename',
+          subtitle: person.name == null ? 'So you can search for them by name' : 'Change the name shown everywhere',
           onTap: () async {
             Navigator.of(sheet).pop();
             final name = await showRenamePersonDialog(context, person.name);
@@ -41,8 +46,8 @@ void showPersonMenu(
         const Divider(height: 1, color: AppColors.dividerSoft),
         SheetRow(
           icon: Icons.folder_zip_outlined,
-          label: 'Export as zip',
-          subtitle: 'Their photos and videos, in a zip',
+          label: 'Save all their photos',
+          subtitle: '${person.name == null ? 'Their' : "${person.name}'s"} photos and videos in one zip file',
           onTap: () {
             Navigator.of(sheet).pop();
             openExportZip(context, select: {ExportController.personKey(person.id)});
@@ -51,8 +56,8 @@ void showPersonMenu(
         const Divider(height: 1, color: AppColors.dividerSoft),
         SheetRow(
           icon: Icons.groups_rounded,
-          label: 'Find photos with someone else',
-          subtitle: 'Together, or just the two of them',
+          label: 'Photos with someone else',
+          subtitle: "Pick a person to see photos they're both in",
           onTap: () {
             Navigator.of(sheet).pop();
             // To the People tab, in "choose people" mode with this one ticked
@@ -64,9 +69,19 @@ void showPersonMenu(
         ),
         const Divider(height: 1, color: AppColors.dividerSoft),
         SheetRow(
+          icon: Icons.visibility_off_outlined,
+          label: 'Hide this person',
+          subtitle: 'They move to Hidden people in Settings',
+          onTap: () {
+            Navigator.of(sheet).pop();
+            faces.setHidden(person, true);
+          },
+        ),
+        const _MenuHeading('Fix mistakes'),
+        SheetRow(
           icon: Icons.merge_type_rounded,
-          label: 'Same person as someone else',
-          subtitle: 'Merge with another person',
+          label: 'Merge duplicates',
+          subtitle: 'A person appears more than once? Join them',
           onTap: () {
             Navigator.of(sheet).pop();
             showMergePicker(context, faces, person);
@@ -75,8 +90,8 @@ void showPersonMenu(
         const Divider(height: 1, color: AppColors.dividerSoft),
         SheetRow(
           icon: Icons.call_split_rounded,
-          label: 'Split into two people',
-          subtitle: 'If two different people were mixed up',
+          label: 'Separate two people',
+          subtitle: 'Use this when this card has two different people in it',
           onTap: () {
             Navigator.of(sheet).pop();
             Navigator.of(context).push(
@@ -87,8 +102,8 @@ void showPersonMenu(
         const Divider(height: 1, color: AppColors.dividerSoft),
         SheetRow(
           icon: Icons.grid_view_rounded,
-          label: 'Review faces',
-          subtitle: 'Take out faces that are someone else',
+          label: 'Check their faces',
+          subtitle: 'Remove any face that belongs to someone else',
           onTap: () {
             Navigator.of(sheet).pop();
             Navigator.of(context).push(
@@ -98,18 +113,38 @@ void showPersonMenu(
             );
           },
         ),
-        const Divider(height: 1, color: AppColors.dividerSoft),
-        SheetRow(
-          icon: Icons.visibility_off_outlined,
-          label: 'Hide this person',
-          onTap: () {
-            Navigator.of(sheet).pop();
-            faces.setHidden(person, true);
-          },
-        ),
       ],
+      ),
     ),
   );
+}
+
+/// A small heading over a group of the menu's rows, in the style of the app's other list headings.
+class _MenuHeading extends StatelessWidget {
+  const _MenuHeading(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: AppColors.dividerSoft)),
+      ),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.base, AppSpacing.lg, AppSpacing.base, AppSpacing.xs),
+      child: Semantics(
+        header: true,
+        child: Text(
+          text.toUpperCase(),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: AppColors.ink48,
+            letterSpacing: .5,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Everyone else, the likeliest matches first; tapping one asks to confirm the merge.
@@ -202,15 +237,19 @@ class _Orbit {
     required this.title,
     required this.message,
     required this.confirmLabel,
+    required this.demo,
     required this.onTap,
     this.danger = false,
+    this.fix = false,
   });
 
   final IconData icon;
-  final String label; // the short caption under the button
-  final String title; // the confirm dialog's heading
-  final String message; // what it does, and when you'd want it
-  final String confirmLabel; // the confirm dialog's action button
+  final String label; // the short caption under the button: the situation it is for
+  final String title; // the bubble's heading, asked as a question about the person
+  final String message; // one short line under the demo
+  final String confirmLabel; // the bubble's action button
+  final PersonDemoKind demo; // the little film the bubble plays of what it does
+  final bool fix; // one of the three that fix the app's mistakes, kept behind "Fix mistakes"
   final VoidCallback onTap;
   final bool danger;
 }
@@ -229,6 +268,81 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
     Future.delayed(const Duration(milliseconds: 380), () {
       if (mounted) _in.forward();
     });
+    _loadCast();
+  }
+
+  @override
+  void didUpdateWidget(covariant PersonHeadActions old) {
+    super.didUpdateWidget(old);
+    // Another person shown here (after a merge, say): their faces, not the last one's.
+    if (old.person.id != widget.person.id) {
+      _moreFaces = const [];
+      _loadCast();
+    }
+  }
+
+  // ---- What the bubbles' demos are made of (see PersonDemo) ----
+
+  // More of the person's faces than their tile's three, so the demos' grids look like theirs.
+  List<int> _moreFaces = const [];
+
+  // Fetched once, quietly, and the pictures made ahead, so a demo never starts on blank circles.
+  Future<void> _loadCast() async {
+    final faces = widget.faces;
+    final asked = widget.person.id;
+    try {
+      final found = await faces.facesOf(widget.person);
+      if (!mounted || widget.person.id != asked) return;
+      _moreFaces = [for (final f in found) if (f.good) f.faceId].take(12).toList();
+    } catch (_) {
+      // The tile's faces are enough.
+    }
+    final cast = _cast();
+    for (final pic in [...cast.me, for (final (p, _) in cast.others) p]) {
+      final id = pic.faceId;
+      if (id != null && faces.cachedCrop(id) == null) faces.crop(id).whenComplete(() => faces.releaseCrop(id));
+    }
+  }
+
+  // The tour's demo people, standing in for others when the library has fewer than four.
+  static const _standIns = [
+    ('assets/tour/faces/maya.jpg', 'Maya'),
+    ('assets/tour/faces/sam.jpg', 'Sam'),
+    ('assets/tour/faces/noor.jpg', 'Noor'),
+    ('assets/tour/faces/leo.jpg', 'Dev'),
+  ];
+
+  DemoCast _cast() {
+    final person = widget.person;
+    final faces = widget.faces;
+    final mine = <int>{person.coverFaceId, ...person.stackFaceIds, ..._moreFaces}.take(10).toList();
+    final others = <(DemoPic, String)>[
+      for (final p in faces.people)
+        if (p.id != person.id && !p.hidden) (DemoPic.face(p.coverFaceId), p.name ?? ''),
+    ].take(4).toList();
+    for (final (asset, name) in _standIns) {
+      if (others.length >= 4) break;
+      others.add((DemoPic.asset(asset), name));
+    }
+    // Their photos already on this page; their faces fill in for any not loaded yet.
+    final photos = <DemoPic>[];
+    if (faces.active?.id == person.id) {
+      for (final item in faces.photos) {
+        final bytes = faces.photoThumbs[FacesController.thumbKey(item)];
+        if (bytes != null) photos.add(DemoPic.bytes(bytes));
+        if (photos.length == 6) break;
+      }
+    }
+    for (var i = 0; photos.length < 6; i++) {
+      photos.add(DemoPic.face(mine[i % mine.length]));
+    }
+    return DemoCast(
+      me: [for (final id in mine) DemoPic.face(id)],
+      name: person.name,
+      photoCount: person.photoCount,
+      others: others,
+      photos: photos,
+    );
   }
 
   // The button that was tapped, waiting to be confirmed. Null: showing the orbit as normal.
@@ -248,6 +362,18 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
   int _pendingIndex = 0;
   late final AnimationController _burst = AnimationController(vsync: this, duration: const Duration(milliseconds: 320));
   late final AnimationController _travel = AnimationController(vsync: this, duration: const Duration(milliseconds: 360));
+
+  // 0: the fixes are folded into "Fix mistakes" at the bottom; 1: they are out, completing the ring.
+  late final AnimationController _fan = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 520),
+    reverseDuration: const Duration(milliseconds: 360),
+  );
+
+  void _toggleFixes() {
+    HapticFeedback.selectionClick();
+    _fan.isForwardOrCompleted ? _fan.reverse() : _fan.forward();
+  }
 
   // Anchors the floating bubble to wherever the badge ends up, so it tracks it with no
   // layout coupling at all between the two.
@@ -303,7 +429,13 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
                   opacity: _bubbleFade.value,
                   child: Transform.translate(offset: Offset(0, (1 - _bubbleFade.value) * -8), child: child),
                 ),
-                child: _Bubble(width: bubbleWidth, action: action, onCancel: _close, onConfirm: _confirm),
+                child: _Bubble(
+                  width: bubbleWidth,
+                  action: action,
+                  cast: _cast(),
+                  onCancel: _close,
+                  onConfirm: _confirm,
+                ),
               ),
             ),
           ),
@@ -364,20 +496,24 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
     _in.dispose();
     _burst.dispose();
     _travel.dispose();
+    _fan.dispose();
     _bubbleFade.dispose();
     super.dispose();
   }
 
   List<_Orbit> _actions(BuildContext context) {
-    final name = widget.person.name ?? 'this person';
+    final name = widget.person.name;
+    // Each caption names the situation it is for; each bubble asks it about this person, plays a
+    // short film of what happens, and says it in one line. The everyday three go round the top; the
+    // three that fix the app's mistakes wait behind "Fix mistakes" at the bottom (see _fan).
     return [
       _Orbit(
         icon: Icons.groups_rounded,
-        label: 'Together',
-        title: 'Find photos with someone else?',
-        message: 'Pick another person to see photos with $name - together with them, or just the '
-            'two of them alone.',
+        label: 'With someone',
+        title: name == null ? 'See them with someone?' : 'See $name with someone?',
+        message: 'Pick a person. You get the photos they are both in.',
         confirmLabel: 'Choose someone',
+        demo: PersonDemoKind.together,
         onTap: () {
           // To the People tab, in "choose people" mode with this one ticked.
           Navigator.of(context).popUntil((route) => route.isFirst);
@@ -386,62 +522,84 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
         },
       ),
       _Orbit(
-        icon: Icons.merge_type_rounded,
-        label: 'Merge',
-        title: 'Same person as someone else?',
-        message: 'Use this if $name shows up as two separate people by mistake. Merging joins '
-            'them into one, keeping every photo of both.',
-        confirmLabel: 'Choose who',
-        onTap: () => showMergePicker(context, widget.faces, widget.person),
+        icon: Icons.folder_zip_outlined,
+        label: 'Save photos',
+        title: name == null ? 'Save all their photos?' : "Save all of $name's photos?",
+        message: 'Every photo and video of ${name ?? 'them'} in one zip file.',
+        confirmLabel: 'Save',
+        demo: PersonDemoKind.save,
+        onTap: () => openExportZip(context, select: {ExportController.personKey(widget.person.id)}),
       ),
       _Orbit(
-        icon: Icons.call_split_rounded,
-        label: 'Split',
-        title: 'Split into two people?',
-        message: "You'd only need this if two different people were merged into $name by "
-            'mistake. You will see the two groups it can tell apart, to separate them.',
-        confirmLabel: 'Continue',
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => SplitPersonScreen(person: widget.person)),
-        ),
+        icon: Icons.visibility_off_outlined,
+        label: 'Hide',
+        title: name == null ? 'Hide this person?' : 'Hide $name?',
+        message: '${name ?? 'They'} ${name == null ? 'move' : 'moves'} to Hidden people in Settings. Nothing is deleted.',
+        confirmLabel: 'Hide',
+        demo: PersonDemoKind.hide,
+        danger: true,
+        onTap: () => widget.faces.setHidden(widget.person, true),
       ),
+      // The fixes, named by what looks wrong.
       _Orbit(
         icon: Icons.grid_view_rounded,
-        label: 'Review',
-        title: 'Review faces?',
-        message: 'Go through every face used to recognise $name, and take out any that are '
-            'actually someone else.',
-        confirmLabel: 'Review',
+        label: 'Not them',
+        fix: true,
+        title: name == null ? "Faces that aren't this person?" : "Faces that aren't $name?",
+        message: "Tap any face that isn't ${name ?? 'them'} to take it out.",
+        confirmLabel: 'Check faces',
+        demo: PersonDemoKind.check,
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => FaceReviewScreen(person: widget.person)),
         ),
       ),
       _Orbit(
-        icon: Icons.visibility_off_outlined,
-        label: 'Hide',
-        title: 'Hide $name?',
-        message: 'Moved out of the Faces tab into Hidden people. Nothing is deleted, and you can '
-            'bring them back anytime from Settings.',
-        confirmLabel: 'Hide',
-        danger: true,
-        onTap: () => widget.faces.setHidden(widget.person, true),
+        icon: Icons.merge_type_rounded,
+        label: 'Shown twice',
+        fix: true,
+        title: name == null ? 'Is this person here twice?' : 'Is $name here twice?',
+        message: 'Join the two into one. Every photo of both is kept.',
+        confirmLabel: 'Choose the other',
+        demo: PersonDemoKind.merge,
+        onTap: () => showMergePicker(context, widget.faces, widget.person),
       ),
-      // Last, so it takes the spot straight below the photo, completing the ring.
       _Orbit(
-        icon: Icons.folder_zip_outlined,
-        label: 'Export',
-        title: 'Export as zip?',
-        message: 'Put all the photos and videos of $name in a zip to keep or send. Your originals '
-            'stay where they are. You choose the name and where it is saved next.',
-        confirmLabel: 'Continue',
-        onTap: () => openExportZip(context, select: {ExportController.personKey(widget.person.id)}),
+        icon: Icons.call_split_rounded,
+        label: 'Mixed up',
+        fix: true,
+        title: name == null ? 'Two people mixed up here?' : 'Two people mixed up as $name?',
+        message: 'Pull them apart into two people.',
+        confirmLabel: 'Separate them',
+        demo: PersonDemoKind.separate,
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => SplitPersonScreen(person: widget.person)),
+        ),
       ),
     ];
   }
 
-  // Degrees, 0 = straight up, clockwise. Six buttons, a sixth of the circle apart; the name
-  // sits below this whole box, so the last one fits straight under the photo.
-  static const _angles = [-120.0, -60.0, 0.0, 60.0, 120.0, 180.0];
+  // Degrees, 0 = straight up, clockwise. Folded, four circles a quarter apart: the everyday three at the
+  // left, top and right, "Fix mistakes" at the bottom. Opened, six a sixth apart: the everyday three move
+  // up round the ring to make room, "Fix mistakes" turns into Shown twice where it is, and the other two
+  // fixes come out of it either side. The name sits below this whole box.
+  static const _foldedAngles = [-90.0, 0.0, 90.0, 180.0, 180.0, 180.0];
+  static const _openAngles = [-60.0, 0.0, 60.0, 240.0, 180.0, 120.0];
+  static const _doorAngle = 180.0;
+
+  // Where the circle [i] is on the ring with the fixes [fan] of the way out.
+  double _angleOf(int i, double fan) {
+    final t = i < 3 ? Curves.easeInOutCubic.transform(fan) : Curves.easeOutCubic.transform(_emerge(i, fan));
+    return _foldedAngles[i] + (_openAngles[i] - _foldedAngles[i]) * t;
+  }
+
+  // How far out a fix is: Shown twice is there at once (it is "Fix mistakes" turned over); the other
+  // two leave it a moment later, one after the other.
+  static double _emerge(int i, double fan) => switch (i) {
+    4 => const Interval(0, 0.45).transform(fan),
+    3 => const Interval(0.18, 0.9).transform(fan),
+    5 => const Interval(0.28, 1).transform(fan),
+    _ => fan,
+  };
 
   // Each button lives in a box this big, centred on its orbit point - a fixed size (not
   // whatever its icon+label happen to measure) so its tap target is exactly where it's
@@ -454,18 +612,22 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
   Widget _headStack(BuildContext context, List<_Orbit> actions) {
     final avatarRadius = widget.size / 2;
     const iconSize = 40.0;
-    final orbitRadius = avatarRadius + iconSize / 2 + 10;
+    // Far enough out that no caption touches the photo.
+    final orbitRadius = avatarRadius + iconSize / 2 + 32;
     // Generous enough that no button, or the badge at its biggest, ever clips.
     final boxSize = math.max(orbitRadius * 2 + iconSize + 36, _bigBadge + 40);
     final center = boxSize / 2;
 
     final pendingIndex = _pending == null ? null : _pendingIndex;
-    Offset offsetOf(int i) {
-      final angle = _angles[i] * math.pi / 180;
+    Offset at(double degrees) {
+      final angle = degrees * math.pi / 180;
       return Offset(orbitRadius * math.sin(angle), -orbitRadius * math.cos(angle));
     }
 
+    Offset offsetOf(int i) => at(_angleOf(i, _fan.value));
+
     final tappedOffset = pendingIndex == null ? Offset.zero : offsetOf(pendingIndex);
+    final doorOffset = at(_doorAngle);
 
     final stack = Stack(
           clipBehavior: Clip.none,
@@ -486,27 +648,41 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
               if (pendingIndex != i)
                 Builder(
                   builder: (context) {
-                    final ownOffset = offsetOf(i);
-                    // Each button starts a little after the one before it, then eases out
-                    // with a small overshoot - it pops into place rather than just appearing.
-                    final start = i / actions.length * 0.35;
+                    final fix = actions[i].fix;
+                    // The everyday ones pop in one after another, with a small overshoot.
+                    final start = (fix ? 3 : i) / 4 * 0.35;
+                    // Each sits in a slot centred on the photo and is carried round the ring from there,
+                    // so it travels along the circle rather than across it.
                     return Positioned(
-                      left: center + ownOffset.dx - _slot / 2,
-                      top: center + ownOffset.dy - _slot / 2,
+                      left: center - _slot / 2,
+                      top: center - _slot / 2,
                       width: _slot,
                       height: _slot,
                       child: AnimatedBuilder(
-                        animation: Listenable.merge([_in, _burst]),
+                        animation: Listenable.merge([_in, _burst, _fan]),
                         builder: (context, child) {
+                          final ownOffset = offsetOf(i);
                           final entrance = Curves.easeOutBack.transform(
                             Interval(start, start + 0.55, curve: Curves.linear).transform(_in.value),
                           );
                           final burstT = pendingIndex == null ? 0.0 : Curves.easeInOutCubic.transform(_burst.value);
                           // Pulled in toward wherever the tapped button is, and faded out -
                           // as though being gathered up into it.
-                          final delta = (tappedOffset - ownOffset) * burstT;
-                          final opacity = (1.0 - burstT) * entrance.clamp(0.0, 1.0);
-                          final scale = (1.0 - 0.55 * burstT) * entrance.clamp(0.0, 1.4);
+                          final delta = ownOffset + (tappedOffset - ownOffset) * burstT;
+                          var opacity = (1.0 - burstT) * entrance.clamp(0.0, 1.0);
+                          var scale = (1.0 - 0.55 * burstT) * entrance.clamp(0.0, 1.4);
+                          if (fix) {
+                            final out = _emerge(i, _fan.value);
+                            if (i == 4) {
+                              // "Fix mistakes" turning over into this one, swelling with it.
+                              opacity *= out;
+                              scale *= 1 + 0.14 * math.sin(math.pi * const Interval(0, 0.6).transform(_fan.value));
+                            } else {
+                              // Budding out of it: small and faint at first, full size once clear.
+                              opacity *= (out * 2.5).clamp(0.0, 1.0);
+                              scale *= 0.35 + 0.65 * Curves.easeOutBack.transform(out);
+                            }
+                          }
                           return Transform.translate(
                             offset: delta,
                             child: Opacity(
@@ -516,15 +692,107 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
                           );
                         },
                         child: Center(
-                          child: _OrbitButton(
-                            action: actions[i],
-                            onTap: _pending == null ? () => _ask(i, actions[i]) : null,
+                          child: AnimatedBuilder(
+                            animation: _fan,
+                            builder: (context, _) => _OrbitButton(
+                              action: actions[i],
+                              // A fix can only be tapped once it is out.
+                              onTap: _pending == null && (!fix || _fan.value > 0.6) ? () => _ask(i, actions[i]) : null,
+                            ),
                           ),
                         ),
                       ),
                     );
                   },
                 ),
+            // "Fix mistakes", completing the ring at the bottom. Tapped, it swells a little and turns over
+            // into Shown twice, while the other two fixes come out of it.
+            Positioned(
+              left: center + doorOffset.dx - _slot / 2,
+              top: center + doorOffset.dy - _slot / 2,
+              width: _slot,
+              height: _slot,
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_in, _burst, _fan]),
+                builder: (context, child) {
+                  final entrance = Curves.easeOutBack.transform(
+                    const Interval(0.26, 0.81, curve: Curves.linear).transform(_in.value),
+                  );
+                  final burstT = pendingIndex == null ? 0.0 : Curves.easeInOutCubic.transform(_burst.value);
+                  final turn = _emerge(4, _fan.value);
+                  final swell = 1 + 0.14 * math.sin(math.pi * const Interval(0, 0.6).transform(_fan.value));
+                  final opacity = entrance.clamp(0.0, 1.0) * (1 - turn) * (1 - burstT);
+                  return IgnorePointer(
+                    ignoring: _fan.value > 0.3 || _pending != null,
+                    child: Opacity(
+                      opacity: opacity.clamp(0.0, 1.0),
+                      child: Transform.scale(scale: entrance.clamp(0.0, 1.4) * swell, child: child),
+                    ),
+                  );
+                },
+                child: Center(
+                  child: _OrbitButton(
+                    action: _Orbit(
+                      icon: Icons.build_outlined,
+                      label: 'Fix mistakes',
+                      title: '',
+                      message: '',
+                      confirmLabel: '',
+                      demo: PersonDemoKind.check,
+                      fix: true,
+                      onTap: _toggleFixes,
+                    ),
+                    onTap: _toggleFixes,
+                  ),
+                ),
+              ),
+            ),
+            // Folds the fixes back: a small close on the photo's lower edge, there while they are out.
+            // Drawn 30 across, touched anywhere in 44.
+            Positioned(
+              left: center - 22,
+              top: center + avatarRadius - 22,
+              width: 44,
+              height: 44,
+              child: AnimatedBuilder(
+                animation: Listenable.merge([_burst, _fan]),
+                builder: (context, child) {
+                  final burstT = pendingIndex == null ? 0.0 : _burst.value;
+                  final shown = Curves.easeOutBack.transform(const Interval(0.4, 1).transform(_fan.value));
+                  return IgnorePointer(
+                    ignoring: _fan.value < 0.6 || _pending != null,
+                    child: Opacity(
+                      opacity: (shown * (1 - burstT)).clamp(0.0, 1.0),
+                      child: Transform.scale(scale: shown.clamp(0.0, 1.3), child: child),
+                    ),
+                  );
+                },
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _toggleFixes,
+                  child: Center(
+                    child: SizedBox.square(
+                      dimension: 30,
+                      child: Semantics(
+                  button: true,
+                  label: 'Fold the fixes away',
+                  child: Material(
+                    color: AppColors.canvas,
+                    shape: const CircleBorder(side: BorderSide(color: AppColors.hairline)),
+                    elevation: 2,
+                    shadowColor: AppColors.ink.withValues(alpha: 0.3),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: _toggleFixes,
+                      child: const Icon(Icons.close_rounded, size: 16, color: AppColors.ink48),
+                    ),
+                  ),
+                ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
             // The tapped button: a solid glowing badge from the moment it's tapped, that
             // then travels from its orbit spot to the middle and grows, ending up sitting
             // where the photo was.
@@ -601,7 +869,9 @@ class _OrbitButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = action.danger ? AppColors.danger : AppColors.ink80;
+    // The fixes (and "Fix mistakes") are quieter than the everyday ones: no shadow, greyer.
+    final quiet = action.fix;
+    final color = action.danger ? AppColors.danger : (quiet ? AppColors.ink48 : AppColors.ink80);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -615,21 +885,30 @@ class _OrbitButton extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: AppColors.pearl,
+                color: quiet ? AppColors.canvas : AppColors.pearl,
                 shape: BoxShape.circle,
                 border: Border.all(color: AppColors.hairline),
-                boxShadow: [
-                  BoxShadow(color: AppColors.ink.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 3)),
-                ],
+                boxShadow: quiet
+                    ? null
+                    : [BoxShadow(color: AppColors.ink.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 3))],
               ),
               child: Icon(action.icon, size: 18, color: color),
             ),
           ),
         ),
         const SizedBox(height: 3),
-        Text(
-          action.label,
-          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: action.danger ? AppColors.danger : AppColors.ink48),
+        // On one line, even where it runs a little wider than the button's slot. Tapping the words
+        // works too.
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Text(
+            action.label,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.visible,
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: action.danger ? AppColors.danger : AppColors.ink48),
+          ),
         ),
       ],
     );
@@ -714,10 +993,17 @@ class _TravelBadge extends StatelessWidget {
 /// fill those rather than shrink to content the way they would inside a Column. A plain
 /// SizedBox(width: ...) with no height set lets the Stack below size itself to its content.
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.width, required this.action, required this.onCancel, required this.onConfirm});
+  const _Bubble({
+    required this.width,
+    required this.action,
+    required this.cast,
+    required this.onCancel,
+    required this.onConfirm,
+  });
 
   final double width;
   final _Orbit action;
+  final DemoCast cast;
   final VoidCallback onCancel;
   final VoidCallback onConfirm;
 
@@ -744,13 +1030,16 @@ class _Bubble extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(action.title, textAlign: TextAlign.center, style: textTheme.titleSmall),
-                const SizedBox(height: AppSpacing.xs),
+                const SizedBox(height: AppSpacing.md),
+                // What it does, shown with this person's own faces and photos.
+                PersonDemo(kind: action.demo, cast: cast),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
                   action.message,
                   textAlign: TextAlign.center,
                   style: textTheme.bodySmall?.copyWith(color: AppColors.ink80, height: 1.4),
                 ),
-                const SizedBox(height: AppSpacing.lg),
+                const SizedBox(height: AppSpacing.md),
                 Row(
                   children: [
                     Expanded(child: _BubbleButton(label: 'Cancel', color: AppColors.ink48, onTap: onCancel)),

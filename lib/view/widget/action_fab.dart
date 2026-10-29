@@ -17,9 +17,10 @@ class FabAction {
   final VoidCallback onTap;
 }
 
-/// The round bolt button above the search button, the same 58 dp circle. Tapping it strikes: the bolt
-/// shakes and flashes, the page dims, and the page's actions fly out of the button along an arc, each on a
-/// jagged line of lightning. Tapping the button again, the dimmed page or back puts it all away.
+/// The round bolt button above the search button, the same 58 dp circle. Tapping it dims the page and the
+/// page's actions bud out of the button like drops of the same liquid: each swells out on a neck that thins
+/// and pinches off, then wobbles into its place on an arc, while the bolt turns into a close mark. Tapping
+/// the button again, the dimmed page or back draws them back in the same way.
 ///
 /// Place it as a [Positioned.fill] over the home screen; it only catches touches on the button, and (while
 /// open) on the dimmed page and the actions.
@@ -60,22 +61,11 @@ class ActionFabState extends State<ActionFab> with TickerProviderStateMixin {
   static const double _item = 52;
   static const double _radius = 122;
 
-  // 0 closed, 1 open: the dimming and every action's flight hang on it.
+  // 0 closed, 1 open: the dimming and every action's budding out hang on it.
   late final AnimationController _open = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 560),
-    reverseDuration: const Duration(milliseconds: 340),
-  );
-  // The strike when it opens: shake, pop, flash, ring.
-  late final AnimationController _strike = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 780),
-  );
-  // The slow flicker and glow once it has struck: one round of it, then the bolt holds still (anything still
-  // moving would have the blurred page behind it worked out again every frame).
-  late final AnimationController _idle = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1800),
+    duration: const Duration(milliseconds: 820),
+    reverseDuration: const Duration(milliseconds: 460),
   );
 
   // 0: the button floats above the search button, 1: it has run into it. Goes past both a little (the
@@ -141,8 +131,6 @@ class ActionFabState extends State<ActionFab> with TickerProviderStateMixin {
     _own.dispose();
     _dock.dispose();
     _open.dispose();
-    _strike.dispose();
-    _idle.dispose();
     super.dispose();
   }
 
@@ -179,25 +167,14 @@ class ActionFabState extends State<ActionFab> with TickerProviderStateMixin {
     // Not while it is still on its way out of the search button.
     if (_wantOpen || _wantsDock || _dock.value > 0.2) return;
     setState(() => _wantOpen = true);
-    final calm = MediaQuery.disableAnimationsOf(context);
     _open.forward();
-    if (!calm) {
-      _strike.forward(from: 0);
-      _idle.forward(from: 0);
-      // A thunderclap: one firm tap, then the rumble after it.
-      HapticFeedback.mediumImpact();
-      Future<void>.delayed(const Duration(milliseconds: 110), () {
-        if (mounted && _wantOpen) HapticFeedback.lightImpact();
-      });
-    }
+    HapticFeedback.lightImpact();
   }
 
   void close() {
     if (!_wantOpen) return;
     setState(() => _wantOpen = false);
     _open.reverse();
-    _idle.stop();
-    _strike.value = 0;
   }
 
   // Where the fan's circles sit, as angles in degrees (0 right, 90 up, 180 left).
@@ -207,10 +184,11 @@ class ActionFabState extends State<ActionFab> with TickerProviderStateMixin {
     return [for (var i = 0; i < n; i++) from + (to - from) * i / (n - 1)];
   }
 
-  double _stagger(int i, double v) {
-    final start = 0.06 + i * 0.1;
-    final end = math.min(1.0, start + 0.62);
-    return Interval(start, end, curve: Curves.easeOutBack).transform(v);
+  // How far along its own budding each action is (0 inside the button, 1 settled), one a little after another.
+  double _stagger(int i, int n, double v) {
+    final start = i * 0.12;
+    final end = math.min(1.0, start + 1 - 0.12 * (n - 1));
+    return Interval(start, end).transform(v);
   }
 
   @override
@@ -232,26 +210,28 @@ class ActionFabState extends State<ActionFab> with TickerProviderStateMixin {
         ];
 
         return AnimatedBuilder(
-          animation: Listenable.merge([_open, _strike, _idle, _dock, _own]),
+          animation: Listenable.merge([_open, _dock, _own]),
           builder: (context, _) {
             final v = _open.value;
-            final strike = _strike.value;
-            final idle = _idle.value;
             final live = _wantOpen || v > 0;
 
-            // The bolt: a quick shake and pop when it strikes, then a faint flicker; it glows and
-            // turns icy while open.
-            final shake = calm ? 0.0 : math.sin(strike * math.pi * 8) * (1 - strike) * 0.32;
-            final jitter = calm ? 0.0 : math.sin(strike * math.pi * 11) * (1 - strike) * 2.6;
-            final pop = 1 + (calm ? 0.0 : 0.26 * math.sin(math.min(strike * 2.4, 1) * math.pi));
-            final flicker = (_wantOpen && !calm)
-                ? 1 - 0.14 * math.max(0, math.sin(idle * math.pi * 4)) * math.max(0, math.sin(idle * math.pi * 10))
-                : 1.0;
-            final glow = _wantOpen && !calm ? 0.5 + 0.5 * math.sin(idle * math.pi * 2) : 0.0;
-            final boltColor = Color.lerp(AppColors.onPrimary, AppColors.mediaAccentSoft, v)!;
-
-            final ringT = calm ? 1.0 : Interval(0, 0.75, curve: Curves.easeOutCubic).transform(strike);
-            final flash = calm ? 0.0 : 0.24 * (1 - Interval(0, 0.42, curve: Curves.easeOut).transform(strike));
+            // The actions as drops of the button's liquid: where each one is on its way out, and how it is
+            // shaped (see _Bud).
+            final buds = [
+              for (var i = 0; i < actions.length; i++)
+                _Bud.at(
+                  from: center,
+                  to: itemCenters[i],
+                  buttonRadius: _size / 2,
+                  radius: _item / 2,
+                  progress: _stagger(i, actions.length, v),
+                  calm: calm,
+                ),
+            ];
+            // The button gives a little of itself to each drop as it leaves, and fills back out.
+            final give = calm ? 1.0 : 1 - 0.07 * math.sin(math.pi * v);
+            // The bolt turns into a close mark as the actions come out.
+            final turn = Curves.easeInOut.transform(v.clamp(0.0, 1.0));
 
             // Everything the button looks like - its liquid, the search button's circle while they run into
             // each other, the bolt - is drawn in the bottom bar's own frame (same slide and shrink as the bar,
@@ -302,8 +282,8 @@ class ActionFabState extends State<ActionFab> with TickerProviderStateMixin {
                       )!;
                       final blob = _BlobGeometry(
                         fab: fabAt,
-                        rx: r * squashX,
-                        ry: r * stretch,
+                        rx: r * squashX * give,
+                        ry: r * stretch * give,
                         search: searchAt,
                         r: r,
                         withSearch: showSearch,
@@ -333,14 +313,13 @@ class ActionFabState extends State<ActionFab> with TickerProviderStateMixin {
                                 painter: _BlobPainter(
                                   path: blob,
                                   fab: fabAt,
-                                  rx: r * squashX,
-                                  ry: r * stretch,
+                                  rx: r * squashX * give,
+                                  ry: r * stretch * give,
                                   search: searchAt,
                                   fabColor: fabColor.withValues(alpha: fabColor.a * fabScale),
                                   searchColor: glass.withValues(alpha: copyAlpha),
                                   merge: d.clamp(0.0, 1.0),
                                   withSearch: showSearch,
-                                  glow: glow,
                                   lift: shadowK,
                                 ),
                               ),
@@ -362,24 +341,31 @@ class ActionFabState extends State<ActionFab> with TickerProviderStateMixin {
                                 ),
                               ),
                             ),
-                          // The bolt: shakes when it strikes, flickers while open, and fades out as the button
-                          // is drawn into the search button.
+                          // The bolt, turning into a close mark while the actions are out, and fading out as the
+                          // button is drawn into the search button.
                           Positioned(
                             left: fabAt.dx - r,
                             top: fabAt.dy - r,
                             width: _size,
                             height: _size,
                             child: IgnorePointer(
-                              child: Opacity(
-                                opacity: (boltFade * flicker).clamp(0.0, 1.0),
-                                child: Transform.translate(
-                                  offset: Offset(jitter, 0),
-                                  child: Transform.rotate(
-                                    angle: shake,
-                                    child: Transform.scale(
-                                      scale: pop * (0.6 + 0.4 * boltFade),
-                                      child: Icon(Icons.bolt_rounded, size: 30, color: boltColor),
-                                    ),
+                              child: Transform.scale(
+                                scale: (0.6 + 0.4 * boltFade) * give,
+                                child: Transform.rotate(
+                                  angle: turn * math.pi / 2,
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      // One hands over to the other half way round, never both at once.
+                                      Opacity(
+                                        opacity: (boltFade * (1 - turn * 2)).clamp(0.0, 1.0),
+                                        child: const Icon(Icons.bolt_rounded, size: 30, color: AppColors.onPrimary),
+                                      ),
+                                      Opacity(
+                                        opacity: (boltFade * (turn * 2 - 1)).clamp(0.0, 1.0),
+                                        child: const Icon(Icons.close_rounded, size: 28, color: AppColors.onPrimary),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -483,48 +469,18 @@ class ActionFabState extends State<ActionFab> with TickerProviderStateMixin {
                       ),
                     ),
                   ),
-                // The flash of the strike over the whole page.
-                if (live && flash > 0.002)
-                  Positioned.fill(
-                    child: IgnorePointer(child: ColoredBox(color: AppColors.onMedia.withValues(alpha: flash))),
-                  ),
-                // A ring that leaves the button with the strike.
-                if (live && ringT < 1)
-                  Positioned(
-                    left: center.dx - (_size + 150 * ringT) / 2,
-                    top: center.dy - (_size + 150 * ringT) / 2,
-                    width: _size + 150 * ringT,
-                    height: _size + 150 * ringT,
-                    child: IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.mediaAccentSoft.withValues(alpha: 0.7 * (1 - ringT)),
-                            width: 3 * (1 - ringT) + 0.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                // The lightning from the button to each action.
-                if (live && _wantOpen && !calm)
+                // The drops of liquid the actions bud out as, with their necks back to the button (which is
+                // drawn over the necks' roots, so they grow out of it).
+                if (live)
                   Positioned.fill(
                     child: IgnorePointer(
-                      child: CustomPaint(
-                        painter: _BoltsPainter(
-                          from: center,
-                          to: itemCenters,
-                          progress: [for (var i = 0; i < actions.length; i++) _boltProgress(i, v)],
-                          fade: [for (var i = 0; i < actions.length; i++) _boltFade(i, v)],
-                        ),
-                      ),
+                      child: CustomPaint(painter: _BudsPainter(buttonAt: center, buds: buds)),
                     ),
                   ),
-                // The actions, flying out of the button.
+                // What each drop holds: its icon once it has pinched off, and its name as it settles.
                 if (live)
                   for (var i = 0; i < actions.length; i++)
-                    _actionAt(actions[i], itemCenters[i], center, _stagger(i, v)),
+                    _actionAt(actions[i], itemCenters[i], buds[i]),
                 fab,
                 target,
               ],
@@ -535,64 +491,48 @@ class ActionFabState extends State<ActionFab> with TickerProviderStateMixin {
     );
   }
 
-  double _boltProgress(int i, double v) {
-    final start = 0.04 + i * 0.1;
-    return Interval(start, start + 0.22, curve: Curves.easeOutCubic).transform(v);
-  }
-
-  double _boltFade(int i, double v) {
-    final start = 0.04 + i * 0.1;
-    return 1 - Interval(start + 0.14, start + 0.5, curve: Curves.easeIn).transform(v);
-  }
-
-  Widget _actionAt(FabAction action, Offset at, Offset origin, double p) {
-    final t = p.clamp(0.0, 1.0);
+  // One action: touched where it settles, drawn wherever its drop is on the way. The white circle is the drop
+  // itself (see _BudsPainter); this is its icon, which shows once the drop has pinched off, and its name, which
+  // comes in as it settles.
+  Widget _actionAt(FabAction action, Offset at, _Bud bud) {
     return Positioned(
       left: at.dx - 48,
       top: at.dy - _item / 2,
       width: 96,
       child: Transform.translate(
-        offset: (origin - at) * (1 - p),
-        child: Transform.scale(
-          scale: 0.3 + 0.7 * p.clamp(0.0, 1.2),
-          alignment: Alignment.topCenter,
-          child: Opacity(
-            opacity: (t * 1.5).clamp(0.0, 1.0),
-            child: IgnorePointer(
-              ignoring: !_wantOpen,
-              child: ExcludeSemantics(
-                excluding: !_wantOpen,
-                child: Semantics(
-                  button: true,
-                  label: action.label,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      close();
-                      action.onTap();
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.canvas,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.shadow.withValues(alpha: 0.26),
-                                blurRadius: 16,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-                          child: SizedBox.square(
-                            dimension: _item,
+        offset: bud.centre - at,
+        child: Opacity(
+          opacity: bud.shows,
+          child: IgnorePointer(
+            ignoring: !_wantOpen,
+            child: ExcludeSemantics(
+              excluding: !_wantOpen,
+              child: Semantics(
+                button: true,
+                label: action.label,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    close();
+                    action.onTap();
+                  },
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox.square(
+                        dimension: _item,
+                        child: Opacity(
+                          opacity: bud.free,
+                          child: Transform.scale(
+                            scale: 0.5 + 0.5 * bud.free,
                             child: Icon(action.icon, size: 24, color: AppColors.primary),
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
+                      ),
+                      const SizedBox(height: 6),
+                      Opacity(
+                        opacity: bud.settled,
+                        child: Text(
                           action.label,
                           textAlign: TextAlign.center,
                           maxLines: 2,
@@ -604,8 +544,8 @@ class ActionFabState extends State<ActionFab> with TickerProviderStateMixin {
                             shadows: [Shadow(color: AppColors.shadow.withValues(alpha: 0.5), blurRadius: 6)],
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -617,66 +557,181 @@ class ActionFabState extends State<ActionFab> with TickerProviderStateMixin {
   }
 }
 
-// Jagged lines of lightning from the button to each action, drawn out quickly and then faded.
-class _BoltsPainter extends CustomPainter {
-  _BoltsPainter({required this.from, required this.to, required this.progress, required this.fade});
+/// One action on its way out of the button, as a drop of the button's liquid: where it is, how big, how it
+/// is stretched, and how it hangs on to the button.
+///
+/// Its way out: it clings at first (swelling out of the button on a thick neck), then pulls away faster and
+/// faster, the neck thinning until it pinches off, and once free it runs a little past its place and wobbles
+/// back. Going back in plays the same way backwards: the neck reaches out, catches it and draws it in.
+class _Bud {
+  const _Bud({
+    required this.centre,
+    required this.radius,
+    required this.angle,
+    required this.stretch,
+    required this.waist,
+    required this.free,
+    required this.settled,
+    required this.shows,
+    required this.buttonRadius,
+  });
 
-  final Offset from;
-  final List<Offset> to;
-  final List<double> progress;
-  final List<double> fade;
+  factory _Bud.at({
+    required Offset from,
+    required Offset to,
+    required double buttonRadius,
+    required double radius,
+    required double progress,
+    required bool calm,
+  }) {
+    final p = progress.clamp(0.0, 1.0);
+    final angle = (to - from).direction;
+    if (calm) {
+      // No motion wanted: it simply fades in where it goes.
+      return _Bud(
+        centre: to, radius: radius, angle: angle, stretch: 1, waist: 0, free: p, settled: p, shows: p,
+        buttonRadius: buttonRadius,
+      );
+    }
+    final along = _out(p);
+    final centre = Offset.lerp(from, to, along)!;
+    final gap = (centre - from).distance;
+    // Small while still mostly inside the button, plumping up to full size as it comes out.
+    final size = radius * (0.55 + 0.45 * Curves.easeOut.transform((gap / (buttonRadius + radius)).clamp(0.0, 1.0)));
+    // The neck: as wide as the drop while they overlap, drawing out thinner and thinner until it pinches off
+    // well clear of the button.
+    final near = buttonRadius, far = buttonRadius + size * 2.6;
+    final k = ((far - gap) / (far - near)).clamp(0.0, 1.0);
+    final waist = size * 0.9 * k * k * (3 - 2 * k);
+    // Speed along its way (from the curve's slope): fast, it draws out long and thin; running past its place
+    // and turning back, it squashes; hanging on the neck, it is pulled long toward the button.
+    final slope = (_out(math.min(1, p + 0.01)) - _out(math.max(0, p - 0.01))) / 0.02;
+    final stretch = (1 + 0.06 * slope + 0.12 * k * (1 - k) * 4).clamp(0.88, 1.18);
+    return _Bud(
+      centre: centre,
+      radius: size,
+      angle: angle,
+      stretch: stretch,
+      waist: waist,
+      free: Curves.easeOut.transform(((1 - k) * 1.25 - 0.25).clamp(0.0, 1.0)),
+      settled: const Interval(0.72, 1, curve: Curves.easeOut).transform(p),
+      shows: (p * 8).clamp(0.0, 1.0),
+      buttonRadius: buttonRadius,
+    );
+  }
+
+  // Clings (slow, quadratic) for the first part, then springs out, runs about a tenth past and settles.
+  static double _out(double t) {
+    const cling = 0.34;
+    if (t <= cling) {
+      final u = t / cling;
+      return 0.2 * u * u;
+    }
+    final tau = (t - cling) / (1 - cling);
+    final base = 0.2 + 0.8 * (1 - math.pow(1 - tau, 3));
+    return base + 0.11 * math.sin(tau * math.pi * 2) * math.exp(-3.2 * tau) * (1 - tau);
+  }
+
+  final Offset centre;
+  final double radius;
+
+  /// The way from the button to where it settles.
+  final double angle;
+
+  /// Along [angle]: above 1 drawn out long, below 1 squashed (its area kept).
+  final double stretch;
+
+  /// The neck back to the button, 0 once it has pinched off.
+  final double waist;
+
+  /// 0 while it hangs on the neck, 1 once free (its icon shows).
+  final double free;
+
+  /// 1 once it has settled (its name shows).
+  final double settled;
+
+  /// The drop shows at all (a quick fade at the very start, so nothing pops into being).
+  final double shows;
+  final double buttonRadius;
+}
+
+/// Draws the drops and their necks, in the button's teal where they leave it, turning white as they come
+/// out. The button itself is drawn over the necks' roots, so they grow out of it.
+class _BudsPainter extends CustomPainter {
+  _BudsPainter({required this.buttonAt, required this.buds});
+
+  final Offset buttonAt;
+  final List<_Bud> buds;
 
   @override
   void paint(Canvas canvas, Size size) {
-    for (var i = 0; i < to.length; i++) {
-      final p = progress[i];
-      final alpha = fade[i].clamp(0.0, 1.0);
-      if (p <= 0 || alpha <= 0.01) continue;
-      final path = _zigzag(from, to[i], i);
-      final metric = path.computeMetrics().first;
-      final drawn = metric.extractPath(0, metric.length * p);
+    for (final bud in buds) {
+      if (bud.shows <= 0) continue;
+      final gap = (bud.centre - buttonAt).distance;
+      canvas.save();
+      // In the drop's own frame: the button at the origin, the drop out along the x axis.
+      canvas.translate(buttonAt.dx, buttonAt.dy);
+      canvas.rotate(bud.angle);
+      final rx = bud.radius * bud.stretch;
+      final ry = bud.radius / bud.stretch;
+      final drop = Path()..addOval(Rect.fromCenter(center: Offset(gap, 0), width: rx * 2, height: ry * 2));
+      var shape = drop;
+      if (bud.waist > 0.8) {
+        // From inside the button to inside the drop, its sides bowed in to the waist half way.
+        final x0 = bud.buttonRadius * 0.5;
+        final x1 = math.max(x0 + 1, gap - rx * 0.4);
+        final e0 = math.min(bud.buttonRadius, bud.radius) * 0.9;
+        final e1 = ry * 0.9;
+        final mid = (x0 + x1) / 2;
+        final bend = 2 * bud.waist - (e0 + e1) / 2;
+        final neck = Path()
+          ..moveTo(x0, -e0)
+          ..quadraticBezierTo(mid, -bend, x1, -e1)
+          ..lineTo(x1, e1)
+          ..quadraticBezierTo(mid, bend, x0, e0)
+          ..close();
+        shape = Path.combine(PathOperation.union, drop, neck);
+      }
+      // Its shadow, from the drop alone, growing in as it comes free (none under the neck).
+      final lifted = bud.free * bud.shows;
+      if (lifted > 0.01) {
+        canvas.save();
+        canvas.rotate(-bud.angle);
+        final c = Offset(gap * math.cos(bud.angle), gap * math.sin(bud.angle));
+        canvas.drawOval(
+          Rect.fromCenter(center: c + const Offset(0, 6), width: bud.radius * 2, height: bud.radius * 2),
+          Paint()
+            ..color = AppColors.shadow.withValues(alpha: 0.26 * lifted)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+        );
+        canvas.restore();
+      }
+      // Teal at the button's edge, white from the drop on, the change spread over at least a dozen pixels and
+      // S-shaped, so there is no line across it.
+      var from = bud.buttonRadius * 0.95;
+      var to = gap - rx * 0.6;
+      if (to - from < 14) {
+        final m = (from + to) / 2;
+        from = m - 7;
+        to = m + 7;
+      }
+      const stops = [0.0, 0.25, 0.5, 0.75, 1.0];
+      final colors = [
+        for (final t in stops)
+          Color.lerp(AppColors.primary, AppColors.canvas, t * t * (3 - 2 * t))!.withValues(alpha: bud.shows),
+      ];
       canvas.drawPath(
-        drawn,
+        shape,
         Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 7
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..color = AppColors.mediaAccent.withValues(alpha: 0.35 * alpha)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+          ..isAntiAlias = true
+          ..shader = ui.Gradient.linear(Offset(from, 0), Offset(to, 0), colors, stops),
       );
-      canvas.drawPath(
-        drawn,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.2
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round
-          ..color = AppColors.onMedia.withValues(alpha: 0.95 * alpha),
-      );
+      canvas.restore();
     }
-  }
-
-  // A line broken into five pieces, each kicked sideways by a fixed amount (the same every time, so it
-  // does not wobble between frames).
-  Path _zigzag(Offset a, Offset b, int seed) {
-    final d = b - a;
-    final length = d.distance;
-    final normal = Offset(-d.dy, d.dx) / length;
-    final path = Path()..moveTo(a.dx, a.dy);
-    const parts = 5;
-    for (var k = 1; k < parts; k++) {
-      final t = k / parts;
-      final kick = (k.isEven ? 1 : -1) * (7 + ((seed * 3 + k * 5) % 6)) * (seed.isEven ? 1 : -1);
-      final point = a + d * t + normal * kick.toDouble();
-      path.lineTo(point.dx, point.dy);
-    }
-    path.lineTo(b.dx, b.dy);
-    return path;
   }
 
   @override
-  bool shouldRepaint(covariant _BoltsPainter old) => true;
+  bool shouldRepaint(covariant _BudsPainter old) => true;
 }
 
 // Falling into the search button: constant acceleration from rest (gravity) until it hits, then the liquid
@@ -785,7 +840,6 @@ class _BlobPainter extends CustomPainter {
     required this.searchColor,
     required this.withSearch,
     required this.merge,
-    required this.glow,
     required this.lift,
   });
 
@@ -800,21 +854,20 @@ class _BlobPainter extends CustomPainter {
 
   /// 0 apart, 1 run into each other.
   final double merge;
-  final double glow;
 
   /// 1 while the button floats, 0 once it has run into the search button: its shadow goes with it.
   final double lift;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // The button's glow and shadow, from the button alone (the search part is glass: nothing may show
+    // The button's shadow, from the button alone (the search part is glass: nothing may show
     // through it).
     final own = Path()..addOval(Rect.fromCenter(center: fab, width: rx * 2, height: ry * 2));
     canvas.drawPath(
-      own.shift(Offset(0, 8 - 5 * glow)),
+      own.shift(const Offset(0, 8)),
       Paint()
-        ..color = AppColors.primary.withValues(alpha: (0.34 + 0.16 * glow) * lift)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10 + 7 * glow),
+        ..color = AppColors.primary.withValues(alpha: 0.34 * lift)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
     );
     final paint = Paint()..isAntiAlias = true;
     if (withSearch) {
