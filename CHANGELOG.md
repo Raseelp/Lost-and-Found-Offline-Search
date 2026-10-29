@@ -6,6 +6,11 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
 ## Unreleased
 
 ### Added
+- Pressing a tab in the bottom bar lifts the teal chip onto it, dragging pulls the chip across the tabs, and the
+  tab changes when you let go. The chip moves on springs, so taps slide it too. It stretches with speed, leans
+  after the finger up and down. Pushed hard toward an end, or pulled up or down, the whole bar stretches that
+  way as one capsule and springs back. A plain tap leaves the bar alone. The Search button gives under
+  a press and springs back when let go.
 - Stories on the Search tab. There is a ring for each person and for the built-in collections that are
   nice to look at (beach, flowers, mountains and so on). Tap a ring to watch a short story of its photos
   and videos. A ring turns grey for a day after you open it, then has a new story with pictures it has
