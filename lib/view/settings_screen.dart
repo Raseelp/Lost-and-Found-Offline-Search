@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:lost_and_found/view/widget/permission_prompt.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:lost_and_found/controllers/collections_controller.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
@@ -658,7 +659,7 @@ class _PermissionsCardState extends State<_PermissionsCard>
         if (needsStorageGrant)
           _GrantAccessRow(
             onTap: () async {
-              await [Permission.photos, Permission.videos].request();
+              await askPermission(AppPermission.media);
               await _refresh();
             },
           ),
@@ -1061,8 +1062,7 @@ class _MemoriesSection extends StatelessWidget {
                   trailing: Switch(
                     value: s.enabled,
                     onChanged: (on) async {
-                      final ok = await memories.setEnabled(on);
-                      if (on && !ok) say('Allow notifications for this app to get a daily memory.');
+                      await memories.setEnabled(on);
                     },
                   ),
                 ),
@@ -1090,8 +1090,7 @@ class _MemoriesSection extends StatelessWidget {
                     trailing: Switch(
                       value: stories.reminderEnabled && stories.reminderAllowed,
                       onChanged: (on) async {
-                        final ok = await stories.setReminder(on);
-                        if (on && !ok) say('Allow notifications for this app to get a note when your stories refresh.');
+                        await stories.setReminder(on);
                       },
                     ),
                   ),

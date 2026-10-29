@@ -63,6 +63,12 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   search model from the GitHub release, like release builds.
 
 ### Fixed
+- When Android has stopped asking for a permission (it was turned down twice), the app no longer
+  fails without a word. A dialog says what is off, what it is needed for and where to turn it on in
+  App info for that Android version, and opens App info. This covers photo and video access (the
+  scan chip used to close by itself), notifications for the scan, the daily memory and stories, and
+  storage for saving a copy on Android 9 and older, which was never asked for before and failed. A
+  first "Don't allow" now shows a short line saying what the permission is needed for.
 - Stop indexing now shows "Stopping…" with a spinner right away, and ignores further taps while
   the scan finishes the photos in progress. Before, nothing changed for a few seconds, so it
   looked like the tap had not worked.

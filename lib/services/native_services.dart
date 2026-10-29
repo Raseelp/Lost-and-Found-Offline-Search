@@ -608,6 +608,17 @@ class NativeServices {
     return map?['sent'] != null ? 'Sent: $message' : message;
   }
 
+  /// The phone's Android version (API level). Asked once; 0 when it cannot be told.
+  Future<int> androidSdk() async {
+    try {
+      return _sdk ??= await _channel.invokeMethod<int>('androidSdk') ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  static int? _sdk;
+
   /// The home tab a tapped notification wants shown since this was last asked (taken once): the Library tab for the
   /// scan's notification, the Search tab for the stories note. Null: none.
   Future<int?> takeOpenTab() async {

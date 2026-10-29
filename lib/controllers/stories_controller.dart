@@ -12,7 +12,7 @@ import 'package:lost_and_found/models/collection_model.dart';
 import 'package:lost_and_found/models/story_state.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/story_planner.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:lost_and_found/view/widget/permission_prompt.dart';
 
 export 'package:lost_and_found/models/story_state.dart' show StoryFrame;
 
@@ -507,13 +507,12 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
   /// and later) and stays off if it is refused. Returns whether it is on now.
   Future<bool> setReminder(bool on) async {
     if (on) {
-      var status = await Permission.notification.status;
-      if (status.isPermanentlyDenied) {
-        await openAppSettings();
-        return false;
-      }
-      if (!status.isGranted) status = await Permission.notification.request();
-      if (!status.isGranted) {
+      // Asked as every permission is (see askPermission): it says why if it is turned down.
+      final allowed = await askPermission(
+        AppPermission.notifications,
+        purpose: 'tell you when your stories have refreshed',
+      );
+      if (!allowed) {
         await _loadReminder();
         return false;
       }

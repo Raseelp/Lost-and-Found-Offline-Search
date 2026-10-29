@@ -1325,6 +1325,9 @@ class MainActivity : FlutterActivity() {
                     mapOf("sent" to outcome.sent?.code, "message" to outcome.message)
                 }
 
+                // The phone's Android version (for wording where a setting is, and what needs a permission).
+                "androidSdk" -> result.success(Build.VERSION.SDK_INT)
+
                 // The home tab a tapped notification wants shown since last asked, or -1 (taken once).
                 "takeOpenTab" -> {
                     result.success(openTab)
