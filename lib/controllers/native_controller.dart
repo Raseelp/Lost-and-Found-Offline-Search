@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lost_and_found/controllers/collections_controller.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/controllers/stories_controller.dart';
 import 'package:lost_and_found/db/indexed_folder_db_helper.dart';
 import 'package:lost_and_found/models/indexed_folder_model.dart';
 import 'package:lost_and_found/models/meta_data_model.dart';
@@ -1144,6 +1145,10 @@ class NativeController extends GetxController with WidgetsBindingObserver {
         }
         // The scan's items are final by now (even a scan the user stopped).
         unawaited(refreshLatestScan());
+        // There may be stories now (the first ones, for a first scan): the note that says so is set.
+        if (completed && Get.isRegistered<StoriesController>()) {
+          unawaited(Get.find<StoriesController>().scheduleReminderWhenReady());
+        }
       }
 
       update();

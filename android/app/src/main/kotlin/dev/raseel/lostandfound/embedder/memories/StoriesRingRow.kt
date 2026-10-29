@@ -24,6 +24,8 @@ class StoryPreview(
     /** The cover of a collection (empty: none). */
     val coverUri: String = "",
     val coverIsVideo: Boolean = false,
+    /** A person's ring (else a collection's): people are named first in what the note says. */
+    val person: Boolean = faceId > 0L,
 ) {
     companion object {
         /** The rings the app sent, at most [limit] (a bad or empty list is an empty one). */
@@ -34,7 +36,10 @@ class StoryPreview(
                 (0 until minOf(array.length(), limit)).mapNotNull { i ->
                     val o = array.optJSONObject(i) ?: return@mapNotNull null
                     val title = o.optString("title").trim()
-                    val preview = StoryPreview(title, o.optLong("faceId", 0L), o.optString("cover", ""), o.optBoolean("video", false))
+                    val faceId = o.optLong("faceId", 0L)
+                    val preview = StoryPreview(
+                        title, faceId, o.optString("cover", ""), o.optBoolean("video", false), o.optBoolean("person", faceId > 0L),
+                    )
                     // A ring needs a name or a picture to be one.
                     if (title.isEmpty() && preview.faceId <= 0L && preview.coverUri.isEmpty()) null else preview
                 }
@@ -44,22 +49,33 @@ class StoryPreview(
         }
 
         /**
-         * What the note says of [rings]: the names there are (three at most), and the rest as a number, so a person who
-         * has no name is never read out as one. "Maya is ready to watch." "Maya and 2 more are ready to watch."
-         * "Maya, Beach, Sam and 3 more are ready to watch." With no names at all: "5 stories are ready to watch."
+         * What the note says of [rings]: the people first, then the collections in a sentence of their own, and the rest
+         * as a number, so a person who has no name is never read out as one. "Maya and Sam have new stories. So do Beach
+         * and Rainy." "Maya has a new story. So do Beach, Rainy and 2 more." With only one kind: "Beach and Rainy have
+         * new stories." With no names at all: "5 stories are ready to watch."
          */
         fun sentence(rings: List<StoryPreview>): String {
             val total = rings.size
             if (total == 0) return "New photos and memories are waiting. Come explore."
-            val named = rings.map { it.title }.filter { it.isNotBlank() }.take(3)
-            if (named.isEmpty()) return if (total == 1) "A new story is ready to watch." else "$total stories are ready to watch."
-            val more = total - named.size
-            val names = when {
-                more > 0 -> named.joinToString(", ") + " and $more more"
-                named.size == 1 -> named[0]
-                else -> named.dropLast(1).joinToString(", ") + " and " + named.last()
+            val people = rings.filter { it.person && it.title.isNotBlank() }.map { it.title }.take(3)
+            val places = rings.filter { !it.person && it.title.isNotBlank() }.map { it.title }.take(if (people.isEmpty()) 3 else 2)
+            if (people.isEmpty() && places.isEmpty()) {
+                return if (total == 1) "A new story is ready to watch." else "$total stories are ready to watch."
             }
-            return if (total == 1) "$names is ready to watch." else "$names are ready to watch."
+            val more = total - people.size - places.size
+            if (people.isEmpty() || places.isEmpty()) {
+                val names = people + places
+                return "${list(names, more)} ${if (names.size == 1 && more == 0) "has a new story" else "have new stories"}."
+            }
+            val first = "${list(people, 0)} ${if (people.size == 1) "has a new story" else "have new stories"}."
+            return "$first So ${if (places.size == 1 && more == 0) "does" else "do"} ${list(places, more)}."
+        }
+
+        // "Maya", "Maya and Sam", "Maya, Sam and Lee", "Maya, Sam and 2 more".
+        private fun list(names: List<String>, more: Int): String = when {
+            more > 0 -> names.joinToString(", ") + " and $more more"
+            names.size == 1 -> names[0]
+            else -> names.dropLast(1).joinToString(", ") + " and " + names.last()
         }
     }
 }

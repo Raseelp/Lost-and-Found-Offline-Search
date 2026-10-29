@@ -53,3 +53,16 @@ the original photo, not the small system thumbnail. A locked screen shows only t
 
 **Names match the picture.** A notification only names people whose face is confirmed, or clear
 and at least 4% of the photo across, in the photo it shows.
+
+## Stories note
+
+The note that says the stories have refreshed (`StoriesReminder`) is set for a day after the app was
+last used: when a story is opened, when the app goes to the background, and when an index scan ends.
+Each time it replaces the one waiting, and only when there will be rings to see then, opened before
+or never. The app sends who those rings are with it, since the note is made later without the app.
+
+- A note that nobody answers sets the next one itself: 2 days later, then 4, then 7. After four
+  unanswered notes there are no more until the app is opened, which starts the gaps again.
+- At most one a day. A day a daily memory went out is skipped, but not more than two days running.
+- Never between 22:00 and 08:00 (moved to 09:00). It opens the app on the Search tab.
+- The lock screen shows only the title, and a person with no name is never read out.

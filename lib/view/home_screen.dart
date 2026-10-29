@@ -77,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _memories.checkLaunch();
-      _checkOpenLibrary();
+      _checkOpenTab();
     });
   }
 
@@ -90,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _checkOpenLibrary();
+    if (state == AppLifecycleState.resumed) _checkOpenTab();
   }
 
   // Shows home tab [i]: what a tap on the bar does ([tapped]), and what the scan's notification does to show
@@ -129,15 +129,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  // A tap on the scan's notification shows the Library tab, where the scan is,
-  // closing whatever was open on top of it.
-  Future<void> _checkOpenLibrary() async {
+  // A tap on a notification that belongs to a tab shows that tab, closing whatever was open on top of it: the scan's
+  // notification the Library tab, where the scan is; the stories note the Search tab, where the rings are.
+  Future<void> _checkOpenTab() async {
     try {
-      if (!await NativeServices().takeOpenLibrary() || !mounted) return;
+      final tab = await NativeServices().takeOpenTab();
+      if (tab == null || !mounted) return;
       Get.until((route) => route.isFirst);
-      _showTab(Get.find<NativeController>(), _tabLibrary, tapped: false);
+      _showTab(Get.find<NativeController>(), tab == _tabLibrary ? _tabLibrary : _tabSearch, tapped: false);
     } catch (e) {
-      debugPrint('takeOpenLibrary failed: $e');
+      debugPrint('takeOpenTab failed: $e');
     }
   }
 

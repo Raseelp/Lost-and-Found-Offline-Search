@@ -21,10 +21,13 @@ import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
 /**
- * The note that says the stories have refreshed. The app sets it for a day after the stories were last
- * looked at (each look sets it again, replacing the one waiting), so it comes when there is something new
- * to see. Never in the night: a time between 22:00 and 08:00 is moved to 09:00. It opens the app; on or off in
- * Settings. Opened out, it shows a row of the rings that are ready (see [StoriesRingRow]): the app sends who they
+ * The note that says the stories have refreshed. The app sets it for a day after it was last used (when a story is
+ * opened, when the app goes to the background, when an index scan ends), each time replacing the one waiting, and
+ * only when there will be rings to see then, opened before or not. A note that nobody answers sets the next one
+ * itself, further off each time (see [nextGapDays]), and after [MAX_UNANSWERED] of them there are no more until the
+ * app is opened. At most one a day, and not on a day a daily memory went out (see [shouldWait]). Never in the night:
+ * a time between 22:00 and 08:00 is moved to 09:00. It opens the app on the Search tab, where the rings are; on or off
+ * in Settings. Opened out, it shows a row of the rings that are ready (see [StoriesRingRow]): the app sends who they
  * will be when it sets the note, since the note is made later without the app running. On the lock screen only the
  * plain title shows.
  */
@@ -33,6 +36,25 @@ object StoriesReminder {
     private const val CHANNEL_ID = "stories"
     private const val NOTIFICATION_ID = 7310
     private const val ACCENT = 0xFF165E59.toInt()
+    private const val DAY_MS = 86_400_000L
+
+    // Days from an unanswered note to the next: the first is the app's own (a day after it was last used), then 2, 4
+    // and 7 days.
+    private val GAP_DAYS = intArrayOf(1, 2, 4, 7)
+    const val MAX_UNANSWERED = 4
+
+    // A day a daily memory went out is skipped, but not more than this many days running, so the stories get their turn.
+    const val MAX_MEMORY_SKIPS = 2
+
+    /** Days from a note to the next once [unanswered] notes in a row have gone unanswered; null: no more for now. */
+    fun nextGapDays(unanswered: Int): Int? = if (unanswered in 1 until MAX_UNANSWERED) GAP_DAYS[unanswered] else null
+
+    /**
+     * Whether a note that is due is put off to the next day: one already went out [today], or a daily memory did (unless
+     * that has put it off [MAX_MEMORY_SKIPS] days running already).
+     */
+    fun shouldWait(lastPostDay: Int, today: Int, memoryToday: Boolean, memorySkips: Int): Boolean =
+        lastPostDay == today || (memoryToday && memorySkips < MAX_MEMORY_SKIPS)
 
     private fun prefs(context: Context) = context.applicationContext.getSharedPreferences("stories", Context.MODE_PRIVATE)
 
@@ -58,6 +80,41 @@ object StoriesReminder {
             .setInitialDelay(delay, TimeUnit.MILLISECONDS)
             .build()
         WorkManager.getInstance(app).enqueueUniqueWork(WORK, ExistingWorkPolicy.REPLACE, request)
+    }
+
+    /** The app was opened: the notes that went unanswered are forgotten, and the gaps start again from the first. */
+    fun noteOpened(context: Context) {
+        val p = prefs(context)
+        if (p.getInt("unanswered", 0) == 0 && p.getInt("memory_skips", 0) == 0) return
+        p.edit().putInt("unanswered", 0).putInt("memory_skips", 0).apply()
+    }
+
+    /**
+     * The note is due: shown, and the next one set for when it will be due if this one goes unanswered; or, on a day one
+     * already went out or a daily memory did, put off to the same time the next day.
+     */
+    fun fire(context: Context) {
+        val app = context.applicationContext
+        if (!enabled(app)) return
+        val p = prefs(app)
+        val now = System.currentTimeMillis()
+        val today = MemoryDays.dayNumber(now)
+        val memories = MemoryPrefs(app)
+        val memoryToday = memories.enabled && Slot.entries.any { memories.lastDay(it) == today }
+        val skips = p.getInt("memory_skips", 0)
+        val lastPostDay = p.getInt("last_post_day", -1)
+        if (shouldWait(lastPostDay, today, memoryToday, skips)) {
+            // Only a day put off for a memory counts as one (not a day a stories note already went out).
+            if (memoryToday && lastPostDay != today) p.edit().putInt("memory_skips", skips + 1).apply()
+            schedule(app, now + DAY_MS)
+            return
+        }
+        // Notifications are off for the app: nothing more is set (the app sets it again when it is used).
+        if (!post(app)) return
+        val unanswered = p.getInt("unanswered", 0) + 1
+        p.edit().putInt("unanswered", unanswered).putInt("last_post_day", today).putInt("memory_skips", 0).apply()
+        // Last of all: this replaces the very work that is running, which is fine once it has done what it came to do.
+        nextGapDays(unanswered)?.let { schedule(app, now + it * DAY_MS) }
     }
 
     fun cancel(context: Context) {
@@ -90,7 +147,9 @@ object StoriesReminder {
         val open = PendingIntent.getActivity(
             app,
             NOTIFICATION_ID,
-            Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            Intent(app, MainActivity::class.java)
+                .setAction(MainActivity.ACTION_OPEN_STORIES)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val title = "Your stories have refreshed"
@@ -156,7 +215,11 @@ object StoriesReminder {
 
 class StoriesReminderWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
     override fun doWork(): Result {
-        StoriesReminder.post(applicationContext)
+        try {
+            StoriesReminder.fire(applicationContext)
+        } catch (e: Exception) {
+            android.util.Log.w("StoriesReminder", "failed: ${e.message}")
+        }
         return Result.success()
     }
 }

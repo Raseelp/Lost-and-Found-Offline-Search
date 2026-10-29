@@ -11,7 +11,11 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   and videos. A ring turns grey for a day after you open it, then has a new story with pictures it has
   not shown before. Once you have seen them all a Refresh button asks for new ones, and a long press on
   a ring leaves it out for a while. A note tells you when your stories have refreshed, with a row of the
-  rings that are ready (it can be turned off in Settings).
+  rings that are ready (it can be turned off in Settings). It names the people first and the collections
+  after, in a sentence of their own. It comes a day after you last used the app,
+  even if you have never opened a ring. If it goes unanswered the next one waits 2, then 4, then 7 days,
+  and after four there are no more until you open the app. At most one a day, never on a day a daily
+  memory went out (two days running at most), and a tap opens the Search tab.
 - A new "New collection" sheet. It previews what the words find (how many, the best few photos
   and who is in them) as you type, takes other ways of saying it, can include photos, videos or
   both, and names the collection from the words. Before anything is typed it offers a few ideas,

@@ -1086,7 +1086,7 @@ class _MemoriesSection extends StatelessWidget {
                   builder: (stories) => _SettingsRow(
                     icon: Icons.web_stories_outlined,
                     title: 'Stories reminder',
-                    subtitle: 'A note a day after you open your stories, when they have refreshed.',
+                    subtitle: 'A note a day after you last use the app, when there are stories to watch.',
                     trailing: Switch(
                       value: stories.reminderEnabled && stories.reminderAllowed,
                       onChanged: (on) async {
