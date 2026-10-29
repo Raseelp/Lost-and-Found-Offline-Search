@@ -485,7 +485,7 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    // Nothing indexed yet: the same block every screen shows, with the way to the Library.
+    // Nothing indexed yet: a picture of the people to come, and the way to the Library (see NothingIndexed).
     if (!loading && Get.find<NativeController>().totalEmbeddings == 0) {
       return const Padding(
         padding: EdgeInsets.fromLTRB(
@@ -494,7 +494,7 @@ class _EmptyState extends StatelessWidget {
           AppSpacing.xxl,
           0,
         ),
-        child: NothingIndexed(icon: Icons.face_retouching_natural),
+        child: NothingIndexed(place: NothingIndexedPlace.faces),
       );
     }
 

@@ -25,6 +25,11 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   own data. See `docs/development.md`.
 
 ### Changed
+- With nothing indexed yet, Search, Collections, Faces and the zip export each show a small moving
+  picture of what they will hold, made of the tour's sample photos: example searches putting the best
+  photos first (as in the tour), collection tiles getting covers, people as stacks of faces with some
+  still to be named, and zip rows being chosen. Their Start indexing button starts the scan, as the
+  Library's chip does, and shows it in the Library.
 - The row of collections and the row of people on the Search tab are replaced by the story rings.
   After a search the rings shrink into a strip above the results, and "Stories" in the strip goes back.
 - The scan notification is shorter and clearer. Indexing shows one bar in two parts, photos then
