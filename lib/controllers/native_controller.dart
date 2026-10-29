@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lost_and_found/controllers/collections_controller.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
+import 'package:lost_and_found/controllers/stories_controller.dart';
 import 'package:lost_and_found/db/indexed_folder_db_helper.dart';
 import 'package:lost_and_found/models/indexed_folder_model.dart';
 import 'package:lost_and_found/models/meta_data_model.dart';
@@ -16,6 +17,7 @@ import 'package:lost_and_found/models/model_status.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/query_words.dart';
 import 'package:lost_and_found/view/widget/mention_text_controller.dart';
+import 'package:lost_and_found/view/widget/permission_prompt.dart';
 
 class NativeController extends GetxController with WidgetsBindingObserver {
   // Keys for the preferences persisted below - see
@@ -1144,6 +1146,10 @@ class NativeController extends GetxController with WidgetsBindingObserver {
         }
         // The scan's items are final by now (even a scan the user stopped).
         unawaited(refreshLatestScan());
+        // There may be stories now (the first ones, for a first scan): the note that says so is set.
+        if (completed && Get.isRegistered<StoriesController>()) {
+          unawaited(Get.find<StoriesController>().scheduleReminderWhenReady());
+        }
       }
 
       update();
@@ -1565,18 +1571,9 @@ class NativeController extends GetxController with WidgetsBindingObserver {
 
     if (required.isEmpty) return true;
 
-    bool allGranted = true;
-    for (final p in required) {
-      if (!await p.isGranted) {
-        allGranted = false;
-        break;
-      }
-    }
-    if (allGranted) return true;
-
-    final Map<Permission, PermissionStatus> statuses = await required.request();
-
-    return statuses.values.every((s) => s.isGranted);
+    // Asked the way every permission is (see askPermission): once Android has stopped asking, a dialog says how
+    // to turn it on in App info, rather than the scan ending without a word.
+    return askPermission(AppPermission.media, only: required);
   }
 
   // Read-only - reflects the OS's current answer without prompting.
@@ -1601,14 +1598,11 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   Future<void> requestBackgroundScanPermission() async {
     if (!Platform.isAndroid) return;
 
-    final status = await Permission.notification.status;
-    if (status.isPermanentlyDenied) {
-      // A second in-app prompt would be a no-op - the OS already stopped
-      // asking. Settings is the only way left to turn it on.
-      await openAppSettings();
-    } else {
-      await Permission.notification.request();
-    }
+    // Once the OS has stopped asking, a dialog explains and opens App info (see askPermission).
+    await askPermission(
+      AppPermission.notifications,
+      purpose: 'show the scan\'s progress and keep it going in the background',
+    );
 
     // Reads whatever actually landed above - the real value if the user
     // responded synchronously, a stale one otherwise, corrected by

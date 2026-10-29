@@ -238,7 +238,7 @@ class CollectionsTab extends StatelessWidget {
           AppSpacing.xxl,
           0,
         ),
-        child: NothingIndexed(icon: Icons.collections_bookmark_outlined),
+        child: NothingIndexed(place: NothingIndexedPlace.collections),
       ),
     );
   }

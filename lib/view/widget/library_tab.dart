@@ -121,6 +121,20 @@ Future<void> _startDeviceScan(
   controller.pickAndScanFolders(isScanEntirePhone: true);
 }
 
+/// Starts indexing the way the Library's chip does when it is tapped: the whole phone (asking for the photos first if
+/// need be) or a folder to choose, as "Where to look" says. Nothing happens while a scan is already running.
+Future<void> startIndexing(
+  BuildContext context,
+  NativeController controller,
+) async {
+  if (controller.isScanning) return;
+  if (controller.scanWholePhone) {
+    await _startDeviceScan(context, controller);
+  } else {
+    controller.pickAndScanFolders(isScanEntirePhone: false);
+  }
+}
+
 // Before a scan (and after one): what to include, and the way to index one folder instead of
 // the whole phone.
 class _IdleControls extends StatelessWidget {
@@ -549,9 +563,7 @@ class _ChipHero extends StatelessWidget {
       mode: mode,
       // Tapping the chip does what the "Where to look" choice says: the whole phone as before, or
       // ask for a folder.
-      onStart: () => controller.scanWholePhone
-          ? _startDeviceScan(context, controller)
-          : controller.pickAndScanFolders(isScanEntirePhone: false),
+      onStart: () => startIndexing(context, controller),
       idleHint: controller.scanWholePhone
           ? 'TAP TO SCAN'
           : 'TAP TO CHOOSE A FOLDER',

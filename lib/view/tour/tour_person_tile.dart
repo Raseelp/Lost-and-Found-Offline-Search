@@ -20,6 +20,7 @@ class TourPersonTile extends StatefulWidget {
     this.active = true,
     this.badge,
     this.detail,
+    this.addName = false,
   });
 
   final String name;
@@ -42,6 +43,9 @@ class TourPersonTile extends StatefulWidget {
 
   /// The line under the name, in place of "N photos".
   final String? detail;
+
+  /// No name yet: in its place "Add name" with a pencil, in the app's colour, as the People tab shows it.
+  final bool addName;
 
   @override
   State<TourPersonTile> createState() => _TourPersonTileState();
@@ -210,11 +214,32 @@ class _TourPersonTileState extends State<TourPersonTile>
             padding: const EdgeInsets.symmetric(horizontal: 3),
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              child: Text(
-                widget.name,
-                maxLines: 1,
-                style: textTheme.titleSmall?.copyWith(color: AppColors.ink),
-              ),
+              child: widget.addName
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.edit_outlined,
+                          size: 14,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text(
+                          'Add name',
+                          maxLines: 1,
+                          style: textTheme.titleSmall?.copyWith(
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Text(
+                      widget.name,
+                      maxLines: 1,
+                      style: textTheme.titleSmall?.copyWith(
+                        color: AppColors.ink,
+                      ),
+                    ),
             ),
           ),
           const SizedBox(height: 1),

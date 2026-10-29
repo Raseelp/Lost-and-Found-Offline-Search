@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/controllers/collections_controller.dart';
 import 'package:lost_and_found/controllers/faces_controller.dart';
@@ -11,7 +12,7 @@ import 'package:lost_and_found/models/collection_model.dart';
 import 'package:lost_and_found/models/story_state.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/story_planner.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:lost_and_found/view/widget/permission_prompt.dart';
 
 export 'package:lost_and_found/models/story_state.dart' show StoryFrame;
 
@@ -73,7 +74,7 @@ class StoryEdition {
 /// has been opened is grey for 24 hours (its story can be played again); then it has a new edition, made of
 /// pictures that were not in any before, until the ring has nothing left, when it rests for a few days and its
 /// round starts again. Which rings are in the row, and in what order, is [StoryRowPicker]'s work.
-class StoriesController extends GetxController {
+class StoriesController extends GetxController with WidgetsBindingObserver {
   StoriesController({StoriesStore? store, DateTime Function()? clock})
     : _store = store ?? SqliteStoriesStore(),
       _clock = clock ?? DateTime.now;
@@ -124,7 +125,20 @@ class StoriesController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_load());
+  }
+
+  @override
+  void onClose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.onClose();
+  }
+
+  // Leaving the app sets the note for a day later, so it comes even to someone who has never opened a ring.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) unawaited(scheduleReminder(cancelIfNone: true));
   }
 
   Future<void> _load() async {
@@ -375,8 +389,33 @@ class StoriesController extends GetxController {
     state.viewedAt = now;
     await _store.saveState(state);
     update();
-    final at = now + _day;
-    unawaited(NativeServices().storiesReminder(atMs: at, ringsJson: _reminderRings(at)));
+    unawaited(scheduleReminder());
+  }
+
+  /// Sets the "stories have refreshed" note for a day from now, with the rings that will be lit then (opened before or
+  /// never), in place of the one waiting. When none will be, nothing is set, and with [cancelIfNone] the one waiting is
+  /// taken away. Returns whether a note was set. Nothing is done before people and collections are known: rings worked
+  /// out from some of them would leave the others out.
+  Future<bool> scheduleReminder({bool cancelIfNone = false}) async {
+    if (!ready || !reminderEnabled) return false;
+    if (!Get.isRegistered<CollectionsController>() || !_dataReady(Get.find<CollectionsController>())) return false;
+    final at = _now + _day;
+    final rings = _reminderRings(at);
+    if (rings == '[]') {
+      if (cancelIfNone) unawaited(NativeServices().storiesReminder(cancel: true));
+      return false;
+    }
+    await NativeServices().storiesReminder(atMs: at, ringsJson: rings);
+    return true;
+  }
+
+  /// [scheduleReminder] once people and collections are known again after an index scan (they are looked at again when
+  /// one ends), trying for a couple of minutes.
+  Future<void> scheduleReminderWhenReady() async {
+    for (var i = 0; i < 12; i++) {
+      await Future<void>.delayed(const Duration(seconds: 10));
+      if (await scheduleReminder()) return;
+    }
   }
 
   /// Who will be in the row of rings of the "stories have refreshed" note when it comes at [atMs]: the rings that are
@@ -403,11 +442,12 @@ class StoriesController extends GetxController {
     for (final ring in chosen) {
       if (ring.kind == StoryKind.person) {
         // A person without a name sends an empty one: the note shows their ring but does not read "Unnamed" out.
-        out.add({'title': (ring.person!.name ?? '').trim(), 'faceId': ring.person!.coverFaceId});
+        out.add({'title': (ring.person!.name ?? '').trim(), 'faceId': ring.person!.coverFaceId, 'person': true});
       } else {
         final cover = collections.selectedCover(ring.collection!.id);
         out.add({
           'title': ring.title,
+          'person': false,
           if (cover != null) 'cover': cover.uri,
           if (cover != null) 'video': cover.isVideo,
         });
@@ -467,13 +507,12 @@ class StoriesController extends GetxController {
   /// and later) and stays off if it is refused. Returns whether it is on now.
   Future<bool> setReminder(bool on) async {
     if (on) {
-      var status = await Permission.notification.status;
-      if (status.isPermanentlyDenied) {
-        await openAppSettings();
-        return false;
-      }
-      if (!status.isGranted) status = await Permission.notification.request();
-      if (!status.isGranted) {
+      // Asked as every permission is (see askPermission): it says why if it is turned down.
+      final allowed = await askPermission(
+        AppPermission.notifications,
+        purpose: 'tell you when your stories have refreshed',
+      );
+      if (!allowed) {
         await _loadReminder();
         return false;
       }

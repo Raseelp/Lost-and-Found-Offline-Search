@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
+import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/controllers/collections_controller.dart';
@@ -77,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _memories.checkLaunch();
-      _checkOpenLibrary();
+      _checkOpenTab();
     });
   }
 
@@ -90,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _checkOpenLibrary();
+    if (state == AppLifecycleState.resumed) _checkOpenTab();
   }
 
   // Shows home tab [i]: what a tap on the bar does ([tapped]), and what the scan's notification does to show
@@ -129,15 +130,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  // A tap on the scan's notification shows the Library tab, where the scan is,
-  // closing whatever was open on top of it.
-  Future<void> _checkOpenLibrary() async {
+  // A tap on a notification that belongs to a tab shows that tab, closing whatever was open on top of it: the scan's
+  // notification the Library tab, where the scan is; the stories note the Search tab, where the rings are.
+  Future<void> _checkOpenTab() async {
     try {
-      if (!await NativeServices().takeOpenLibrary() || !mounted) return;
+      final tab = await NativeServices().takeOpenTab();
+      if (tab == null || !mounted) return;
       Get.until((route) => route.isFirst);
-      _showTab(Get.find<NativeController>(), _tabLibrary, tapped: false);
+      _showTab(Get.find<NativeController>(), tab == _tabLibrary ? _tabLibrary : _tabSearch, tapped: false);
     } catch (e) {
-      debugPrint('takeOpenLibrary failed: $e');
+      debugPrint('takeOpenTab failed: $e');
     }
   }
 
@@ -634,63 +636,71 @@ class _FloatingNavBar extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(_barHeight / 2),
-                  // Translucent frosted glass: content scrolls visibly behind
-                  // it, a touch more see-through while it's out of the way.
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-                    // The same pill either way: only its colour and contents change, so it
-                    // reads as the bar itself turning into the button (and back).
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 340),
-                      curve: Curves.easeOutCubic,
-                      height: choosing && selection.tall
-                          ? _tallBarHeight
-                          : _barHeight,
-                      padding: const EdgeInsets.all(_barInset),
-                      decoration: BoxDecoration(
-                        color: ready
-                            ? AppColors.primary
-                            : AppColors.parchment.withValues(
-                                alpha: shrunk ? 0.55 : 0.72,
+                // Its colours, eased between plain, out of the way (shrunk) and the teal button it turns into.
+                child: TweenAnimationBuilder<Offset>(
+                  tween: Tween<Offset>(end: Offset(ready ? 1 : 0, shrunk ? 1 : 0)),
+                  duration: const Duration(milliseconds: 340),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, look, content) =>
+                      // Given way to the finger on the tabs (see _barPull and _BarShape). Always the same
+                      // widgets around the tabs (only the numbers change), so they keep their state and the
+                      // touch on them; only the outline is redrawn.
+                      ValueListenableBuilder<(double, double)>(
+                        valueListenable: _barPull,
+                        builder: (context, pull, content) {
+                          final shape = _BarShape(pull.$1, pull.$2);
+                          return ClipPath(
+                            clipper: _BarClip(shape),
+                            // Translucent frosted glass: content scrolls visibly behind
+                            // it, a touch more see-through while it's out of the way.
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                              child: CustomPaint(
+                                painter: _BarPainter(
+                                  shape,
+                                  Color.lerp(
+                                    AppColors.parchment.withValues(alpha: 0.72 - 0.17 * look.dy),
+                                    AppColors.primary,
+                                    look.dx,
+                                  )!,
+                                  Color.lerp(AppColors.hairline, AppColors.primary, look.dx)!,
+                                ),
+                                child: content,
                               ),
-                        borderRadius: BorderRadius.circular(_barHeight / 2),
-                        border: Border.all(
-                          color: ready ? AppColors.primary : AppColors.hairline,
-                        ),
+                            ),
+                          );
+                        },
+                        child: content,
                       ),
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 260),
-                        switchInCurve: Curves.easeOut,
-                        switchOutCurve: Curves.easeIn,
-                        layoutBuilder: (current, previous) => Stack(
-                          fit: StackFit.expand,
-                          children: [...previous, if (current != null) current],
-                        ),
-                        child: choosing
-                            ? _SelectionContent(
-                                key: const ValueKey('choose'),
-                                selection: selection,
-                              )
-                            : Row(
-                                key: const ValueKey('tabs'),
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  for (final tab in _navTabs)
-                                    _NavItem(
-                                      tab: tab,
-                                      selected: index == tab.value,
-                                      showDot:
-                                          tab.value == _tabLibrary &&
-                                          showActivityDot,
-                                      compact: compact,
-                                      onTap: () => onChanged(tab.value),
-                                    ),
-                                ],
-                              ),
+                  // The same pill either way: only its colour and contents change, so it
+                  // reads as the bar itself turning into the button (and back).
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 340),
+                    curve: Curves.easeOutCubic,
+                    height: choosing && selection.tall
+                        ? _tallBarHeight
+                        : _barHeight,
+                    padding: const EdgeInsets.all(_barInset),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 260),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      layoutBuilder: (current, previous) => Stack(
+                        fit: StackFit.expand,
+                        children: [...previous, if (current != null) current],
                       ),
+                      child: choosing
+                          ? _SelectionContent(
+                              key: const ValueKey('choose'),
+                              selection: selection,
+                            )
+                          : _TabPill(
+                              key: const ValueKey('tabs'),
+                              index: index,
+                              showActivityDot: showActivityDot,
+                              compact: compact,
+                              onChanged: onChanged,
+                            ),
                     ),
                   ),
                 ),
@@ -701,7 +711,10 @@ class _FloatingNavBar extends StatelessWidget {
                 tween: Tween<double>(end: choosing ? 0 : 1),
                 duration: const Duration(milliseconds: 340),
                 curve: Curves.easeOutCubic,
+                // Clipped only at its right edge while folding away, never above or below, so the button can
+                // squeeze, lean and be nudged without being cut.
                 builder: (context, t, child) => ClipRect(
+                  clipper: _FoldClip(t),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     widthFactor: t,
@@ -713,10 +726,18 @@ class _FloatingNavBar extends StatelessWidget {
                   child: Row(
                     children: [
                       const SizedBox(width: AppSpacing.sm),
-                      _SearchButton(
-                        active: index == _tabSearch,
-                        shrunk: shrunk,
-                        onTap: () => onChanged(_tabSearch),
+                      // Nudged along when the bar is pulled hard toward it, so the two never overlap.
+                      ValueListenableBuilder<(double, double)>(
+                        valueListenable: _barPull,
+                        builder: (context, pull, button) => Transform.translate(
+                          offset: Offset(12 * math.max(pull.$1, 0.0), 0),
+                          child: button,
+                        ),
+                        child: _SearchButton(
+                          active: index == _tabSearch,
+                          shrunk: shrunk,
+                          onTap: () => onChanged(_tabSearch),
+                        ),
                       ),
                     ],
                   ),
@@ -728,6 +749,18 @@ class _FloatingNavBar extends StatelessWidget {
       ),
     );
   }
+}
+
+class _FoldClip extends CustomClipper<Rect> {
+  const _FoldClip(this.open);
+
+  final double open;
+
+  @override
+  Rect getClip(Size size) => Rect.fromLTRB(-40, -40, size.width + (open >= 1 ? 40 : 0), size.height + 40);
+
+  @override
+  bool shouldReclip(_FoldClip old) => old.open != open;
 }
 
 // What the pill shows while choosing people or collections: a close button on the left, and
@@ -1069,10 +1102,495 @@ class _SingleRowSelection extends StatelessWidget {
   }
 }
 
+// The three tabs, tapped or dragged across. One teal chip marks the selected tab and does all the moving, on
+// springs: pressing a tab lifts it there at once (it pops up a little), dragging pulls it along under the
+// finger (it stretches with the speed and leans toward the finger), with a light tick on each tab it reaches.
+// The screen only changes when the finger lets go, on the tab under it; the chip then settles onto that tab
+// and follows it as it widens for its icon. Pulled up or down, the chip stands taller and leans after the
+// finger, the same either way. Pressing harder (on screens that tell) lifts it higher.
+class _TabPill extends StatefulWidget {
+  const _TabPill({
+    super.key,
+    required this.index,
+    required this.showActivityDot,
+    required this.compact,
+    required this.onChanged,
+  });
+
+  final int index;
+  final bool showActivityDot;
+  final bool compact;
+  final ValueChanged<int> onChanged;
+
+  @override
+  State<_TabPill> createState() => _TabPillState();
+}
+
+/// A damped spring toward a target that can move every frame. [ratio] below 1 overshoots a little.
+class _Spring {
+  _Spring(this.stiffness, this.ratio);
+
+  final double stiffness;
+  final double ratio;
+  double x = 0;
+  double v = 0;
+
+  // [stiff] scales the stiffness for this step (a firmer pull while settling than while following a finger).
+  void step(double target, double dt, {double stiff = 1}) {
+    final k = stiffness * stiff;
+    final damping = 2 * math.sqrt(k) * ratio;
+    // Small fixed steps, so a slow frame doesn't make it jump or blow up.
+    for (var left = dt; left > 0; left -= 1 / 240) {
+      final h = math.min(left, 1 / 240);
+      v += (k * (target - x) - damping * v) * h;
+      x += v * h;
+    }
+  }
+
+  void jump(double to) {
+    x = to;
+    v = 0;
+  }
+
+  bool restsAt(double target) => (x - target).abs() < 0.05 && v.abs() < 0.05;
+}
+
+/// How the finger on the tab pill pulls on the bar under it: toward an end (-1 left to 1 right) and up or
+/// down (-1 up to 1 down), eased and on springs. The bar stretches that way (see _BarShape); a plain tap leaves
+/// it alone.
+final _barPull = ValueNotifier<(double, double)>((0, 0));
+
+/// The bar's outline as the finger pulls on it, the way Liquid Glass bars give: always a whole capsule, grown
+/// toward the pull (the near edge goes most of the way, the far one follows a little) and a touch thinner the
+/// other way, as if keeping its volume. The tabs inside don't stretch. At rest, the plain pill.
+class _BarShape {
+  const _BarShape(this.side, this.lift);
+
+  final double side;
+  final double lift;
+
+  bool get resting => side == 0 && lift == 0;
+
+  Path path(Size size) {
+    final s = side.abs();
+    final l = lift.abs();
+    final rect = Rect.fromLTRB(
+      (side < 0 ? -12 * s : 2 * s) + 3 * l,
+      (lift < 0 ? -9 * l : 2 * l) + 1.5 * s,
+      size.width + (side > 0 ? 12 * s : -2 * s) - 3 * l,
+      size.height + (lift > 0 ? 9 * l : -2 * l) - 1.5 * s,
+    );
+    final radius = math.min(_barHeight / 2, size.height / 2) * rect.height / size.height;
+    return Path()..addRRect(RRect.fromRectAndRadius(resting ? Offset.zero & size : rect, Radius.circular(radius)));
+  }
+}
+
+class _BarClip extends CustomClipper<Path> {
+  const _BarClip(this.shape);
+
+  final _BarShape shape;
+
+  @override
+  Path getClip(Size size) => shape.path(size);
+
+  @override
+  bool shouldReclip(_BarClip old) =>
+      old.shape.side != shape.side || old.shape.lift != shape.lift;
+}
+
+class _BarPainter extends CustomPainter {
+  const _BarPainter(this.shape, this.fill, this.border);
+
+  final _BarShape shape;
+  final Color fill;
+  final Color border;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // The border sits just inside the outline, as a box's border does.
+    final path = shape.path(size);
+    canvas.drawPath(path, Paint()..color = fill);
+    canvas.save();
+    canvas.clipPath(path);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = border
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_BarPainter old) =>
+      old.fill != fill ||
+      old.border != border ||
+      old.shape.side != shape.side ||
+      old.shape.lift != shape.lift;
+}
+
+double _tanh(double x) {
+  final e = math.exp(2 * x.clamp(-10.0, 10.0));
+  return (e - 1) / (e + 1);
+}
+
+class _TabPillState extends State<_TabPill> with SingleTickerProviderStateMixin {
+  final _keys = [for (final _ in _navTabs) GlobalKey()];
+
+  late final Ticker _ticker = createTicker(_tick);
+  Duration _last = Duration.zero;
+  int _still = 0;
+
+  // The chip: its centre and width, how far it is lifted (pressed), how far stretched by speed, and how much it
+  // shows (none while Search is the screen showing and nothing is pressed).
+  final _centre = _Spring(700, 0.82);
+  final _width = _Spring(700, 0.82);
+  final _lift = _Spring(520, 0.55);
+  final _stretch = _Spring(380, 1);
+  final _shown = _Spring(500, 1);
+  // Up and down: how far the finger pulls the chip off the row (-1 up to 1 down, eased), wobbling back when let go.
+  final _pull = _Spring(420, 0.42);
+  // The bar under it, pulled along when the finger goes hard past its ends or well up or down (see _barPull).
+  final _barX = _Spring(300, 0.45);
+  final _barY = _Spring(300, 0.45);
+  bool _placed = false;
+
+  // Each tab's place in the row, from the last layout.
+  List<Rect> _rects = const [];
+
+  // The finger, while one is down on the pill.
+  int? _pointer;
+  double _x = 0;
+  double _y = 0;
+  int _over = 0;
+  // Pressing harder than at first (on screens that report it), 0 to 1: the chip lifts higher.
+  double _press = 0;
+  double _press0 = 0;
+  double _speed = 0;
+  Duration? _lastMove;
+
+  // The tab let go on, from then until the screen has changed to it (a frame or so): the chip heads there
+  // straight away instead of back to the tab still marked.
+  int? _going;
+
+  int get _selected => _going ?? _navTabs.indexWhere((t) => t.value == widget.index);
+
+  @override
+  void initState() {
+    super.initState();
+    _wake();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TabPill old) {
+    super.didUpdateWidget(old);
+    // The tabs resize as the selected one gains its icon: the chip follows them.
+    if (old.index != widget.index || old.compact != widget.compact) {
+      _going = null;
+      _wake();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    // Let go of the bar too (after this frame: listeners can't rebuild while the tree is being taken down).
+    if (_barPull.value.$1 != 0 || _barPull.value.$2 != 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _barPull.value = (0, 0));
+    }
+    super.dispose();
+  }
+
+  void _wake() {
+    _still = 0;
+    if (!_ticker.isActive) {
+      _last = Duration.zero;
+      _ticker.start();
+    }
+  }
+
+  List<Rect>? _measure() {
+    final row = context.findRenderObject() as RenderBox?;
+    if (row == null || !row.hasSize) return null;
+    final rects = <Rect>[];
+    for (final key in _keys) {
+      final box = key.currentContext?.findRenderObject() as RenderBox?;
+      if (box == null || !box.hasSize) return null;
+      rects.add(row.globalToLocal(box.localToGlobal(Offset.zero)) & box.size);
+    }
+    return rects;
+  }
+
+  // The nearest tab, so the gaps between them and the ends still count.
+  int _tabAt(double x) {
+    var best = 0;
+    for (var i = 1; i < _rects.length; i++) {
+      if ((_rects[i].center.dx - x).abs() < (_rects[best].center.dx - x).abs()) best = i;
+    }
+    return best;
+  }
+
+  void _tick(Duration elapsed) {
+    final dt = _last == Duration.zero
+        ? 1 / 60
+        : ((elapsed - _last).inMicroseconds / 1e6).clamp(0.0, 1 / 20);
+    _last = elapsed;
+    final rects = _measure();
+    if (rects == null) return;
+    _rects = rects;
+
+    final pressed = _pointer != null;
+    final selected = _selected;
+    late double centre;
+    late double width;
+    if (pressed) {
+      final under = rects[_over];
+      // Leans from the tab toward the finger rather than sitting under it, so the tab's words stay on the chip.
+      centre = under.center.dx + (_x - under.center.dx) * 0.25;
+      width = under.width;
+    } else if (selected >= 0) {
+      centre = rects[selected].center.dx;
+      width = rects[selected].width;
+    } else {
+      centre = _centre.x;
+      width = _width.x;
+    }
+    final shown = pressed || selected >= 0 ? 1.0 : 0.0;
+    // Coming from nowhere (first frame, or Search was showing): appear in place rather than fly in.
+    if (!_placed || _shown.x < 0.05) {
+      _centre.jump(centre);
+      _width.jump(width);
+      if (!_placed) _shown.jump(shown);
+      _placed = true;
+    }
+    // The finger's speed fades when it stops moving.
+    if (_lastMove != null && elapsed - _lastMove! > const Duration(milliseconds: 60)) _speed *= math.exp(-dt * 12);
+
+    final lift = pressed ? 1.0 + 0.6 * _press : 0.0;
+    final stretch = pressed ? (_speed.abs() / 2400).clamp(0.0, 0.22) : 0.0;
+    // Eased, so it gives more at first and less the further the finger goes, like pulling something elastic.
+    final pull = pressed ? _tanh((_y - rects.first.center.dy) / 48) : 0.0;
+    // Let go, it settles firmly onto the tab (and keeps up as the tab widens for its icon).
+    final stiff = pressed ? 1.0 : 1.8;
+    _centre.step(centre, dt, stiff: stiff);
+    _width.step(width, dt, stiff: stiff);
+    _lift.step(lift, dt);
+    _stretch.step(stretch, dt);
+    _shown.step(shown, dt);
+    _pull.step(pull, dt);
+    // The bar gives way only to a push: toward an end (from just inside it, more past it, a little more with a
+    // quick swipe), or up or down, following more slowly than the chip, so a tap leaves it be.
+    final past = !pressed
+        ? 0.0
+        : _x < rects.first.left + 20
+        ? _x - (rects.first.left + 20)
+        : (_x > rects.last.right - 20 ? _x - (rects.last.right - 20) : 0.0);
+    final barX = pressed ? (_tanh(past / 70) + 0.15 * (_speed / 2400).clamp(-1.0, 1.0)).clamp(-1.0, 1.0) : 0.0;
+    final barY = pressed ? _tanh((_y - rects.first.center.dy) / 110) : 0.0;
+    _barX.step(barX, dt);
+    _barY.step(barY, dt);
+    _barPull.value = (_barX.x, _barY.x);
+    setState(() {});
+
+    final resting = _centre.restsAt(centre) &&
+        _width.restsAt(width) &&
+        _lift.restsAt(lift) &&
+        _stretch.restsAt(stretch) &&
+        _shown.restsAt(shown) &&
+        _pull.restsAt(pull) &&
+        _barX.restsAt(barX) &&
+        _barY.restsAt(barY);
+    // Runs on a little after coming to rest, while the tabs finish resizing, then stops until needed, exactly
+    // at rest (so the bar under it is left untouched).
+    _still = resting && !pressed ? _still + 1 : 0;
+    if (_still > 20) {
+      for (final (spring, to) in [
+        (_centre, centre), (_width, width), (_lift, lift), (_stretch, stretch), (_shown, shown), (_pull, pull),
+        (_barX, barX), (_barY, barY),
+      ]) {
+        spring.jump(to);
+      }
+      _barPull.value = (0, 0);
+      _ticker.stop();
+    }
+  }
+
+  void _down(PointerDownEvent e) {
+    if (_pointer != null) return;
+    final rects = _measure();
+    if (rects == null) return;
+    _rects = rects;
+    _pointer = e.pointer;
+    _going = null;
+    _x = e.localPosition.dx;
+    _y = e.localPosition.dy;
+    _over = _tabAt(_x);
+    _speed = 0;
+    _press = 0;
+    _press0 = e.pressure;
+    _lastMove = e.timeStamp;
+    _wake();
+  }
+
+  void _move(PointerMoveEvent e) {
+    if (e.pointer != _pointer) return;
+    final last = _lastMove;
+    final dt = last == null ? 0 : (e.timeStamp - last).inMicroseconds / 1e6;
+    if (dt > 0) _speed = _speed * 0.6 + (e.localPosition.dx - _x) / dt * 0.4;
+    _lastMove = e.timeStamp;
+    _x = e.localPosition.dx;
+    _y = e.localPosition.dy;
+    final range = e.pressureMax - e.pressureMin;
+    if (range > 0) _press = ((e.pressure - _press0) / range * 3).clamp(0.0, 1.0);
+    final over = _tabAt(_x);
+    if (over != _over) HapticFeedback.selectionClick();
+    _over = over;
+    _wake();
+  }
+
+  void _up(PointerUpEvent e) {
+    if (e.pointer != _pointer) return;
+    _pointer = null;
+    _wake();
+    final value = _navTabs[_over].value;
+    if (value != widget.index) _going = _over;
+    // Told even for the tab already showing, as a tap always was (opening Faces again refreshes it).
+    widget.onChanged(value);
+  }
+
+  void _cancel(PointerCancelEvent e) {
+    if (e.pointer != _pointer) return;
+    _pointer = null;
+    _wake();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // The chip, built from the springs: lifted it grows and stands up a little; stretched (by speed) it gets
+    // wider and flatter, like something soft pulled along.
+    final lift = _lift.x;
+    final stretch = _stretch.x;
+    final shown = _shown.x.clamp(0.0, 1.0);
+    // Pulled up or down it stands taller and slimmer, and leans that way, as far as the bar has room for.
+    final pull = _pull.x;
+    final chipWidth = _width.x * (1 + 0.1 * lift + stretch) * (1 - 0.1 * pull.abs());
+    final chipHeight = math.min(
+      _chipHeight * (1 + 0.1 * lift - 0.35 * stretch) * (1 + 0.18 * pull.abs()),
+      // Room is left above and below it, so it never presses flat against the bar's edge.
+      _chipHeight + 2 * (_barInset - 3),
+    );
+    final chip = _placed && _rects.isNotEmpty
+        ? Rect.fromCenter(
+            // Kept inside the row, grown or not, so it never presses into the bar's rounded ends.
+            center: Offset(
+              _centre.x.clamp(
+                _rects.first.left + chipWidth / 2,
+                math.max(_rects.first.left + chipWidth / 2, _rects.last.right - chipWidth / 2),
+              ),
+              (_rects.first.center.dy + 7 * pull).clamp(
+                _rects.first.center.dy - (_barInset - 3) - (_chipHeight - chipHeight) / 2,
+                _rects.first.center.dy + (_barInset - 3) + (_chipHeight - chipHeight) / 2,
+              ),
+            ),
+            width: chipWidth,
+            height: chipHeight,
+          )
+        : null;
+
+    // The tabs' words twice: dark, and light clipped to the chip, so they turn light exactly where the chip
+    // covers them (half on it, half off, as it slides). The light copy only draws.
+    Widget tabs({required bool light}) => Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        for (var i = 0; i < _navTabs.length; i++)
+          _NavItem(
+            key: light ? null : _keys[i],
+            tab: _navTabs[i],
+            selected: widget.index == _navTabs[i].value,
+            light: light,
+            showDot: _navTabs[i].value == _tabLibrary && widget.showActivityDot,
+            compact: widget.compact,
+            onTap: () => widget.onChanged(_navTabs[i].value),
+          ),
+      ],
+    );
+
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: _down,
+      onPointerMove: _move,
+      onPointerUp: _up,
+      onPointerCancel: _cancel,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          if (chip != null && shown > 0.01)
+            Positioned.fromRect(
+              rect: chip,
+              child: Opacity(
+                opacity: shown,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.22 * lift.clamp(0.0, 1.0)),
+                        blurRadius: 16,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          tabs(light: false),
+          if (chip != null && shown > 0.01)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: ExcludeSemantics(
+                  child: Opacity(
+                    opacity: shown,
+                    child: ClipPath(
+                      clipper: _ChipClip(chip),
+                      child: ColoredBox(
+                        // Under the light words, the chip's own colour, so the dark copy doesn't show through.
+                        color: AppColors.primary,
+                        child: tabs(light: true),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChipClip extends CustomClipper<Path> {
+  const _ChipClip(this.chip);
+
+  final Rect chip;
+
+  @override
+  Path getClip(Size size) => Path()
+    ..addRRect(RRect.fromRectAndRadius(chip, Radius.circular(chip.height / 2)));
+
+  @override
+  bool shouldReclip(_ChipClip old) => old.chip != chip;
+}
+
+// One tab's words (and its icon while selected). The teal chip behind it is drawn by the pill, which also
+// takes the touches; [onTap] is for screen readers.
 class _NavItem extends StatelessWidget {
   const _NavItem({
+    super.key,
     required this.tab,
     required this.selected,
+    required this.light,
     required this.showDot,
     required this.compact,
     required this.onTap,
@@ -1084,6 +1602,9 @@ class _NavItem extends StatelessWidget {
   final bool showDot;
   final VoidCallback onTap;
 
+  // The copy drawn on the chip: light words.
+  final bool light;
+
   @override
   Widget build(BuildContext context) {
     // Sized by its own content, not Flexible: three Flexibles split the pill
@@ -1094,49 +1615,70 @@ class _NavItem extends StatelessWidget {
       button: true,
       selected: selected,
       label: tab.label,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: AnimatedContainer(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        height: _chipHeight,
+        padding: EdgeInsets.symmetric(
+          horizontal: selected ? 12 : (compact ? 10 : 14),
+        ),
+        // The icon opens out (and folds away) beside the words, which never move off or get cut: the tab
+        // widens as it does. No FittedBox: the label and icon are always the same size, selected or not - the
+        // pill has the room, so nothing scales down to fit.
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(end: selected ? 1 : 0),
           duration: const Duration(milliseconds: 240),
           curve: Curves.easeOutCubic,
-          height: _chipHeight,
-          padding: EdgeInsets.symmetric(
-            horizontal: selected ? 12 : (compact ? 10 : 14),
-          ),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.primary : AppColors.transparent,
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-          ),
-          child: AnimatedSize(
-            duration: const Duration(milliseconds: 240),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.centerLeft,
-            // No FittedBox: the label and icon are always the same size, selected
-            // or not - the pill has the room, so nothing scales down to fit.
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (selected) ...[
-                  Icon(tab.selectedIcon, size: 18, color: AppColors.onPrimary),
-                  const SizedBox(width: 7),
-                ],
-                Text(
-                  tab.label,
-                  maxLines: 1,
-                  softWrap: false,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: selected ? AppColors.onPrimary : AppColors.ink80,
+          builder: (context, open, label) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // The whole icon, small and growing in a slot that widens with it (never a sliver of it).
+              if (open > 0)
+                SizedBox(
+                  width: 25 * open,
+                  height: 18,
+                  child: OverflowBox(
+                    maxWidth: 25,
+                    alignment: Alignment.centerLeft,
+                    child: Opacity(
+                      opacity: open.clamp(0.0, 1.0),
+                      child: Transform.scale(
+                        scale: open,
+                        alignment: Alignment.centerLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 7),
+                          child: Icon(
+                            tab.selectedIcon,
+                            size: 18,
+                            color: light ? AppColors.onPrimary : AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                if (showDot) ...[
-                  const SizedBox(width: 5),
-                  _ActivityDot(
-                    color: selected ? AppColors.onPrimary : AppColors.primary,
-                  ),
-                ],
+              label!,
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                tab.label,
+                maxLines: 1,
+                softWrap: false,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: light ? AppColors.onPrimary : AppColors.ink80,
+                ),
+              ),
+              if (showDot) ...[
+                const SizedBox(width: 5),
+                _ActivityDot(
+                  color: light ? AppColors.onPrimary : AppColors.primary,
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ),
@@ -1164,11 +1706,68 @@ class _SearchButton extends StatefulWidget {
 }
 
 class _SearchButtonState extends State<_SearchButton>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _burst = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 700),
   );
+
+  // Held, it gives under the finger (squeezes in, and leans and stretches toward the finger); let go, it
+  // springs back past its size and settles, so even a quick tap shows a little bounce.
+  late final Ticker _ticker = createTicker(_tick);
+  Duration _last = Duration.zero;
+  final _press = _Spring(650, 0.4);
+  final _leanX = _Spring(420, 0.5);
+  final _leanY = _Spring(420, 0.5);
+  int? _pointer;
+  Offset _finger = Offset.zero;
+
+  void _tick(Duration elapsed) {
+    final dt = _last == Duration.zero
+        ? 1 / 60
+        : ((elapsed - _last).inMicroseconds / 1e6).clamp(0.0, 1 / 20);
+    _last = elapsed;
+    final held = _pointer != null;
+    final press = held ? 1.0 : 0.0;
+    // From the button's centre: eased, so it leans a little and no further however far the finger goes.
+    final leanX = held ? _tanh((_finger.dx - _barHeight / 2) / 40) : 0.0;
+    final leanY = held ? _tanh((_finger.dy - _barHeight / 2) / 40) : 0.0;
+    _press.step(press, dt);
+    _leanX.step(leanX, dt);
+    _leanY.step(leanY, dt);
+    setState(() {});
+    if (!held && _press.restsAt(press) && _leanX.restsAt(leanX) && _leanY.restsAt(leanY)) {
+      _ticker.stop();
+    }
+  }
+
+  void _wake() {
+    if (!_ticker.isActive) {
+      _last = Duration.zero;
+      _ticker.start();
+    }
+  }
+
+  void _down(PointerDownEvent e) {
+    if (_pointer != null) return;
+    _pointer = e.pointer;
+    _finger = e.localPosition;
+    // A quick tap is over before the spring gets far: a push to start it, so the bounce always shows.
+    _press.v += 6;
+    _wake();
+  }
+
+  void _move(PointerMoveEvent e) {
+    if (e.pointer != _pointer) return;
+    _finger = e.localPosition;
+    _wake();
+  }
+
+  void _lift(PointerEvent e) {
+    if (e.pointer != _pointer) return;
+    _pointer = null;
+    _wake();
+  }
 
   @override
   void initState() {
@@ -1190,6 +1789,7 @@ class _SearchButtonState extends State<_SearchButton>
 
   @override
   void dispose() {
+    _ticker.dispose();
     _burst.dispose();
     super.dispose();
   }
@@ -1200,7 +1800,12 @@ class _SearchButtonState extends State<_SearchButton>
       button: true,
       selected: widget.active,
       label: 'Search',
-      child: GestureDetector(
+      child: Listener(
+        onPointerDown: _down,
+        onPointerMove: _move,
+        onPointerUp: _lift,
+        onPointerCancel: _lift,
+        child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
         // While the bolt button's liquid runs into this button it draws this circle itself (see ActionFab).
@@ -1218,8 +1823,21 @@ class _SearchButtonState extends State<_SearchButton>
                 ? math.sin(t * math.pi * 2) * 0.35 * (1 - t)
                 : 0.0;
             final pop = widget.active ? 1 + 0.18 * math.sin(t * math.pi) : 1.0;
+            // Pressed in (and out past its size as it springs back), stretched toward the finger. Held still
+            // while the bolt button's liquid draws it, so the two stay lined up.
+            final give = 1 - 0.12 * _press.x * fade;
+            final lx = _leanX.x * fade;
+            final ly = _leanY.x * fade;
 
-            return SizedBox(
+            return Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()
+                ..translate(5 * lx, 5 * ly)
+                ..scale(
+                  give * (1 + 0.06 * lx.abs() - 0.03 * ly.abs()),
+                  give * (1 + 0.06 * ly.abs() - 0.03 * lx.abs()),
+                ),
+              child: SizedBox(
               width: _barHeight,
               height: _barHeight,
               child: Stack(
@@ -1283,8 +1901,10 @@ class _SearchButtonState extends State<_SearchButton>
                   ),
                 ],
               ),
+              ),
             );
           },
+        ),
         ),
         ),
       ),

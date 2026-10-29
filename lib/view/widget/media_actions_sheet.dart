@@ -3,6 +3,7 @@ import 'package:lost_and_found/controllers/native_controller.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/view/widget/permission_prompt.dart';
 
 // Shared by both viewers - the action list itself differs (wallpaper/
 // clipboard only make sense for a still image), everything else about the
@@ -85,7 +86,10 @@ class _MediaActionsSheet extends StatelessWidget {
                 label: 'Save a copy',
                 onTap: () => _run(
                   context,
-                  () => controller.saveFileCopy(uri: uri, isVideo: isVideo),
+                  // Android 9 and older need storage access to save it (asked as every permission is).
+                  () async =>
+                      await askPermission(AppPermission.storage) &&
+                      await controller.saveFileCopy(uri: uri, isVideo: isVideo),
                   isVideo ? 'Video saved to Gallery' : 'Photo saved to Gallery',
                   "Couldn't save a copy",
                 ),

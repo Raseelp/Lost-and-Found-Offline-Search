@@ -577,11 +577,11 @@ class _SearchIdlePrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Nothing to search yet: the same block every screen shows, with the way to the Library.
+    // Nothing to search yet: example searches and what they would find, and the way to the Library (see NothingIndexed).
     if (controller.totalEmbeddings == 0) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: AppSpacing.xxl),
-        child: NothingIndexed(icon: Icons.search_rounded),
+        child: NothingIndexed(place: NothingIndexedPlace.search),
       );
     }
 

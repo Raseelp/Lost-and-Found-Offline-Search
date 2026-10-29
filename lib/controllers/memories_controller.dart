@@ -8,7 +8,7 @@ import 'package:lost_and_found/models/memories.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/view/on_this_day_screen.dart';
 import 'package:lost_and_found/view/person_screen.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:lost_and_found/view/widget/permission_prompt.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Memories: "on this day" (the card on the Library tab and its screen), "then and now" for a person,
@@ -240,13 +240,12 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
   /// and later) and stays off if it is refused. Returns whether it is on now.
   Future<bool> setEnabled(bool on) async {
     if (on) {
-      var status = await Permission.notification.status;
-      if (status.isPermanentlyDenied) {
-        await openAppSettings();
-        return false;
-      }
-      if (!status.isGranted) status = await Permission.notification.request();
-      if (!status.isGranted) {
+      // Asked as every permission is (see askPermission): it says why if it is turned down.
+      final allowed = await askPermission(
+        AppPermission.notifications,
+        purpose: 'send your daily memory',
+      );
+      if (!allowed) {
         await loadSettings();
         return false;
       }

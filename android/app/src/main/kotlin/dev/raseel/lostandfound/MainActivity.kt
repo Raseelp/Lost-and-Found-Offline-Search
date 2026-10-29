@@ -63,11 +63,18 @@ class MainActivity : FlutterActivity() {
     companion object {
         // What a tap on the scan's notification (indexing or faces) opens with: the Library tab, where the scan is.
         const val ACTION_OPEN_LIBRARY = "dev.raseel.lostandfound.OPEN_LIBRARY"
+
+        // What a tap on the stories note opens with: the Search tab, where the rings are.
+        const val ACTION_OPEN_STORIES = "dev.raseel.lostandfound.OPEN_STORIES"
+
+        // The home tabs a notification can open (as the app numbers them).
+        private const val TAB_SEARCH = 0
+        private const val TAB_LIBRARY = 2
     }
 
-    // The scan's notification was tapped, and the app has not yet shown the Library tab for it (takeOpenLibrary).
+    // The home tab a tapped notification wants shown, not yet taken by the app (takeOpenTab); -1: none.
     @Volatile
-    private var openLibrary = false
+    private var openTab = -1
 
     private val CHANNEL = "lostandfound/native"
     private val PROGRESS_CHANNEL = "lostandfound/progress"
@@ -185,7 +192,7 @@ class MainActivity : FlutterActivity() {
         super.onCreate(savedInstanceState)
         noteMemoryTap(intent)
         // Not again when only recreated (turned, say): that tap was already shown.
-        if (savedInstanceState == null) noteLibraryTap(intent)
+        if (savedInstanceState == null) noteTabTap(intent)
         // The daily memory, if the person turned it on: kept scheduled (a new install of the app or a restart does not lose it).
         try { MemoryScheduler.apply(applicationContext) } catch (_: Exception) {}
 
@@ -206,11 +213,20 @@ class MainActivity : FlutterActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         noteMemoryTap(intent)
-        noteLibraryTap(intent)
+        noteTabTap(intent)
     }
 
-    private fun noteLibraryTap(intent: Intent?) {
-        if (intent?.action == ACTION_OPEN_LIBRARY) openLibrary = true
+    override fun onResume() {
+        super.onResume()
+        // The app is in use: the stories notes that went unanswered no longer count.
+        try { StoriesReminder.noteOpened(applicationContext) } catch (_: Exception) {}
+    }
+
+    private fun noteTabTap(intent: Intent?) {
+        when (intent?.action) {
+            ACTION_OPEN_LIBRARY -> openTab = TAB_LIBRARY
+            ACTION_OPEN_STORIES -> openTab = TAB_SEARCH
+        }
     }
 
     // A tap on the daily memory's notification: remembered, and the app picks it up (takeLaunchMemory) to open the memory.
@@ -1309,10 +1325,13 @@ class MainActivity : FlutterActivity() {
                     mapOf("sent" to outcome.sent?.code, "message" to outcome.message)
                 }
 
-                // Whether the scan's notification was tapped since last asked (taken once).
-                "takeOpenLibrary" -> {
-                    result.success(openLibrary)
-                    openLibrary = false
+                // The phone's Android version (for wording where a setting is, and what needs a permission).
+                "androidSdk" -> result.success(Build.VERSION.SDK_INT)
+
+                // The home tab a tapped notification wants shown since last asked, or -1 (taken once).
+                "takeOpenTab" -> {
+                    result.success(openTab)
+                    openTab = -1
                 }
 
                 // The memory a tapped notification wants opened (taken once), or null.

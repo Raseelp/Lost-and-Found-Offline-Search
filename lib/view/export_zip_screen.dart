@@ -213,7 +213,7 @@ class _BuilderView extends StatelessWidget {
                     0,
                   ),
                   sliver: SliverToBoxAdapter(
-                    child: NothingIndexed(icon: Icons.folder_zip_outlined),
+                    child: NothingIndexed(place: NothingIndexedPlace.export),
                   ),
                 )
               else if (rows.isEmpty)

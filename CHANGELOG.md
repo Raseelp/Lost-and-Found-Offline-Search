@@ -6,12 +6,21 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
 ## Unreleased
 
 ### Added
+- Pressing a tab in the bottom bar lifts the teal chip onto it, dragging pulls the chip across the tabs, and the
+  tab changes when you let go. The chip moves on springs, so taps slide it too. It stretches with speed, leans
+  after the finger up and down. Pushed hard toward an end, or pulled up or down, the whole bar stretches that
+  way as one capsule and springs back. A plain tap leaves the bar alone. The Search button gives under
+  a press and springs back when let go.
 - Stories on the Search tab. There is a ring for each person and for the built-in collections that are
   nice to look at (beach, flowers, mountains and so on). Tap a ring to watch a short story of its photos
   and videos. A ring turns grey for a day after you open it, then has a new story with pictures it has
   not shown before. Once you have seen them all a Refresh button asks for new ones, and a long press on
   a ring leaves it out for a while. A note tells you when your stories have refreshed, with a row of the
-  rings that are ready (it can be turned off in Settings).
+  rings that are ready (it can be turned off in Settings). It names the people first and the collections
+  after, in a sentence of their own. It comes a day after you last used the app,
+  even if you have never opened a ring. If it goes unanswered the next one waits 2, then 4, then 7 days,
+  and after four there are no more until you open the app. At most one a day, never on a day a daily
+  memory went out (two days running at most), and a tap opens the Search tab.
 - A new "New collection" sheet. It previews what the words find (how many, the best few photos
   and who is in them) as you type, takes other ways of saying it, can include photos, videos or
   both, and names the collection from the words. Before anything is typed it offers a few ideas,
@@ -21,6 +30,11 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   own data. See `docs/development.md`.
 
 ### Changed
+- With nothing indexed yet, Search, Collections, Faces and the zip export each show a small moving
+  picture of what they will hold, made of the tour's sample photos: example searches putting the best
+  photos first (as in the tour), collection tiles getting covers, people as stacks of faces with some
+  still to be named, and zip rows being chosen. Their Start indexing button starts the scan, as the
+  Library's chip does, and shows it in the Library.
 - The row of collections and the row of people on the Search tab are replaced by the story rings.
   After a search the rings shrink into a strip above the results, and "Stories" in the strip goes back.
 - The scan notification is shorter and clearer. Indexing shows one bar in two parts, photos then
@@ -54,6 +68,12 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   search model from the GitHub release, like release builds.
 
 ### Fixed
+- When Android has stopped asking for a permission (it was turned down twice), the app no longer
+  fails without a word. A dialog says what is off, what it is needed for and where to turn it on in
+  App info for that Android version, and opens App info. This covers photo and video access (the
+  scan chip used to close by itself), notifications for the scan, the daily memory and stories, and
+  storage for saving a copy on Android 9 and older, which was never asked for before and failed. A
+  first "Don't allow" now shows a short line saying what the permission is needed for.
 - Stop indexing now shows "Stopping…" with a spinner right away, and ignores further taps while
   the scan finishes the photos in progress. Before, nothing changed for a few seconds, so it
   looked like the tap had not worked.
