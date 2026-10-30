@@ -3079,7 +3079,8 @@ class _ScanStoryState extends State<_ScanStory> with SingleTickerProviderStateMi
   @override
   Widget build(BuildContext context) {
     final channel = _current();
-    final sweeping = channel.fraction == null;
+    // With motion off the sweep is not drawn (see below), so it does not run either.
+    final sweeping = channel.fraction == null && !MediaQuery.disableAnimationsOf(context);
     if (sweeping && !_sweep.isAnimating) _sweep.repeat();
     if (!sweeping && _sweep.isAnimating) _sweep.stop();
     final textTheme = Theme.of(context).textTheme;

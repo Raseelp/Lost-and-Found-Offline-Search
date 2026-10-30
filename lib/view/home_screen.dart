@@ -16,6 +16,7 @@ import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/utils/floating_bar.dart';
+import 'package:lost_and_found/utils/motion.dart';
 import 'package:lost_and_found/view/export_zip_screen.dart';
 import 'package:lost_and_found/view/people_filter_screen.dart';
 import 'package:lost_and_found/view/people_timeline_screen.dart';
@@ -1367,18 +1368,30 @@ class _TabPillState extends State<_TabPill> with SingleTickerProviderStateMixin 
     // The finger's speed fades when it stops moving.
     if (_lastMove != null && elapsed - _lastMove! > const Duration(milliseconds: 60)) _speed *= math.exp(-dt * 12);
 
+    // With motion off (the phone's "Remove animations") the chip still follows the finger and marks the tab, but
+    // goes straight to where it belongs: no springing, stretching, wobbling, or pulling the bar.
+    final still = calm(context);
     final lift = pressed ? 1.0 + 0.6 * _press : 0.0;
-    final stretch = pressed ? (_speed.abs() / 2400).clamp(0.0, 0.22) : 0.0;
+    final stretch = pressed && !still ? (_speed.abs() / 2400).clamp(0.0, 0.22) : 0.0;
     // Eased, so it gives more at first and less the further the finger goes, like pulling something elastic.
-    final pull = pressed ? _tanh((_y - rects.first.center.dy) / 48) : 0.0;
+    final pull = pressed && !still ? _tanh((_y - rects.first.center.dy) / 48) : 0.0;
     // Let go, it settles firmly onto the tab (and keeps up as the tab widens for its icon).
     final stiff = pressed ? 1.0 : 1.8;
-    _centre.step(centre, dt, stiff: stiff);
-    _width.step(width, dt, stiff: stiff);
-    _lift.step(lift, dt);
-    _stretch.step(stretch, dt);
-    _shown.step(shown, dt);
-    _pull.step(pull, dt);
+    if (still) {
+      _centre.jump(centre);
+      _width.jump(width);
+      _lift.jump(lift);
+      _stretch.jump(stretch);
+      _shown.jump(shown);
+      _pull.jump(pull);
+    } else {
+      _centre.step(centre, dt, stiff: stiff);
+      _width.step(width, dt, stiff: stiff);
+      _lift.step(lift, dt);
+      _stretch.step(stretch, dt);
+      _shown.step(shown, dt);
+      _pull.step(pull, dt);
+    }
     // The bar gives way only to a push: toward an end (from just inside it, more past it, a little more with a
     // quick swipe), or up or down, following more slowly than the chip, so a tap leaves it be.
     final past = !pressed
@@ -1386,10 +1399,17 @@ class _TabPillState extends State<_TabPill> with SingleTickerProviderStateMixin 
         : _x < rects.first.left + 20
         ? _x - (rects.first.left + 20)
         : (_x > rects.last.right - 20 ? _x - (rects.last.right - 20) : 0.0);
-    final barX = pressed ? (_tanh(past / 70) + 0.15 * (_speed / 2400).clamp(-1.0, 1.0)).clamp(-1.0, 1.0) : 0.0;
-    final barY = pressed ? _tanh((_y - rects.first.center.dy) / 110) : 0.0;
-    _barX.step(barX, dt);
-    _barY.step(barY, dt);
+    final barX = pressed && !still
+        ? (_tanh(past / 70) + 0.15 * (_speed / 2400).clamp(-1.0, 1.0)).clamp(-1.0, 1.0)
+        : 0.0;
+    final barY = pressed && !still ? _tanh((_y - rects.first.center.dy) / 110) : 0.0;
+    if (still) {
+      _barX.jump(barX);
+      _barY.jump(barY);
+    } else {
+      _barX.step(barX, dt);
+      _barY.step(barY, dt);
+    }
     _barPull.value = (_barX.x, _barY.x);
     setState(() {});
 
@@ -1732,9 +1752,16 @@ class _SearchButtonState extends State<_SearchButton>
     // From the button's centre: eased, so it leans a little and no further however far the finger goes.
     final leanX = held ? _tanh((_finger.dx - _barHeight / 2) / 40) : 0.0;
     final leanY = held ? _tanh((_finger.dy - _barHeight / 2) / 40) : 0.0;
-    _press.step(press, dt);
-    _leanX.step(leanX, dt);
-    _leanY.step(leanY, dt);
+    if (calm(context)) {
+      // Motion off: pressed in while held, back as it was when let go, with no lean or bounce.
+      _press.jump(press);
+      _leanX.jump(0);
+      _leanY.jump(0);
+    } else {
+      _press.step(press, dt);
+      _leanX.step(leanX, dt);
+      _leanY.step(leanY, dt);
+    }
     setState(() {});
     if (!held && _press.restsAt(press) && _leanX.restsAt(leanX) && _leanY.restsAt(leanY)) {
       _ticker.stop();
@@ -1933,7 +1960,20 @@ class _ActivityDotState extends State<_ActivityDot>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // With motion off it stays lit instead of pulsing.
+    if (calm(context)) {
+      _controller
+        ..stop()
+        ..value = 1;
+    } else if (!_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    }
   }
 
   @override

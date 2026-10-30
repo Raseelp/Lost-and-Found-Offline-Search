@@ -49,6 +49,19 @@ flutter test
 
 Dart tests in `test/`, for example stopping a scan (`stop_indexing_test.dart`).
 
+## Reduced motion
+
+With "Remove animations" on, Flutter runs every one-off animation 20 times faster, so it is over in a
+frame or two. Page transitions, dialogs, sheets and animated widgets need nothing more. The rest is in
+`lib/utils/motion.dart`:
+
+- A controller that keeps time rather than moving anything, such as a story's progress, is made with
+  `AnimationBehavior.preserve`, or it would run 20 times faster too.
+- A looping controller is started with `loopUnlessCalm` from `didChangeDependencies`, so it stops on a
+  still frame when motion is off and follows the setting when it changes.
+- Springs and tickers of our own check `calm(context)` and jump to where they would settle.
+- A scroll or page move uses `glideTo`, or `jumpToPage` when `calm(context)` is true.
+
 ## Logs
 
 ```bash

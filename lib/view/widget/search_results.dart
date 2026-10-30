@@ -10,6 +10,7 @@ import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/utils/media_view_route.dart';
+import 'package:lost_and_found/utils/motion.dart';
 import 'package:lost_and_found/view/image_full_screen.dart';
 import 'package:lost_and_found/view/video_full_screen.dart';
 import 'package:lost_and_found/view/widget/grid_video_layer.dart';
@@ -1281,10 +1282,17 @@ class _LoadingTileState extends State<_LoadingTile>
     // setter stops the controller as part of setting it, so the other order started the repeat
     // and immediately cancelled it again in the same frame - a shimmer frozen in place.
     _sweep.value = (widget.index * 0.137) % 1;
-    _sweep.repeat();
     _swap = Timer.periodic(const Duration(milliseconds: 1300), (_) {
-      if (mounted) setState(() => _iconIndex++);
+      // With motion off the icon stays as it is: changing it with no fade would blink across the grid.
+      if (mounted && !calm(context)) setState(() => _iconIndex++);
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // With motion off the shimmer rests, each tile where it was.
+    loopUnlessCalm(context, _sweep, rest: (widget.index * 0.137) % 1);
   }
 
   @override

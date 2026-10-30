@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/motion.dart';
 import 'package:lost_and_found/view/widget/media_tray.dart';
 
 /// The strip opened from the "search with this" button instead of jumping straight to a full
@@ -250,7 +251,13 @@ class _ShimmerTileState extends State<_ShimmerTile> with SingleTickerProviderSta
     // it was) started the repeat and then immediately cancelled it again in the same frame,
     // which is exactly what "stuck, not animating" looks like.
     _sweep.value = (widget.index * 0.137) % 1;
-    _sweep.repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // With motion off the shimmer rests, each tile where it was.
+    loopUnlessCalm(context, _sweep, rest: (widget.index * 0.137) % 1);
   }
 
   @override

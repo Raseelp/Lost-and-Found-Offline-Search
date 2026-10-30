@@ -15,6 +15,7 @@ import 'package:lost_and_found/controllers/stories_controller.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/motion.dart';
 import 'package:lost_and_found/view/collection_screen.dart';
 import 'package:lost_and_found/view/person_screen.dart';
 import 'package:lost_and_found/view/widget/media_chrome_button.dart';
@@ -161,7 +162,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
   void _nextRing() {
     if (_turning) return;
     if (_current + 1 < widget.rings.length) {
-      _turn(_pages.nextPage(duration: _turnTime, curve: Curves.easeInOutCubic));
+      _turnTo(_current + 1);
     } else {
       _close();
     }
@@ -169,7 +170,16 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
 
   void _previousRing() {
     if (_turning || _current == 0) return;
-    _turn(_pages.previousPage(duration: _turnTime, curve: Curves.easeInOutCubic));
+    _turnTo(_current - 1);
+  }
+
+  // With motion off the next story is simply there.
+  void _turnTo(int page) {
+    if (calm(context)) {
+      _pages.jumpToPage(page);
+    } else {
+      _turn(_pages.animateToPage(page, duration: _turnTime, curve: Curves.easeInOutCubic));
+    }
   }
 
   // While the pages turn by themselves a touch is ignored: touching a page that is turning would stop it
@@ -526,7 +536,10 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
   @override
   void initState() {
     super.initState();
-    _progress = AnimationController(vsync: this, duration: _frameTime)..addStatusListener(_onProgress);
+    // A clock, not a movement: it keeps its time with the phone's animations off (Flutter would otherwise run it
+    // 20 times faster, and each picture would be gone in a moment).
+    _progress = AnimationController(vsync: this, duration: _frameTime, animationBehavior: AnimationBehavior.preserve)
+      ..addStatusListener(_onProgress);
     _storiesMuted.addListener(_onMute);
     unawaited(_loadCoverLook());
     _load();
@@ -1195,7 +1208,20 @@ class _StoryLoadingState extends State<_StoryLoading> with SingleTickerProviderS
   @override
   void initState() {
     super.initState();
-    _run = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..repeat();
+    _run = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // With motion off: the colours alone, still.
+    if (calm(context)) {
+      _run
+        ..stop()
+        ..value = 0;
+    } else if (!_run.isAnimating) {
+      _run.repeat();
+    }
   }
 
   @override

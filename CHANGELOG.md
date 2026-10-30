@@ -80,6 +80,11 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   search model from the GitHub release, like release builds.
 
 ### Fixed
+- With "Remove animations" on in the phone's accessibility settings, stories now keep their five seconds
+  a picture instead of rushing past, and "Tap a face to see who" stays up long enough to read. Loops
+  (shimmers, pulses, spinning rings, the scan glow) now rest on a still frame, the tab bar and Search
+  button no longer spring or stretch, and the app jumps to a story, page or place in a list instead of
+  sliding there.
 - When Android has stopped asking for a permission (it was turned down twice), the app no longer
   fails without a word. A dialog says what is off, what it is needed for and where to turn it on in
   App info for that Android version, and opens App info. This covers photo and video access (the
