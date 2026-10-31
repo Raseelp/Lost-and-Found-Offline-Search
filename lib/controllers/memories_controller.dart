@@ -223,6 +223,32 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
     }
   }
 
+  // Small ones for choosing from (an end can have dozens), kept apart from the big ones so flicking through
+  // them never pushes out the pair being compared.
+  final LinkedHashMap<String, Uint8List> _thumbs = LinkedHashMap();
+
+  Future<Uint8List?> portraitThumb(ThenNowSide side) async {
+    final key = side.cropKey;
+    final kept = _thumbs.remove(key);
+    if (kept != null) {
+      _thumbs[key] = kept;
+      return kept;
+    }
+    try {
+      final bytes = await _native.portraitCrop(side, size: 200);
+      if (bytes != null) {
+        _thumbs[key] = bytes;
+        while (_thumbs.length > 100) {
+          _thumbs.remove(_thumbs.keys.first);
+        }
+      }
+      return bytes;
+    } catch (e) {
+      debugPrint('portraitCrop (small) failed: $e');
+      return null;
+    }
+  }
+
   // ---- the daily notification ----
 
   MemorySettings settings = const MemorySettings();

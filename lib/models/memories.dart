@@ -271,9 +271,10 @@ class ThenNowSide {
   );
 }
 
-/// A person's start next to their latest: up to three photos at each end - from about the first couple of
-/// months and about the latest couple, not the very first and last - of different kinds (on their own, with
-/// another person, in a small group), best first. Which are shown first is random but the same all day.
+/// A person's start next to their latest: every photo from about the first couple of months and from about the
+/// latest couple (not the very first and last), oldest first, a burst counting once. The one shown first at
+/// each end is one of its best few (on their own, with another person, in a small group), random but the same
+/// all day.
 class ThenNow {
   const ThenNow({
     required this.thenOptions,

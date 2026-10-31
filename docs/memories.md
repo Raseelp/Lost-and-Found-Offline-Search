@@ -48,8 +48,11 @@ without using up a slot. Tapping a notification opens the person's page, or that
 **Look.** Folded: a small rounded picture and a heading. Opened: a full-width picture with small
 labels for what the words don't say. Then and now is a split with a slanted seam and the years;
 together since is a big photo of the two with their first photo tucked into the corner; a trip or
-the same date across years is a strip of photos, each with its day or year. Pictures are read from
-the original photo, not the small system thumbnail. A locked screen shows only the words.
+the same date across years is a strip of photos, each with its day or year; a milestone is a
+collage of five photos of the person from across their years, the latest good one big, with how
+many more there are on the last. Faces are framed inside the photo, so a picture never has plain
+bands at its sides. Pictures are read from the original photo, not the small system thumbnail. A
+locked screen shows only the words.
 
 **Names match the picture.** A notification only names people whose face is confirmed, or clear
 and at least 4% of the photo across, in the photo it shows.

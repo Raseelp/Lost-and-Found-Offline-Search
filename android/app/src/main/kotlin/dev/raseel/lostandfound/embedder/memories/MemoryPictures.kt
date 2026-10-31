@@ -33,7 +33,10 @@ enum class PictureStyle {
     STRIP,
 
     /** A big photo with a small one tucked into its corner: the two of them now and the first one. */
-    INSET;
+    INSET,
+
+    /** One big photo and four small ones beside it, the last with how many more there are on it: a lot of photos. */
+    COLLAGE;
 
     companion object {
         /** The layout that suits a kind. */
@@ -41,6 +44,7 @@ enum class PictureStyle {
             MemoryKind.THEN_NOW, MemoryKind.PAIR_THEN_NOW -> SPLIT
             MemoryKind.TOGETHER_SINCE -> INSET
             MemoryKind.TRIP, MemoryKind.SAME_DAY -> STRIP
+            MemoryKind.MILESTONE -> COLLAGE
             else -> HERO
         }
     }
@@ -76,27 +80,41 @@ object MemoryPictures {
             List(n) { i -> rect(i * (w + GAP), 0f, i * (w + GAP) + w, DESIGN_H) }
         }
         PictureStyle.INSET -> listOf(rect(0f, 0f, DESIGN_W, DESIGN_H), rect(826f, 26f, 1054f, 254f))
+        PictureStyle.COLLAGE -> {
+            // The big one on the left, as wide as the four beside it together.
+            val half = (DESIGN_W - GAP) / 2f
+            val left = half + GAP
+            val cw = (half - GAP) / 2f
+            val ch = (DESIGN_H - GAP) / 2f
+            listOf(
+                rect(0f, 0f, half, DESIGN_H),
+                rect(left, 0f, left + cw, ch), rect(left + cw + GAP, 0f, DESIGN_W, ch),
+                rect(left, ch + GAP, left + cw, DESIGN_H), rect(left + cw + GAP, ch + GAP, DESIGN_W, DESIGN_H),
+            )
+        }
     }
 
     /**
-     * The picture for [pics] (the first three) laid out as [style]; [connector] is written on the seam of a
-     * split, or on the big photo of an inset. Null when none of the photos could be read.
+     * The picture for [pics] (the first three, five for a collage) laid out as [style]; [connector] is written
+     * on the seam of a split, on the big photo of an inset, or over the last photo of a collage. Null when none
+     * of the photos could be read.
      */
     fun render(context: Context, pics: List<Pic>, style: PictureStyle, connector: String? = null): Rendered? {
         if (pics.isEmpty()) return null
+        // A layout that needs several photos is not used with fewer: a collage short of five is a strip.
+        if (style == PictureStyle.COLLAGE && pics.size >= 5) return collage(context, pics.take(5), connector)
         val n = pics.size.coerceAtMost(3)
-        // A layout that needs several photos is not used with one.
         val used = when {
             n < 2 -> PictureStyle.HERO
             style == PictureStyle.SPLIT -> PictureStyle.SPLIT
             style == PictureStyle.INSET -> PictureStyle.INSET
-            style == PictureStyle.STRIP -> PictureStyle.STRIP
+            style == PictureStyle.STRIP || style == PictureStyle.COLLAGE -> PictureStyle.STRIP
             else -> PictureStyle.HERO
         }
         val count = when (used) {
             PictureStyle.HERO -> 1
             PictureStyle.SPLIT, PictureStyle.INSET -> 2
-            PictureStyle.STRIP -> n
+            PictureStyle.STRIP, PictureStyle.COLLAGE -> n
         }
         val spots = layout(used, count)
         val scale = OUT_W / DESIGN_W
@@ -146,6 +164,7 @@ object MemoryPictures {
                 paint.color = Color.WHITE
                 for (i in 1 until spots.size) canvas.drawRect(spots[i].left - GAP, 0f, spots[i].left, DESIGN_H, paint)
             }
+            PictureStyle.COLLAGE -> Unit // drawn by collage()
             PictureStyle.INSET -> {
                 draw(canvas, paint, tiles[0], spots[0])
                 // The small one, with a white edge round it.
@@ -166,6 +185,45 @@ object MemoryPictures {
         val thumb = thumbnail(thumbSource)
         tiles.forEach { it?.recycle() }
         return Rendered(rounded(layer, CORNER * OUT_W / DESIGN_W), thumb)
+    }
+
+    // Five photos: the big one, four small, white gaps between, and [more] (how many others there are) large on
+    // the last one under a dark veil, the way a gallery shows that a set goes on.
+    private fun collage(context: Context, pics: List<Pic>, more: String?): Rendered? {
+        val spots = layout(PictureStyle.COLLAGE, 5)
+        val scale = OUT_W / DESIGN_W
+        val tiles = spots.mapIndexed { i, spot ->
+            tile(context, pics[i], (spot.width() * scale).toInt().coerceAtLeast(120), (spot.height() * scale).toInt().coerceAtLeast(120))
+        }
+        if (tiles[0] == null || tiles.count { it != null } < 3) {
+            tiles.forEach { it?.recycle() }
+            // Too few could be read for a collage: the ones that could, side by side.
+            return render(context, pics.filterIndexed { i, _ -> tiles[i] != null }.ifEmpty { pics.take(1) }, PictureStyle.STRIP)
+        }
+        val layer = Bitmap.createBitmap(OUT_W, OUT_H, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(layer)
+        canvas.scale(scale, OUT_H / DESIGN_H)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        canvas.drawColor(Color.WHITE)
+        paint.color = Color.rgb(228, 230, 227)
+        for (i in spots.indices) {
+            if (tiles[i] == null) canvas.drawRect(spots[i], paint) else draw(canvas, paint, tiles[i], spots[i])
+        }
+        if (more != null) {
+            val last = spots.last()
+            paint.color = Color.argb(120, 0, 0, 0)
+            canvas.drawRect(last, paint)
+            val write = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = 64f
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                textAlign = Paint.Align.CENTER
+            }
+            canvas.drawText(more, last.centerX(), last.centerY() + 22f, write)
+        }
+        val thumb = thumbnail(tiles[0]!!)
+        tiles.forEach { it?.recycle() }
+        return Rendered(rounded(layer, CORNER * scale), thumb)
     }
 
     // ---- the pieces ----
@@ -233,7 +291,9 @@ object MemoryPictures {
             val box = pic.box
             if (box != null) {
                 val bytes = FaceServices.get(context).crops.portrait(
+                    // Filled: a notification's picture is photo edge to edge, never with plain bands at the sides.
                     pic.uri, box[0], box[1], box[2], box[3], pic.photoW, pic.photoH, w, pic.margin, pic.lift, w.toFloat() / h,
+                    fill = true,
                 ) ?: return null
                 BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
             } else {

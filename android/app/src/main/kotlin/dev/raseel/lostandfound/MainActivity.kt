@@ -1234,7 +1234,7 @@ class MainActivity : FlutterActivity() {
                         null
                     } else {
                         // Another person is only spoken of (and framed) when they have a name.
-                        val names = faces.store.namesOf((r.then + r.now).mapNotNull { it.partner }.toSet())
+                        val names = faces.store.namesOf((r.allThen + r.allNow).mapNotNull { it.partner }.toSet())
                         fun side(c: ThenNow.Cand): Map<String, Any?> {
                             val withId = c.partner?.takeIf { names[it] != null }
                             val box = c.box(withId)
@@ -1254,11 +1254,15 @@ class MainActivity : FlutterActivity() {
                                 "withName" to withId?.let { names[it] },
                             )
                         }
+                        // Every photo from each end's months, oldest first, to choose from; the one shown first is
+                        // still one of the best few, found in that list.
+                        val startThen = r.allThen.indexOf(r.then[r.startThen]).coerceAtLeast(0)
+                        val startNow = r.allNow.indexOf(r.now[r.startNow]).coerceAtLeast(0)
                         mapOf(
-                            "then" to r.then.map { side(it) },
-                            "now" to r.now.map { side(it) },
-                            "startThen" to r.startThen,
-                            "startNow" to r.startNow,
+                            "then" to r.allThen.map { side(it) },
+                            "now" to r.allNow.map { side(it) },
+                            "startThen" to startThen,
+                            "startNow" to startNow,
                             "spanMonths" to r.spanMonths,
                             "lastMonth" to r.lastMonth,
                         )

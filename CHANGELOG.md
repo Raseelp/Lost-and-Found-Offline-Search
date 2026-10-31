@@ -30,6 +30,11 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   own data. See `docs/development.md`.
 
 ### Changed
+- A milestone notification ("Naveen is in 250 of your photos") shows a collage: five photos of the
+  person from across their years, the latest good one big, and how many more there are on the last.
+- Then and now offers every photo from the start and from lately (up to 40 at each end, a burst counting
+  once), not just three. Choose Then or Now, then scroll the row of photos like a wheel; the one in the
+  middle is compared. A swipe runs on and slows down, and the row always stops on a photo.
 - The circles round a person's photo sit further out, so no caption covers the photo, and their words can
   be tapped too. Four circles go round it: With someone, Save photos, Hide and a quieter Fix mistakes at
   the bottom. Tapping Fix mistakes moves the others up round the ring while it turns into Shown twice and
@@ -80,6 +85,8 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   search model from the GitHub release, like release builds.
 
 ### Fixed
+- A daily memory's picture fills its card. A face photo that was too narrow for the wide card showed
+  with grey bands at the sides; it now closes in on the faces instead.
 - With "Remove animations" on in the phone's accessibility settings, stories now keep their five seconds
   a picture instead of rushing past, and "Tap a face to see who" stays up long enough to read. Loops
   (shimmers, pulses, spinning rings, the scan glow) now rest on a still frame, the tab bar and Search

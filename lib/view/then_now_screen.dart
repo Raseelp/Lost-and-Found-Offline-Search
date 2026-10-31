@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/controllers/memories_controller.dart';
@@ -8,6 +11,7 @@ import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/motion.dart';
 import 'package:lost_and_found/view/widget/memory_widgets.dart';
 import 'package:lost_and_found/view/widget/then_now_card.dart';
 import 'package:lost_and_found/view/widget/timeline_preview.dart';
@@ -30,8 +34,8 @@ const _short = [
 String _monthYear(DateTime t) => '${_short[t.month - 1]} ${t.year}';
 
 /// A person's start and their latest side by side, with a divider to drag between the two: the same framing in
-/// both, so the change is what you see. Under it, up to three photos at each end to choose from: the one picked
-/// is the one in the comparison.
+/// both, so the change is what you see. Under it, every photo from each end to choose from (Then or Now, then a
+/// row that scrolls like a wheel: the one in the middle is the one compared).
 class ThenAndNowScreen extends StatefulWidget {
   const ThenAndNowScreen({
     super.key,
@@ -184,28 +188,15 @@ class _ThenAndNowScreenState extends State<ThenAndNowScreen>
             ),
             if (found.thenOptions.length > 1 ||
                 found.nowOptions.length > 1) ...[
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _Options(
-                      sides: found.thenOptions,
-                      selected: _thenAt,
-                      memories: _memories,
-                      onSelect: (i) => setState(() => _thenAt = i),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: _Options(
-                      sides: found.nowOptions,
-                      selected: _nowAt,
-                      memories: _memories,
-                      onSelect: (i) => setState(() => _nowAt = i),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: AppSpacing.lg),
+              _Picker(
+                then: found.thenOptions,
+                now: found.nowOptions,
+                thenAt: _thenAt.clamp(0, found.thenOptions.length - 1),
+                nowAt: _nowAt.clamp(0, found.nowOptions.length - 1),
+                latestLabel: latestLabel,
+                memories: _memories,
+                onPick: (isThen, i) => setState(() => isThen ? _thenAt = i : _nowAt = i),
               ),
             ],
             const SizedBox(height: AppSpacing.lg),
@@ -239,57 +230,332 @@ class _ThenAndNowScreenState extends State<ThenAndNowScreen>
   }
 }
 
-/// A few small pictures to choose from at one end: the one shown is ringed.
-class _Options extends StatelessWidget {
-  const _Options({
-    required this.sides,
-    required this.selected,
+/// Then | Now, and under it that end's photos in a row that scrolls like a wheel: the one in the middle is
+/// larger, ringed and compared, the others smaller and fainter toward the edges; its date and who is in it
+/// under it. A light tick as each one reaches the middle. A swipe lets the row run on and slow down by itself,
+/// landing on the photo nearest to where it would have stopped.
+class _Picker extends StatefulWidget {
+  const _Picker({
+    required this.then,
+    required this.now,
+    required this.thenAt,
+    required this.nowAt,
+    required this.latestLabel,
     required this.memories,
-    required this.onSelect,
+    required this.onPick,
   });
 
-  final List<ThenNowSide> sides;
-  final int selected;
+  final List<ThenNowSide> then, now;
+  final int thenAt, nowAt;
+  final String latestLabel;
   final MemoriesController memories;
-  final ValueChanged<int> onSelect;
+  final void Function(bool isThen, int index) onPick;
+
+  @override
+  State<_Picker> createState() => _PickerState();
+}
+
+class _PickerState extends State<_Picker> {
+  static const double _item = 64;
+
+  // Then (true) or the latest (false): which end the row is choosing for.
+  bool _isThen = true;
+  PageController? _row;
+  double _fraction = 0.2;
+
+  // The photo in the middle of the row right now. While the row runs on it is only ringed and named: the
+  // comparison changes once the row slows (a full picture to load for every photo it passes would stutter).
+  int? _centre;
+  Timer? _settle;
+
+  void _passing(int i) {
+    HapticFeedback.selectionClick();
+    setState(() => _centre = i);
+    _settle?.cancel();
+    _settle = Timer(const Duration(milliseconds: 140), _pick);
+  }
+
+  void _pick() {
+    _settle?.cancel();
+    final i = _centre;
+    if (i != null && mounted && i != (_isThen ? widget.thenAt : widget.nowAt)) widget.onPick(_isThen, i);
+  }
+
+  // A new row for each end, opening on the photo in use there. The old one's controller goes once that row
+  // has gone (it is still attached for the rest of this frame).
+  void _newRow() {
+    final old = _row;
+    _settle?.cancel();
+    _centre = null;
+    _row = PageController(viewportFraction: _fraction, initialPage: _isThen ? widget.thenAt : widget.nowAt);
+    if (old != null) WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Each picture takes the same width whatever the screen's.
+    final width = MediaQuery.sizeOf(context).width - AppSpacing.xl * 2;
+    final fraction = (_item / width).clamp(0.1, 0.5);
+    if (_row == null || fraction != _fraction) {
+      _fraction = fraction;
+      _newRow();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _Picker old) {
+    super.didUpdateWidget(old);
+    // Chosen from somewhere else: the row's own choice no longer stands.
+    final now = _isThen ? widget.thenAt : widget.nowAt;
+    if (now != (_isThen ? old.thenAt : old.nowAt) && now != _centre) {
+      _settle?.cancel();
+      _centre = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _settle?.cancel();
+    _row?.dispose();
+    super.dispose();
+  }
+
+  void _choose(bool isThen) {
+    if (isThen == _isThen) return;
+    // A photo still settling on this end is kept before the row changes to the other.
+    _pick();
+    HapticFeedback.selectionClick();
+    setState(() {
+      _isThen = isThen;
+      _newRow();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
+    final textTheme = Theme.of(context).textTheme;
+    final sides = _isThen ? widget.then : widget.now;
+    final at = (_centre ?? (_isThen ? widget.thenAt : widget.nowAt)).clamp(0, sides.length - 1);
+    final row = _row!;
+    final shown = sides[at.clamp(0, sides.length - 1)];
+    final company = shown.company;
+    return Column(
       children: [
-        for (var i = 0; i < sides.length; i++)
-          Semantics(
-            button: true,
-            selected: i == selected,
-            label:
-                'Photo ${i + 1} of ${sides.length}${sides[i].company == null ? '' : ', ${sides[i].company}'}',
-            excludeSemantics: true,
-            child: GestureDetector(
-              onTap: () => onSelect(i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                width: 46,
-                height: 46,
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: i == selected
-                        ? AppColors.primary
-                        : AppColors.transparent,
-                    width: 2,
+        _Segments(
+          labels: ['Then', widget.latestLabel == 'NOW' ? 'Now' : 'Latest'],
+          counts: [widget.then.length, widget.now.length],
+          first: _isThen,
+          onChanged: _choose,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        SizedBox(
+          height: _item + 16,
+          child: NotificationListener<ScrollEndNotification>(
+            // Come to rest: the comparison catches up at once.
+            onNotification: (_) {
+              _pick();
+              return false;
+            },
+            child: PageView.builder(
+              key: ValueKey(_isThen),
+              controller: row,
+              pageSnapping: false,
+              physics: _WheelPhysics(fraction: _fraction),
+              // The ring and shadow of the one in the middle are not cut off.
+              clipBehavior: Clip.none,
+              itemCount: sides.length,
+              onPageChanged: _passing,
+              itemBuilder: (context, i) => AnimatedBuilder(
+                animation: row,
+                builder: (context, child) {
+                  final page = row.hasClients && row.position.haveDimensions ? (row.page ?? at.toDouble()) : at.toDouble();
+                  final d = (i - page).abs().clamp(0.0, 3.0);
+                  return Center(
+                    child: Opacity(
+                      opacity: 1 - d * 0.22,
+                      child: Transform.scale(scale: 1 - d * 0.16, child: child),
+                    ),
+                  );
+                },
+                child: Semantics(
+                  button: true,
+                  selected: i == at,
+                  label: '${_monthYear(sides[i].taken)}${sides[i].company == null ? '' : ', ${sides[i].company}'}',
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    onTap: () => calm(context)
+                        ? row.jumpToPage(i)
+                        : row.animateToPage(i, duration: const Duration(milliseconds: 320), curve: Curves.easeOutCubic),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      width: _item - 8,
+                      height: _item - 8,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: i == at
+                            ? [
+                                const BoxShadow(color: AppColors.canvas, spreadRadius: 2),
+                                const BoxShadow(color: AppColors.primary, spreadRadius: 4),
+                                BoxShadow(color: AppColors.shadow.withValues(alpha: 0.18), blurRadius: 14, offset: const Offset(0, 6)),
+                              ]
+                            : null,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: PortraitImage(side: sides[i], memories: widget.memories, small: true),
+                      ),
+                    ),
                   ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(9),
-                  child: PortraitImage(side: sides[i], memories: memories),
                 ),
               ),
             ),
           ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        // Changes at once (a cross-fade could meet itself coming back on a quick Then, Now, Then).
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(
+                text: _monthYear(shown.taken),
+                style: textTheme.bodyMedium?.copyWith(color: AppColors.ink, fontWeight: FontWeight.w600),
+              ),
+              if (company != null) TextSpan(text: ' \u00b7 $company'),
+            ],
+          ),
+          textAlign: TextAlign.center,
+          style: textTheme.bodyMedium?.copyWith(color: AppColors.ink48),
+        ),
       ],
+    );
+  }
+}
+
+/// For the row of photos: a swipe runs on and slows by itself, as a list does, but always comes to rest on a
+/// photo, the one nearest to where it would have stopped. Let go without a swipe, it settles gently onto the
+/// nearest one.
+class _WheelPhysics extends ScrollPhysics {
+  const _WheelPhysics({required this.fraction, super.parent});
+
+  /// The width of one photo, as a part of the row's.
+  final double fraction;
+
+  @override
+  _WheelPhysics applyTo(ScrollPhysics? ancestor) => _WheelPhysics(fraction: fraction, parent: buildParent(ancestor));
+
+  @override
+  Simulation? createBallisticSimulation(ScrollMetrics position, double velocity) {
+    // Past an end: the usual way back.
+    if ((velocity <= 0 && position.pixels <= position.minScrollExtent) ||
+        (velocity >= 0 && position.pixels >= position.maxScrollExtent)) {
+      return super.createBallisticSimulation(position, velocity);
+    }
+    final extent = position.viewportDimension * fraction;
+    if (extent <= 0) return super.createBallisticSimulation(position, velocity);
+    final tolerance = toleranceFor(position);
+    // Where it would come to rest by itself, and the photo nearest to that.
+    final glide = super.createBallisticSimulation(position, velocity);
+    final natural = glide?.x(double.infinity) ?? position.pixels;
+    final target = ((natural / extent).round() * extent).clamp(position.minScrollExtent, position.maxScrollExtent);
+    if (velocity.abs() < tolerance.velocity && (target - position.pixels).abs() < tolerance.distance) return null;
+    // Not enough to leave the photo it is on: a soft spring back onto it.
+    if ((position.pixels / extent).round() * extent == target) {
+      return _Landing(SpringSimulation(spring, position.pixels, target, velocity, tolerance: tolerance), target);
+    }
+    // Otherwise it glides as it would have, slowed just enough to stop on the photo.
+    return _Landing(
+      FrictionSimulation.through(position.pixels, target, velocity, tolerance.velocity * velocity.sign),
+      target,
+    );
+  }
+}
+
+// A glide or spring that ends exactly on [target]: either stops once it is within a pixel of it.
+class _Landing extends Simulation {
+  _Landing(this.glide, this.target) : super(tolerance: glide.tolerance);
+
+  final Simulation glide;
+  final double target;
+
+  @override
+  double x(double time) => glide.isDone(time) ? target : glide.x(time);
+
+  @override
+  double dx(double time) => glide.isDone(time) ? 0 : glide.dx(time);
+
+  @override
+  bool isDone(double time) => glide.isDone(time);
+}
+
+/// Two choices side by side in a soft track, the chosen one on a white pill that slides between them.
+class _Segments extends StatelessWidget {
+  const _Segments({required this.labels, required this.counts, required this.first, required this.onChanged});
+
+  final List<String> labels;
+  final List<int> counts;
+  final bool first;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      width: 232,
+      height: 40,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(color: AppColors.parchment, borderRadius: BorderRadius.circular(12)),
+      child: Stack(
+        children: [
+          AnimatedAlign(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            alignment: first ? Alignment.centerLeft : Alignment.centerRight,
+            child: FractionallySizedBox(
+              widthFactor: 0.5,
+              heightFactor: 1,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.canvas,
+                  borderRadius: BorderRadius.circular(9),
+                  boxShadow: [BoxShadow(color: AppColors.shadow.withValues(alpha: 0.12), blurRadius: 4, offset: const Offset(0, 1))],
+                ),
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              for (var i = 0; i < 2; i++)
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    selected: (i == 0) == first,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => onChanged(i == 0),
+                      child: Center(
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(text: labels[i]),
+                              TextSpan(
+                                text: '  ${counts[i]}',
+                                style: TextStyle(color: AppColors.ink48.withValues(alpha: (i == 0) == first ? 1 : 0.7)),
+                              ),
+                            ],
+                          ),
+                          style: textTheme.labelLarge?.copyWith(
+                            color: (i == 0) == first ? AppColors.ink : AppColors.ink48,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

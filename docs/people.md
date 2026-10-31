@@ -97,13 +97,16 @@ gang in one photo, a reunion after a long gap, and a year's new faces.
 
 ## Then and now
 
-On a person's page: their start next to their latest, with a divider to drag between the two, and
-up to three photos at each end to choose from.
+On a person's page: their start next to their latest, with a divider to drag between the two.
+Under it, Then or Now, and that end's photos in a row that scrolls like a wheel; the one in the
+middle is compared. A swipe lets the row run on and slow down, and it always stops on a photo.
 
-- The photos come from about the start and about now: the best of the first and latest couple of
-  months, widening (2, 4, 8, 12, 18, 24 months) until there are three different photos at each end.
-- Each end mixes on their own, with one other person and in a small group, and each photo says
-  who is in it ("On their own", "With Dev").
+- The photos come from about the start and about now: the first and latest couple of months,
+  widening (2, 4, 8, 12, 18, 24 months) until there are three different photos at each end.
+- Every photo from those months can be chosen, oldest first (up to 40 at each end, a burst of
+  shots counting once). The one shown first is one of the best three, which mix on their own, with
+  one other person and in a small group.
+- Each photo says who is in it ("On their own", "With Dev").
 - It needs at least four clear faces with believable dates, over at least six months.
 
 ## Names always match the picture
