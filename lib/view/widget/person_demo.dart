@@ -120,29 +120,35 @@ class _PersonDemoState extends State<PersonDemo> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     final length = _lengths[widget.kind]!.toDouble();
     final still = MediaQuery.disableAnimationsOf(context);
-    return RepaintBoundary(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          height: PersonDemo.height,
-          decoration: BoxDecoration(
-            color: AppColors.canvas,
+    // A drawing with fixed measures: the text in it keeps its size however large the phone's text is set (it
+    // would not fit its places otherwise), and a screen reader skips it (the bubble's own words say the same).
+    return ExcludeSemantics(
+      child: MediaQuery.withNoTextScaling(
+        child: RepaintBoundary(
+          child: ClipRRect(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.dividerSoft),
-          ),
-          child: LayoutBuilder(
-            builder: (context, box) => AnimatedBuilder(
-              animation: _clock,
-              builder: (context, _) {
-                final ms = _clock.value * length;
-                // Fades in at the start of each round and out at its end, so the join never jumps.
-                final round = still ? 1.0 : math.min(_t(ms, 0, 260), 1 - _t(ms, length - 300, length));
-                final s = _Scene(ms, box.maxWidth, widget.cast);
-                return Opacity(
-                  opacity: round.clamp(0.0, 1.0),
-                  child: Stack(clipBehavior: Clip.hardEdge, children: _film(s)),
-                );
-              },
+            child: Container(
+              height: PersonDemo.height,
+              decoration: BoxDecoration(
+                color: AppColors.canvas,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.dividerSoft),
+              ),
+              child: LayoutBuilder(
+                builder: (context, box) => AnimatedBuilder(
+                  animation: _clock,
+                  builder: (context, _) {
+                    final ms = _clock.value * length;
+                    // Fades in at the start of each round and out at its end, so the join never jumps.
+                    final round = still ? 1.0 : math.min(_t(ms, 0, 260), 1 - _t(ms, length - 300, length));
+                    final s = _Scene(ms, box.maxWidth, widget.cast);
+                    return Opacity(
+                      opacity: round.clamp(0.0, 1.0),
+                      child: Stack(clipBehavior: Clip.hardEdge, children: _film(s)),
+                    );
+                  },
+                ),
+              ),
             ),
           ),
         ),

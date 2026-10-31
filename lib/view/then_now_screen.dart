@@ -321,6 +321,15 @@ class _PickerState extends State<_Picker> {
     super.dispose();
   }
 
+  // The photo tapped comes to the middle: gliding there, or with motion off simply there.
+  void _goTo(PageController row, int i) {
+    if (calm(context)) {
+      row.jumpToPage(i);
+    } else {
+      row.animateToPage(i, duration: const Duration(milliseconds: 320), curve: Curves.easeOutCubic);
+    }
+  }
+
   void _choose(bool isThen) {
     if (isThen == _isThen) return;
     // A photo still settling on this end is kept before the row changes to the other.
@@ -382,11 +391,11 @@ class _PickerState extends State<_Picker> {
                   button: true,
                   selected: i == at,
                   label: '${_monthYear(sides[i].taken)}${sides[i].company == null ? '' : ', ${sides[i].company}'}',
+                  // The tap is on this node as well: a screen reader reads (and presses) only this one.
+                  onTap: () => _goTo(row, i),
                   excludeSemantics: true,
                   child: GestureDetector(
-                    onTap: () => calm(context)
-                        ? row.jumpToPage(i)
-                        : row.animateToPage(i, duration: const Duration(milliseconds: 320), curve: Curves.easeOutCubic),
+                    onTap: () => _goTo(row, i),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
                       width: _item - 8,

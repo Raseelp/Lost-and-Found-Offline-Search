@@ -872,6 +872,19 @@ class _OrbitButton extends StatelessWidget {
     // The fixes (and "Fix mistakes") are quieter than the everyday ones: no shadow, greyer.
     final quiet = action.fix;
     final color = action.danger ? AppColors.danger : (quiet ? AppColors.ink48 : AppColors.ink80);
+    // One button for a screen reader: the circle and its words are the same thing, named by the words.
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: action.label,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: _column(color),
+    );
+  }
+
+  Widget _column(Color color) {
+    final quiet = action.fix;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
