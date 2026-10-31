@@ -85,6 +85,9 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   search model from the GitHub release, like release builds.
 
 ### Fixed
+- Search now reads a photo the right way up. Photos the phone stored sideways (with a tag saying how to
+  turn them) were indexed lying on their side, which could make search miss them. Photos indexed before
+  this keep their old vectors until they are scanned again.
 - A daily memory's picture fills its card. A face photo that was too narrow for the wide card showed
   with grey bands at the sides; it now closes in on the faces instead.
 - With "Remove animations" on in the phone's accessibility settings, stories now keep their five seconds

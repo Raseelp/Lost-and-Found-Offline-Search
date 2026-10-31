@@ -36,9 +36,10 @@ in fp32 because an fp16 build returned NaN on a real phone.
 
 ## Search
 
-1. **Preparing a photo** (`ImagePreprocessor.kt`). Decoded in full colour (ARGB_8888), the shorter
-   side scaled to 256, the centre 256 x 256 cut out, each pixel scaled to 0..1. No mean/std
-   normalisation: MobileCLIP was trained without it.
+1. **Preparing a photo** (`ImagePreprocessor.kt`). Decoded in full colour (ARGB_8888), turned upright
+   by its EXIF orientation (as the face scan does), the shorter side scaled to 256, the centre
+   256 x 256 cut out, each pixel scaled to 0..1. No mean/std normalisation: MobileCLIP was
+   trained without it.
 2. **Videos** (`VideoFrameExtractor.kt`). Frames evenly spread through each video are prepared the
    same way: 3 for clips under 10 s, 5 under 30 s, 8 under 2 minutes, 10 for longer videos. Each frame gets its own vector, so a search can land on the right moment.
 3. **The image model** (`EmbeddingEngine.kt`). Runs on XNNPACK with up to 6 threads, in batches of 4,
