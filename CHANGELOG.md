@@ -6,6 +6,8 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
 ## Unreleased
 
 ### Added
+- A new app icon: "lf" carved into a landscape photo that fills the whole icon. It follows the
+  launcher's shape and has a one-colour version for Android's themed icons.
 - Pressing a tab in the bottom bar lifts the teal chip onto it, dragging pulls the chip across the tabs, and the
   tab changes when you let go. The chip moves on springs, so taps slide it too. It stretches with speed, leans
   after the finger up and down. Pushed hard toward an end, or pulled up or down, the whole bar stretches that
