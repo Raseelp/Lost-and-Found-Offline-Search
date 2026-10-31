@@ -239,11 +239,15 @@ class PortraitImage extends StatefulWidget {
     required this.side,
     required this.memories,
     this.fit = BoxFit.cover,
+    this.small = false,
   });
 
   final ThenNowSide side;
   final MemoriesController memories;
   final BoxFit fit;
+
+  /// A small picture, for choosing from (made smaller, and kept apart from the big ones).
+  final bool small;
 
   @override
   State<PortraitImage> createState() => _PortraitImageState();
@@ -269,7 +273,7 @@ class _PortraitImageState extends State<PortraitImage> {
 
   Future<void> _load() async {
     final side = widget.side;
-    final bytes = await widget.memories.portrait(side);
+    final bytes = await (widget.small ? widget.memories.portraitThumb(side) : widget.memories.portrait(side));
     if (!mounted || widget.side.cropKey != side.cropKey) {
       return;
     }

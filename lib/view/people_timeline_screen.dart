@@ -8,6 +8,7 @@ import 'package:lost_and_found/controllers/faces_controller.dart';
 import 'package:lost_and_found/models/people_timeline.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/motion.dart';
 import 'package:lost_and_found/view/month_photos_screen.dart';
 import 'package:lost_and_found/view/person_screen.dart';
 import 'package:lost_and_found/view/widget/app_search_field.dart';
@@ -68,7 +69,7 @@ class _PeopleTimelineScreenState extends State<PeopleTimelineScreen> with Ticker
   // preview opens out at the month it went to.
   void _toTop() {
     if (_scroll.hasClients && _scroll.offset > 0) {
-      _scroll.animateTo(0, duration: const Duration(milliseconds: 380), curve: Curves.easeOutCubic);
+      glideTo(context, _scroll, 0, duration: const Duration(milliseconds: 380));
     }
   }
 

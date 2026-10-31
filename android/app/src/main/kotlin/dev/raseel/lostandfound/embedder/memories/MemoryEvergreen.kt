@@ -88,13 +88,17 @@ class MemoryEvergreen(
             // The latest good picture of them.
             val recent = all.filter { it.takenMs >= c.now - 365 * DAY_MS }.ifEmpty { all }
             val pick = recent.maxByOrNull { suited(it) } ?: continue
+            // The picture is a collage of them across the years, the latest good one big, and how many more.
+            val others = spread(all.filter { it.key != pick.key }, COLLAGE_OTHERS)
+            val pics = listOf(pick) + others
             return Notice(
                 MemoryKind.MILESTONE,
                 "$name is in $step of your photos",
                 DayChoice.pick(c.today, "$step photos, and counting.", "A lot of memories with $name."),
                 planPhoto(pick, listOf(name)),
                 MemoryDays.ymd(pick.takenMs, c.tz).first,
-                pics = listOf(portrait(pick, null)),
+                pics = pics.map { portrait(it, null) },
+                connector = if (pics.size == COLLAGE_OTHERS + 1) "+${p.photoCount - pics.size}" else null,
                 subject = MemoryRotation.personSubject(p.id),
                 milestone = p.id to step,
                 personId = p.id,
@@ -299,6 +303,28 @@ class MemoryEvergreen(
 
     // ---- bits ----
 
+    /**
+     * Up to [n] of [faces] from across their whole time, oldest first: the time is cut into [n] equal spans and
+     * the best of each is taken (an empty span is made up from the best left), never two from the same photo.
+     */
+    private fun spread(faces: List<FaceStore.ThenNowFace>, n: Int): List<FaceStore.ThenNowFace> {
+        val photos = faces.groupBy { it.key }.values.map { same -> same.maxBy { suited(it) } }.sortedBy { it.takenMs }
+        if (photos.size <= n) return photos
+        val first = photos.first().takenMs
+        val span = (photos.last().takenMs - first).coerceAtLeast(1L)
+        val picked = LinkedHashSet<FaceStore.ThenNowFace>()
+        for (i in 0 until n) {
+            val from = first + span * i / n
+            val to = first + span * (i + 1) / n
+            photos.filter { it.takenMs in from..to && it !in picked }.maxByOrNull { suited(it) }?.let { picked += it }
+        }
+        for (f in photos.sortedByDescending { suited(it) }) {
+            if (picked.size >= n) break
+            picked += f
+        }
+        return picked.sortedBy { it.takenMs }
+    }
+
     // How good a picture of the person it is, crowds counting for less.
     private fun suited(f: FaceStore.ThenNowFace): Float = f.rank / (1f + 0.35f * (f.faces - 1).coerceAtLeast(0))
 
@@ -333,6 +359,7 @@ class MemoryEvergreen(
         const val TRIP_SPREAD = 8
         const val TRIP_CANDIDATES = 4000
         const val DUO_MARGIN = 1.9f
+        const val COLLAGE_OTHERS = 4
 
         /** As the chooser wants it. */
         fun cand(f: FaceStore.ThenNowFace): ThenNow.Cand = ThenNow.Cand(

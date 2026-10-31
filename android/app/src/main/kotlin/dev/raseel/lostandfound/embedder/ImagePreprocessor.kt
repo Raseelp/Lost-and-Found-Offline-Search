@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.exifinterface.media.ExifInterface
+import dev.raseel.lostandfound.embedder.faces.FaceImageLoader
 import kotlin.math.ceil
 
 // Prepares a photo for MobileCLIP-S0, the way Apple's own preprocessing does: the shorter side to 256 (bilinear),
@@ -110,8 +112,12 @@ object ImagePreprocessor {
                     inMutable = false
                 }
 
-                val sampledBitmap = BitmapFactory.decodeStream(stream2, null, decodeOptions)
+                val decoded = BitmapFactory.decodeStream(stream2, null, decodeOptions)
                     ?: return null
+                // Upright first: a phone photo is often stored sideways with a tag saying how to turn it, and
+                // the decoder does not turn it. The model should see what the person sees (and the middle cut
+                // out of the upright photo, not of the sideways one). Turning the small decode costs little.
+                val sampledBitmap = FaceImageLoader.upright(decoded, orientationOf(context, uri))
 
                 val finalBitmap = resizeAndCenterCrop(sampledBitmap)
 
@@ -122,6 +128,15 @@ object ImagePreprocessor {
                 finalBitmap
             }
         }
+    }
+
+    // The photo's EXIF orientation; normal when it has none or it cannot be read.
+    private fun orientationOf(context: Context, uri: Uri): Int = try {
+        context.contentResolver.openInputStream(uri)?.use {
+            ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+        } ?: ExifInterface.ORIENTATION_NORMAL
+    } catch (_: Exception) {
+        ExifInterface.ORIENTATION_NORMAL
     }
 
     private fun calculateInSampleSize(

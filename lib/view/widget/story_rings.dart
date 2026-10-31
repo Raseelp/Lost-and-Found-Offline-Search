@@ -9,6 +9,7 @@ import 'package:lost_and_found/controllers/stories_controller.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/motion.dart';
 import 'package:lost_and_found/view/story_viewer_screen.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 
@@ -550,14 +551,20 @@ class _RingFrameState extends State<_RingFrame> with SingleTickerProviderStateMi
   void initState() {
     super.initState();
     _spin = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
-    if (widget.spinning) _spin.repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // With motion off the arc stays where it is.
+    if (widget.spinning) loopUnlessCalm(context, _spin);
   }
 
   @override
   void didUpdateWidget(covariant _RingFrame old) {
     super.didUpdateWidget(old);
     if (widget.spinning && !_spin.isAnimating) {
-      _spin.repeat();
+      loopUnlessCalm(context, _spin);
     } else if (!widget.spinning && _spin.isAnimating) {
       _spin.stop();
     }

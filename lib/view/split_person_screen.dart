@@ -52,7 +52,7 @@ class _SplitPersonScreenState extends State<SplitPersonScreen> {
     Navigator.of(context).pop();
     Get.closeAllSnackbars();
     Get.snackbar(
-      'Split into two people',
+      'Separated into two people',
       'Give each a name from their page.',
       duration: const Duration(seconds: 5),
       snackPosition: SnackPosition.BOTTOM,
@@ -75,7 +75,7 @@ class _SplitPersonScreenState extends State<SplitPersonScreen> {
         backgroundColor: AppColors.canvas,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Text('Split into two people', style: textTheme.titleMedium),
+        title: Text('Separate two people', style: textTheme.titleMedium),
       ),
       body: SafeArea(
         child: !_loaded
@@ -86,7 +86,7 @@ class _SplitPersonScreenState extends State<SplitPersonScreen> {
                       padding: const EdgeInsets.all(AppSpacing.xxl),
                       child: Text(
                         'There are not enough clear faces of $name to tell two groups apart. '
-                        'Use "Review faces" to take out any that are someone else.',
+                        'Use "Check their faces" to remove any that belong to someone else.',
                         textAlign: TextAlign.center,
                         style: textTheme.bodySmall?.copyWith(color: AppColors.ink48, height: 1.45),
                       ),
@@ -131,7 +131,7 @@ class _SplitPersonScreenState extends State<SplitPersonScreen> {
                                     child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
                                   )
                                 : PillButton(
-                                    label: 'Split into two people',
+                                    label: 'Separate them',
                                     icon: Icons.call_split_rounded,
                                     onTap: () => _split(preview),
                                   ),

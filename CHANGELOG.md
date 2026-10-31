@@ -6,6 +6,8 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
 ## Unreleased
 
 ### Added
+- A new app icon: "lf" carved into a landscape photo that fills the whole icon. It follows the
+  launcher's shape and has a one-colour version for Android's themed icons.
 - Pressing a tab in the bottom bar lifts the teal chip onto it, dragging pulls the chip across the tabs, and the
   tab changes when you let go. The chip moves on springs, so taps slide it too. It stretches with speed, leans
   after the finger up and down. Pushed hard toward an end, or pulled up or down, the whole bar stretches that
@@ -30,6 +32,23 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   own data. See `docs/development.md`.
 
 ### Changed
+- A milestone notification ("Naveen is in 250 of your photos") shows a collage: five photos of the
+  person from across their years, the latest good one big, and how many more there are on the last.
+- Then and now offers every photo from the start and from lately (up to 40 at each end, a burst counting
+  once), not just three. Choose Then or Now, then scroll the row of photos like a wheel; the one in the
+  middle is compared. A swipe runs on and slows down, and the row always stops on a photo.
+- The circles round a person's photo sit further out, so no caption covers the photo, and their words can
+  be tapped too. Four circles go round it: With someone, Save photos, Hide and a quieter Fix mistakes at
+  the bottom. Tapping Fix mistakes moves the others up round the ring while it turns into Shown twice and
+  Not them and Mixed up come out of it; a small close on the photo folds them back.
+  Tapping a circle asks a question about that person and plays a short looping film of what it does, made
+  from their own faces and photos, in place of the paragraph that explained it.
+- Clearer words in the menu you get by holding a person, and on their page: Save all their photos, Photos
+  with someone else, Merge duplicates, Separate two people and Check their faces, each with a line saying
+  what it is for. The three that fix mistakes are now together at the bottom under "Fix mistakes".
+- The bolt button no longer strikes (no shake, flash, ring, lightning or flicker). Its actions now bud out of
+  it like drops of the same liquid, pinch off and settle, and are drawn back in the same way; the bolt turns
+  into a close mark while they are out, with one light tap of haptics.
 - With nothing indexed yet, Search, Collections, Faces and the zip export each show a small moving
   picture of what they will hold, made of the tour's sample photos: example searches putting the best
   photos first (as in the tour), collection tiles getting covers, people as stacks of faces with some
@@ -68,6 +87,16 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   search model from the GitHub release, like release builds.
 
 ### Fixed
+- Search now reads a photo the right way up. Photos the phone stored sideways (with a tag saying how to
+  turn them) were indexed lying on their side, which could make search miss them. Photos indexed before
+  this keep their old vectors until they are scanned again.
+- A daily memory's picture fills its card. A face photo that was too narrow for the wide card showed
+  with grey bands at the sides; it now closes in on the faces instead.
+- With "Remove animations" on in the phone's accessibility settings, stories now keep their five seconds
+  a picture instead of rushing past, and "Tap a face to see who" stays up long enough to read. Loops
+  (shimmers, pulses, spinning rings, the scan glow) now rest on a still frame, the tab bar and Search
+  button no longer spring or stretch, and the app jumps to a story, page or place in a list instead of
+  sliding there.
 - When Android has stopped asking for a permission (it was turned down twice), the app no longer
   fails without a word. A dialog says what is off, what it is needed for and where to turn it on in
   App info for that Android version, and opens App info. This covers photo and video access (the

@@ -10,6 +10,7 @@ import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/utils/media_view_route.dart';
+import 'package:lost_and_found/utils/motion.dart';
 import 'package:lost_and_found/view/image_full_screen.dart';
 import 'package:lost_and_found/view/video_full_screen.dart';
 import 'package:lost_and_found/view/widget/grid_video_layer.dart';
@@ -103,10 +104,11 @@ class _MonthPhotosScreenState extends State<MonthPhotosScreen> {
         }
         offset += (day.photos.length / _columns).ceil() * (tile + _gap);
       }
-      _scroll.animateTo(
+      glideTo(
+        context,
+        _scroll,
         (offset - 24).clamp(0.0, _scroll.position.maxScrollExtent),
         duration: const Duration(milliseconds: 520),
-        curve: Curves.easeOutCubic,
       );
     });
     Future<void>.delayed(const Duration(milliseconds: 2000), () {

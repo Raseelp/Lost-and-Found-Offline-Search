@@ -12,6 +12,7 @@ import 'package:lost_and_found/models/collection_model.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/motion.dart';
 import 'package:lost_and_found/view/export_zip_screen.dart';
 import 'package:lost_and_found/view/widget/confirm_dialog.dart';
 import 'package:lost_and_found/view/widget/mention_input_field.dart';
@@ -104,9 +105,10 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
   }
 
   @override
-  void initState() {
-    super.initState();
-    if (widget.syncing) _sweep.repeat();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // With motion off the picture stays still while it syncs ("Finding matches..." says so).
+    if (widget.syncing) loopUnlessCalm(context, _sweep);
   }
 
   @override
@@ -118,7 +120,7 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
       _asked = 0;
     }
     if (widget.syncing && !old.syncing) {
-      _sweep.repeat();
+      loopUnlessCalm(context, _sweep);
     } else if (!widget.syncing && old.syncing) {
       _sweep.stop();
       _pop.forward(from: 0);

@@ -5,6 +5,7 @@ import 'package:lost_and_found/models/memories.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/motion.dart';
 import 'package:lost_and_found/view/day_photos_screen.dart';
 import 'package:lost_and_found/view/widget/collection_widgets.dart';
 import 'package:lost_and_found/view/widget/memory_widgets.dart';
@@ -60,7 +61,7 @@ class _OnThisDayScreenState extends State<OnThisDayScreen> {
       if (context != null) {
         Scrollable.ensureVisible(
           context,
-          duration: const Duration(milliseconds: 520),
+          duration: calm(this.context) ? Duration.zero : const Duration(milliseconds: 520),
           curve: Curves.easeOutCubic,
           alignment: 0.04,
         );

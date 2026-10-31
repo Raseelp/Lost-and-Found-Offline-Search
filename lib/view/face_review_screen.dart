@@ -78,7 +78,7 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
         backgroundColor: AppColors.canvas,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Text('Review faces', style: textTheme.titleMedium),
+        title: Text('Check their faces', style: textTheme.titleMedium),
       ),
       body: SafeArea(
         child: items == null

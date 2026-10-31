@@ -6,6 +6,7 @@ import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/utils/palettes/tour_palette.dart';
+import 'package:lost_and_found/utils/motion.dart';
 import 'package:lost_and_found/view/tour/tour_download.dart';
 import 'package:lost_and_found/view/tour/tour_samples.dart';
 import 'package:lost_and_found/view/tour/tour_widgets.dart';
@@ -162,6 +163,10 @@ class _TourScreenState extends State<TourScreen> {
 
   void _goTo(int page) {
     if (page < 0 || page >= widget.pages.length) return;
+    if (calm(context)) {
+      _controller.jumpToPage(page);
+      return;
+    }
     _controller.animateToPage(
       page,
       duration: const Duration(milliseconds: 420),

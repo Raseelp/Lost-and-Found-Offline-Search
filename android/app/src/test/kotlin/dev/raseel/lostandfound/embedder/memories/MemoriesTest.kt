@@ -300,6 +300,40 @@ class MemoriesTest {
     }
 
     @Test
+    fun everyPhotoFromEachEndsMonthsToChooseFrom() {
+        // The same months as the best few (the window is decided as before), every photo in them, oldest first.
+        val list = listOf(
+            cd(1, 2016, 3, 2, 50f), cd(2, 2016, 3, 20, 80f), cd(3, 2016, 4, 8, 60f), cd(4, 2016, 4, 27, 40f),
+            cd(9, 2016, 3, 21, 10f), // a weak photo the day after another: not one of the three, but there to pick
+            cd(5, 2024, 4, 2, 50f), cd(6, 2024, 4, 20, 80f), cd(7, 2024, 5, 8, 60f), cd(8, 2024, 5, 27, 40f),
+            cd(10, 2020, 6, 1, 99f), // the middle years: in neither
+        )
+        val r = ThenNow.choose(list, utc)!!
+        assertEquals(listOf(1L, 2L, 9L, 3L, 4L), r.allThen.map { it.key })
+        assertEquals(listOf(5L, 6L, 7L, 8L), r.allNow.map { it.key })
+        assertTrue(r.allThen.containsAll(r.then))
+        assertTrue(r.allNow.containsAll(r.now))
+        assertEquals(r.allThen.sortedBy { it.takenMs }, r.allThen)
+    }
+
+    @Test
+    fun aBurstCountsOnceAndThereIsALimit() {
+        val base = ms(2016, 3, 10)
+        fun at(key: Long, offsetMs: Long, rank: Float) =
+            ThenNow.Cand(key, key, "u$key", base + offsetMs, rank, 0.4f, 0.3f, 0.6f, 0.6f, 3000, 4000)
+        // Three shots seconds apart: only the best of them.
+        val burst = listOf(at(1, 0, 40f), at(2, 20_000, 90f), at(3, 50_000, 60f), at(4, 3 * 86_400_000L, 30f))
+        assertEquals(listOf(2L, 4L), ThenNow.every(burst, emptyList()).map { it.key })
+        // The chosen options stay even when a better shot of the same moment is there.
+        assertEquals(listOf(1L, 4L), ThenNow.every(burst, listOf(burst[0])).map { it.key })
+        // More than the limit: the best of them, still oldest first.
+        val many = (1..60L).map { at(it, it * 86_400_000L, it.toFloat()) }
+        val kept = ThenNow.every(many, emptyList(), max = 40)
+        assertEquals(40, kept.size)
+        assertEquals((21..60L).toList(), kept.map { it.key })
+    }
+
+    @Test
     fun threeOptionsAtEachEndWheneverThereAreThreePhotosToTellApart() {
         val list = listOf(
             cd(1, 2016, 3, 2, 50f), cd(2, 2016, 3, 20, 80f), cd(3, 2016, 4, 8, 60f), cd(4, 2016, 4, 27, 40f),

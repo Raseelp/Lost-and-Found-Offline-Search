@@ -15,9 +15,10 @@ import java.util.TimeZone
  * big the library is. Lone photos far from the rest (most likely a wrong date) never count as the first or
  * last time, the same rule the people timeline uses.
  *
- * Each end offers a few photos that differ in kind - on their own, with one other person, in a small
+ * Each end has a few best photos that differ in kind - on their own, with one other person, in a small
  * group - because a person is more than the pictures of their face, and the comparison can mix them. Which
- * of the options are shown first is random (the seed says how, so it can be the same all day).
+ * of them is shown first is random (the seed says how, so it can be the same all day). Each end also has
+ * every photo from its months (see [every]), for choosing from on the Then and Now screen.
  */
 object ThenNow {
     /** Another clear face in the photo: who (a listed person) and where it is. */
@@ -72,6 +73,9 @@ object ThenNow {
         val spanMonths: Int,
         val firstMonth: Int,
         val lastMonth: Int,
+        /** Every photo from the months [then] was chosen from, oldest first (see [every]); the same for [now]. */
+        val allThen: List<Cand> = then,
+        val allNow: List<Cand> = now,
     )
 
     // The windows tried, in months from each end; the later ones only when the earlier have too little.
@@ -82,6 +86,8 @@ object ThenNow {
     private const val PER_SIDE = 3
     private const val APART_MS = 14L * 24 * 3_600_000
     private const val MAX_GROUP = 5
+    private const val MAX_ALL = 40
+    private const val BURST_MS = 2L * 60_000
 
     fun monthOf(ms: Long, tz: TimeZone): Int {
         val cal = Calendar.getInstance(tz)
@@ -138,7 +144,22 @@ object ThenNow {
             startNow = (startNow + 1) % now.size
             if (same()) return null
         }
-        return Result(then, now, startThen, startNow, span, first, last)
+        return Result(then, now, startThen, startNow, span, first, last, every(thenPool, then), every(nowPool, now))
+    }
+
+    /**
+     * Every photo in [pool], oldest first, for choosing from: each photo once, a burst (shots within a couple
+     * of minutes of each other) counted as its best shot, and no more than [max] - the best of them if there
+     * are more. The [keep] (the chosen options) are always among them.
+     */
+    fun every(pool: List<Cand>, keep: List<Cand>, max: Int = MAX_ALL): List<Cand> {
+        val kept = ArrayList<Cand>(keep)
+        fun free(c: Cand) = kept.none { it.key == c.key || it.uri == c.uri || Math.abs(it.takenMs - c.takenMs) < BURST_MS }
+        for (c in pool.sortedWith(compareByDescending<Cand> { score(it) }.thenBy { it.takenMs })) {
+            if (kept.size >= max) break
+            if (free(c)) kept += c
+        }
+        return kept.sortedBy { it.takenMs }
     }
 
     // How good a picture it is of the person, a crowd counting for less (two in the picture costs nothing).

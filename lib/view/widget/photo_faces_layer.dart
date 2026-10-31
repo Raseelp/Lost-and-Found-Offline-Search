@@ -9,6 +9,7 @@ import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
+import 'package:lost_and_found/utils/motion.dart';
 import 'package:lost_and_found/utils/palettes/face_palette.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 
@@ -251,8 +252,12 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
       AnimationController(vsync: this, duration: const Duration(milliseconds: 720));
   late final AnimationController _spin =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 7000));
-  late final AnimationController _hint =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 2800));
+  // Kept at its own pace with the phone's animations off: it is also how long "Tap a face to see who" stays up.
+  late final AnimationController _hint = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2800),
+    animationBehavior: AnimationBehavior.preserve,
+  );
 
   // What is drawn: kept while the ring animates out after a deselect.
   PhotoFace? _shown;
@@ -276,7 +281,7 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
       }
       _hint.value = 1;
       _enter.forward();
-      _spin.repeat();
+      // The ring starts turning in didChangeDependencies (where the motion setting can be read).
     }
     // Once the photo has settled, the faces are faintly traced and each gets a small
     // sparkle - the sign that it can be tapped - and a line says what it means.
@@ -312,13 +317,26 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
       _hint.stop();
       _hint.value = 1; // the ripple is done once you've found it
       _enter.forward(from: 0);
-      if (!_spin.isAnimating) _spin.repeat();
+      if (!_spin.isAnimating && !calm(context)) _spin.repeat();
     } else {
       _enter.reverse().whenComplete(() {
         if (!mounted || widget.selected != null) return;
         _spin.stop();
         setState(() => _shown = null);
       });
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // With motion off the ring round the picked face stays still.
+    if (calm(context)) {
+      _spin
+        ..stop()
+        ..value = 0;
+    } else if (widget.selected != null && !_spin.isAnimating) {
+      _spin.repeat();
     }
   }
 
@@ -396,7 +414,8 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
                   painter: _LivePainter(
                     repaint: Listenable.merge([_hint, widget.transform]),
                     draw: (canvas, size) {
-                      if (!_hint.isAnimating) return;
+                      // With motion off, no sparkles: the line below says it on its own.
+                      if (!_hint.isAnimating || calm(context)) return;
                       _HintPainter(_headsFor(size).values.toList(), _hintRolls, _hint.value).paint(canvas, size);
                     },
                   ),
@@ -485,7 +504,10 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
   // same frosted glass as the viewer's other floating controls.
   Widget _captionPill() {
     final p = _hint.value;
-    final opacity = (Interval(0.08, 0.22).transform(p) * (1 - Interval(0.78, 0.95).transform(p))).clamp(0.0, 1.0);
+    // With motion off it is simply there for the same while, no fading or rising.
+    final opacity = calm(context)
+        ? (p > 0.08 && p < 0.95 ? 1.0 : 0.0)
+        : (Interval(0.08, 0.22).transform(p) * (1 - Interval(0.78, 0.95).transform(p))).clamp(0.0, 1.0);
     if (opacity <= 0) return const SizedBox.shrink();
     return Positioned(
       left: 0,
@@ -595,8 +617,15 @@ class _FlowText extends StatefulWidget {
 }
 
 class _FlowTextState extends State<_FlowText> with TickerProviderStateMixin {
-  late final AnimationController _shine = AnimationController(vsync: this, duration: const Duration(milliseconds: 2800))..repeat();
+  late final AnimationController _shine = AnimationController(vsync: this, duration: const Duration(milliseconds: 2800));
   late final AnimationController _in = AnimationController(vsync: this, duration: const Duration(milliseconds: 750))..forward();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // With motion off the highlight stays put.
+    loopUnlessCalm(context, _shine);
+  }
 
   @override
   void didUpdateWidget(covariant _FlowText old) {
@@ -702,7 +731,13 @@ class _TwinkleStar extends StatefulWidget {
 }
 
 class _TwinkleStarState extends State<_TwinkleStar> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 3000))..repeat();
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 3000));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    loopUnlessCalm(context, _c);
+  }
 
   @override
   void dispose() {
@@ -1015,7 +1050,6 @@ class _PhotoScanGlowState extends State<PhotoScanGlow> with TickerProviderStateM
   void _start() {
     _orbs = _roll(); // a new search gets a new look
     _pillOn = true;
-    _c.repeat();
     _fade.forward();
   }
 
@@ -1025,11 +1059,25 @@ class _PhotoScanGlowState extends State<PhotoScanGlow> with TickerProviderStateM
     if (widget.visible) _start();
   }
 
+  // The orbs go round while it shows. With motion off they stay where they are: the glow still says it is
+  // looking, without moving.
+  void _loop() {
+    if (_fade.isDismissed && !widget.visible) return;
+    loopUnlessCalm(context, _c);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loop();
+  }
+
   @override
   void didUpdateWidget(covariant PhotoScanGlow old) {
     super.didUpdateWidget(old);
     if (widget.visible && !old.visible) {
       _start();
+      _loop();
     } else if (!widget.visible && old.visible) {
       // Keep it going while it fades out; stop only once it can't be seen.
       _fade.reverse().whenComplete(() {

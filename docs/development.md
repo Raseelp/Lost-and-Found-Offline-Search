@@ -49,6 +49,29 @@ flutter test
 
 Dart tests in `test/`, for example stopping a scan (`stop_indexing_test.dart`).
 
+## App icon
+
+The sources are in `design/app-icon/`: `icon.svg` (the whole icon, used for the older square icons and the
+Play Store image) and the three layers of Android's adaptive icon, on a 108 unit canvas: `background.svg` (the
+landscape, filling the canvas edge to edge), `foreground.svg` (the carved lf, kept inside the 66 unit safe area
+so no launcher shape cuts it) and `monochrome.svg` (the lf alone, which Android 13 and later draw when themed
+icons are on). `res/mipmap-anydpi-v26/ic_launcher.xml` puts them together. To change the icon, edit the SVGs
+and render the PNGs again with `render.js`: `ic_launcher.png` at 48, 72, 96, 144 and 192 px and the three
+layers at 108, 162, 216, 324 and 432 px (mdpi to xxxhdpi).
+
+## Reduced motion
+
+With "Remove animations" on, Flutter runs every one-off animation 20 times faster, so it is over in a
+frame or two. Page transitions, dialogs, sheets and animated widgets need nothing more. The rest is in
+`lib/utils/motion.dart`:
+
+- A controller that keeps time rather than moving anything, such as a story's progress, is made with
+  `AnimationBehavior.preserve`, or it would run 20 times faster too.
+- A looping controller is started with `loopUnlessCalm` from `didChangeDependencies`, so it stops on a
+  still frame when motion is off and follows the setting when it changes.
+- Springs and tickers of our own check `calm(context)` and jump to where they would settle.
+- A scroll or page move uses `glideTo`, or `jumpToPage` when `calm(context)` is true.
+
 ## Logs
 
 ```bash
