@@ -49,12 +49,9 @@ class TourDownloadState {
 }
 
 /// What the tour needs from the download: its state, and starting it. The first run uses the real one;
-/// Settings > Help uses a simulated one (so the tour can be seen again without downloading anything).
+/// Settings > Help has none to show (see [IdleTourDownload]).
 abstract class TourDownload extends ChangeNotifier {
   TourDownloadState get state;
-
-  /// Whether this is only pretending (Help).
-  bool get simulated;
 
   /// Starts at once (or, when it is paused, carries on).
   void start();
@@ -84,9 +81,6 @@ class RealTourDownload extends TourDownload {
 
   @override
   TourDownloadState get state => _compute();
-
-  @override
-  bool get simulated => false;
 
   TourDownloadState _compute() {
     final total = _native.pendingDownloadBytes > 0
@@ -189,117 +183,17 @@ class RealTourDownload extends TourDownload {
   }
 }
 
-/// Pretends to download (about fifteen seconds), for Settings > Help: nothing is fetched and nothing is
-/// stored. The size is the real one. To be removed once the tour no longer needs a stand-in.
-class SimulatedTourDownload extends TourDownload {
-  SimulatedTourDownload()
-    : _total = Get.find<NativeController>().searchModelBytes > 0
-          ? Get.find<NativeController>().searchModelBytes
-          : _typicalBytes;
-
-  // The usual size, for when the models are already on the phone and there is no size to read.
-  static const int _typicalBytes = 606076928;
-
-  final int _total;
-  Timer? _timer;
-  late TourDownloadState _state = TourDownloadState(totalBytes: _total);
-
-  // Each tick moves on by a bit more than a thousandth, with the odd pause, so it looks like a real transfer.
-  static const _tick = Duration(milliseconds: 120);
-  static const _connectingTicks = 8;
-  static const _verifyingTicks = 10;
-  int _ticks = 0;
+/// For Settings > Help: the tour seen again, with no download to show (the models are already on the phone).
+class IdleTourDownload extends TourDownload {
+  @override
+  TourDownloadState get state => const TourDownloadState();
 
   @override
-  TourDownloadState get state => _state;
+  void start() {}
 
   @override
-  bool get simulated => true;
+  void pause() {}
 
   @override
-  void start() {
-    if (_state.paused) {
-      resume();
-      return;
-    }
-    if (_timer != null || _state.done) return;
-    _ticks = 0;
-    _state = TourDownloadState(
-      phase: TourDownloadPhase.connecting,
-      totalBytes: _total,
-    );
-    notifyListeners();
-    _timer = Timer.periodic(_tick, (_) => _step());
-  }
-
-  @override
-  void pause() {
-    if (_timer == null || !_state.running) return;
-    _timer?.cancel();
-    _timer = null;
-    _state = TourDownloadState(
-      phase: TourDownloadPhase.paused,
-      fraction: _state.fraction,
-      downloadedBytes: _state.downloadedBytes,
-      totalBytes: _total,
-    );
-    notifyListeners();
-  }
-
-  @override
-  void resume() {
-    if (!_state.paused) return;
-    _state = TourDownloadState(
-      phase: _state.fraction > 0
-          ? TourDownloadPhase.downloading
-          : TourDownloadPhase.connecting,
-      fraction: _state.fraction,
-      downloadedBytes: _state.downloadedBytes,
-      totalBytes: _total,
-    );
-    notifyListeners();
-    _timer = Timer.periodic(_tick, (_) => _step());
-  }
-
-  void _step() {
-    _ticks++;
-    if (_ticks <= _connectingTicks) return;
-    final downloadTicks = _ticks - _connectingTicks;
-    // 100 ticks of downloading with a slight ease, then a short check.
-    const length = 100;
-    if (downloadTicks <= length) {
-      final t = downloadTicks / length;
-      final eased = t < 0.5 ? 2 * t * t : 1 - (1 - t) * (1 - t) * 2 + 0.0;
-      final fraction = (0.6 * t + 0.4 * eased).clamp(0.0, 1.0);
-      _state = TourDownloadState(
-        phase: TourDownloadPhase.downloading,
-        fraction: fraction,
-        downloadedBytes: (fraction * _total).round(),
-        totalBytes: _total,
-      );
-    } else if (downloadTicks <= length + _verifyingTicks) {
-      _state = TourDownloadState(
-        phase: TourDownloadPhase.verifying,
-        fraction: 1,
-        downloadedBytes: _total,
-        totalBytes: _total,
-      );
-    } else {
-      _timer?.cancel();
-      _timer = null;
-      _state = TourDownloadState(
-        phase: TourDownloadPhase.done,
-        fraction: 1,
-        downloadedBytes: _total,
-        totalBytes: _total,
-      );
-    }
-    notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
+  void resume() {}
 }

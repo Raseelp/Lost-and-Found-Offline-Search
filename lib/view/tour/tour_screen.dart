@@ -316,7 +316,6 @@ class _TourScreenState extends State<TourScreen> {
                       ? _DownloadChip(
                           key: const ValueKey('chip'),
                           state: state,
-                          simulated: widget.download.simulated,
                           // Done has nothing more to show.
                           onTap: state.done ? null : _reopenCard,
                         )
@@ -391,7 +390,7 @@ class _TourScreenState extends State<TourScreen> {
               ),
             ),
             _Dots(count: widget.pages.length, index: _index),
-            if (_index == 0 && !state.running && !state.done) ...[
+            if (_index == 0 && !_help && !state.running && !state.done) ...[
               const SizedBox(height: AppSpacing.md),
               Text(
                 'To make your media searchable, the app needs to download an offline model. This is a one-time download. After that, everything works without an internet connection.',
@@ -473,12 +472,10 @@ class _DownloadChip extends StatelessWidget {
   const _DownloadChip({
     super.key,
     required this.state,
-    required this.simulated,
     this.onTap,
   });
 
   final TourDownloadState state;
-  final bool simulated;
 
   /// Brings the card back down.
   final VoidCallback? onTap;
@@ -486,19 +483,18 @@ class _DownloadChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final prefix = simulated ? 'Demo  ' : '';
     final String text;
     switch (state.phase) {
       case TourDownloadPhase.done:
-        text = '${prefix}Ready';
+        text = 'Ready';
       case TourDownloadPhase.verifying:
-        text = '${prefix}Checking';
+        text = 'Checking';
       case TourDownloadPhase.connecting:
-        text = '${prefix}Starting';
+        text = 'Starting';
       case TourDownloadPhase.paused:
-        text = '${prefix}Paused  ·  ${state.percent}%';
+        text = 'Paused  ·  ${state.percent}%';
       default:
-        text = '$prefix${state.percent}%';
+        text = '${state.percent}%';
     }
     final double? ring = switch (state.phase) {
       TourDownloadPhase.connecting || TourDownloadPhase.verifying => null,
@@ -583,7 +579,6 @@ class _DownloadCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final prefix = download.simulated ? 'Demo  ·  ' : '';
     final String title, detail;
     String? action;
     switch (state.phase) {
@@ -600,11 +595,11 @@ class _DownloadCard extends StatelessWidget {
       case TourDownloadPhase.paused:
         title = 'Download paused';
         detail =
-            '$prefix${state.percent}%  ·  ${_size(state.downloadedBytes)} of ${_size(state.totalBytes)}';
+            '${state.percent}%  ·  ${_size(state.downloadedBytes)} of ${_size(state.totalBytes)}';
       default:
         title = 'Downloading search models';
         detail =
-            '$prefix${state.percent}%  ·  ${_size(state.downloadedBytes)} of ${_size(state.totalBytes)}';
+            '${state.percent}%  ·  ${_size(state.downloadedBytes)} of ${_size(state.totalBytes)}';
     }
     final Widget lead;
     switch (state.phase) {
@@ -625,7 +620,7 @@ class _DownloadCard extends StatelessWidget {
         state.phase == TourDownloadPhase.connecting;
     return Semantics(
       liveRegion: true,
-      label: '$prefix$title. $detail',
+      label: '$title. $detail',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onMinimise,

@@ -46,7 +46,7 @@ class _FirstRunTourState extends State<FirstRunTour> {
   }
 }
 
-/// Settings > Help: the same tour again, with a pretend download (nothing is fetched or kept), so it can be
+/// Settings > Help: the same tour again, with no download (the models are already on the phone), so it can be
 /// seen without reinstalling the app.
 Future<void> openHelpTour(BuildContext context) {
   return Navigator.of(
@@ -62,7 +62,7 @@ class _HelpTour extends StatefulWidget {
 }
 
 class _HelpTourState extends State<_HelpTour> {
-  final SimulatedTourDownload _download = SimulatedTourDownload();
+  final IdleTourDownload _download = IdleTourDownload();
 
   @override
   void dispose() {
