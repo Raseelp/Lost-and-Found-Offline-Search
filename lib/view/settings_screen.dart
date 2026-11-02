@@ -295,6 +295,13 @@ class SettingsScreen extends StatelessWidget {
                               onChanged: controller.setBenchLogsEnabled,
                             ),
                           ),
+                          _TapRow(
+                            icon: Icons.content_copy_rounded,
+                            title: 'Copy logs',
+                            subtitle:
+                                'Copies the app\'s recent log, to paste into a bug report. It can contain photo file addresses.',
+                            onTap: () => _copyLogs(context),
+                          ),
                         ],
                       ),
                       const SizedBox(height: AppSpacing.xl),
@@ -865,6 +872,25 @@ class _LicenseRow extends StatelessWidget {
 
 // A settings row that does something when tapped - dimmed and inert when
 // [onTap] is null.
+Future<void> _copyLogs(BuildContext context) async {
+  final messenger = ScaffoldMessenger.of(context);
+  String message;
+  try {
+    final text = await NativeServices().appLogs();
+    if (text.isEmpty) {
+      message = 'There is no log to copy.';
+    } else {
+      await Clipboard.setData(ClipboardData(text: text));
+      message = 'Logs copied.';
+    }
+  } catch (_) {
+    message = 'Could not read the log.';
+  }
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(message)));
+}
+
 class _TapRow extends StatelessWidget {
   const _TapRow({
     required this.icon,

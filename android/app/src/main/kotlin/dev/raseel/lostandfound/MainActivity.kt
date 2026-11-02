@@ -32,6 +32,7 @@ import dev.raseel.lostandfound.embedder.ScanForegroundService
 import dev.raseel.lostandfound.embedder.ScanWorker
 import dev.raseel.lostandfound.embedder.VideoFrameExtractor
 import dev.raseel.lostandfound.embedder.BenchLog
+import dev.raseel.lostandfound.embedder.LogDump
 import dev.raseel.lostandfound.embedder.faces.FaceClusterConfig
 import dev.raseel.lostandfound.embedder.faces.FaceFollower
 import dev.raseel.lostandfound.embedder.faces.FaceModelKind
@@ -154,6 +155,7 @@ class MainActivity : FlutterActivity() {
     // The memories (dates of everything indexed, "on this day", "then and now") have their own thread,
     // so reading dates never holds up the face calls or a search.
     private val memoryExecutor = Executors.newSingleThreadExecutor()
+    private val logExecutor = Executors.newSingleThreadExecutor()
     // A photo opened in the viewer that the face scan hasn't reached yet is analysed on
     // its own thread, so it doesn't queue behind the other face calls.
     private val photoFacesExecutor = Executors.newSingleThreadExecutor()
@@ -551,6 +553,16 @@ class MainActivity : FlutterActivity() {
                 "setBenchLogs" -> {
                     BenchLog.setEnabled(applicationContext, call.argument<Boolean>("enabled") ?: true)
                     result.success(true)
+                }
+
+                // The app's recent log as text, to copy into a bug report.
+                "appLogs" -> logExecutor.execute {
+                    try {
+                        val text = LogDump.collect(applicationContext)
+                        runOnUiThread { result.success(text) }
+                    } catch (e: Throwable) {
+                        runOnUiThread { result.error("LOGS_FAILED", e.message, null) }
+                    }
                 }
 
                 "encodeText" -> {
