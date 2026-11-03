@@ -41,7 +41,8 @@ cd android && ./gradlew :app:testDebugUnitTest
 ```
 
 Covers the zip writer (including that other zip tools can read its output), the search index
-header, and the memories, timeline and date logic.
+header, the memories, timeline and date logic, the scan and stories notifications, the face
+pictures and the text of Copy logs.
 
 ```bash
 flutter test
@@ -79,7 +80,8 @@ adb logcat -s FaceScanner FaceTuner   # face scan timing and tuning
 adb logcat -s LostFoundBench          # performance logs for indexing, faces and search
 ```
 
-The performance logs are on unless turned off in Settings > Diagnostics.
+The performance logs are on unless turned off in Settings > Diagnostics. The same place has Copy
+logs, which copies the app's own recent log lines (the newest 4000) so a bug report can include them.
 
 ## The search model files
 

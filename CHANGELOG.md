@@ -30,8 +30,13 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
 
 - A preview build (`.preview`): runs at release speed but installs next to the app in use, with its
   own data. See `docs/development.md`.
+- A Copy logs button in Settings > Diagnostics, under Performance logs. It copies the app's recent log,
+  with the app, Android and phone details on top, to paste into a bug report. The log can contain photo
+  file addresses.
 
 ### Changed
+- The tour replayed from Settings > Help no longer pretends to download the search model: it has no
+  download card and no note about downloading.
 - A milestone notification ("Naveen is in 250 of your photos") shows a collage: five photos of the
   person from across their years, the latest good one big, and how many more there are on the last.
 - Then and now offers every photo from the start and from lately (up to 40 at each end, a burst counting
@@ -87,6 +92,9 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   search model from the GitHub release, like release builds.
 
 ### Fixed
+- A screen reader can now choose a photo in the Then and now row and press the circles round a person's
+  photo (each is one button, named by its words). The little films in the person bubbles keep their size
+  when the text size is large.
 - Search now reads a photo the right way up. Photos the phone stored sideways (with a tag saying how to
   turn them) were indexed lying on their side, which could make search miss them. Photos indexed before
   this keep their old vectors until they are scanned again.

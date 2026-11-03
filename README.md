@@ -53,7 +53,7 @@ the phone. Nothing is uploaded.
 - Watch silent video previews right in the grids.
 
 Details: [People](docs/people.md) · [Export](docs/export.md) · [Memories](docs/memories.md) ·
-[Changelog](CHANGELOG.md)
+[Stories](docs/stories.md) · [Changelog](CHANGELOG.md)
 
 ## How it works
 
@@ -120,6 +120,11 @@ under the MIT License and stay under it.
 - Parts with their own licenses, not covered by the AGPL:
   - the search model, Apple's MobileCLIP-S0, under the license Apple published with the weights
     in 2024 (`export_clip/licenses/`; source record in `export_clip/MOBILECLIP_SOURCE.md`);
+  - the face detector (SCRFD-2.5G) and the face recognition model (MobileFaceNet `w600k_mbf`, trained on
+    WebFace600K), both from InsightFace. InsightFace publishes its code under the MIT License and says that
+    its pretrained models, and the data they were trained on, are for non-commercial research use. Lost &
+    Found is free, has no ads and takes no payment. Anyone who builds a commercial product from this code
+    must check those terms first;
   - the tour's sample photos and clips, CC0 or public domain except one photo by Oleh Dubyna
     under CC BY-SA 3.0 (sources in `assets/tour/*/CREDITS.txt`);
   - the fonts in `assets/fonts/`, SIL Open Font License 1.1;
