@@ -93,8 +93,8 @@ class MemoryEvergreen(
             val pics = listOf(pick) + others
             return Notice(
                 MemoryKind.MILESTONE,
-                "$name is in $step of your photos",
-                DayChoice.pick(c.today, "$step photos, and counting.", "A lot of memories with $name."),
+                Milestones.title(name, p.photoCount),
+                DayChoice.pick(c.today, Milestones.counted(p.photoCount), "A lot of memories with $name."),
                 planPhoto(pick, listOf(name)),
                 MemoryDays.ymd(pick.takenMs, c.tz).first,
                 pics = pics.map { portrait(it, null) },

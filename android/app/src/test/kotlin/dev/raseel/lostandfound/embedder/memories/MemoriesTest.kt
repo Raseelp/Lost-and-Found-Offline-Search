@@ -225,6 +225,15 @@ class MemoriesTest {
     }
 
     @Test
+    fun theNoteSaysHowManyPhotosThereReallyAre() {
+        // 187 photos have passed the step of 100: the words say 187, not 100.
+        assertEquals(100, Milestones.crossed(187, 0))
+        assertEquals("Naveen is in 187 of your photos", Milestones.title("Naveen", 187))
+        assertEquals("187 photos, and counting.", Milestones.counted(187))
+        assertEquals("Naveen is in 50 of your photos", Milestones.title("Naveen", 50))
+    }
+
+    @Test
     fun aFirstDayIsRealOnlyWithPhotosRightAfterIt() {
         val day = 86_400_000L
         val start = ms(2020, 5, 3)

@@ -47,6 +47,13 @@ object Milestones {
 
     /** The step [count] has newly passed, given the biggest one already told about; null if none. */
     fun crossed(count: Int, announced: Int): Int? = reached(count).takeIf { it > announced }
+
+    /** The words of the note use the real number of photos, not the round step that was passed. */
+    fun title(name: String, count: Int): String = "$name is in ${number(count)} of your photos"
+
+    fun counted(count: Int): String = "${number(count)} photos, and counting."
+
+    private fun number(count: Int): String = java.text.NumberFormat.getIntegerInstance().format(count)
 }
 
 /** Someone's first day in the photos, told once a year on its date. */
