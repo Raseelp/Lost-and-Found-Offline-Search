@@ -33,7 +33,8 @@ import java.util.concurrent.TimeUnit
  */
 object StoriesReminder {
     private const val WORK = "stories_reminder"
-    private const val CHANNEL_ID = "stories"
+    private const val CHANNEL_ID = "stories_v2"
+    private const val QUIET_CHANNEL_ID = "stories"
     private const val NOTIFICATION_ID = 7310
     private const val ACCENT = 0xFF165E59.toInt()
     private const val DAY_MS = 86_400_000L
@@ -169,6 +170,8 @@ object StoriesReminder {
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setDefaults(NotificationCompat.DEFAULT_SOUND)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(publicVersion)
         // Opened out: the words and, under them, the row of rings. Without a picture it is the plain note.
@@ -202,12 +205,13 @@ object StoriesReminder {
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < 26) return
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        // The first channel was a quiet one, and phones keep quiet notifications off the lock screen. A channel's
+        // importance cannot be raised once it exists, so it is replaced by one with the usual importance.
+        manager.deleteNotificationChannel(QUIET_CHANNEL_ID)
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return
-        val channel = NotificationChannel(CHANNEL_ID, "Stories", NotificationManager.IMPORTANCE_LOW).apply {
+        val channel = NotificationChannel(CHANNEL_ID, "Stories", NotificationManager.IMPORTANCE_DEFAULT).apply {
             description = "A note when your stories have refreshed"
             setShowBadge(false)
-            setSound(null, null)
-            enableVibration(false)
         }
         manager.createNotificationChannel(channel)
     }

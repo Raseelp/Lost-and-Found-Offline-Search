@@ -253,6 +253,9 @@ object ScanNotification {
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setColor(APP)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            // Counts and speed only, nothing private: shown in full on a locked screen too (when the phone shows
+            // quiet notifications there at all).
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -383,6 +386,7 @@ object ScanNotification {
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setColor(APP)
             .setCategory(Notification.CATEGORY_PROGRESS)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(contentIntent)

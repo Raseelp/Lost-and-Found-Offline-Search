@@ -81,7 +81,8 @@ class MemoryPrefs(context: Context) {
 
 /** Puts the daily memory in the notification shade. */
 object MemoryNotifier {
-    const val CHANNEL_ID = "daily_memory"
+    const val CHANNEL_ID = "daily_memory_v2"
+    private const val QUIET_CHANNEL_ID = "daily_memory"
     const val ACTION_OPEN = "dev.raseel.lostandfound.OPEN_MEMORY"
     const val EXTRA_KIND = "memory_kind"
     const val EXTRA_YEAR = "memory_year"
@@ -150,6 +151,8 @@ object MemoryNotifier {
             .setAutoCancel(true)
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setDefaults(NotificationCompat.DEFAULT_SOUND)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(publicVersion)
 
@@ -179,12 +182,13 @@ object MemoryNotifier {
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < 26) return
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        // The first channel was a quiet one, and phones keep quiet notifications off the lock screen. A channel's
+        // importance cannot be raised once it exists, so it is replaced by one with the usual importance.
+        manager.deleteNotificationChannel(QUIET_CHANNEL_ID)
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return
-        val channel = NotificationChannel(CHANNEL_ID, "Daily memory", NotificationManager.IMPORTANCE_LOW).apply {
+        val channel = NotificationChannel(CHANNEL_ID, "Daily memory", NotificationManager.IMPORTANCE_DEFAULT).apply {
             description = "One memory a day from your own photos"
             setShowBadge(false)
-            setSound(null, null)
-            enableVibration(false)
         }
         manager.createNotificationChannel(channel)
     }
