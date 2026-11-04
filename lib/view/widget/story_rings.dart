@@ -12,6 +12,7 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/utils/motion.dart';
 import 'package:lost_and_found/view/story_viewer_screen.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
+import 'package:lost_and_found/utils/app_toast.dart';
 
 /// Opens the stories at ring [index] of [rings]. [origin] is where the ring was on screen: the
 /// story grows out of it, and closes back into it.
@@ -172,15 +173,8 @@ class StoryRingsBar extends StatelessWidget {
                                     key: const ValueKey('refresh'),
                                     refreshing: stories.refreshing,
                                     onTap: () async {
-                                      final messenger = ScaffoldMessenger.of(context);
                                       final anything = await stories.refreshStories();
-                                      if (!anything) {
-                                        messenger
-                                          ..hideCurrentSnackBar()
-                                          ..showSnackBar(
-                                            const SnackBar(content: Text('Nothing new right now. Check back later.')),
-                                          );
-                                      }
+                                      if (!anything) AppToast.show('Nothing new right now. Check back later.');
                                     },
                                   )
                                 : const SizedBox.shrink(key: ValueKey('no-refresh')),

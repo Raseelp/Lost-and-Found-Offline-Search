@@ -43,6 +43,10 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   file addresses.
 
 ### Changed
+- Every short message in the app (Copied, Merged with Undo, Saved with View and so on) now looks the same and is
+  worded the same way: a short sentence ending in a full stop, on a light frosted card that sits clear of the bottom
+  bar. A new one replaces the one on screen, and it can be swiped away. A message with a button, such as the Undo
+  after a merge, shows the time left as a line that shrinks. With Remove animations on, nothing slides or shrinks.
 - The tour replayed from Settings > Help no longer pretends to download the search model: it has no
   download card and no note about downloading.
 - A milestone notification ("Naveen is in 250 of your photos") shows a collage: five photos of the

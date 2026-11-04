@@ -22,6 +22,7 @@ import 'package:lost_and_found/view/merge_history_screen.dart';
 import 'package:lost_and_found/view/widget/confirm_dialog.dart';
 import 'package:lost_and_found/view/tour/first_run_tour.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
+import 'package:lost_and_found/utils/app_toast.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -788,15 +789,10 @@ class _BuildRowState extends State<_BuildRow> {
       onTap: text == null
           ? null
           : () async {
-              final messenger = ScaffoldMessenger.of(context);
               await Clipboard.setData(
                 ClipboardData(text: 'Lost & Found $text'),
               );
-              messenger
-                ..hideCurrentSnackBar()
-                ..showSnackBar(
-                  const SnackBar(content: Text('Build details copied.')),
-                );
+              AppToast.show('Build details copied.');
             },
       child: _SettingsRow(
         icon: Icons.info_outline_rounded,
@@ -812,7 +808,6 @@ class _SourceRow extends StatelessWidget {
   const _SourceRow();
 
   Future<void> _open(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
     var opened = false;
     try {
       opened = await launchUrl(
@@ -822,13 +817,7 @@ class _SourceRow extends StatelessWidget {
     } catch (_) {
       opened = false;
     }
-    if (!opened) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Could not open the link.')),
-        );
-    }
+    if (!opened) AppToast.show("Couldn't open the link.");
   }
 
   @override
@@ -873,7 +862,6 @@ class _LicenseRow extends StatelessWidget {
 // A settings row that does something when tapped - dimmed and inert when
 // [onTap] is null.
 Future<void> _copyLogs(BuildContext context) async {
-  final messenger = ScaffoldMessenger.of(context);
   String message;
   try {
     final text = await NativeServices().appLogs();
@@ -884,11 +872,9 @@ Future<void> _copyLogs(BuildContext context) async {
       message = 'Logs copied.';
     }
   } catch (_) {
-    message = 'Could not read the log.';
+    message = "Couldn't read the log.";
   }
-  messenger
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
+  AppToast.show(message);
 }
 
 class _TapRow extends StatelessWidget {
@@ -1068,12 +1054,7 @@ class _MemoriesSection extends StatelessWidget {
       builder: (memories) {
         final s = memories.settings;
 
-        void say(String text) {
-          if (!context.mounted) return;
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(content: Text(text)));
-        }
+        void say(String text) => AppToast.show(text);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,11 +1,11 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/view/widget/confirm_dialog.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:lost_and_found/utils/app_toast.dart';
 
 /// What the app asks Android for, each with what it is for.
 enum AppPermission {
@@ -116,10 +116,4 @@ Future<void> _showBlocked(AppPermission what, int sdk, String? purpose) async {
   );
 }
 
-void _say(String message) {
-  final context = Get.context;
-  if (context == null || !context.mounted) return;
-  ScaffoldMessenger.maybeOf(context)
-    ?..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
-}
+void _say(String message) => AppToast.show(message);

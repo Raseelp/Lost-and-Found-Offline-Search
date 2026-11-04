@@ -6,8 +6,8 @@ import 'package:get/get.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
 import 'package:lost_and_found/models/people_timeline.dart';
 import 'package:lost_and_found/services/native_services.dart';
-import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lost_and_found/utils/app_toast.dart';
 
 /// Everything about faces and people: the scan status (the scan runs by
 /// itself in the background - see FaceScanner), the list of people, and the
@@ -842,24 +842,11 @@ class FacesController extends GetxController {
   // merge can still be undone from Settings.)
   void _offerUndo(int recordId) {
     if (recordId <= 0) return;
-    Get.closeAllSnackbars();
-    Get.snackbar(
-      'Merged',
-      'Two people are now one. Not right?',
-      mainButton: TextButton(
-        onPressed: () {
-          Get.closeAllSnackbars();
-          undoMerge(recordId);
-        },
-        child: const Text('Undo', style: TextStyle(color: AppColors.onMedia, fontWeight: FontWeight.w700)),
-      ),
+    AppToast.show(
+      'Merged two people.',
+      actionLabel: 'Undo',
+      onAction: () => undoMerge(recordId),
       duration: const Duration(seconds: 8),
-      snackPosition: SnackPosition.BOTTOM,
-      // Clear of the floating bar.
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 110),
-      backgroundColor: AppColors.ink,
-      colorText: AppColors.onMedia,
-      borderRadius: 14,
     );
   }
 

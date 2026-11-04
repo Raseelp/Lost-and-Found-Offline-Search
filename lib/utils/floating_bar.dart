@@ -25,3 +25,11 @@ double actionFabClearance(BuildContext context) {
   if (media.viewInsets.bottom > 0) return AppSpacing.base;
   return floatingBarClearance(context) + kFloatingBarHeight + AppSpacing.md;
 }
+
+/// Whether the home screen, and so its floating bar, is built right now. Messages ("toasts") sit above the bar
+/// while it shows, and at the bottom of the screen anywhere else (see AppToast).
+class FloatingBarPresence {
+  const FloatingBarPresence._();
+
+  static bool shown = false;
+}

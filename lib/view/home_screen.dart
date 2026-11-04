@@ -28,6 +28,7 @@ import 'package:lost_and_found/view/widget/faces_tab.dart';
 import 'package:lost_and_found/view/widget/new_collection_sheet.dart';
 import 'package:lost_and_found/view/widget/library_tab.dart';
 import 'package:lost_and_found/view/widget/search_tab.dart';
+import 'package:lost_and_found/utils/app_toast.dart';
 
 // NativeController.homeTab values.
 const int _tabSearch = 0;
@@ -75,6 +76,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     super.initState();
     // A tapped "daily memory" notification opens its memory once the home screen is up.
     _memories.homeReady = true;
+    FloatingBarPresence.shown = true;
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -86,6 +88,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     _memories.homeReady = false;
+    FloatingBarPresence.shown = false;
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -216,13 +219,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // Runs the face scan over whatever was missed (its progress shows on the tab), or says everything is
   // already covered.
   Future<void> _updatePeople(FacesController faces) async {
-    final messenger = ScaffoldMessenger.of(context);
     final started = await faces.syncFaces();
-    if (!started) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('People are up to date')),
-      );
-    }
+    if (!started) AppToast.show('People are up to date.');
   }
 
   bool _onScroll(ScrollNotification n) {

@@ -7,6 +7,7 @@ import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/tour/tour_screen.dart';
 import 'package:lost_and_found/view/tour/tour_widgets.dart';
+import 'package:lost_and_found/utils/app_toast.dart';
 
 /// Page 5: how the app differs from Google Photos, in plain facts, and where the source code is. When the page comes
 /// in, the table answers row by row: this app's answer first, with its check, then Google Photos' after it.
@@ -379,7 +380,6 @@ class _SourceButton extends StatelessWidget {
   const _SourceButton();
 
   Future<void> _open(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
     var opened = false;
     try {
       opened = await launchUrl(
@@ -389,13 +389,7 @@ class _SourceButton extends StatelessWidget {
     } catch (_) {
       opened = false;
     }
-    if (!opened) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Could not open the link.')),
-        );
-    }
+    if (!opened) AppToast.show("Couldn't open the link.");
   }
 
   @override

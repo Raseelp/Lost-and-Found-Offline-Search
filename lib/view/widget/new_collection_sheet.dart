@@ -14,6 +14,7 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/view/widget/mention_input_field.dart';
 import 'package:lost_and_found/view/widget/mention_text_controller.dart';
+import 'package:lost_and_found/utils/app_toast.dart';
 
 /// The sheet that makes a new collection (from the action button, see ActionFab): what to find, in words (with
 /// other ways of saying it) or by a photo to look like, a preview of what that finds and who is in it, photos,
@@ -207,7 +208,6 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
     final typed = _name.text.trim();
     final name = typed.isNotEmpty ? typed : _autoName;
     final contentMode = _contentMode;
-    final messenger = ScaffoldMessenger.of(context);
     final photo = _photoUri;
     final query = _query.queryWithoutMention;
     final personIds = [for (final p in _query.recognizedPeople) p.id];
@@ -217,7 +217,7 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
       unawaited(
         controller.createPhotoCollection(name: name, uri: photo, contentMode: contentMode).then((made) {
           if (made == null) {
-            messenger.showSnackBar(const SnackBar(content: Text('That photo could not be read')));
+            AppToast.show("That photo couldn't be read.");
           }
         }),
       );

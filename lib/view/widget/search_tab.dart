@@ -17,6 +17,7 @@ import 'package:lost_and_found/view/widget/mention_input_field.dart';
 import 'package:lost_and_found/view/widget/mention_text_controller.dart';
 import 'package:lost_and_found/view/widget/search_filter_sheet.dart';
 import 'package:lost_and_found/view/widget/search_results.dart';
+import 'package:lost_and_found/utils/app_toast.dart';
 
 class SearchTab extends StatelessWidget {
   const SearchTab({super.key, required this.controller});
@@ -667,7 +668,6 @@ class _SaveCollectionButton extends StatelessWidget {
   // saves as a photo-seeded collection: whatever looks like that photo.
   void _saveImageSearch(BuildContext context) {
     final collections = Get.find<CollectionsController>();
-    final messenger = ScaffoldMessenger.of(context);
 
     showSaveCollectionSheet(
       context,
@@ -677,24 +677,16 @@ class _SaveCollectionButton extends StatelessWidget {
         final created = await collections.saveImageSearchAsCollection(
           name: name,
         );
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              created == null
-                  ? "Couldn't save that collection"
-                  : 'Saved · ${created.name}',
-            ),
-            action: created == null
-                ? null
-                : SnackBarAction(
-                    label: 'View',
-                    onPressed: () {
-                      if (context.mounted) {
-                        openCollectionScreen(context, collections, created);
-                        }
-                    },
-                  ),
-          ),
+        if (created == null) {
+          AppToast.show("Couldn't save that collection.");
+          return;
+        }
+        AppToast.show(
+          'Saved ${created.name} as a collection.',
+          actionLabel: 'View',
+          onAction: () {
+            if (context.mounted) openCollectionScreen(context, collections, created);
+          },
         );
       },
     );
@@ -702,7 +694,6 @@ class _SaveCollectionButton extends StatelessWidget {
 
   void _save(BuildContext context, String query) {
     final collections = Get.find<CollectionsController>();
-    final messenger = ScaffoldMessenger.of(context);
 
     showSaveCollectionSheet(
       context,
@@ -714,18 +705,12 @@ class _SaveCollectionButton extends StatelessWidget {
           personIds: controller.lastMentionedPersonIds,
         );
         if (created == null) return;
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('Saved · ${created.name}'),
-            action: SnackBarAction(
-              label: 'View',
-              onPressed: () {
-                if (context.mounted) {
-                  openCollectionScreen(context, collections, created);
-                  }
-              },
-            ),
-          ),
+        AppToast.show(
+          'Saved ${created.name} as a collection.',
+          actionLabel: 'View',
+          onAction: () {
+            if (context.mounted) openCollectionScreen(context, collections, created);
+          },
         );
       },
     );

@@ -7,6 +7,7 @@ import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/model_download_screen.dart' show PillButton;
 import 'package:lost_and_found/view/widget/face_widgets.dart';
+import 'package:lost_and_found/utils/app_toast.dart';
 
 /// For a person who is really two people: shows the two groups their faces fall
 /// into, side by side, and splits them if you say so. The bigger group stays with
@@ -50,17 +51,7 @@ class _SplitPersonScreenState extends State<SplitPersonScreen> {
     await _faces.splitPerson(widget.person, preview.second);
     if (!mounted) return;
     Navigator.of(context).pop();
-    Get.closeAllSnackbars();
-    Get.snackbar(
-      'Separated into two people',
-      'Give each a name from their page.',
-      duration: const Duration(seconds: 5),
-      snackPosition: SnackPosition.BOTTOM,
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 110),
-      backgroundColor: AppColors.ink,
-      colorText: AppColors.onMedia,
-      borderRadius: 14,
-    );
+    AppToast.show('Separated into two people. Give each a name from their page.', duration: const Duration(seconds: 5));
   }
 
   @override

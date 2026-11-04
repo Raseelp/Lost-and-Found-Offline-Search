@@ -4,6 +4,7 @@ import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/widget/permission_prompt.dart';
+import 'package:lost_and_found/utils/app_toast.dart';
 
 // Shared by both viewers - the action list itself differs (wallpaper/
 // clipboard only make sense for a still image), everything else about the
@@ -42,10 +43,7 @@ class _MediaActionsSheet extends StatelessWidget {
   // by the time there's a result to report.
   final BuildContext feedbackContext;
 
-  void _showFeedback(String message) {
-    if (!feedbackContext.mounted) return;
-    ScaffoldMessenger.of(feedbackContext).showSnackBar(SnackBar(content: Text(message)));
-  }
+  void _showFeedback(String message) => AppToast.show(message);
 
   Future<void> _run(
     BuildContext sheetContext,
@@ -90,8 +88,8 @@ class _MediaActionsSheet extends StatelessWidget {
                   () async =>
                       await askPermission(AppPermission.storage) &&
                       await controller.saveFileCopy(uri: uri, isVideo: isVideo),
-                  isVideo ? 'Video saved to Gallery' : 'Photo saved to Gallery',
-                  "Couldn't save a copy",
+                  isVideo ? 'Video saved to Gallery.' : 'Photo saved to Gallery.',
+                  "Couldn't save a copy.",
                 ),
               ),
               if (!isVideo) ...[
@@ -102,8 +100,8 @@ class _MediaActionsSheet extends StatelessWidget {
                   onTap: () => _run(
                     context,
                     () => controller.setPhotoAsWallpaper(uri: uri),
-                    'Wallpaper set',
-                    "Couldn't set wallpaper",
+                    'Wallpaper set.',
+                    "Couldn't set the wallpaper.",
                   ),
                 ),
                 const Divider(height: 1, color: AppColors.dividerSoft),
@@ -113,8 +111,8 @@ class _MediaActionsSheet extends StatelessWidget {
                   onTap: () => _run(
                     context,
                     () => controller.copyImageToClipboard(uri: uri),
-                    'Copied',
-                    "Couldn't copy",
+                    'Copied.',
+                    "Couldn't copy.",
                   ),
                 ),
               ],
