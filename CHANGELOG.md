@@ -6,6 +6,8 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
 ## Unreleased
 
 ### Added
+- A start animation: the icon's slider sweeps across, then a big lens grows out of it and opens the app. With
+  Android's "Remove animations" on, it shows a still picture instead.
 - A new app icon: "lf" carved into a landscape that fills the whole icon, with a slider line through the f: the
   app's own colours on the left and the earlier blue and green on the right. It follows the launcher's shape and
   has a one-colour version for Android's themed icons.

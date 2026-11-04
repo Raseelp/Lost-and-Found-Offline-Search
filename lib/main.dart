@@ -6,6 +6,7 @@ import 'package:lost_and_found/bindings/init_bindings.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/model_licenses.dart';
 import 'package:lost_and_found/view/app_gate.dart';
+import 'package:lost_and_found/view/splash/splash_overlay.dart';
 
 // System bars for the app's light screens: draw behind them (edge-to-edge, so
 // SafeArea does the insetting) but paint the navigation bar - the gesture
@@ -103,9 +104,12 @@ class LostAndFoundApp extends StatelessWidget {
       // while a region is on screen, so without this the black photo/video
       // viewers' light-icon style would stay stuck after closing them. The
       // viewers wrap themselves in their own (inner) region, which wins there.
-      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
-        value: kAppOverlayStyle,
-        child: child ?? const SizedBox.shrink(),
+      // The splash animation is laid over the navigator, so the app is already built under it when it clears.
+      builder: (context, child) => SplashHost(
+        child: AnnotatedRegion<SystemUiOverlayStyle>(
+          value: kAppOverlayStyle,
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
       initialBinding: InitBindings(),
       home: const AppGate(),

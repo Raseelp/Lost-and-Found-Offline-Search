@@ -5,6 +5,7 @@ import 'package:lost_and_found/controllers/tour_controller.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/view/home_screen.dart';
 import 'package:lost_and_found/view/model_download_screen.dart';
+import 'package:lost_and_found/view/splash/splash_overlay.dart';
 import 'package:lost_and_found/view/tour/first_run_tour.dart';
 
 /// On a fresh install: the tour (which starts the download), then the app. Otherwise the download screen until
@@ -14,6 +15,14 @@ class AppGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // While the splash animation plays the screens are not built, so that building them cannot make it stutter.
+    return ValueListenableBuilder<bool>(
+      valueListenable: SplashGate.released,
+      builder: (context, released, _) => released ? _screens() : const ColoredBox(color: AppColors.canvas),
+    );
+  }
+
+  Widget _screens() {
     return GetBuilder<TourController>(
       builder: (tour) => GetBuilder<NativeController>(
         builder: (controller) {
