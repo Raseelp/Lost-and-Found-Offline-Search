@@ -42,13 +42,24 @@ cd android && ./gradlew :app:testDebugUnitTest
 
 Covers the zip writer (including that other zip tools can read its output), the search index
 header, the memories, timeline and date logic, the scan, stories and finish-indexing notifications, the face
-pictures and the text of Copy logs.
+pictures, the face quality score and cluster settings, the embedding maths and the text of Copy logs.
 
 ```bash
 flutter test
 ```
 
-Dart tests in `test/`, for example stopping a scan (`stop_indexing_test.dart`).
+Dart tests in `test/`. The folders follow `lib/`: `models/`, `utils/`, `tokanizer/` and `view/`.
+They cover the search tokenizer, the story planner, the toast, the Remove animations helpers, the
+splash timeline and its lifecycle, the memory and timeline models, and stopping a scan.
+
+To run one file, pass its path, for example `flutter test test/utils/app_toast_test.dart`.
+To run one Kotlin class, use `./gradlew :app:testDebugUnitTest --tests "*EmbeddingMathTest"`.
+
+The face clusterer, face aligner, memory planner and image preprocessing need Android classes
+and are not covered by these tests.
+
+GitHub Actions (`.github/workflows/tests.yml`) runs the analyzer, the Dart tests and the Kotlin
+tests on every push to `main` and on every pull request.
 
 ## App icon
 
