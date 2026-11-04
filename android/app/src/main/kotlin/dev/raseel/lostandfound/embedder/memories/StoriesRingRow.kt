@@ -40,7 +40,6 @@ class StoryPreview(
                     val preview = StoryPreview(
                         title, faceId, o.optString("cover", ""), o.optBoolean("video", false), o.optBoolean("person", faceId > 0L),
                     )
-                    // A ring needs a name or a picture to be one.
                     if (title.isEmpty() && preview.faceId <= 0L && preview.coverUri.isEmpty()) null else preview
                 }
             } catch (_: Exception) {
@@ -49,10 +48,9 @@ class StoryPreview(
         }
 
         /**
-         * What the note says of [rings]: the people first, then the collections in a sentence of their own, and the rest
-         * as a number, so a person who has no name is never read out as one. "Maya and Sam have new stories. So do Beach
-         * and Rainy." "Maya has a new story. So do Beach, Rainy and 2 more." With only one kind: "Beach and Rainy have
-         * new stories." With no names at all: "5 stories are ready to watch."
+         * What the note says of [rings]: the people first, then the collections in a sentence of their own, and the
+         * rest as a number, so a person who has no name is never read out as one. With no names at all it says how
+         * many stories are ready to watch.
          */
         fun sentence(rings: List<StoryPreview>): String {
             val total = rings.size
@@ -71,7 +69,7 @@ class StoryPreview(
             return "$first So ${if (places.size == 1 && more == 0) "does" else "do"} ${list(places, more)}."
         }
 
-        // "Maya", "Maya and Sam", "Maya, Sam and Lee", "Maya, Sam and 2 more".
+        /** "Maya", "Maya and Sam", "Maya, Sam and Lee", "Maya, Sam and 2 more". */
         private fun list(names: List<String>, more: Int): String = when {
             more > 0 -> names.joinToString(", ") + " and $more more"
             names.size == 1 -> names[0]
@@ -86,10 +84,13 @@ class StoryPreview(
  * The picture is transparent, so it sits on whatever colour the notification has (light or dark).
  */
 object StoriesRingRow {
-    private const val CIRCLE = 132f // across, ring included
+    /** Width of a circle, ring included. */
+    private const val CIRCLE = 132f
     private const val RING = 6f
-    private const val GAP_IN = 6f // between the ring and the picture
-    private const val SPACE = 24f // between circles
+    /** Gap between the ring and the picture. */
+    private const val GAP_IN = 6f
+    /** Space between circles. */
+    private const val SPACE = 24f
     private const val MAX = 5
 
     private val colours = intArrayOf(
@@ -130,10 +131,13 @@ object StoriesRingRow {
         return out
     }
 
+    /**
+     * Draws one circle: the picture, round, inside a ring that is a sweep of the app's colours turned so the gold sits
+     * at the lower right.
+     */
     private fun drawRing(canvas: Canvas, paint: Paint, left: Float, picture: Bitmap?) {
         val cx = left + CIRCLE / 2
         val cy = CIRCLE / 2
-        // The picture, round, inside the ring and its gap.
         val inner = CIRCLE / 2 - RING - GAP_IN
         if (picture != null) {
             val clip = Path().apply { addCircle(cx, cy, inner, Path.Direction.CW) }
@@ -147,7 +151,6 @@ object StoriesRingRow {
             paint.color = Color.rgb(0xE3, 0xF1, 0xEF)
             canvas.drawCircle(cx, cy, inner, paint)
         }
-        // The ring: a sweep of the app's colours, turned so the gold sits at the lower right.
         val sweep = SweepGradient(cx, cy, colours, floatArrayOf(0f, 0.4f, 0.75f, 0.9f, 1f))
         sweep.setLocalMatrix(Matrix().apply { postRotate(100f, cx, cy) })
         paint.shader = sweep
@@ -158,7 +161,7 @@ object StoriesRingRow {
         paint.style = Paint.Style.FILL
     }
 
-    // A square picture of the ring's subject: a person's face, or the middle of a collection's cover.
+    /** A square picture of the ring's subject: a person's face, or the middle of a collection's cover. */
     private fun picture(context: Context, ring: StoryPreview): Bitmap? {
         return try {
             val side = 220

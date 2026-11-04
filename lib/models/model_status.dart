@@ -5,7 +5,7 @@ class ModelStatus {
   final bool downloaded;
   final bool verified;
 
-  // What the model is for ('search': the CLIP models).
+  /// What the model is for. The search models are in the 'search' group.
   final String group;
 
   const ModelStatus({

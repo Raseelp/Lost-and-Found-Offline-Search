@@ -7,10 +7,9 @@ import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 
-/// People who may be the same person, two at a time. Grouping can't always tell
-/// - the same person in different light, with and without glasses, years apart -
-/// so the ones it isn't sure about are put here for a yes or a no. A "no" is
-/// remembered, so the pair never comes back.
+/// People who may be the same person, two at a time. Grouping cannot always tell, as with the same person in
+/// different light, with and without glasses, or years apart, so the ones it is not sure about are put here for a yes
+/// or a no. A "no" is remembered, so the pair never comes back.
 class MergeSuggestionsScreen extends StatelessWidget {
   const MergeSuggestionsScreen({super.key});
 
@@ -64,6 +63,8 @@ class MergeSuggestionsScreen extends StatelessWidget {
   }
 }
 
+/// A pair of people with a line saying how likely they are the same person. The line is in words, in three levels,
+/// not a number, because it is a guess and not a measurement to compare.
 class _SuggestionCard extends StatelessWidget {
   const _SuggestionCard({
     super.key,
@@ -102,8 +103,6 @@ class _SuggestionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    // Plain words, not a number: it is a guess, not a measurement to compare.
-    // Three levels, in words rather than a number: it is a guess, not a measurement.
     final likely = score >= 0.46
         ? 'Very likely the same person'
         : (score >= 0.40 ? 'Probably the same person' : 'Might be the same person');

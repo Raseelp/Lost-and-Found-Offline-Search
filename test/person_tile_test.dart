@@ -7,9 +7,10 @@ import 'package:lost_and_found/controllers/native_controller.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 
+/// A [FacesController] whose setup is skipped on purpose, because the real one starts a face scan and calls the
+/// phone.
 class _FakeFaces extends FacesController {
   @override
-  // The real setup starts a face scan and calls the phone: skipped on purpose.
   // ignore: must_call_super
   void onInit() {}
 }

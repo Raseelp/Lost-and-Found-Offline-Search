@@ -15,13 +15,14 @@ import 'package:lost_and_found/view/widget/nothing_indexed.dart';
 import 'package:lost_and_found/view/widget/person_menu.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// How the grid of people is ordered (once there are enough people to want that).
+/// How the grid of people is ordered once there are enough people to want that.
 enum _PeopleSort { mostPhotos, namedFirst, az }
 
-/// The Faces tab: the people found in your photos. The face scan runs by
-/// itself (no button) - a progress pill shows how far it is, and people appear
-/// in the grid as soon as they are found. The header matches the Collections tab: a line of
-/// description and a row of small buttons.
+/// The Faces tab: the people found in the user's photos.
+///
+/// The face scan runs by itself with no button. A progress pill shows how far it is, and people appear in the grid as
+/// soon as they are found. The header matches the Collections tab, with a line of description and a row of small
+/// buttons.
 class FacesTab extends StatefulWidget {
   const FacesTab({super.key});
 
@@ -39,8 +40,8 @@ class _FacesTabState extends State<FacesTab> {
   String _query = '';
   _PeopleSort _sort = _PeopleSort.mostPhotos;
 
-  // The "name your people" banner can be closed for good. Treated as closed until the saved
-  // choice has been read, so it does not flash up and go away.
+  /// True when the "name your people" banner was closed for good. It counts as closed until the saved choice has been
+  /// read, so it does not flash up and go away.
   bool _bannerDismissed = true;
 
   @override
@@ -71,12 +72,12 @@ class _FacesTabState extends State<FacesTab> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_bannerDismissedKey, true);
     } catch (_) {
-      // Closed for this visit at least.
+      // The choice is not saved, but the banner stays closed for this visit.
     }
   }
 
-  // The people to show: the search applied, then the order chosen. (Only once there are enough
-  // people to need either; the plain list otherwise.)
+  /// The people to show: the search applied, then the order chosen. Only once there are enough people to need either.
+  /// Otherwise it is the plain list.
   List<Person> _shown(FacesController faces) {
     final all = faces.people;
     if (all.length <= _searchFrom) return all;
@@ -158,7 +159,8 @@ class _FacesTabState extends State<FacesTab> {
     );
   }
 
-  // Names the people who have none, one after another, the most photographed first.
+  /// Asks for a name for each person who has none, one after another, the most photographed first. Closing a dialog
+  /// ends the run.
   Future<void> _nameThem(FacesController faces) async {
     final queue = [
       for (final p in faces.people)
@@ -172,12 +174,18 @@ class _FacesTabState extends State<FacesTab> {
         position: i + 1,
         total: queue.length,
       );
-      if (result == null) return; // closed: that is the end of it
+      if (result == null) return;
       if (result.skip || result.name == null || result.name!.isEmpty) continue;
       await faces.rename(queue[i], result.name);
     }
   }
 
+  /// Faces are found along with indexing, so the update button is only a quiet way to catch up on anything that was
+  /// missed. Pressing it turns the button into a small progress pill, and back when the scan is over. Pausing also
+  /// puts the button back, and tapping it carries on from where it stopped.
+  ///
+  /// The space under the list is taller while two or more people are chosen. Otherwise the action button floats above
+  /// it. The chosen count only includes people still in the list, because one may have been hidden or merged since.
   @override
   Widget build(BuildContext context) {
     return GetBuilder<FacesController>(
@@ -187,17 +195,12 @@ class _FacesTabState extends State<FacesTab> {
         final noModel = !status.ready || status.error == 'no_model';
 
         final selecting = faces.selecting;
-        // Only people still in the list (one may have been hidden or merged since).
         final chosen = faces.selectedPeople.length;
         final count = faces.people.length;
         final shown = _shown(faces);
         final searchable = count > _searchFrom;
         final unnamed = faces.people.where((p) => p.name == null).length;
 
-        // Faces are found along with indexing, so this is only a quiet way to catch up on
-        // anything that was missed. Pressing it turns the button into a small progress pill,
-        // and back when the scan is over. Pausing also puts the button back: tapping it
-        // carries on from where it stopped.
         final progressPill =
             faces.syncing && !status.userPaused && status.error == null
             ? FaceSyncPill(
@@ -383,8 +386,6 @@ class _FacesTabState extends State<FacesTab> {
               ),
             SliverToBoxAdapter(
               child: SizedBox(
-                // The bar is taller while two or more are chosen; otherwise the action button floats above
-                // it.
                 height: selecting ? floatingBarClearance(context) + 56 : actionFabClearance(context),
               ),
             ),
@@ -397,9 +398,10 @@ class _FacesTabState extends State<FacesTab> {
   }
 }
 
-/// The people, three across. A tile is as tall as its picture plus the two lines of text under it,
-/// so bigger text (a larger font size in the phone's settings) makes the tiles taller instead of
-/// overflowing.
+/// The people, three across. A tile is as tall as its picture plus the two lines of text under it, so bigger text (a
+/// larger font size in the phone's settings) makes the tiles taller instead of overflowing.
+///
+/// The sizes match [PersonTile]: the room for the stack, then the name at 14 on 20 and the count at 12 on 16.
 class _PeopleGrid extends StatelessWidget {
   const _PeopleGrid({required this.childCount, required this.itemBuilder});
 
@@ -415,7 +417,6 @@ class _PeopleGrid extends StatelessWidget {
     return SliverLayoutBuilder(
       builder: (context, constraints) {
         final cell = (constraints.crossAxisExtent - _gap * (_across - 1)) / _across;
-        // Same as PersonTile: the stack's room, then the name (14 on 20) and the count (12 on 16).
         final room = (cell - 24).clamp(60.0, 112.0);
         final extent = AppSpacing.xs * 2 + (room + 8) + AppSpacing.sm + 1 + 36 * scale + 2;
         return SliverGrid(
@@ -472,6 +473,8 @@ class _SearchRow extends StatelessWidget {
   }
 }
 
+/// Shown when there are no people to list. When nothing is indexed yet it is a picture of the people to come and the
+/// way to the Library (see [NothingIndexed]).
 class _EmptyState extends StatelessWidget {
   const _EmptyState({
     required this.status,
@@ -485,7 +488,6 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    // Nothing indexed yet: a picture of the people to come, and the way to the Library (see NothingIndexed).
     if (!loading && Get.find<NativeController>().totalEmbeddings == 0) {
       return const Padding(
         padding: EdgeInsets.fromLTRB(
@@ -544,8 +546,7 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-/// A nudge to name the people who have no name yet: names are what let Search find a person
-/// with an @.
+/// A nudge to name the people who have no name yet. Names are what let Search find a person with an @.
 class _NameBanner extends StatelessWidget {
   const _NameBanner({
     required this.unnamed,
@@ -622,8 +623,8 @@ class _NameBanner extends StatelessWidget {
   }
 }
 
-/// A nudge when some people may be the same person (see MergeSuggestionsScreen), with the
-/// faces of the most likely pair so it is clear who it is about.
+/// A nudge when some people may be the same person (see [MergeSuggestionsScreen]), with the faces of the most likely
+/// pair so it is clear who it is about.
 class _SuggestionsBanner extends StatelessWidget {
   const _SuggestionsBanner({required this.count, required this.first});
 
@@ -650,7 +651,6 @@ class _SuggestionsBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // The two faces, the second overlapping the first.
             SizedBox(
               width: face + 22,
               height: face,

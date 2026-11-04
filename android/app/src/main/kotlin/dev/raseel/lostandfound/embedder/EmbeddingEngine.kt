@@ -28,53 +28,56 @@ class EmbeddingEngine(
     private val modelManager: ModelManager
 ) {
 
-    // Loaded lazily - always go through ensureModelsLoaded() first.
     private val ortEnv: OrtEnvironment = OrtEnvironment.getEnvironment()
+
+    /** The model sessions load lazily. Call [ensureModelsLoaded] before using them. */
     private var visionSession: OrtSession? = null
     private var textSession: OrtSession? = null
-    // What the image model runs on ("xnnpack x6", or "cpu" after a fallback), for the performance logs.
+    /** What the image model runs on ("xnnpack x6", or "cpu" after a fallback). Only the performance logs use it. */
     private var visionBackend = "not loaded"
     private val store: EmbeddingStore
 
-    // A single OrtSession isn't safe to call run() on from two threads at
-    // once. Search can now run at the same time as a scan (see
-    // MainActivity), and image-based search shares this exact vision
-    // session with scanning - so every actual run() call on it goes
-    // through this lock. Only the call itself is locked, not the tensor
-    // prep around it, so a wait here is short: at most one batch's worth
-    // of inference time, not the other side's whole operation.
+    /**
+     * Serializes every run() on the vision session, which is not safe to call from two threads at once. Search runs
+     * alongside a scan and image search shares the session with scanning. Only the call itself is locked, so a wait is
+     * at most one batch of inference.
+     */
     private val visionLock = Any()
     private val textLock = Any()
 
     private var lastEmit: Long = 0L
     private var startTimeMs: Long = 0L
 
-    // The photos and videos of the scan running now, and how many videos were already indexed. The photos are
-    // done before the videos, and everything already indexed counts as done from the start, so how far each
-    // has got follows from these and the number processed (see kindsDone).
+    /**
+     * The photos and videos of the current scan, and how many videos were already indexed. The photos are done before
+     * the videos and everything already indexed counts as done from the start, so how far each has got follows from
+     * these and the number processed (see [kindsDone]).
+     */
     private var kindPhotos = 0
     private var kindVideos = 0
     private var kindVideosKnown = 0
 
-    // How many photos and how many videos of this scan are done, when [processed] items are.
+    /** How many photos and how many videos of this scan are done, when [processed] items are. */
     private fun kindsDone(processed: Int): Pair<Int, Int> {
         val photos = (processed - kindVideosKnown).coerceIn(0, kindPhotos)
         val videos = (processed - photos).coerceIn(0, kindVideos)
         return photos to videos
     }
 
-    // How long this scan has spent waiting for the photos it handed over (see handOver).
+    /** How long this scan has spent waiting for the photos it handed over (see [handOver]). */
     @Volatile
     private var pausedMs: Long = 0L
 
-    // Where indexing's time goes, for the performance logs (see BenchLog). Each
-    // report prints what has gathered since the last one and starts over.
+    /**
+     * Where indexing's time goes, for the performance logs (see [BenchLog]). Each report prints what has gathered
+     * since the last one and starts over.
+     */
     private class ClipTiming {
-        // Filled in by the decode threads (several at once).
+        /** Written by the decode threads, several at once. */
         val decodeNs = AtomicLong()
         val decoded = AtomicInteger()
 
-        // Filled in by the scan thread.
+        /** Written by the scan thread. */
         var waitDecodeNs = 0L
         var inferNs = 0L
         var writeNs = 0L
@@ -109,10 +112,10 @@ class EmbeddingEngine(
     @Volatile
     private var isCancelled = false
 
-    // Small rolling window of the most-recently embedded files, newest
-    // first - feeds the "recently indexed" strip in the UI. Only ever
-    // touched from the scan's own thread, same as lastEmit/startTimeMs
-    // above, so it needs no locking of its own.
+    /**
+     * The most recently embedded files, newest first, for the recently indexed strip. Only the scan's own thread
+     * touches it, so it needs no lock.
+     */
     private val recentItems = ArrayDeque<RecentEmbeddedItem>()
 
     private fun recordRecent(item: RecentEmbeddedItem) {
@@ -124,36 +127,37 @@ class EmbeddingEngine(
         private const val TAG = "EmbeddingEngine"
         private const val PROGRESS_INTERVAL_MS = 500L
 
-        // How many images go into one forward() call, and how many decode
-        // threads prepare tensors ahead of the inference thread. Tunable -
-        // not measured against real devices yet.
+        /**
+         * How many images go into one forward() call, and how many decode threads prepare tensors ahead of the
+         * inference thread. Not measured on real devices yet, so they may need tuning.
+         */
         private const val INFERENCE_BATCH_SIZE = 4
         private const val PREP_THREAD_COUNT = 2
 
-        // How many recently-embedded files to remember for the UI strip.
         private const val RECENT_WINDOW_SIZE = 10
 
-        // Performance logs (see BenchLog): a CLIP line every this many images, and a
-        // hand-over to the face scan is only worth its own line if it took this long.
+        /**
+         * Performance logs (see [BenchLog]) print a CLIP line every this many images, and a hand-over to the face scan
+         * gets its own line only if it took this long.
+         */
         private const val BENCH_REPORT_EVERY_IMAGES = 40
         private const val BENCH_BATCH_MIN_MS = 1000L
 
-        // Named on the timing lines of the performance logs, so numbers from different models are not mixed up.
+        /** Named on the timing lines of the performance logs, so numbers from different models are not mixed up. */
         private const val MODEL_LABEL = "mobileclip-s0(vision fp32, text int8)"
 
-        // Set while the image model is being set up on XNNPACK and cleared when that worked - see createVisionSession.
         private const val ENGINE_PREFS = "embedding_engine"
+
+        /** Set while the image model is being set up on XNNPACK and cleared when that worked. See [createVisionSession]. */
         private const val KEY_XNNPACK_TRYING = "xnnpack_trying"
 
-        // Threads of the image model. Measured on a phone with 2 fast and 6 slow cores: XNNPACK with 8 threads
-        // (258 ms per photo) beat the default threads (345) and 2 threads (270) on its own; running as a scan does
-        // (photos decoding on 2 other threads at the same time) 6 threads took 303 ms per photo on average against
-        // 327 for 8 and 374 for 4.
+        /**
+         * The most threads the image model uses. On a phone with 2 fast and 6 slow cores, a scan took 303 ms per photo
+         * with 6 threads, against 327 with 8 and 374 with 4, while photos decoded on 2 other threads.
+         */
         private const val VISION_THREADS_MAX = 6
 
-        // Every image/frame's FloatArray is always exactly 3x256x256 - fixed
-        // by ImagePreprocessor - so batching can rely on this instead of
-        // inspecting each array's length at runtime.
+        /** Side of the square input. Every image array is exactly 3x256x256 (see [ImagePreprocessor]), so batching does not check lengths. */
         private const val VISION_INPUT_SIZE = 256
     }
 
@@ -161,8 +165,10 @@ class EmbeddingEngine(
         store = EmbeddingStore(context)
     }
 
-    // Throws ModelsNotReadyException if the download hasn't finished yet -
-    // Dart checks areModelsReady() up front, this is just the backstop.
+    /**
+     * Loads the image and text sessions if they are not loaded yet. Throws [ModelsNotReadyException] when the download
+     * has not finished. Dart checks areModelsReady() first, so this is only the backstop.
+     */
     @Synchronized
     private fun ensureModelsLoaded() {
         if (visionSession != null && textSession != null) return
@@ -194,10 +200,11 @@ class EmbeddingEngine(
         }
     }
 
-    // The image model on XNNPACK (ONNX Runtime's fast CPU kernels for phones). If this build of the runtime cannot
-    // take it, the plain CPU path gives the same numbers, only slower. A runtime that aborts the whole process while
-    // setting XNNPACK up (it did that for the face detector, on a real phone) cannot be caught, so a marker is written
-    // before the try and cleared after it: if it is still there, the last try never came back and is not repeated.
+    /**
+     * Creates the image model session on XNNPACK, ONNX Runtime's fast CPU kernels, with a plain CPU fallback. The
+     * runtime can abort the whole process during XNNPACK setup, which cannot be caught, so a marker is written before
+     * the try and cleared after it. A marker still there means the last try never came back and is not repeated.
+     */
     private fun createVisionSession(path: String): OrtSession {
         val prefs = context.getSharedPreferences(ENGINE_PREFS, Context.MODE_PRIVATE)
         if (prefs.getBoolean(KEY_XNNPACK_TRYING, false)) {
@@ -230,6 +237,10 @@ class EmbeddingEngine(
         isCancelled = true
     }
 
+    /**
+     * Encodes 77 tokens into a text embedding. It runs under [textLock] because a session is not safe to run from two
+     * threads, and text encoding happens off the main thread, so calls can overlap.
+     */
     fun encodeText(tokens: IntArray): FloatArray {
         require(tokens.size == 77) { "Expected 77 tokens, got ${tokens.size}" }
 
@@ -238,9 +249,6 @@ class EmbeddingEngine(
 
         val longs = LongArray(77) { tokens[it].toLong() }
 
-        // Same reason as visionLock: a session isn't safe to call run() from
-        // two threads at once, and text encoding now happens off the main
-        // thread (collections, search) so calls can overlap.
         return synchronized(textLock) {
             OnnxTensor.createTensor(ortEnv, LongBuffer.wrap(longs), longArrayOf(1, 77)).use { tensor ->
                 text.run(mapOf(text.inputNames.first() to tensor)).use { result ->
@@ -254,6 +262,11 @@ class EmbeddingEngine(
         }
     }
 
+    /**
+     * Embeds the photos and videos of the device or of one folder that are not in the store yet, and reports progress.
+     * Files already in the store are filtered out first, so a resumed scan jumps to the done count. The rest is
+     * shuffled, because an interrupted scan would otherwise leave search with only the slice embedded first.
+     */
     fun embedImages(
         mode: String,
         folderUriString: String?,
@@ -322,11 +335,6 @@ class EmbeddingEngine(
             val folderUri = Uri.parse(folderUriString!!)
             val label0 = getDisplayPath(folderUriString)
 
-            // Surface progress during the (possibly slow) SAF traversal so
-            // the UI doesn't just sit on "Preparing..." looking hung. No
-            // folder label here on purpose - label0 can be an arbitrarily
-            // long path, and the UI only has one line to show this in
-            // before a total is known.
             var foundSoFar = 0
             val onFileFound: () -> Unit = {
                 foundSoFar++
@@ -351,7 +359,6 @@ class EmbeddingEngine(
             label = label0
         }
 
-        // Enumeration itself can be cancelled - bail out before the scan loops.
         if (isCancelled) {
             onProgress(
                 ScanProgress(
@@ -382,20 +389,6 @@ class EmbeddingEngine(
         var skipped = 0
         var failed = 0
 
-        // Already-in-the-store files are filtered out here, upfront -
-        // before shuffling/chunking anything - rather than left for
-        // submitChunk/the video loop's own per-item check further down to
-        // discover one at a time. A resumed scan of a mostly-finished
-        // library needs this: if the done and not-done files stay mixed
-        // together and get shuffled as one list, every chunk ends up with
-        // at least one new file in it, so nothing is ever a fully-free,
-        // instant-skip chunk - the progress bar crawls from 0 instead of
-        // jumping straight to "8000 already done", and every chunk pays
-        // for a real (now much smaller) inference call instead of only the
-        // chunks with genuinely new files in them. Splitting first
-        // restores both: the done portion is counted immediately below,
-        // and only the genuinely new portion goes through shuffling and
-        // the chunked inference pipeline.
         val newImages = mutableListOf<ImageSource>()
         for (img in imageFiles) {
             try {
@@ -421,9 +414,6 @@ class EmbeddingEngine(
         kindVideosKnown = videoFiles.size - newVideos.size
         processed += skipped
         if (skipped > 0) {
-            // Forced through even if it lands within the normal throttle
-            // window - this jump should read as instant, not wait out
-            // PROGRESS_INTERVAL_MS like a regular tick would.
             lastEmit = 0L
             emitProgressIfNeeded(total, processed, embedded, skipped, failed, label, onProgress)
         }
@@ -431,12 +421,6 @@ class EmbeddingEngine(
         val batchSize = 10
         val batch = mutableListOf<EmbeddingRecord>()
 
-        // Images go through in small chunks: while one chunk's tensors are
-        // being decoded on background threads, the previous (already
-        // decoded) chunk is being batch-inferred on this thread. That
-        // overlaps decode time with inference time instead of paying both
-        // back to back per image, and running one forward() call per chunk
-        // instead of per image cuts per-call overhead.
         val prepPool = Executors.newFixedThreadPool(PREP_THREAD_COUNT)
         try {
             data class PendingChunk(
@@ -452,9 +436,8 @@ class EmbeddingEngine(
                         if (existingHashes.contains(hash)) {
                             skipped++
                         } else {
-                            // Claimed now, not after a successful embed - two
-                            // chunks decoding at once must never both try to
-                            // embed the same hash.
+                            // Claimed here, not after the embed: two chunks decoding at once must never embed the same
+                            // hash.
                             existingHashes.add(hash)
                             toEmbed.add(img to hash)
                         }
@@ -475,17 +458,6 @@ class EmbeddingEngine(
                 return PendingChunk(toEmbed, futures)
             }
 
-            // Shuffled here, not at enumeration - order only actually
-            // matters for files that are genuinely going to be embedded
-            // this run (see the doc above on newImages/newVideos). Both
-            // MediaStore and SAF hand back a fixed, roughly date/name-
-            // ordered sequence, so without this, a scan that's still
-            // running or gets interrupted again leaves search only able to
-            // find whatever contiguous slice of the new content got
-            // embedded first (e.g. only the oldest of this batch of new
-            // photos). Shuffling means whatever's newly embedded at any
-            // given moment is a random cross-section of what's new,
-            // instead of skewed toward "whichever new file came first."
             val chunks = newImages.shuffled().chunked(INFERENCE_BATCH_SIZE)
             var prefetched: PendingChunk? = null
 
@@ -563,10 +535,6 @@ class EmbeddingEngine(
         }
 
         if (!isCancelled) {
-            // Shuffled for the same reason newImages is above - only the
-            // genuinely new videos, so an interrupted run's videos are a
-            // random cross-section of what's new too, not just "whichever
-            // came first."
             for (video in newVideos.shuffled()) {
 
                 if (isCancelled) {
@@ -650,24 +618,27 @@ class EmbeddingEngine(
         return ScanResult(total, embedded, skipped)
     }
 
-    // Writes a batch to the index and clears it, then offers the photos in it to
-    // whoever works alongside this scan (the face scan - videos are left out, it does
-    // those in its own later pass).
+    /**
+     * Writes a batch to the index and clears it, then offers the photos in it to whoever works alongside this scan
+     * (the face scan; videos are left out, it does those in its own later pass). The items are added to [LatestScan],
+     * and a video's frames all share its uri.
+     */
     private fun commitBatch(batch: MutableList<EmbeddingRecord>) {
         val writeStartedNs = System.nanoTime()
         store.appendBatch(batch)
         clipTiming.writeNs += System.nanoTime() - writeStartedNs
         val photos = batch.filter { it.videoUri == null }.map { IndexedImage(it.hash, it.imagePath) }
-        // These items are what the latest scan stored (a video's frames all share its uri).
         LatestScan.add(batch.map { it.imagePath })
         batch.clear()
         handOver(photos)
     }
 
-    // The consumer may take a good while (finding the faces in a batch) - this scan
-    // simply waits, so the two don't compete. That time is counted so the speed shown
-    // for indexing is indexing's own (see ScanProgress.activeMs), and a failure over
-    // there never becomes this scan's.
+    /**
+     * Offers photos to the consumer of [ScanHandoff]. The consumer may take a good while (finding the faces in a
+     * batch), and this scan simply waits, so the two do not compete. That time is counted so the speed shown for
+     * indexing is indexing's own (see [ScanProgress.activeMs]), and a failure over there never becomes this scan's.
+     * After a long wait, [reportClip] prints what indexing did since the last line, ending right before the wait.
+     */
     private fun handOver(photos: List<IndexedImage>) {
         val consumer = ScanHandoff.consumer ?: return
         if (photos.isEmpty()) return
@@ -683,11 +654,14 @@ class EmbeddingEngine(
         pausedMs += tookMs
         if (tookMs >= BENCH_BATCH_MIN_MS) {
             BenchLog.log(context) { "handoff: indexing waited ${tookMs}ms for the faces of a batch" }
-            // What indexing did since the last line, ending right before that wait.
             reportClip("before faces")
         }
     }
 
+    /**
+     * Embeds the frames of one video. All frames are extracted before this point, so one batched call covers them
+     * and no pipelining is needed.
+     */
     private fun embedVideoFile(
         video: VideoSource,
         hash: Long,
@@ -715,7 +689,7 @@ class EmbeddingEngine(
                 tensors.add(ImagePreprocessor.bitmapToFloatArray(bitmap))
                 timestamps.add(timestampMs)
             } catch (e: Exception) {
-                // one bad frame doesn't kill the whole video
+                // One bad frame does not fail the whole video.
             } finally {
                 bitmap.recycle()
             }
@@ -724,9 +698,6 @@ class EmbeddingEngine(
         if (tensors.isEmpty()) return emptyList()
         val prepNs = System.nanoTime() - prepStartedNs
 
-        // All of a video's frames are already extracted by this point, so
-        // one forward() call for all of them is a straightforward win - no
-        // pipelining needed here, just batching.
         val inferStartedNs = System.nanoTime()
         val embeddings = runBatchedInference(vision, tensors)
         BenchLog.log(context) {
@@ -753,14 +724,10 @@ class EmbeddingEngine(
     }
 
     /**
-     * One forward() call for the whole batch instead of one per tensor -
-     * cuts per-call overhead. Falls back to one-by-one, with per-tensor
-     * isolation, if the batched call fails for any reason (a bad shape
-     * assumption, an odd tensor, anything) - a wrong guess here can't crash
-     * a scan, at worst it just loses the speedup.
+     * One forward() call for the whole batch instead of one per tensor, to cut per-call overhead. If it fails for any
+     * reason, it falls back to one tensor at a time, so it cannot crash a scan and at worst loses the speedup.
      *
-     * A null in the returned list means that specific tensor failed to
-     * embed (caller should treat it as a skip, same as before batching).
+     * A null in the returned list means that tensor failed and the caller skips it.
      */
     private fun runBatchedInference(vision: OrtSession, tensors: List<FloatArray>): List<FloatArray?> {
         if (tensors.isEmpty()) return emptyList()
@@ -800,20 +767,21 @@ class EmbeddingEngine(
         }.map { onlyIfFinite(it) }
     }
 
-    // A vector with a NaN or infinite number in it would be stored and then rank every search the same (it did, with
-    // an image model that overflowed on one phone). Treated as a failed image instead: skipped, and tried again by
-    // the next scan.
+    /**
+     * Returns [embedding] unless it holds a NaN or infinite number, which would be stored and then rank every search
+     * the same (an image model that overflowed on one phone did this). Such an image counts as failed: it is skipped
+     * and tried again by the next scan.
+     */
     private fun onlyIfFinite(embedding: FloatArray?): FloatArray? {
         if (embedding == null || EmbeddingMath.isFinite(embedding)) return embedding
         Log.w(TAG, "the image model gave NaN or infinite numbers; the image is skipped")
         return null
     }
 
-    // One `n`-item batch (or a single item, n=1) through the vision model -
-    // the one place that builds the input tensor, runs the session and
-    // pulls the flat float array back out, shared by every call site above
-    // instead of repeating the OnnxTensor/session.run/floatBuffer dance per
-    // site the way the single-item and batched paths each used to.
+    /**
+     * Runs a batch of [n] items (1 for a single one) through the vision model and returns the flat output. It is the
+     * one place that builds the input tensor, runs the session and reads the result.
+     */
     private fun runVision(session: OrtSession, data: FloatArray, n: Int): FloatArray {
         val shape = longArrayOf(n.toLong(), 3L, VISION_INPUT_SIZE.toLong(), VISION_INPUT_SIZE.toLong())
         return OnnxTensor.createTensor(ortEnv, FloatBuffer.wrap(data), shape).use { tensor ->
@@ -827,30 +795,22 @@ class EmbeddingEngine(
     }
 
 
+    /**
+     * Lists the image files of a folder. When the folder is already in MediaStore's own index (see
+     * [FolderMediaStoreScan] for when that holds), that is queried instead of walking SAF. A null or empty answer is
+     * not trusted, because MediaStore can have nothing under the path of a real folder, so the verified SAF walk runs
+     * instead. Checking a folder that is really empty is cheap.
+     */
     private fun getFolderImages(
         folderUri: Uri,
         onFileFound: () -> Unit = {}
     ): List<ImageSource> {
-        // Fast path: this folder's files are already in MediaStore's own
-        // index (see FolderMediaStoreScan for exactly when that's true and
-        // when it isn't) - query that instead of walking SAF live. Only
-        // trusted when it comes back non-empty - null (not confident this
-        // is correct) and empty (MediaStore genuinely has nothing indexed
-        // under this path, which can happen even for a real, non-empty
-        // folder - see FolderMediaStoreScan's DATA/RELATIVE_PATH doc) are
-        // treated the same way: fall through to the real, verified walk.
-        // The cost of double-checking a folder that turns out to actually
-        // be empty is negligible; silently trusting a false empty isn't
-        // worth the risk.
         val relativePath = FolderMediaStoreScan.resolvePrimaryRelativePath(folderUri)
         if (relativePath != null) {
             val fast = FolderMediaStoreScan.queryImages(context, relativePath)
             if (!fast.isNullOrEmpty()) return fast
         }
 
-        // SafDocument already carries size/lastModified/name resolved from
-        // the same query that found it - no per-file re-query needed here,
-        // unlike the old DocumentFile-based version this replaced.
         return SafUtils.listImageFiles(
             context, folderUri,
             isCancelled = { isCancelled },
@@ -1040,10 +1000,11 @@ class EmbeddingEngine(
         return synchronized(visionLock) { runVision(visionSession!!, data, 1) }
     }
 
-    // Same as encodeImageFromUri, for a frame already decoded in memory (a
-    // paused video frame) - goes through the exact same preprocessing and
-    // model call, so its embedding is directly comparable to every stored
-    // one. The caller keeps ownership of the bitmap (not recycled here).
+    /**
+     * Same as [encodeImageFromUri], for a frame already decoded in memory (a paused video frame). It goes through the
+     * same preprocessing and model call, so its embedding is comparable to every stored one. The caller keeps
+     * ownership of the bitmap.
+     */
     fun encodeBitmap(bitmap: android.graphics.Bitmap): FloatArray {
         ensureModelsLoaded()
 
@@ -1052,12 +1013,12 @@ class EmbeddingEngine(
         return synchronized(visionLock) { runVision(visionSession!!, data, 1) }
     }
 
-    // [pathFilter], when given, restricts the scan to records whose own path (a photo's own
-    // uri, or a video frame's videoUri - the two coincide, see the dedup key below) is in the
-    // set - the "person" half of a combined "person + words" search. It's a plain path set
-    // rather than anything face-specific, so this stays a generic embedding search that
-    // whoever resolves a person to their photos (FaceStore, on the caller's side) can restrict
-    // without EmbeddingEngine needing to know people exist at all.
+    /**
+     * Ranks the stored items by their score against [textEmbedding]. A video's frames collapse to its best frame.
+     * [pathFilter], when given, restricts the search to records whose path (a photo's uri, or a video frame's
+     * videoUri) is in the set, for the person half of a "person + words" search. It is a plain path set, so this stays
+     * a generic embedding search and does not need to know that people exist.
+     */
     fun searchByText(
         textEmbedding: FloatArray,
         topK: Int = 20,
@@ -1082,7 +1043,6 @@ class EmbeddingEngine(
                 timestampMs = record.timestampMs
             )
 
-            // Collapse all frames of the same video into its best-scoring one.
             val dedupKey = record.videoUri ?: record.imagePath
 
             val existing = bestPerKey[dedupKey]
@@ -1131,36 +1091,27 @@ class EmbeddingEngine(
             .take(topK)
     }
 
-    // A record with a non-null videoUri is a video frame, null means a
-    // photo - the same distinction embedImages already uses to tell them
-    // apart (see RecentEmbeddedItem construction). Any unrecognized filter
-    // string behaves as "both", same as an absent one.
-    // ---- Collections -------------------------------------------------------
-    //
-    // A collection's members aren't "the top K" - CLIP returns *something* for
-    // any query, and raw similarity isn't comparable across queries ("dog"
-    // and "handwritten note" live in completely different score ranges). So
-    // membership is a per-query z-score: how far above that query's own
-    // average score, across the whole library, an item sits. Self-calibrating
-    // - no hand-tuned absolute thresholds - and cheap, since mean/sigma come
-    // from the same pass as the scoring.
-
+    /**
+     * What one collection needs to find its members.
+     *
+     * Members are not the top K, because raw CLIP similarity is not comparable across queries. Membership is a
+     * per-query z-score: how far above the query's own average score across the library an item sits.
+     */
     data class CollectionSpec(
         val id: String,
         val embedding: FloatArray,
         val contentMode: String,
-        // Standard deviations above the library-wide mean an item must reach.
+        /** Standard deviations above the library-wide mean an item must reach. */
         val k: Double,
-        // A collection made from an "@name" search - raw ids as parsed off
-        // the channel call, resolved to pathFilter below via FaceStore by
-        // MainActivity.resolvePathFilters, off the UI thread (a real SQLite
-        // read, same reason searchByText's own resolution happens inside
-        // its own background block rather than before it).
+        /**
+         * Ids from an "@name" search, as parsed off the channel call. MainActivity.resolvePathFilters turns them into
+         * [pathFilter] off the UI thread, because that is a SQLite read.
+         */
         val personIds: List<Long> = emptyList(),
-        // Restricts membership to just that person's (or people's) shared
-        // photos/videos - the mean/sigma below end up computed relative to
-        // that restricted set too, not the whole library, since
-        // filtered-out records never enter the running sum.
+        /**
+         * Restricts membership to the photos and videos of those people. The mean and sigma are then computed over
+         * that set only, because filtered-out records never enter the sum.
+         */
         val pathFilter: Set<String>? = null
     )
 
@@ -1170,8 +1121,11 @@ class EmbeddingEngine(
         val covers: List<SearchResult>
     )
 
-    // Every member of one collection, best match first. Video frames are
-    // collapsed to the video's best frame, same as search.
+    /**
+     * Every member of one collection, best match first. A video's frames collapse to its best frame. With a person
+     * filter, the filter is the membership criterion and the score only orders the results, because the z-score test
+     * rejects almost everything on a small, similar set.
+     */
     private fun collectionMembers(
         records: List<EmbeddingRecord>,
         spec: CollectionSpec
@@ -1182,9 +1136,6 @@ class EmbeddingEngine(
         var sumSq = 0.0
 
         for ((i, record) in records.withIndex()) {
-            // A record of a different size (an index from another model) can't
-            // be compared - skip it rather than let one bad record crash the
-            // whole scoring pass.
             if (!matchesContentFilter(record, spec.contentMode) ||
                 record.embedding.size != spec.embedding.size ||
                 (spec.pathFilter != null && record.imagePath !in spec.pathFilter)
@@ -1201,16 +1152,6 @@ class EmbeddingEngine(
 
         if (n == 0) return emptyList()
 
-        // A person filter ("@name") is already the membership criterion on
-        // its own - everyone it lets through counts, ranked by text score
-        // for display order only. The z-score outlier test below is meant
-        // for finding genuine standouts across the *whole* library; run on
-        // an already-narrowed, often small and visually similar set (one
-        // person's own photos) there's too little variance for it to work -
-        // it was rejecting almost everything, sometimes literally
-        // everything (a flat distribution, or fewer than 2 comparable
-        // records, used to return no members at all no matter how many
-        // photos actually matched).
         val threshold = if (spec.pathFilter != null) {
             Double.NEGATIVE_INFINITY
         } else {
@@ -1218,7 +1159,6 @@ class EmbeddingEngine(
             val mean = sum / n
             val variance = (sumSq / n) - mean * mean
             val sigma = kotlin.math.sqrt(kotlin.math.max(variance, 0.0))
-            // A flat score distribution has no outliers to call members.
             if (sigma < 1e-6) return emptyList()
             mean + spec.k * sigma
         }
@@ -1244,7 +1184,7 @@ class EmbeddingEngine(
         return bestPerKey.values.sortedByDescending { it.score }
     }
 
-    // Count + a few cover items for each collection, in one read of the store.
+    /** Counts the members of each collection and picks a few cover items, in one read of the store. */
     fun scoreCollections(specs: List<CollectionSpec>): List<CollectionScore> {
         val records = store.readAll()
         return specs.map { spec ->
@@ -1257,6 +1197,7 @@ class EmbeddingEngine(
         return collectionMembers(store.readAll(), spec).take(limit)
     }
 
+    /** True if [record] fits [contentFilter]. A record with a videoUri is a video frame, one without is a photo. Any other filter means both. */
     private fun matchesContentFilter(record: EmbeddingRecord, contentFilter: String): Boolean {
         return when (contentFilter) {
             "images" -> record.videoUri == null
@@ -1298,9 +1239,10 @@ class EmbeddingEngine(
         }
     }
 
-    // Turns a SAF tree URI into "Internal Storage/DCIM/Camera" instead of
-    // just "Camera" - uses getTreeDocumentId, not getDocumentId (that's for
-    // /document/ URIs, not the /tree/ URIs we get here).
+    /**
+     * Turns a SAF tree URI into a path like "Internal Storage/DCIM/Camera" instead of just "Camera". It uses
+     * getTreeDocumentId because these are /tree/ URIs, not /document/ URIs.
+     */
     fun getDisplayPath(uriString: String): String {
         val uri = Uri.parse(uriString)
         return try {
@@ -1321,7 +1263,7 @@ class EmbeddingEngine(
 
     fun getStoredCount(): Int = store.readAll().size
 
-    /** Every indexed photo (not video), once each - what face grouping works through. */
+    /** Every indexed photo, not video, once each. Face grouping works through these. */
     fun indexedImages(): List<IndexedImage> {
         val seen = HashSet<Long>()
         val out = ArrayList<IndexedImage>()
@@ -1332,7 +1274,7 @@ class EmbeddingEngine(
         return out
     }
 
-    /** Every indexed video, once each - what face grouping works through after the photos. */
+    /** Every indexed video, once each. Face grouping works through these after the photos. */
     fun indexedVideos(): List<IndexedVideo> {
         val seen = HashSet<Long>()
         val out = ArrayList<IndexedVideo>()
@@ -1345,12 +1287,10 @@ class EmbeddingEngine(
 
     fun getStoredCountForFolder(folderId: String): Int = store.countForFolder(folderId)
 
-    // Looks up one specific stored item's embedding by the same identity
-    // a search result already carries - imagePath for a photo, or
-    // videoUri+timestampMs for the specific frame a video's result
-    // represents (search collapses a video's several frames to its best-
-    // scoring one - see searchByText's dedupKey). Null if it's since been
-    // deleted/re-embedded and no longer matches.
+    /**
+     * Looks up the stored embedding of one item by the identity a search result carries: imagePath for a photo, or
+     * videoUri and timestampMs for the frame a video result stands for. Null if it was deleted or embedded again since.
+     */
     fun findEmbedding(imagePath: String, videoUri: String?, timestampMs: Long): FloatArray? {
         val records = store.readAll()
         return if (videoUri != null) {
@@ -1360,12 +1300,10 @@ class EmbeddingEngine(
         }
     }
 
-    // Approximates "why this matched": scores each candidate query word's
-    // own text embedding against one specific item's stored embedding, so
-    // the caller can show which of the query's words individually pulled
-    // the most weight for this result. Not a true per-pixel/region
-    // explanation - CLIP doesn't offer that - just a per-concept one,
-    // which is what's honestly available here.
+    /**
+     * Approximates why an item matched: scores each query word's text embedding against the item's stored embedding, so
+     * the caller can show which words pulled the most. It works per concept, not per region, which CLIP cannot give.
+     */
     fun scoreWordsAgainstItem(
         itemEmbedding: FloatArray,
         words: List<Pair<String, IntArray>>
@@ -1380,27 +1318,26 @@ class EmbeddingEngine(
         }
     }
 
-    // Everything the Library tab's stats need, in one pass over the store
-    // instead of separate calls that would each re-read it - readAll()
-    // isn't free for a large library, so this matters once the caller
-    // starts asking for it on a timer during an active scan (see
-    // NativeController's live stats refresh).
+    /**
+     * Everything the Library tab's stats need, from one pass over the store. readAll() is not free for a large library
+     * and the stats are refreshed on a timer during a scan (see NativeController).
+     */
     data class LibraryStats(
         val totalEmbeddings: Int,
         val images: Int,
         val videos: Int,
         val sizeBytes: Long,
-        // The model that made an index this app had to drop (0: none) - see EmbeddingStore.modelResetFrom.
+        /** The model that made an index this app had to drop, or 0 for none. See [EmbeddingStore.modelResetFrom]. */
         val modelResetFrom: Int
     )
 
+    /**
+     * Counts media items, not embedding rows. A video's frame records (see [embedVideoFile]) all share its videoUri, so
+     * they count as one video. Images have no videoUri, so imagePath alone identifies them.
+     */
     fun getLibraryStats(): LibraryStats {
         val records = store.readAll()
 
-        // Distinct media items, not raw embedding rows - a video's several
-        // frame records (see embedVideoFile) all share its videoUri, so
-        // it's one video no matter how many frames it embedded as. Images
-        // have no videoUri, so imagePath alone identifies them.
         val images = mutableSetOf<String>()
         val videos = mutableSetOf<String>()
         for (record in records) {

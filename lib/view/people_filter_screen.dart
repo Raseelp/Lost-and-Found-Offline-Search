@@ -9,10 +9,8 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/view/widget/search_results.dart';
 
-/// Photos by several people at once. Pick who (and add more with the "+"), then
-/// how: any of them, all of them (other people welcome), or only them. The
-/// choices show how many photos each would give, and a plain sentence says
-/// what the current one means.
+/// Photos by several people at once. Pick who (and add more with the "+"), then how: any of them, all of them
+/// (other people welcome), or only them. The choices show how many photos each would give.
 class PeopleFilterScreen extends StatefulWidget {
   const PeopleFilterScreen({super.key, required this.people});
 
@@ -22,13 +20,13 @@ class PeopleFilterScreen extends StatefulWidget {
   State<PeopleFilterScreen> createState() => _PeopleFilterScreenState();
 }
 
+/// Opens the filter after the first frame, because opening it notifies listeners, which cannot happen during a build.
 class _PeopleFilterScreenState extends State<PeopleFilterScreen> {
   late final FacesController _faces = Get.find<FacesController>();
 
   @override
   void initState() {
     super.initState();
-    // After the first frame: opening notifies listeners, which can't happen mid-build.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _faces.openPeopleFilter(widget.people);
     });
@@ -40,8 +38,8 @@ class _PeopleFilterScreenState extends State<PeopleFilterScreen> {
     super.dispose();
   }
 
-  // The choices for how to combine the people: a radio list, each with a plain
-  // explanation and how many photos it would give.
+  /// Opens the choices for how to combine the people: a radio list, each with a plain explanation and how many
+  /// photos it would give.
   void _pickScope(
     FacesController faces,
     List<Person> people,
@@ -93,13 +91,13 @@ class _PeopleFilterScreenState extends State<PeopleFilterScreen> {
     );
   }
 
-  // Everyone who could still be added.
+  /// Everyone who could still be added.
   List<Person> addable(FacesController faces, List<Person> chosen) {
     final taken = chosen.map((p) => p.id).toSet();
     return faces.people.where((p) => !taken.contains(p.id)).toList();
   }
 
-  // The "+": a grid of everyone not chosen yet; tapping one adds them.
+  /// Opens a grid of everyone not chosen yet. Tapping one adds them.
   void _pickPerson(FacesController faces, List<Person> chosen) {
     final rest = addable(faces, chosen);
     showFacesSheet<void>(
@@ -148,19 +146,20 @@ class _PeopleFilterScreenState extends State<PeopleFilterScreen> {
     );
   }
 
-  // "Anna", "Anna and Ben", "Anna, Ben and Cara".
+  /// The names as a phrase: "Anna", "Anna and Ben" or "Anna, Ben and Cara".
   static String _names(List<Person> people) {
     final names = people.map((p) => p.name ?? 'Unnamed').toList();
     if (names.length == 1) return names.first;
     return '${names.sublist(0, names.length - 1).join(', ')} and ${names.last}';
   }
 
-  // The ways of combining, with the words that fit how many people are chosen.
+  /// The ways of combining, with the words that fit how many people are chosen.
+  ///
+  /// For one person the choice is every photo they are in, or only the ones where they are alone.
   static List<({String mode, String label, IconData icon})> _options(
     int count,
   ) {
     if (count == 1) {
-      // One person: every photo they are in, or only the ones where they are alone.
       return const [
         (
           mode: PeopleMode.any,
@@ -174,8 +173,6 @@ class _PeopleFilterScreenState extends State<PeopleFilterScreen> {
         ),
       ];
     }
-    // Any of them: a crowd to pick from. Plus others: the group, in a bigger crowd.
-    // Only this group: focused in on just them.
     return const [
       (
         mode: PeopleMode.any,
@@ -195,7 +192,7 @@ class _PeopleFilterScreenState extends State<PeopleFilterScreen> {
     ];
   }
 
-  // What the chosen combination means, in a sentence.
+  /// What the chosen combination means, in a sentence.
   static String _sentence(String mode, List<Person> people) {
     final names = _names(people);
     final one = people.length == 1;
@@ -220,8 +217,6 @@ class _PeopleFilterScreenState extends State<PeopleFilterScreen> {
       builder: (faces) {
         final textTheme = Theme.of(context).textTheme;
         final native = Get.find<NativeController>();
-        // Until the screen has loaded, what it was opened with; after, what is chosen
-        // (which can be nobody).
         final people = faces.filterOpened ? faces.filterPeople : widget.people;
         final options = _options(people.length);
         final count = faces.filterPhotos.length;
@@ -254,7 +249,6 @@ class _PeopleFilterScreenState extends State<PeopleFilterScreen> {
                     ),
                   ),
                 ),
-                // Who: the chosen people (a cross takes one off, down to a single person).
                 SliverToBoxAdapter(
                   child: SizedBox(
                     height: 96,
@@ -264,7 +258,6 @@ class _PeopleFilterScreenState extends State<PeopleFilterScreen> {
                         horizontal: AppSpacing.xl,
                         vertical: AppSpacing.sm,
                       ),
-                      // The people, then a "+" (only while someone is left to add).
                       itemCount:
                           people.length +
                           (addable(faces, people).isEmpty ? 0 : 1),
@@ -279,8 +272,6 @@ class _PeopleFilterScreenState extends State<PeopleFilterScreen> {
                     ),
                   ),
                 ),
-                // How: one control showing the current choice and how many photos it
-                // gives; tapping it opens the choices, each explained.
                 if (people.isNotEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
@@ -310,7 +301,6 @@ class _PeopleFilterScreenState extends State<PeopleFilterScreen> {
                       ),
                     ),
                   ),
-                // Breathing room before the photos.
                 const SliverToBoxAdapter(
                   child: SizedBox(height: AppSpacing.md),
                 ),
@@ -387,7 +377,7 @@ class _PeopleFilterScreenState extends State<PeopleFilterScreen> {
   }
 }
 
-// One person in the "who" row.
+/// One person in the "who" row. A cross takes them off, down to a single person.
 class _ChosenPerson extends StatelessWidget {
   const _ChosenPerson({required this.person, required this.onRemove});
 
@@ -450,8 +440,7 @@ class _ChosenPerson extends StatelessWidget {
   }
 }
 
-// The "+" at the end of the row: same size as a face, so it reads as one more
-// place in the row - tap it to add someone.
+/// The "+" at the end of the "who" row. It is the size of a face, so it reads as one more place in the row.
 class _AddPerson extends StatelessWidget {
   const _AddPerson({required this.onTap});
 
@@ -494,10 +483,8 @@ class _AddPerson extends StatelessWidget {
   }
 }
 
-// One row: the current choice as a tappable pill on the left (the chevron says it
-// opens a list), and how many photos it gives on the right as plain text. Both edges
-// line up with the faces above and the photo grid below (same side margins), and
-// nothing competes for attention - it is a control and a caption, not a card.
+/// One row: the current choice as a tappable pill on the left (the chevron says it opens a list), and on the right
+/// how many photos it gives, as plain text. Both edges line up with the faces above and the photo grid below.
 class _ScopeBar extends StatelessWidget {
   const _ScopeBar({
     required this.icon,
@@ -528,8 +515,6 @@ class _ScopeBar extends StatelessWidget {
                 left: AppSpacing.md,
                 right: AppSpacing.sm,
               ),
-              // A wash of the accent colour, so it reads as the thing to touch (a plain
-              // outlined pill blended into the page).
               decoration: BoxDecoration(
                 color: AppColors.primary.withValues(alpha: 0.09),
                 borderRadius: BorderRadius.circular(AppRadius.pill),

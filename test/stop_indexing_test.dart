@@ -6,8 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lost_and_found/controllers/native_controller.dart';
 import 'package:lost_and_found/view/widget/library_orbit.dart';
 
-// Stopping a scan takes a few seconds (the work in hand is finished first). The app shows
-// "Stopping" straight away and ignores further taps until the scan has ended.
+/// Stopping a scan takes a few seconds, because the work in hand is finished first. The app shows "Stopping" at once
+/// and ignores further taps until the scan has ended.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('lostandfound/native');

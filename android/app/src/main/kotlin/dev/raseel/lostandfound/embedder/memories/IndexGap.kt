@@ -87,7 +87,6 @@ object IndexGap {
         val out = ArrayList<Pair<Long, Long>>()
         for (y in year - 1 downTo year - yearsBack) {
             val start = Calendar.getInstance(zone).apply { clear(); set(y, month, day, 0, 0, 0) }
-            // A 29 February that is not in that year would have been moved to 1 March.
             if (start.get(Calendar.DAY_OF_MONTH) != day) continue
             val end = (start.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, 1) }
             out += start.timeInMillis to end.timeInMillis
@@ -108,7 +107,7 @@ object IndexGap {
             if (images) MediaStore.Images.Media.EXTERNAL_CONTENT_URI else MediaStore.Video.Media.EXTERNAL_CONTENT_URI
         }
 
-    // The rows of the gallery, all of them or those taken from [takenFrom] up to [takenTo] (screenshots left out).
+    /** The rows of the gallery, all of them or those taken from [takenFrom] up to [takenTo]. Screenshots are left out. */
     private fun count(context: Context, images: Boolean, takenFrom: Long = 0L, takenTo: Long = 0L): Int {
         val taken = if (images) MediaStore.Images.Media.DATE_TAKEN else MediaStore.Video.Media.DATE_TAKEN
         val name = if (images) MediaStore.Images.Media.DISPLAY_NAME else MediaStore.Video.Media.DISPLAY_NAME

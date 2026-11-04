@@ -7,11 +7,11 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/utils/motion.dart';
 import 'package:lost_and_found/view/widget/media_tray.dart';
 
-/// The strip opened from the "search with this" button instead of jumping straight to a full
-/// results screen: up to ten photos and videos whose CLIP embedding is closest to the one just
-/// tapped, using the same search already computed for it. A button of its own runs the full
-/// search anyway, for when ten isn't enough. Lives in a [MediaTray], the same shell the people
-/// strip uses, so the two read as one family rather than two one-off cards.
+/// The strip opened from the "search with this" button, in place of a full results screen.
+///
+/// It shows up to ten photos and videos whose CLIP embedding is closest to the one just tapped, using the search already
+/// computed for it. A button of its own runs the full search, for when ten is not enough. It lives in a [MediaTray], the
+/// same shell the people strip uses.
 class SimilarItemsBar extends StatelessWidget {
   const SimilarItemsBar({
     super.key,
@@ -30,6 +30,8 @@ class SimilarItemsBar extends StatelessWidget {
   final VoidCallback onSearchFull;
   final String label;
 
+  /// A horizontal ListView gives its items a tight height, which would stretch the 72x72 tile, so each tile is centred
+  /// to loosen it.
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -83,13 +85,6 @@ class SimilarItemsBar extends StatelessWidget {
                     itemBuilder: (context, i) {
                       final item = items[i];
                       final bytes = bytesFor(item);
-                      // Center, not the tile directly: a horizontal ListView hands every item a
-                      // TIGHT cross-axis constraint (exactly this row's height, not just capped
-                      // at it), so the tile's own fixed 72x72 SizedBox would get stretched taller
-                      // to fill it - which is exactly why the loaded tile came out taller than
-                      // the shimmer next to it (that one sits in a plain Row, which loosens its
-                      // children's cross-axis instead). Center absorbs the tight constraint
-                      // itself and hands the tile a loose one, so it's free to actually be 72x72.
                       return Center(
                         child: _SimilarTile(
                           index: i,
@@ -107,12 +102,11 @@ class SimilarItemsBar extends StatelessWidget {
   }
 }
 
-/// A solid little button, not a translucent chip tinted and outlined in the same colour - that
-/// combination (soft fill, matching border, matching text) is its own cliche. This is built the
-/// way the rest of the app's real pill buttons are: a confident solid fill in the app's own
-/// primary teal, white text, no wishy-washy transparency - just lifted a touch off the glass with
-/// a soft shadow and a thin bright line along its own top edge, echoing the tray's light rather
-/// than repeating its colour.
+/// A solid pill button in the app's primary teal with white text, as the app's other pill buttons are.
+///
+/// It is lifted off the glass with a soft shadow and a thin bright line along its top edge. The shadow sits on the outer
+/// box, which is not clipped, because the clip of the Material inside (it keeps the ink ripple within the rounded
+/// corners) would cut off a shadow set on the Ink.
 class _TrayActionPill extends StatelessWidget {
   const _TrayActionPill({required this.label, required this.onTap});
 
@@ -121,10 +115,6 @@ class _TrayActionPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The shadow lives on this outer, unclipped box - Material's own Clip.antiAlias below (kept
-    // so the ink ripple stays within the pill's rounded corners) would otherwise cut off a
-    // BoxShadow set on the Ink inside it, since a shadow paints outside its box's own edge and
-    // clipping is applied at exactly that edge.
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -197,8 +187,6 @@ class _SimilarTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Same index-based stagger as the initial four-tile loading row, so a tile whose own
-    // thumbnail is still streaming in doesn't pulse in lockstep with its neighbours.
     if (bytes == null) return _ShimmerTile(index: index);
 
     return GestureDetector(
@@ -226,10 +214,12 @@ class _SimilarTile extends StatelessWidget {
   }
 }
 
-/// A calm, endlessly sweeping placeholder for a tile whose thumbnail hasn't arrived yet - the
-/// same "something is being developed" idea as the light-mode search grid's own loading tiles
-/// (see search_results.dart's _LoadingTile), just a band of white light on dark glass instead of
-/// pearl-on-parchment, to suit this tray instead of a bright canvas.
+/// A calm, endlessly sweeping placeholder for a tile whose thumbnail has not arrived yet.
+///
+/// It is a band of white light on dark glass, to suit this tray. It follows the same idea as the loading tiles of the
+/// search grid (see _LoadingTile in search_results.dart). Neighbouring tiles start at different points of the sweep, so
+/// the row does not pulse in lockstep. With motion off the shimmer rests, each tile where it was. Each tile has its own compositing layer, so
+/// several ticking at once do not repaint the glass tray around them.
 class _ShimmerTile extends StatefulWidget {
   const _ShimmerTile({this.index = 0});
 
@@ -242,21 +232,17 @@ class _ShimmerTile extends StatefulWidget {
 class _ShimmerTileState extends State<_ShimmerTile> with SingleTickerProviderStateMixin {
   late final AnimationController _sweep = AnimationController(vsync: this, duration: const Duration(milliseconds: 1700));
 
+  /// Sets the sweep value before repeat() starts, because setting it afterwards stops the controller and the shimmer
+  /// sticks.
   @override
   void initState() {
     super.initState();
-    // Neighbouring tiles start at different points so the row doesn't pulse in lockstep - but
-    // the value has to be set *before* repeat() starts, not after: AnimationController.value's
-    // setter stops the controller as part of setting it, so doing this in the other order (as
-    // it was) started the repeat and then immediately cancelled it again in the same frame,
-    // which is exactly what "stuck, not animating" looks like.
     _sweep.value = (widget.index * 0.137) % 1;
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // With motion off the shimmer rests, each tile where it was.
     loopUnlessCalm(context, _sweep, rest: (widget.index * 0.137) % 1);
   }
 
@@ -268,8 +254,6 @@ class _ShimmerTileState extends State<_ShimmerTile> with SingleTickerProviderSta
 
   @override
   Widget build(BuildContext context) {
-    // Its own compositing layer - several of these can be ticking at once in the strip, each
-    // independently, and none of that should force a repaint of the glass tray around them.
     return RepaintBoundary(
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.md),

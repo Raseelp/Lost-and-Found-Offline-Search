@@ -13,8 +13,8 @@ import 'package:lost_and_found/utils/motion.dart';
 import 'package:lost_and_found/utils/palettes/face_palette.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 
-// The colours of the selection outline: the app's teal (lightened so it glows on a
-// photo) flowing into cool blue, violet, pink and warm gold, and back to teal.
+/// The colours of the selection outline: the app's teal (lightened so it glows on a
+/// photo) flowing into cool blue, violet, pink and warm gold, and back to teal.
 const List<Color> _ringColors = [
   FacePalette.mint350,
   FacePalette.sky250,
@@ -24,10 +24,10 @@ const List<Color> _ringColors = [
   FacePalette.mint350,
 ];
 
-// Everything below is drawn WITHOUT blur filters and with the transparency baked into the
-// colours themselves: a blurred, gradient-shaded stroke can render as a hard rectangle on
-// some GPUs (the flash of squares), and a paint's own alpha is not reliably applied on top
-// of a gradient. A soft glow is built from a few widening, fainter strokes instead.
+/// Everything below is drawn WITHOUT blur filters and with the transparency baked into the
+/// colours themselves: a blurred, gradient-shaded stroke can render as a hard rectangle on
+/// some GPUs (the flash of squares), and a paint's own alpha is not reliably applied on top
+/// of a gradient. A soft glow is built from a few widening, fainter strokes instead.
 
 Shader _sweepShader(Offset centre, double radius, double rotation, int tint, double alpha) {
   final colours = [..._ringColors.skip(tint), ..._ringColors.take(tint + 1)]
@@ -37,7 +37,8 @@ Shader _sweepShader(Offset centre, double radius, double rotation, int tint, dou
       .createShader(Rect.fromCircle(center: centre, radius: radius));
 }
 
-/// [path] as a glowing line: soft wide strokes underneath, a crisp thin one on top.
+/// [path] as a glowing line: soft wide strokes underneath, a crisp thin one on top. A crowded photo gets one soft
+/// layer instead of three, which looks the same at a glance for a third of the work.
 void _glowStroke(Canvas canvas, Path path, Offset centre, double radius, double rotation, int tint,
     {required double alpha, double line = 2.4, double glow = 1.0, bool soft = true}) {
   const layers = [
@@ -45,7 +46,6 @@ void _glowStroke(Canvas canvas, Path path, Offset centre, double radius, double 
     [10.0, 0.11],
     [6.0, 0.17],
   ];
-  // A crowded photo gets one soft layer instead of three: same look at a glance, a third of the work.
   final used = soft ? layers : const [[9.0, 0.15]];
   final rect = radius * 1.2;
   for (final l in used) {
@@ -134,13 +134,15 @@ class _Roll {
   final double start;
   final double dir;
   final double sparkleAngle;
-  final int tint; // which colour the outline starts on
-  final double lag; // fraction of the hint's length this face waits before starting
+  /// Which colour the outline starts on.
+  final int tint;
+  /// The fraction of the hint's length this face waits before starting.
+  final double lag;
 }
 
-/// The look of one outline - where its edge starts, which way it turns, its colours, the shape
-/// its waves begin in. The flight and the outline it lands in share one, so the outline picks up
-/// exactly where the flight leaves off: they are the same band.
+/// The look of one outline: where its edge starts, which way it turns, its colours, the shape its waves begin in. The
+/// flight and the outline it lands in share one, so the outline picks up exactly where the flight leaves off and they
+/// are the same band.
 class RingEntry {
   const RingEntry({required this.offset, required this.start, required this.dir, required this.tint});
 
@@ -160,8 +162,8 @@ class RingEntry {
   final int tint;
 }
 
-/// Paints whatever [draw] does, and repaints whenever [repaint] fires - so an animation
-/// can redraw every frame without its widget tree being rebuilt.
+/// Paints whatever [draw] does, and repaints whenever [repaint] fires, so an animation can redraw every frame without
+/// its widget tree being rebuilt.
 class _LivePainter extends CustomPainter {
   _LivePainter({required Listenable repaint, required this.draw}) : super(repaint: repaint);
 
@@ -202,8 +204,8 @@ HeadSpot? headSpotFor(PhotoFace f, Size size) {
   return HeadSpot(centre, math.max(faceW, faceH) * 0.5 * 1.4);
 }
 
-/// Where a face sits on screen right now: the centre and radius of a circle
-/// around the whole head, following the photo as it is zoomed and panned.
+/// Where a face sits on screen: the centre and radius of a circle around the whole head, following the photo as it is
+/// zoomed and panned.
 class _Head {
   const _Head(this.center, this.radius);
 
@@ -211,13 +213,12 @@ class _Head {
   final double radius;
 }
 
-/// Lets you tap the people in a photo. Every recognised face is a tap target;
-/// tapping one dims the rest of the photo, draws a glowing ring around the head
-/// that sweeps round it, and pops up that person's picture - tap it to go to
-/// their page. A brief ripple on first showing hints that faces can be tapped.
+/// Lets you tap the people in a photo. Every recognised face is a tap target. Tapping one dims the rest, draws a
+/// glowing ring that sweeps round the head and pops up that person's picture, which goes to their page when tapped. A
+/// brief ripple on first showing hints that faces can be tapped.
 ///
-/// It sits over the zoomable photo and follows its transform, so it stays on the
-/// head while pinching and panning (and the ring keeps its thickness at any zoom).
+/// It sits over the zoomable photo and follows its transform, so it stays on the head while pinching and panning, and
+/// the ring keeps its thickness at any zoom.
 class PhotoFacesLayer extends StatefulWidget {
   const PhotoFacesLayer({
     super.key,
@@ -252,26 +253,30 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
       AnimationController(vsync: this, duration: const Duration(milliseconds: 720));
   late final AnimationController _spin =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 7000));
-  // Kept at its own pace with the phone's animations off: it is also how long "Tap a face to see who" stays up.
+  /// Kept at its own pace with the phone's animations off: it is also how long "Tap a face to see who" stays up.
   late final AnimationController _hint = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 2800),
     animationBehavior: AnimationBehavior.preserve,
   );
 
-  // What is drawn: kept while the ring animates out after a deselect.
+  /// What is drawn: kept while the ring animates out after a deselect.
   PhotoFace? _shown;
 
   final math.Random _rng = math.Random();
   _Roll _selRoll = _Roll(math.Random());
-  bool _ringSettled = false; // the outline arrived from a flight: nothing to draw in
+  /// Whether the outline arrived from a flight, so there is nothing to draw in.
+  bool _ringSettled = false;
   List<_Roll> _hintRolls = const [];
 
+  /// Starts the hint and the ring. A layer shown with a face already picked, for example from the video's people
+  /// strip, draws round that head at once with no hint first. Once the photo has settled, the faces are faintly traced
+  /// and each gets a small sparkle, the sign that it can be tapped, and a line says what it means. It is different
+  /// every time and gone again within a few seconds. The ring starts turning in didChangeDependencies, where the
+  /// motion setting can be read.
   @override
   void initState() {
     super.initState();
-    // Shown with a face already picked (e.g. from the video's people strip): it draws
-    // round that head straight away, no hint first.
     final initial = widget.selected;
     if (initial != null) {
       _shown = initial;
@@ -281,11 +286,7 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
       }
       _hint.value = 1;
       _enter.forward();
-      // The ring starts turning in didChangeDependencies (where the motion setting can be read).
     }
-    // Once the photo has settled, the faces are faintly traced and each gets a small
-    // sparkle - the sign that it can be tapped - and a line says what it means.
-    // Different every time, and gone again within a few seconds.
     Future.delayed(const Duration(milliseconds: 500), () {
       if (!mounted || widget.selected != null) return;
       _hintRolls = List.generate(widget.faces.length, (_) => _Roll(_rng));
@@ -293,19 +294,20 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
     });
   }
 
+  /// Reacts to a change of the picked face. The same face with refreshed details, such as a rename, is updated in
+  /// place with no fresh animation. A face picked from outside with a flight landing on it uses the flight's own band
+  /// as its outline. The hint ripple is done once a face has been found.
   @override
   void didUpdateWidget(covariant PhotoFacesLayer old) {
     super.didUpdateWidget(old);
     final now = widget.selected;
     if (identical(now, old.selected)) return;
-    // The same face with refreshed details (a rename): update in place, no new animation.
     if (now != null && old.selected != null && now.faceId == old.selected!.faceId) {
       _shown = now;
       return;
     }
     if (now != null) {
       _shown = now;
-      // Picked from outside with a flight landing on it: the outline is the flight's own band.
       final entry = widget.entry;
       if (entry != null && old.selected == null) {
         _selRoll = _Roll.fixed(entry);
@@ -315,7 +317,7 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
         _selRoll = _Roll(_rng);
       }
       _hint.stop();
-      _hint.value = 1; // the ripple is done once you've found it
+      _hint.value = 1;
       _enter.forward(from: 0);
       if (!_spin.isAnimating && !calm(context)) _spin.repeat();
     } else {
@@ -327,10 +329,10 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
     }
   }
 
+  /// With motion off the ring round the picked face stays still.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // With motion off the ring round the picked face stays still.
     if (calm(context)) {
       _spin
         ..stop()
@@ -348,8 +350,8 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
     super.dispose();
   }
 
-  // The latest details of a person (a rename made elsewhere shows at once): the
-  // Faces list is kept up to date; someone not listed there keeps what was looked up.
+  /// The latest details of a person (a rename made elsewhere shows at once): the
+  /// Faces list is kept up to date; someone not listed there keeps what was looked up.
   Person _live(Person p) {
     final faces = Get.find<FacesController>();
     for (final listed in faces.people) {
@@ -358,10 +360,11 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
     return p;
   }
 
+  /// Where a face sits on screen. The photo is shown contain-fitted inside the viewer, and the circle is round the
+  /// whole head rather than the face box, a little bigger and a little higher.
   _Head? _headOf(PhotoFace f, Size size) {
     if (f.photoW <= 0 || f.photoH <= 0) return null;
 
-    // Where the photo sits inside the viewer (it is shown "contain"-fitted).
     final aspect = f.photoW / f.photoH;
     final double w, h;
     if (size.width / size.height > aspect) {
@@ -375,7 +378,6 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
 
     final faceW = (f.right - f.left) * w;
     final faceH = (f.bottom - f.top) * h;
-    // Around the whole head rather than the face box: a little bigger, a little higher.
     final scene = origin + Offset((f.left + f.right) / 2 * w, (f.top + f.bottom) / 2 * h - faceH * 0.06);
     final sceneRadius = math.max(faceW, faceH) * 0.5 * 1.4;
 
@@ -383,7 +385,7 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
     return _Head(MatrixUtils.transformPoint(m, scene), sceneRadius * m.getMaxScaleOnAxis());
   }
 
-  // Where every face is right now.
+  /// Where every face is.
   Map<PhotoFace, _Head> _headsFor(Size size) {
     final heads = <PhotoFace, _Head>{};
     for (final f in widget.faces) {
@@ -393,10 +395,11 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
     return heads;
   }
 
-  // The things that animate every frame (the hint, the ring) are painted by painters that
-  // repaint themselves; the widgets around them are not rebuilt per frame. That matters in a
-  // big group photo, where rebuilding dozens of tap targets sixty times a second is what
-  // used to make the moment the outlines appear stutter.
+  /// The things that animate every frame, the hint and the ring, are painted by painters that repaint themselves, so
+  /// the widgets around them are not rebuilt per frame. That matters in a big group photo, where rebuilding dozens of
+  /// tap targets sixty times a second made the moment the outlines appear stutter. With motion off there are no
+  /// sparkles. The tap targets are at least a fingertip wide and only move with the photo. Positioned widgets must sit
+  /// directly in a Stack, hence the fill and the inner Stack.
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -407,14 +410,12 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
         return Stack(
           fit: StackFit.expand,
           children: [
-            // The hint: outlines and sparkles on every face, for a moment.
             if (widget.selected == null)
               IgnorePointer(
                 child: CustomPaint(
                   painter: _LivePainter(
                     repaint: Listenable.merge([_hint, widget.transform]),
                     draw: (canvas, size) {
-                      // With motion off, no sparkles: the line below says it on its own.
                       if (!_hint.isAnimating || calm(context)) return;
                       _HintPainter(_headsFor(size).values.toList(), _hintRolls, _hint.value).paint(canvas, size);
                     },
@@ -422,7 +423,6 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
                 ),
               ),
 
-            // Dimmed photo with a hole around the head, and the ring.
             if (shown != null)
               IgnorePointer(
                 child: CustomPaint(
@@ -444,7 +444,6 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
                 ),
               ),
 
-            // Tap targets (at least a fingertip wide): they only move with the photo.
             AnimatedBuilder(
               animation: widget.transform,
               builder: (context, _) {
@@ -475,7 +474,6 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
               },
             ),
 
-            // (Positioned widgets must sit directly in a Stack, hence the fill + inner Stack.)
             if (widget.selected == null)
               Positioned.fill(
                 child: AnimatedBuilder(
@@ -500,11 +498,11 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
     );
   }
 
-  // "Tap a face to see who": fades in and out with the hint, low on the screen, in the
-  // same frosted glass as the viewer's other floating controls.
+  /// "Tap a face to see who": fades in and out with the hint, low on the screen, in the
+  /// same frosted glass as the viewer's other floating controls.
+  /// With motion off it is simply there for the same while, with no fading or rising.
   Widget _captionPill() {
     final p = _hint.value;
-    // With motion off it is simply there for the same while, no fading or rising.
     final opacity = calm(context)
         ? (p > 0.08 && p < 0.95 ? 1.0 : 0.0)
         : (Interval(0.08, 0.22).transform(p) * (1 - Interval(0.78, 0.95).transform(p))).clamp(0.0, 1.0);
@@ -530,14 +528,14 @@ class _PhotoFacesLayerState extends State<PhotoFacesLayer> with TickerProviderSt
     );
   }
 
-  // The person's picture and name, under the head (above it near the bottom).
+  /// The person's picture and name, under the head (above it near the bottom).
+  /// Centred under the head, but never off the screen.
   Widget _chip(PhotoFace face, _Head head, Size size) {
     const chipHeight = 64.0;
     var y = head.center.dy + head.radius + 14;
     if (y + chipHeight > size.height - 28) y = head.center.dy - head.radius - 14 - chipHeight;
     y = y.clamp(76.0, math.max(76.0, size.height - chipHeight - 28));
 
-    // Centred under the head, but never off the screen.
     final x = (head.center.dx / size.width * 2 - 1).clamp(-1.0, 1.0);
 
     final t = Curves.easeOutBack.transform(Interval(0.3, 1.0).transform(_enter.value));
@@ -601,11 +599,10 @@ class _Slide extends GradientTransform {
       Matrix4.translationValues(shift * bounds.width, 0, 0);
 }
 
-/// The line of text under the photo ("Tap a face to see who", "Found 12 faces · identifying").
-/// No box around it: the words themselves carry the effect. A soft highlight in the
-/// app's colours keeps drifting through the letters, and whenever the words change the new
-/// ones rise into place letter by letter. It stays legible over any photo through a
-/// gentle shadow, not a container.
+/// The line of text under the photo ("Tap a face to see who", "Found 12 faces · identifying"). No box around it: the
+/// words carry the effect. A soft highlight in the app's colours keeps drifting through the letters, and whenever the
+/// words change the next ones rise into place letter by letter. It stays legible over any photo through a gentle
+/// shadow, not a container.
 class _FlowText extends StatefulWidget {
   const _FlowText(this.text, {this.leading});
 
@@ -620,10 +617,10 @@ class _FlowTextState extends State<_FlowText> with TickerProviderStateMixin {
   late final AnimationController _shine = AnimationController(vsync: this, duration: const Duration(milliseconds: 2800));
   late final AnimationController _in = AnimationController(vsync: this, duration: const Duration(milliseconds: 750))..forward();
 
+  /// With motion off the highlight stays put.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // With motion off the highlight stays put.
     loopUnlessCalm(context, _shine);
   }
 
@@ -640,12 +637,14 @@ class _FlowTextState extends State<_FlowText> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  /// The text is tinted by the moving highlight, and beneath it the same letters are in nothing but a soft shadow,
+  /// because a shadow put on the tinted text would be tinted too. Each letter starts a little after the one before it.
+  /// The letters are rebuilt only while the words rise in, and afterwards just the highlight moves, instead of about
+  /// 80 widgets a frame. The highlight slides from fully off the left edge to fully off the right, once per loop.
   @override
   Widget build(BuildContext context) {
     final base = Theme.of(context).textTheme.labelLarge;
     final size = (base?.fontSize ?? 14) + 1;
-    // The text itself (tinted by the moving highlight) and, beneath it, the same letters
-    // in nothing but a soft shadow - a shadow put on the tinted text would be tinted too.
     final fill = base?.copyWith(color: FacePalette.white, fontSize: size, fontWeight: FontWeight.w600);
     final shade = base?.copyWith(
       color: AppColors.transparent,
@@ -665,7 +664,6 @@ class _FlowTextState extends State<_FlowText> with TickerProviderStateMixin {
         children: [
           for (var k = 0; k < n; k++)
             () {
-              // Each letter starts a little after the one before it.
               final start = n <= 1 ? 0.0 : k / (n - 1) * 0.55;
               final o = Curves.easeOut.transform(Interval(start, start + 0.45).transform(_in.value));
               return Opacity(
@@ -677,8 +675,6 @@ class _FlowTextState extends State<_FlowText> with TickerProviderStateMixin {
       );
     }
 
-    // The letters are rebuilt only while the words are rising in; afterwards just the
-    // highlight moves (it re-shades the same letters), instead of ~80 widgets a frame.
     return AnimatedBuilder(
       animation: _in,
       builder: (context, _) {
@@ -707,7 +703,6 @@ class _FlowTextState extends State<_FlowText> with TickerProviderStateMixin {
                         FacePalette.whiteA78,
                       ],
                       stops: const [0.0, 0.3, 0.42, 0.5, 0.58, 0.7, 1.0],
-                      // From fully off the left edge to fully off the right, once per loop.
                       transform: _Slide(_shine.value * 2 - 1),
                     ).createShader(rect),
                     child: child,
@@ -763,11 +758,13 @@ class _TwinkleStarPainter extends CustomPainter {
 
   final double t;
 
+  /// Paints the sparkle. It breathes twice a loop, and its colour drifts through the palette while a smaller, paler
+  /// star turns the other way inside it.
   @override
   void paint(Canvas canvas, Size size) {
     final c = size.center(Offset.zero);
     final a = t * 2 * math.pi;
-    final pulse = 0.78 + 0.22 * math.sin(2 * a); // breathes twice a loop
+    final pulse = 0.78 + 0.22 * math.sin(2 * a);
     final r = 8.5 * pulse;
 
     Path star(double radius, double turn) {
@@ -785,7 +782,6 @@ class _TwinkleStarPainter extends CustomPainter {
       return path..close();
     }
 
-    // Its colour drifts through the palette; a smaller, paler star turns the other way inside it.
     final f = t * (_ringColors.length - 1);
     final i0 = f.floor() % (_ringColors.length - 1);
     final colour = Color.lerp(_ringColors[i0], _ringColors[i0 + 1], f - f.floor())!;
@@ -845,9 +841,8 @@ class _PersonChip extends StatelessWidget {
   }
 }
 
-/// The dimmed photo (with the head left clear) and a glowing outline that draws
-/// itself round the head, then keeps turning slowly - starting and turning differently
-/// each time ([roll]).
+/// The dimmed photo (with the head left clear) and a glowing outline that draws itself round the head, then keeps
+/// turning slowly, starting and turning differently each time ([roll]).
 class _RingPainter extends CustomPainter {
   _RingPainter({
     required this.center,
@@ -863,10 +858,15 @@ class _RingPainter extends CustomPainter {
 
   final Offset center;
   final double radius;
-  final double progress; // 0 -> 1 as it appears
-  final double spin; // radians
+  /// How far the outline has appeared, from 0 to 1.
+  final double progress;
+  /// The spin in radians.
+  final double spin;
   final _Roll roll;
 
+  /// Paints the dimmed photo with a hole around the head, and the ring. The band's own progress is complete from the
+  /// first frame when it comes from a flight. The outline settles in from a little wider, and the hole wobbles most
+  /// while it settles in. The outline draws itself round the head, with three tiny lights drifting along its edge.
   @override
   void paint(Canvas canvas, Size size) {
     final t = Curves.easeOutCubic.transform(progress.clamp(0.0, 1.0));
@@ -874,9 +874,8 @@ class _RingPainter extends CustomPainter {
 
     final loop = spin / (2 * math.pi);
     final phase = roll.dir > 0 ? loop : 1 - loop;
-    // The band's own progress: from a flight it is complete from the first frame.
     final rt = settled ? 1.0 : t;
-    final wobble = 1 - rt; // wobbles most while it settles in
+    final wobble = 1 - rt;
 
     final hole = _blobPath(center, radius * 1.06, phase, wobble, offset: roll.offset, start: roll.start);
     final everything = Path()..addRect(Offset.zero & size);
@@ -885,11 +884,9 @@ class _RingPainter extends CustomPainter {
       Paint()..color = FacePalette.black.withValues(alpha: 0.5 * t),
     );
 
-    // The outline settles in from a little wider.
     final r = radius * (1 + 0.14 * (1 - rt));
     final outline = _blobPath(center, r, phase, wobble, offset: roll.offset, start: roll.start);
 
-    // It draws itself round the head.
     Path drawn = outline;
     if (rt < 1) {
       drawn = Path();
@@ -900,7 +897,6 @@ class _RingPainter extends CustomPainter {
     _glowStroke(canvas, drawn, center, r, roll.start + roll.dir * spin * 1.5, roll.tint,
         alpha: rt, line: 2.8, glow: 1.3);
 
-    // Three tiny lights drifting along the edge.
     for (var k = 0; k < 3; k++) {
       final a = roll.start + roll.dir * spin * 1.6 + k * 2 * math.pi / 3;
       final p = center + Offset(math.cos(a), math.sin(a)) * _blobRadius(a, r, phase, wobble, roll.offset);
@@ -924,17 +920,17 @@ class _HintPainter extends CustomPainter {
   final List<_Roll> rolls;
   final double progress;
 
+  /// Paints the outlines of all faces. With many faces at once, a big group, every one gets a lighter version, so the
+  /// moment they appear costs the same as a small photo. Each face runs a touch behind or ahead of the others, and
+  /// small faces need few points to look round.
   @override
   void paint(Canvas canvas, Size size) {
-    // Many faces at once (a big group): every one gets a lighter version, so the moment
-    // they appear costs the same as a small photo.
     final crowded = heads.length > 8;
     for (var i = 0; i < heads.length; i++) {
       final h = heads[i];
       final roll = i < rolls.length ? rolls[i] : null;
       if (roll == null) continue;
 
-      // Each face runs a touch behind or ahead of the others.
       final p = ((progress - roll.lag) / (1 - 0.12)).clamp(0.0, 1.0);
       final trace = Curves.easeOutCubic.transform(Interval(0.0, 0.4).transform(p));
       final glow = Interval(0.0, 0.18).transform(p) * (1 - Interval(0.62, 0.9).transform(p));
@@ -942,7 +938,6 @@ class _HintPainter extends CustomPainter {
       final sparkleOut = 1 - Interval(0.72, 0.95).transform(p);
 
       if (glow > 0) {
-        // Small faces need few points to look round.
         final steps = (h.radius * 0.9).clamp(28.0, crowded ? 48.0 : 96.0).round();
         final outline = _blobPath(h.center, h.radius, p * 2, 0.25, offset: roll.offset, start: roll.start, steps: steps);
         var drawn = outline;
@@ -965,7 +960,7 @@ class _HintPainter extends CustomPainter {
     }
   }
 
-  // A four-point star with a soft glow.
+  /// A four-point star with a soft glow.
   void _sparkle(Canvas canvas, Offset c, double r, double opacity, double turn) {
     final path = Path();
     for (var i = 0; i < 8; i++) {
@@ -987,12 +982,10 @@ class _HintPainter extends CustomPainter {
   bool shouldRepaint(covariant _HintPainter old) => old.progress != progress || old.heads != heads;
 }
 
-/// Shown while a photo's faces are being looked for right now (it hadn't been scanned
-/// yet). In the spirit of the assistant "thinking" glows on phones: soft pools of colour
-/// drift around the edges of the screen, over the photo, and breathe; a line at the bottom
-/// says what the scan is doing and how far it has got. The mix of colours, where
-/// they start, how fast and which way they go are rolled fresh each time. When the search
-/// ends it fades away and the faces it found take over.
+/// Shown while a photo's faces are being looked for (it has not been scanned yet). Soft pools of colour drift around
+/// the edges of the screen, over the photo, and breathe, and a line at the bottom says what the scan is doing and how
+/// far it has got. The mix of colours, where they start, how fast and which way they go are rolled fresh each time.
+/// When the search ends it fades away and the faces it found take over.
 class PhotoScanGlow extends StatefulWidget {
   const PhotoScanGlow({super.key, required this.visible, required this.message, this.bottomInset = 0});
 
@@ -1001,7 +994,7 @@ class PhotoScanGlow extends StatefulWidget {
   /// Extra room kept clear along the bottom (a video's controls).
   final double bottomInset;
 
-  /// What the scan is doing right now, in a few words ("Found 12 faces · identifying").
+  /// What the scan is doing, in a few words ("Found 12 faces · identifying").
   final String message;
 
   @override
@@ -1011,17 +1004,20 @@ class PhotoScanGlow extends StatefulWidget {
 class _Orb {
   _Orb(math.Random r, this.color)
       : phase = r.nextDouble(),
-        turns = (r.nextBool() ? 1 : -1) * (3 + r.nextInt(3)), // whole turns per minute: 3..5, either way
+        turns = (r.nextBool() ? 1 : -1) * (3 + r.nextInt(3)),
         breathPhase = r.nextDouble() * 2 * math.pi,
         breathTurns = 5 + r.nextInt(4),
         size = 0.34 + r.nextDouble() * 0.12;
 
   final Color color;
-  final double phase; // where round the edge it starts
-  final int turns; // whole turns per loop, so the loop is seamless
+  /// Where round the edge it starts.
+  final double phase;
+  /// Whole turns per loop, so the loop is seamless.
+  final int turns;
   final double breathPhase;
   final int breathTurns;
-  final double size; // radius as a fraction of the screen's short side
+  /// Radius as a fraction of the screen's short side.
+  final double size;
 }
 
 class _PhotoScanGlowState extends State<PhotoScanGlow> with TickerProviderStateMixin {
@@ -1033,10 +1029,10 @@ class _PhotoScanGlowState extends State<PhotoScanGlow> with TickerProviderStateM
     FacePalette.orange300,
   ];
 
-  // One long loop; every orb turns a whole number of times in it.
+  /// One long loop; every orb turns a whole number of times in it.
   late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 60));
-  // How much of the glow shows (0..1), applied inside the painter: fading a whole
-  // screen-sized layer instead is what produced the blocky garbage on some phones.
+  /// How much of the glow shows (0..1), applied inside the painter: fading a whole
+  /// screen-sized layer instead is what produced the blocky garbage on some phones.
   late final AnimationController _fade = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
   final math.Random _rng = math.Random();
   late List<_Orb> _orbs = _roll();
@@ -1047,8 +1043,9 @@ class _PhotoScanGlowState extends State<PhotoScanGlow> with TickerProviderStateM
     return [for (var i = 0; i < 3; i++) _Orb(_rng, colours[i])];
   }
 
+  /// Starts the glow with a freshly rolled look.
   void _start() {
-    _orbs = _roll(); // a new search gets a new look
+    _orbs = _roll();
     _pillOn = true;
     _fade.forward();
   }
@@ -1059,8 +1056,8 @@ class _PhotoScanGlowState extends State<PhotoScanGlow> with TickerProviderStateM
     if (widget.visible) _start();
   }
 
-  // The orbs go round while it shows. With motion off they stay where they are: the glow still says it is
-  // looking, without moving.
+  /// The orbs go round while it shows. With motion off they stay where they are: the glow still says it is
+  /// looking, without moving.
   void _loop() {
     if (_fade.isDismissed && !widget.visible) return;
     loopUnlessCalm(context, _c);
@@ -1072,6 +1069,7 @@ class _PhotoScanGlowState extends State<PhotoScanGlow> with TickerProviderStateM
     _loop();
   }
 
+  /// Keeps the glow going while it fades out, and stops it only once it cannot be seen.
   @override
   void didUpdateWidget(covariant PhotoScanGlow old) {
     super.didUpdateWidget(old);
@@ -1079,7 +1077,6 @@ class _PhotoScanGlowState extends State<PhotoScanGlow> with TickerProviderStateM
       _start();
       _loop();
     } else if (!widget.visible && old.visible) {
-      // Keep it going while it fades out; stop only once it can't be seen.
       _fade.reverse().whenComplete(() {
         if (mounted && !widget.visible) _c.stop();
       });
@@ -1093,6 +1090,7 @@ class _PhotoScanGlowState extends State<PhotoScanGlow> with TickerProviderStateM
     super.dispose();
   }
 
+  /// Fades out quickly, so it has gone before "Tap a face to see who" arrives in the same place.
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
@@ -1116,7 +1114,6 @@ class _PhotoScanGlowState extends State<PhotoScanGlow> with TickerProviderStateM
               enabled: _pillOn,
               child: AnimatedOpacity(
                 opacity: widget.visible ? 1 : 0,
-                // Quick out, so it has gone before "Tap a face to see who" arrives in the same place.
                 duration: Duration(milliseconds: widget.visible ? 500 : 350),
                 curve: Curves.easeOut,
                 onEnd: () {
@@ -1137,11 +1134,13 @@ class _PhotoScanGlowState extends State<PhotoScanGlow> with TickerProviderStateM
 class _EdgeGlowPainter extends CustomPainter {
   _EdgeGlowPainter(this.t, this.orbs, this.fade);
 
-  final double t; // 0..1 around the loop
+  /// How far around the loop, from 0 to 1.
+  final double t;
   final List<_Orb> orbs;
-  final double fade; // 0..1, how much is showing
+  /// How much is showing, from 0 to 1.
+  final double fade;
 
-  // A point on the screen's edge, [u] (0..1) of the way round.
+  /// A point on the screen's edge, [u] (0..1) of the way round.
   static Offset _onEdge(double u, Size s) {
     final total = 2 * (s.width + s.height);
     var d = (u % 1) * total;
@@ -1154,21 +1153,21 @@ class _EdgeGlowPainter extends CustomPainter {
     return Offset(0, s.height - d);
   }
 
-  // Rings per pool: each a plain, faint circle, so together they fall off smoothly with
-  // no gradient shader at all (a big gradient rendered as coarse blocks on some phones).
+  /// Rings per pool: each a plain, faint circle, so together they fall off smoothly with
+  /// no gradient shader at all (a big gradient rendered as coarse blocks on some phones).
   static const _rings = 26;
 
+  /// Paints the pools. Each breathes slowly between fainter and stronger, and its rings have a per-ring transparency
+  /// chosen so that the stack adds up to the peak strength in the middle.
   @override
   void paint(Canvas canvas, Size size) {
     if (size.isEmpty || fade <= 0) return;
     final short = math.min(size.width, size.height);
     for (final orb in orbs) {
       final centre = _onEdge(orb.phase + orb.turns * t, size);
-      // Breathes slowly between fainter and stronger.
       final breath = 0.5 + 0.5 * math.sin(orb.breathPhase + 2 * math.pi * orb.breathTurns * t);
-      final peak = (0.26 + 0.12 * breath) * fade; // strength at the very middle
+      final peak = (0.26 + 0.12 * breath) * fade;
       final radius = short * orb.size * (0.94 + 0.12 * breath);
-      // Per-ring transparency chosen so the stack adds up to [peak] in the middle.
       final each = 1 - math.pow(1 - peak, 1 / _rings).toDouble();
       final paint = Paint()..color = orb.color.withValues(alpha: each);
       for (var i = 0; i < _rings; i++) {
@@ -1181,10 +1180,9 @@ class _EdgeGlowPainter extends CustomPainter {
   bool shouldRepaint(covariant _EdgeGlowPainter old) => old.t != t || old.orbs != orbs || old.fade != fade;
 }
 
-/// A face travelling to where it is in the picture: it sets off as a circle around their photo,
-/// and on the way the circle grows to the size of the head and its edge starts to swell and
-/// dip - it becomes the same living band the outline is - while the photo inside dissolves to
-/// show the real head. Meant to be given to the outline as it lands.
+/// A face travelling to where it is in the picture: it sets off as a circle around their photo, and on the way the
+/// circle grows to the size of the head and its edge starts to swell and dip, becoming the same living band the
+/// outline is, while the photo inside dissolves to show the real head. Meant to be given to the outline as it lands.
 class FaceFlight {
   const FaceFlight({
     required this.faceId,
@@ -1194,11 +1192,12 @@ class FaceFlight {
     required this.entry,
   });
 
-  /// The look the band ends in - the outline that takes over is given the same one.
+  /// The look the band ends in. The outline that takes over is given the same one.
   final RingEntry entry;
 
   final int faceId;
-  final Offset from; // screen coordinates
+  /// In screen coordinates.
+  final Offset from;
   final Offset to;
   final double endRadius;
 }
@@ -1214,15 +1213,16 @@ class FaceFlightOverlay extends StatelessWidget {
   /// Where the journey ends and the hand-over begins.
   static const double landingAt = 0.86;
 
+  /// Draws the travelling face along a gentle arc, up and over, rather than a straight line. The landing value goes
+  /// from a true circle at 0 to the living band at 1.
   @override
   Widget build(BuildContext context) {
     final travel = (t / landingAt).clamp(0.0, 1.0);
     final e = Curves.easeInOutCubic.transform(travel);
-    // A gentle arc: up and over, rather than a straight line.
     final control = Offset.lerp(flight.from, flight.to, 0.5)! + const Offset(0, -60);
     final at = Offset.lerp(Offset.lerp(flight.from, control, e), Offset.lerp(control, flight.to, e), e)!;
     final radius = 22 + (flight.endRadius - 22) * Curves.easeOut.transform(e);
-    final amp = Curves.easeIn.transform(e); // 0 = a true circle, 1 = the living band
+    final amp = Curves.easeIn.transform(e);
     final landing = ((t - landingAt) / (1 - landingAt)).clamp(0.0, 1.0);
     final ringAlpha = 1 - Curves.easeIn.transform(landing);
     final photo = (1 - Curves.easeIn.transform(((e - 0.45) / 0.55).clamp(0.0, 1.0))).clamp(0.0, 1.0);
@@ -1259,17 +1259,18 @@ class _FlightPainter extends CustomPainter {
   final double radius;
   final double amp;
   final double alpha;
-  final double e; // 0..1 along the journey
+  /// How far along the journey, from 0 to 1.
+  final double e;
   final RingEntry entry;
 
+  /// Draws exactly what the outline draws when it takes over (same shape, start, colours and weight), with the swell
+  /// of the waves growing from nothing, a circle, on the way. The colours turn a little as it travels and are at rest,
+  /// the outline's own start, on landing.
   @override
   void paint(Canvas canvas, Size size) {
     if (alpha <= 0) return;
-    // Exactly what the outline draws when it takes over (same shape, start, colours, weight), with
-    // the swell of the waves growing from nothing - a circle - on the way.
     final phase = entry.dir > 0 ? 0.0 : 1.0;
     final path = _blobPath(at, radius, phase, 0, offset: entry.offset, start: entry.start, amp: amp);
-    // The colours turn a little as it travels, and are at rest (the outline's own start) on landing.
     final rotation = entry.start + entry.dir * (1 - e) * 4.0;
     _glowStroke(canvas, path, at, radius, rotation, entry.tint, alpha: alpha, line: 2.8, glow: 1.3);
   }
@@ -1279,12 +1280,10 @@ class _FlightPainter extends CustomPainter {
       old.at != at || old.radius != radius || old.amp != amp || old.alpha != alpha || old.e != e;
 }
 
-// ---------------------------------------------------------------------------------------------
-// For the first-run tour. Its demo shows what happens when a photo is opened and a face is tapped,
-// on a bundled picture that has not been scanned, so it cannot use the layer above (that needs real
-// faces from the face database). These draw exactly what the layer draws, from the same code, so the
-// tour and the viewer cannot drift apart.
-// ---------------------------------------------------------------------------------------------
+/// For the first-run tour. Its demo shows what happens when a photo is opened and a face is tapped,
+/// on a bundled picture that has not been scanned, so it cannot use the layer above (that needs real
+/// faces from the face database). These draw exactly what the layer draws, from the same code, so the
+/// tour and the viewer cannot drift apart.
 
 /// The viewer's outlines and sparkles, drawn for the tour's demo.
 class FaceOutlineDemo {

@@ -9,9 +9,8 @@ import 'package:lost_and_found/view/model_download_screen.dart' show PillButton;
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/utils/app_toast.dart';
 
-/// For a person who is really two people: shows the two groups their faces fall
-/// into, side by side, and splits them if you say so. The bigger group stays with
-/// the person; the smaller becomes a new person (rename either afterwards).
+/// For a person who is really two people. Shows the two groups their faces fall into, side by side, and splits them
+/// when the user agrees. The bigger group stays with the person and the smaller becomes a new person.
 class SplitPersonScreen extends StatefulWidget {
   const SplitPersonScreen({super.key, required this.person});
 

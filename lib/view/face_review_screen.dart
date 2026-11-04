@@ -8,7 +8,7 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 
 /// Every face grouped under one person, so the wrong ones can be taken out.
-/// Faint faces (small, blurry or turned away) are marked - they're the ones
+/// Faint faces (small, blurry or turned away) are marked, because they are the ones
 /// most likely to be wrong.
 class FaceReviewScreen extends StatefulWidget {
   const FaceReviewScreen({super.key, required this.person});
@@ -35,7 +35,6 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
   }
 
   Future<void> _remove(PersonFace face) async {
-    // Gone from the grid at once; the edit happens behind it.
     setState(() => _items = _items!.where((f) => f.faceId != face.faceId).toList());
     await _faces.removeFace(face);
   }

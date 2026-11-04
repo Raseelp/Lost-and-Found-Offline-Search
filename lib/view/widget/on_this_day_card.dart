@@ -11,11 +11,11 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/widget/collection_widgets.dart';
 import 'package:lost_and_found/view/widget/timeline_preview.dart';
 
-/// The "On this day" card at the top of the Collections tab: today's date, how much there is from past
-/// years, a little stack of its best photos. Not there at all while there is nothing for the date (or while
-/// a scan runs: the chip on the Library tab shows that), nor once it is hidden. Opens the "On this day"
-/// screen; a long press offers the zip export and Hide - there is nothing to rename or change - and while
-/// collections are being chosen for export it can be ticked like one.
+/// The On this day card at the top of the Collections tab: today's date, how much there is from past years, and a
+/// little stack of its best photos. It is not there while there is nothing for the date, while a scan runs, or once it
+/// is hidden. It opens the On this day screen. A long press offers the zip export and Hide. While collections are
+/// being chosen for export it can be ticked like one. Today is looked up only while the card is visible, because
+/// dating the library would compete with a scan.
 class OnThisDaySection extends StatefulWidget {
   const OnThisDaySection({
     super.key,
@@ -51,7 +51,6 @@ class _OnThisDaySectionState extends State<OnThisDaySection> {
       if (!mounted) return;
       final memories = Get.find<MemoriesController>();
       memories.onIndexChanged(widget.indexed);
-      // Not while a scan runs (or nothing is indexed): dating the library would compete with it.
       if (widget.visible) unawaited(memories.loadToday());
     });
   }
@@ -59,12 +58,9 @@ class _OnThisDaySectionState extends State<OnThisDaySection> {
   @override
   void didUpdateWidget(covariant OnThisDaySection old) {
     super.didUpdateWidget(old);
-    // Compared with what the controller last saw, not with the last build: a scan changes the number all
-    // the way through while the card is hidden, and what matters is that it differs when the card comes back.
     if (widget.visible) {
       final memories = Get.find<MemoriesController>();
       memories.onIndexChanged(widget.indexed);
-      // The card is back (a scan ended, something got indexed): look today up if it has not been.
       if (!old.visible) unawaited(memories.loadToday());
     }
   }
@@ -292,7 +288,7 @@ class _Card extends StatelessWidget {
   }
 }
 
-/// A few photos stacked and tilted, the best one on top - the way the Collections tab stacks theirs.
+/// A few photos stacked and tilted with the best one on top, the way the Collections tab stacks theirs.
 class _CoverStack extends StatelessWidget {
   const _CoverStack({required this.photos, required this.loader});
 
@@ -313,7 +309,6 @@ class _CoverStack extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // The last is at the back, the first (the best) on top.
           for (var i = shown.length - 1; i >= 0; i--)
             Positioned(
               left: (shown.length - 1 - i) * 26.0,

@@ -48,8 +48,8 @@ class TourDownloadState {
       totalBytes > 0 ? ModelDownloadProgress.formatBytes(totalBytes) : '';
 }
 
-/// What the tour needs from the download: its state, and starting it. The first run uses the real one;
-/// Settings > Help has none to show (see [IdleTourDownload]).
+/// What the tour needs from the download: its state, and starting it. The first run uses the real one. The Help
+/// section of Settings has none to show (see [IdleTourDownload]).
 abstract class TourDownload extends ChangeNotifier {
   TourDownloadState get state;
 
@@ -63,7 +63,7 @@ abstract class TourDownload extends ChangeNotifier {
   void resume();
 }
 
-/// The real thing: the app's model download (see NativeController).
+/// The app's real model download, taken from [NativeController].
 class RealTourDownload extends TourDownload {
   RealTourDownload() : _native = Get.find<NativeController>() {
     _disposeListener = _native.addListener(_changed);
@@ -73,10 +73,12 @@ class RealTourDownload extends TourDownload {
   VoidCallback? _disposeListener;
   TourDownloadState _state = const TourDownloadState();
 
-  // Paused by the person (the download underneath is stopped, its partial files are kept and picked up again).
+  /// True when the person paused it. The download underneath is stopped, and its partial files are kept and picked up
+  /// again.
   bool _paused = false;
 
-  // Resume was asked for while the stopped download was still winding down: it starts as soon as that is over.
+  /// True when [resume] was called while the stopped download was still winding down. The download then starts as
+  /// soon as that is over.
   bool _resumeWanted = false;
 
   @override
@@ -167,7 +169,6 @@ class RealTourDownload extends TourDownload {
     if (!_paused) return;
     _paused = false;
     if (_native.isDownloadingModels) {
-      // The stopped download has not finished stopping yet.
       _resumeWanted = true;
     } else {
       unawaited(_native.startModelDownload());
@@ -183,7 +184,8 @@ class RealTourDownload extends TourDownload {
   }
 }
 
-/// For Settings > Help: the tour seen again, with no download to show (the models are already on the phone).
+/// For the Help section of Settings. The tour is seen again with no download to show, because the models are already
+/// on the phone.
 class IdleTourDownload extends TourDownload {
   @override
   TourDownloadState get state => const TourDownloadState();

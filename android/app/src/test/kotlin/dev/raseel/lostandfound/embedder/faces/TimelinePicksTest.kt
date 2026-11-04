@@ -7,7 +7,7 @@ class TimelinePicksTest {
     private val minute = 60_000L
     private val day = 24 * 60 * minute
 
-    // Months of 30 days, counted from 0.
+    /** Months of 30 days, counted from 0. */
     private fun monthOf(ms: Long): Int = (ms / (30 * day)).toInt()
 
     private fun c(key: Long, takenMs: Long, score: Float) =

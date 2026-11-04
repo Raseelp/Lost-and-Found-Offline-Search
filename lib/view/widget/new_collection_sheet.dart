@@ -28,13 +28,13 @@ Future<void> showNewCollectionSheet(BuildContext context, CollectionsController 
   );
 }
 
-// Ideas offered before anything is typed (a named person's one is added when there is one).
+/// Ideas offered before anything is typed. An idea for a named person is added when there is one.
 const _ideas = ['Sunsets', 'Receipts', 'Food', 'Mountains', 'Handwritten notes'];
 
-// At most this many other ways of saying it.
+/// At most this many other ways of saying it.
 const _maxMore = 3;
 
-// How many of the best matches the preview shows.
+/// How many of the best matches the preview shows.
 const _shownMatches = 5;
 
 class _NewCollectionSheet extends StatefulWidget {
@@ -47,12 +47,12 @@ class _NewCollectionSheet extends StatefulWidget {
 }
 
 class _NewCollectionSheetState extends State<_NewCollectionSheet> {
-  // Names typed in the words are recognised as people, the same way the search box does it.
+  /// Names typed in the words are recognised as people, the same way the search box does it.
   late final MentionTextEditingController _query = MentionTextEditingController(
     peopleProvider: () => Get.isRegistered<FacesController>() ? Get.find<FacesController>().people : const [],
   );
   final TextEditingController _name = TextEditingController();
-  // The name follows the words until it is typed over.
+  /// True once the name was typed over. Until then the name follows the words.
   bool _nameTyped = false;
 
   final List<String> _more = [];
@@ -60,7 +60,7 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
   final FocusNode _moreFocus = FocusNode();
   bool _addingMore = false;
 
-  // Made from a photo instead of words.
+  /// Set when the collection is made from a photo instead of words.
   String? _photoUri;
   Uint8List? _photoBytes;
 
@@ -72,11 +72,12 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
   Timer? _previewTimer;
   final Map<String, Uint8List> _thumbs = {};
 
+  /// Leaving the field for another way of saying it keeps what was typed in it, except when the sheet itself is going
+  /// away.
   @override
   void initState() {
     super.initState();
     _moreFocus.addListener(() {
-      // Leaving the field keeps what was typed in it (not when the sheet itself is going away).
       if (mounted && !_moreFocus.hasFocus && _addingMore) _commitMore();
     });
   }
@@ -106,8 +107,8 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
     setState(() {});
   }
 
-  // ---- preview ----
-
+  /// Starts the preview once typing pauses and not on every key. The last answer dims at once, so it is clear a new
+  /// one is coming.
   void _schedulePreview() {
     _previewTimer?.cancel();
     final native = Get.find<NativeController>();
@@ -119,9 +120,7 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
       });
       return;
     }
-    // The last answer dims at once, so it is clear a new one is coming.
     setState(() => _previewing = true);
-    // Not on every key: once typing pauses.
     _previewTimer = Timer(const Duration(milliseconds: 450), _runPreview);
   }
 
@@ -155,11 +154,9 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
       );
       if (mounted) setState(() => _thumbs[item.cacheKey] = bytes);
     } catch (_) {
-      // That square stays blank.
+      // The thumbnail is optional, so that square stays blank.
     }
   }
-
-  // ---- other ways of saying it ----
 
   void _commitMore() {
     final text = _moreField.text.trim();
@@ -170,8 +167,6 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
     });
     if (text.isNotEmpty) _schedulePreview();
   }
-
-  // ---- from a photo ----
 
   Future<void> _pickPhoto() async {
     final uri = await NativeServices().pickImageForSearching() as String?;
@@ -185,7 +180,7 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
       final bytes = await NativeServices().loadThumbnail(uri: uri, isVideo: false, size: 240);
       if (mounted && _photoUri == uri) setState(() => _photoBytes = bytes);
     } catch (_) {
-      // The square stays blank; the photo is still what the collection looks like.
+      // The thumbnail is optional, and the photo is still what the collection looks like.
     }
   }
 
@@ -197,12 +192,9 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
     _changed();
   }
 
-  // ---- saving ----
-
-  // Closes right away and does the work behind it: the new tile appears on the Collections tab and plays its own
-  // "finding matches", so there is nothing to wait for here.
+  /// Closes right away and does the work behind it. The tile of the collection appears on the Collections tab and
+  /// plays its own "finding matches", so there is nothing to wait for here. A phrase still being typed is kept.
   void _save() {
-    // A phrase still being typed is kept.
     if (_addingMore) _commitMore();
     final controller = widget.controller;
     final typed = _name.text.trim();
@@ -233,8 +225,6 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
       );
     }
   }
-
-  // ---- building ----
 
   @override
   Widget build(BuildContext context) {
@@ -532,7 +522,6 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
     }
     return AnimatedOpacity(
       duration: const Duration(milliseconds: 160),
-      // Still showing the last answer while the new one is worked out.
       opacity: _previewing && preview != null ? 0.55 : 1,
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.base),
@@ -586,7 +575,8 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
     );
   }
 
-  // Who is in the matches: a few of their faces and their names. Only to say who is there; nothing to tap.
+  /// Who is in the matches: a few of their faces and their names. It only says who is there, and nothing in it can be
+  /// tapped.
   Widget _peopleLine(CollectionPreview preview, TextTheme textTheme) {
     final faces = Get.find<FacesController>();
     final byId = {for (final p in faces.people) p.id: p};
@@ -723,7 +713,7 @@ String peopleLine(List<String?> names) {
   return 'With ${shown.join(', ')} and $others ${others == 1 ? 'other' : 'others'}';
 }
 
-// A small heading over a part of the sheet, like the search filter sheet's.
+/// A small heading over a part of the sheet, like the one in the search filter sheet.
 class _Label extends StatelessWidget {
   const _Label(this.text);
 
@@ -738,7 +728,7 @@ class _Label extends StatelessWidget {
   }
 }
 
-// A round choice, the same as the search filter sheet's: filled when chosen.
+/// A round choice, the same as in the search filter sheet. It is filled when chosen.
 class _Pill extends StatelessWidget {
   const _Pill({required this.label, required this.onTap, this.selected = false});
 

@@ -9,8 +9,8 @@ import 'package:lost_and_found/models/model_status.dart';
 import 'package:lost_and_found/models/people_timeline.dart';
 import 'package:lost_and_found/tokanizer/clip_tokenizer.dart';
 
-/// Thrown when a native call fails because the CLIP models aren't
-/// downloaded/verified yet, so callers can redirect to the download screen.
+/// Thrown when a native call fails because the search models are not downloaded or verified yet, so callers can
+/// send the person to the download screen.
 class ModelsNotReadyError implements Exception {
   const ModelsNotReadyError();
 }
@@ -22,9 +22,8 @@ class NativeServices {
     'lostandfound/modelDownload',
   );
 
-  /// Opens the SAF folder picker, returns the picked tree URI or null if
-  /// cancelled. Split from scan() so the caller can derive a stable folder
-  /// identity from the URI before the scan starts.
+  /// Opens the folder picker and returns the picked tree URI, or null if cancelled. It is separate from the scan so
+  /// the caller can derive a stable folder identity from the URI before the scan starts.
   Future<String?> pickFolderUri() async {
     try {
       return await _channel.invokeMethod<String>('pickFolder');
@@ -68,10 +67,9 @@ class NativeServices {
     }
   }
 
-  /// [personIds] non-empty means the box also had one or more recognised people in it
-  /// ("@Person and @Person2" or plain names typed and matched) - [query] is then just the words
-  /// left over after those names were taken out, and results are restricted to photos/videos
-  /// with all of them in it before being ranked against those words.
+  /// [personIds] non-empty means the box also had one or more recognised people in it ("@Person and @Person2" or
+  /// plain names typed and matched). [query] is then just the words left over after those names were taken out, and
+  /// results are restricted to photos and videos with all of them in it before being ranked against those words.
   Future<List<Map<String, dynamic>>> searchImages({
     required String query,
     required int limitNumber,
@@ -130,8 +128,8 @@ class NativeServices {
     }
   }
 
-  /// Raw (unnormalized) text embedding for an already-tokenized prompt -
-  /// what collections average into their query embedding.
+  /// Raw (unnormalized) text embedding for an already-tokenized prompt. Collections average these into their query
+  /// embedding.
   Future<List<double>> encodeText(List<int> tokens) async {
     try {
       final result = await _channel.invokeMethod<List<dynamic>>('encodeText', {
@@ -144,8 +142,7 @@ class NativeServices {
     }
   }
 
-  /// Raw embedding of a photo - or of one frame of a video, when
-  /// [timestampMs] is given.
+  /// Raw embedding of a photo, or of one frame of a video when [timestampMs] is given.
   Future<List<double>> encodeImage({
     required String uri,
     int? timestampMs,
@@ -162,9 +159,8 @@ class NativeServices {
     }
   }
 
-  /// One pass over the index scoring every collection at once - see
-  /// EmbeddingEngine's "Collections" section. [collections] entries carry
-  /// id, embedding, contentMode and k.
+  /// One pass over the index scoring every collection at once (see the collections section of EmbeddingEngine).
+  /// [collections] entries carry id, embedding, contentMode and k.
   Future<List<Map<String, dynamic>>> scoreCollections(
     List<Map<String, dynamic>> collections,
   ) async {
@@ -225,12 +221,9 @@ class NativeServices {
     }
   }
 
-  /// "Why this matched" for one result - scores each candidate word's own
-  /// embedding against that specific item, lazily, for whichever result
-  /// the user actually opened. Empty list (not an error) if the item's
-  /// embedding can no longer be found (deleted/re-embedded since the
-  /// search ran) or if anything else goes wrong - this is a nice-to-have
-  /// detail, never worth surfacing a failure for.
+  /// Scores each candidate word's own embedding against one result, for the result the person opened ("why this
+  /// matched"). Empty list, not an error, when the embedding cannot be found any more (deleted or embedded again since
+  /// the search ran) or anything else goes wrong, because it is a detail that is never worth showing a failure for.
   Future<List<Map<String, dynamic>>> explainMatch({
     required String path,
     required bool isVideo,
@@ -265,15 +258,12 @@ class NativeServices {
     }
   }
 
+  /// [maxDimension] overrides the native default cap on compressed decodes (see MAX_COMPRESSED_DIMENSION in
+  /// MainActivity.kt) for this one call. It is for the rare, much larger showcase tiles of a bento grid, which need
+  /// more source resolution to look sharp. Null keeps the cheaper default cap.
   Future<Uint8List> loadImageBytes({
     required String uri,
     required bool isCompressed,
-    // Overrides the native side's default compressed-decode cap (see
-    // MainActivity.kt's MAX_COMPRESSED_DIMENSION) for this one call - for a
-    // bento grid's rare, much-larger-than-normal showcase tiles, which need
-    // more source resolution than every other tile to still look sharp.
-    // Left null for the normal grid-tile case, which keeps the cheaper
-    // default cap.
     int? maxDimension,
   }) async {
     final bytes = await _channel.invokeMethod<List<int>>('loadImageBytes', {
@@ -295,8 +285,6 @@ class NativeServices {
       return const [];
     }
   }
-
-  // ---- Zip export ----
 
   /// A folder to save a zip in (one the app may write to); null if the user gave up.
   Future<String?> pickExportFolder() async {
@@ -374,8 +362,6 @@ class NativeServices {
     return Uint8List.fromList(bytes!);
   }
 
-  // ---- Faces ----
-
   static const _faceProgressChannel = EventChannel('lostandfound/faceProgress');
 
   /// Live status ticks from the face scan (also delivered while it runs in the
@@ -384,8 +370,8 @@ class NativeServices {
       .receiveBroadcastStream()
       .map((e) => FaceStatus.fromMap(e as Map<dynamic, dynamic>));
 
-  /// Starts the face scan; does nothing if it is already running. True if it is running
-  /// now, false if there was nothing for it to do.
+  /// Starts the face scan; does nothing if it is already running. True if it is running, false if there was nothing
+  /// for it to do.
   Future<bool> startFaceScan() async {
     return await _channel.invokeMethod<bool>('startFaceScan') ?? false;
   }
@@ -462,8 +448,6 @@ class NativeServices {
       ],
     );
   }
-
-  // ---- memories ----
 
   /// Brings the dates of everything indexed up to date, for up to [budgetMs]; call again while
   /// [pending] is above 0.
@@ -551,7 +535,7 @@ class NativeServices {
   }
 
   /// When each of [uris] was taken (0: not known) and whether it is a screenshot or a screen recording; a file the
-  /// catalog does not have is left out. Used to choose the pictures of a story.
+  /// catalog does not have is left out. For choosing the pictures of a story.
   Future<Map<String, ({int takenMs, bool junk})>> mediaDates(List<String> uris) async {
     if (uris.isEmpty) return const {};
     try {
@@ -567,9 +551,9 @@ class NativeServices {
   }
 
   /// The "your stories have refreshed" notification: [enabled] turns it on or off, [atMs] sets it for that time
-  /// (replacing the one waiting), [cancel] takes it away. [ringsJson]: who will be in the row of rings it shows when
-  /// opened out (a list of `{title, faceId | cover, video}` as text), kept for when it is made. Returns whether it
-  /// is on and whether the system lets the app show notifications.
+  /// (replacing the one waiting), [cancel] takes it away. [ringsJson] is who will be in the row of rings it shows when
+  /// opened out, as text: a list of objects with a title and either a faceId or a cover and video flag. It is kept for
+  /// when the note is made. Returns whether it is on and whether the system lets the app show notifications.
   Future<({bool enabled, bool allowed})> storiesReminder({
     bool? enabled,
     int? atMs,
@@ -590,8 +574,8 @@ class NativeServices {
     }
   }
 
-  /// Shows the "your stories have refreshed" note now with these rings ([ringsJson], as for [storiesReminder]), to see
-  /// what it looks like. Whether it was shown (it is not when the system does not let the app show notifications).
+  /// Shows the "your stories have refreshed" note at once with these rings ([ringsJson], as for [storiesReminder]), to
+  /// see what it looks like. Whether it was shown (it is not when the system does not let the app show notifications).
   Future<bool> storiesReminderTest(String ringsJson) async {
     try {
       return await _channel.invokeMethod<bool>('storiesReminderTest', {'ringsJson': ringsJson}) ?? false;
@@ -601,7 +585,7 @@ class NativeServices {
     }
   }
 
-  /// Sends today's memory now, to see what it looks like. The message says what happened.
+  /// Sends today's memory at once, to see what it looks like. The message says what happened.
   Future<String> memoryTest() async {
     final map = await _channel.invokeMapMethod<String, dynamic>('memoryTest');
     final message = map?['message'] as String? ?? '';
@@ -739,8 +723,8 @@ class NativeServices {
         .toList();
   }
 
-  /// Who is in the frame at [positionMs] of a video, looked up now (nothing is stored). Faces
-  /// come back with made-up negative ids, just to tell them apart. [token] as in [photoFaces].
+  /// Who is in the frame at [positionMs] of a video, looked up on the spot (nothing is stored). Faces come back with
+  /// made-up negative ids, just to tell them apart. [token] as in [photoFaces].
   Future<List<PhotoFace>> videoFaces(
     String uri,
     int positionMs, {
@@ -794,9 +778,9 @@ class NativeServices {
         : VideoScanInfo.fromMap(map);
   }
 
-  /// A video the user asked to scan: scans it now if it hasn't been (its people are then ready
-  /// for [videoPeople]). True if it was scanned; false if it already was, or can't be.
-  /// Follow its progress with [photoScanStatus] (key "video:" + the uri).
+  /// A video the user asked to scan: scans it if it has not been (its people are then ready for [videoPeople]). True
+  /// if it was scanned; false if it already was, or can't be. Follow its progress with [photoScanStatus] (key "video:"
+  /// + the uri).
   Future<VideoScanResult> scanVideoFaces(String uri, {int? token}) async {
     final map = await _channel.invokeMapMethod<String, dynamic>(
       'scanVideoFaces',
@@ -864,7 +848,7 @@ class NativeServices {
     return map == null ? null : SplitPreview.fromMap(map);
   }
 
-  /// Moves [faceIds] out of the person into a new one; returns the new person's id.
+  /// Moves [faceIds] out of the person into a separate person; returns that person's id.
   Future<int> splitPerson(int personId, List<int> faceIds) async =>
       await _channel.invokeMethod<int>('splitPerson', {
         'personId': personId,
@@ -928,8 +912,8 @@ class NativeServices {
     await _channel.invokeMethod('selectFaceModel', {'kind': kind, 'id': id});
   }
 
-  /// A small (grid/card sized) JPEG - far cheaper than [loadImageBytes],
-  /// which returns a full-screen-sized image.
+  /// A small JPEG sized for a grid or a card, far cheaper than [loadImageBytes], which returns a full-screen-sized
+  /// image. [maxDimension] is the same override as in [loadImageBytes], for a bento showcase tile that is a video.
   Future<Uint8List> loadThumbnail({
     required String uri,
     required bool isVideo,
@@ -948,8 +932,6 @@ class NativeServices {
   Future<Uint8List> loadVideoThumbnail({
     required String uri,
     required int timestampMs,
-    // See loadImageBytes' maxDimension doc - same override, for a bento
-    // showcase tile that happens to be a video.
     int? maxDimension,
   }) async {
     final bytes = await _channel.invokeMethod<List<int>>('loadVideoThumbnail', {
@@ -977,8 +959,8 @@ class NativeServices {
     }
   }
 
-  /// Hands the file to Android's own share sheet - no bytes cross the
-  /// platform channel, just the content URI already in hand.
+  /// Hands the file to Android's own share sheet. No bytes cross the platform channel, just the content URI already
+  /// in hand.
   Future<bool> shareFile({required String uri, required bool isVideo}) async {
     try {
       return await _channel.invokeMethod<bool>('shareFile', {
@@ -992,9 +974,8 @@ class NativeServices {
     }
   }
 
-  /// Copies the file into the system Photos/Gallery app's own storage -
-  /// useful when the original was indexed from a folder that app can't see
-  /// (an arbitrary SAF tree, a downloads folder, etc).
+  /// Copies the file into the Photos or Gallery app's own storage. Useful when the original was indexed from a folder
+  /// that app cannot see (an arbitrary SAF tree, a downloads folder and so on).
   Future<bool> saveCopyToGallery({
     required String uri,
     required bool isVideo,
@@ -1045,10 +1026,9 @@ class NativeServices {
     return await _channel.invokeMethod<bool>('cancelEmbedding') ?? false;
   }
 
-  /// The latest progress tick for a scan that's still running natively -
-  /// null if none is. Used to resync a freshly (re)created Dart layer with
-  /// a scan it didn't start (e.g. after the app was removed from Recents
-  /// and reopened).
+  /// The latest progress tick for a scan that is still running natively, or null if none is. It brings a recreated
+  /// Dart layer back in step with a scan it did not start, for example after the app was removed from Recents and
+  /// reopened.
   Future<Map<String, dynamic>?> getActiveScanProgress() async {
     final result = await _channel.invokeMethod<Map<dynamic, dynamic>>(
       'getActiveScanProgress',
@@ -1070,8 +1050,8 @@ class NativeServices {
     return await _channel.invokeMethod<int>('getEmbeddingCount') ?? 0;
   }
 
-  /// Backs the Library tab's stat tiles - total embeddings, distinct
-  /// image/video counts, and the index's on-disk size, in one call.
+  /// Backs the Library tab's stat tiles: total embeddings, distinct image and video counts, and the index's on-disk
+  /// size, in one call.
   Future<LibraryStats> getLibraryStats() async {
     final result = await _channel.invokeMethod<Map<dynamic, dynamic>>(
       'getLibraryStats',
@@ -1097,7 +1077,7 @@ class NativeServices {
   Future<String> appLogs() async =>
       await _channel.invokeMethod<String>('appLogs') ?? '';
 
-  /// The person has been told that their index was dropped for a new search model.
+  /// The person has been told that their index was dropped because the search model changed.
   Future<void> acknowledgeModelReset() async {
     await _channel.invokeMethod('acknowledgeModelReset');
   }
@@ -1119,11 +1099,9 @@ class NativeServices {
         .toList();
   }
 
-  /// Progress is reported via [modelDownloadProgressStream]; this only
-  /// resolves once the download finishes or fails.
-  ///
-  /// Downloads the search (CLIP) models - the only ones that are downloaded. The
-  /// result says whether they are now on the device.
+  /// Downloads the search (CLIP) models, the only ones that are downloaded. The result says whether they are on the
+  /// device. Progress is reported via [modelDownloadProgressStream]; this only resolves once the download finishes or
+  /// fails.
   Future<bool> downloadModels() async {
     try {
       return await _channel.invokeMethod<bool>('downloadModels') ?? false;
@@ -1195,8 +1173,10 @@ class SplitPreview {
     required this.secondCovers,
   });
 
-  final List<int> first, second; // every face id in each group
-  final List<int> firstCovers, secondCovers; // a few clear ones to show
+  /// Every face id in each group.
+  final List<int> first, second;
+  /// A few clear faces of each group to show.
+  final List<int> firstCovers, secondCovers;
 
   factory SplitPreview.fromMap(Map<dynamic, dynamic> m) {
     List<int> ints(String key) =>
@@ -1226,11 +1206,12 @@ class MergeRecord {
   final int id;
   final int keptId;
   final String? keptName;
-  final int? keptCover; // a face of the person who stayed
+  final int? keptCover;
   final String? removedName;
-  final int? removedCover; // a face of the person who was folded in
-  final int faceCount; // faces that moved
-  final int createdAt; // millis since epoch
+  final int? removedCover;
+  final int faceCount;
+  /// Milliseconds since epoch.
+  final int createdAt;
 
   factory MergeRecord.fromMap(Map<dynamic, dynamic> m) => MergeRecord(
     id: (m['id'] as num).toInt(),
@@ -1249,7 +1230,7 @@ class MergeSuggestion {
   MergeSuggestion({required this.aId, required this.bId, required this.score});
 
   final int aId, bId;
-  // How alike they look, roughly 0.3 (maybe) to 0.6 (very likely).
+  /// How alike they look, roughly 0.3 (maybe) to 0.6 (very likely).
   final double score;
 
   factory MergeSuggestion.fromMap(Map<dynamic, dynamic> m) => MergeSuggestion(
@@ -1259,15 +1240,17 @@ class MergeSuggestion {
   );
 }
 
-/// One face of a person (for the review screen).
 /// What tapping a video's scan button would do.
 class VideoScanInfo {
   VideoScanInfo(this.state, this.level, this.lastFaces);
 
-  final String state; // 'needs', 'done' or 'unavailable'
+  /// 'needs', 'done' or 'unavailable'.
+  final String state;
+  /// How loose the next scan is: 0 standard, 1 looser, 2 loosest.
   final int
-  level; // how loose the next scan is: 0 standard, 1 looser, 2 loosest
-  final int? lastFaces; // faces the last scan kept (null: never scanned)
+  level;
+  /// Faces the last scan kept, or null when it was never scanned.
+  final int? lastFaces;
 
   factory VideoScanInfo.fromMap(Map<dynamic, dynamic> m) => VideoScanInfo(
     m['state'] as String? ?? 'unavailable',
@@ -1281,8 +1264,9 @@ class VideoScanResult {
   VideoScanResult(this.scanned, this.level, this.faces);
 
   final bool scanned;
-  final int level; // the search level it used
-  final int faces; // faces kept
+  /// The level the scan used, as in [VideoScanInfo.level].
+  final int level;
+  final int faces;
 
   factory VideoScanResult.fromMap(Map<dynamic, dynamic> m) => VideoScanResult(
     m['scanned'] as bool? ?? false,
@@ -1291,7 +1275,7 @@ class VideoScanResult {
   );
 }
 
-/// Stored faces of one video frame; [exact]: the scan read exact frames, so they line up on screen.
+/// Stored faces of one video frame. [exact] says the scan read exact frames, so they line up on screen.
 class VideoFrameFaces {
   VideoFrameFaces(this.exact, this.faces);
 
@@ -1310,7 +1294,7 @@ class VideoPerson {
   final Person person;
   final List<int> times;
 
-  /// The moments where a face of theirs is stored (a position to point at) - a subset of [times].
+  /// The moments where a face of theirs is stored (a position to point at), a subset of [times].
   final List<int> storedTimes;
 
   factory VideoPerson.fromMap(Map<dynamic, dynamic> m) => VideoPerson(
@@ -1337,14 +1321,20 @@ class PhotoScanStatus {
     this.relax = 0,
   });
 
-  final String stage; // reading, detecting, recognising, placing
-  final int faces; // faces found
-  final int total; // faces being recognised
-  final bool more; // finishing a photo scanned before
-  final bool video; // a whole video being scanned
-  final int step, steps; // a video: frames looked through so far, of how many
+  /// reading, detecting, recognising or placing.
+  final String stage;
+  final int faces;
+  /// Faces being recognised.
+  final int total;
+  /// True while finishing a photo scanned before.
+  final bool more;
+  /// True while a whole video is being scanned.
+  final bool video;
+  /// For a video: frames looked through so far, and how many there are.
+  final int step, steps;
+  /// For a video: how loose the search is, 0 standard, 1 looser, 2 loosest.
   final int
-  relax; // a video: how loose the search is (0 standard, 1 looser, 2 loosest)
+  relax;
 
   factory PhotoScanStatus.fromMap(Map<dynamic, dynamic> m) => PhotoScanStatus(
     stage: m['stage'] as String? ?? 'reading',
@@ -1413,7 +1403,8 @@ class PhotoFace {
 
   final int faceId;
   final double left, top, right, bottom;
-  final int photoW, photoH; // 0 if unknown
+  /// 0 if unknown.
+  final int photoW, photoH;
   final Person person;
 
   factory PhotoFace.fromMap(Map<dynamic, dynamic> m) => PhotoFace(
@@ -1428,6 +1419,7 @@ class PhotoFace {
   );
 }
 
+/// One face of a person (for the review screen).
 class PersonFace {
   PersonFace({
     required this.faceId,
@@ -1437,10 +1429,11 @@ class PersonFace {
   });
 
   final int faceId;
-  // False for small / blurry / turned-away faces that weren't used to decide who the person is.
+  /// False for small, blurry or turned-away faces that are left out of deciding who the person is.
   final bool good;
   final String photoUri;
-  final bool isVideo; // found in a video: photoUri is the video
+  /// True when it was found in a video, and [photoUri] is the video.
+  final bool isVideo;
 
   factory PersonFace.fromMap(Map<dynamic, dynamic> m) => PersonFace(
     faceId: (m['faceId'] as num).toInt(),
@@ -1478,7 +1471,7 @@ class FaceEvent {
   /// The face started that person.
   final bool isNew;
 
-  /// How many photos that person is in now.
+  /// How many photos that person is in.
   final int personPhotos;
 
   factory FaceEvent.fromMap(Map<dynamic, dynamic> m) {
@@ -1530,47 +1523,46 @@ class FaceStatus {
     this.videosTotal = 0,
   });
 
-  // paused: waiting for photo indexing to finish. userPaused: stopped by the user.
+  /// [paused] means waiting for photo indexing to finish. [userPaused] means stopped by the user.
   final bool running, paused, userPaused, done;
 
-  // What the scan is doing: 'scan' (finding and recognising the clear faces),
-  // 'refine' (the small / blurry ones, afterwards) or 'tune' (a one-off speed
-  // test for this phone). While refining, processed/total count photos of that pass.
+  /// What the scan is doing: 'scan' (finding and recognising the clear faces), 'refine' (the small and blurry ones,
+  /// afterwards) or 'tune' (a one-off speed test for this phone). While refining, processed and total count photos of
+  /// that pass.
   final String phase;
 
-  // True while the scan is following an indexing scan that is still running,
-  // finding faces in photos as they are indexed (the total is still growing).
+  /// True while the scan is following an indexing scan that is still running, finding faces in photos as they are
+  /// indexed. The total is still growing.
   final bool following;
 
-  // True while it is finding the faces in a batch of photos indexing has just done
-  // (indexing waits meanwhile); processed/total then count that batch.
+  /// True while it is finding the faces in a batch of photos that indexing has just done. Indexing waits meanwhile,
+  /// and processed and total then count that batch.
   final bool batch;
 
-  // The same faces with where each was found and who it joined, newest first.
+  /// The same faces with where each was found and who it joined, newest first.
   final List<FaceEvent> recentFaceEvents;
 
-  // Whether the refining pass is switched on, and how many photos still have
-  // faces waiting for it.
+  /// Whether the refining pass is switched on, and how many photos still have faces waiting for it.
   final bool refine;
   final int deferredPhotos;
 
-  // What the speed test picked for this phone, for the options sheet.
+  /// What the speed test picked for this phone, for the options sheet.
   final String? tuning;
   final int processed, total, faces, people, failed, runProcessed, elapsedMs;
   final String? error;
-  // False when no recognition model is installed.
+  /// False when no recognition model is installed.
   final bool ready;
   final bool thorough;
   final String strictness;
   final String modelsDir;
 
-  // Videos: whether they are scanned, how many frames ('fast' / 'balanced' / 'thorough'),
-  // and how many are done of how many.
+  /// Videos: whether they are scanned, how many frames ('fast', 'balanced' or 'thorough'), and how many are done of
+  /// how many.
   final bool scanVideos;
   final String videoDensity;
   final int videos, videosTotal;
 
-  /// Photos (or videos, in the videos pass) left in the pass that is running now.
+  /// Photos (or videos, in the videos pass) left in the running pass.
   int get phaseRemaining => (total - processed).clamp(0, total);
 
   /// Photos still to work on overall, including faces waiting for the refining pass.
@@ -1701,11 +1693,13 @@ class FaceModelInfo {
     required this.selected,
   });
 
-  final String kind; // 'detector' | 'embedder'
+  /// 'detector' or 'embedder'.
+  final String kind;
   final String id;
   final String name;
   final int sizeBytes;
-  final String source; // 'bundled' | 'device'
+  /// 'bundled' or 'device'.
+  final String source;
   final bool selected;
 
   factory FaceModelInfo.fromMap(Map<dynamic, dynamic> m) => FaceModelInfo(
@@ -1721,7 +1715,7 @@ class FaceModelInfo {
 class FaceModels {
   FaceModels({required this.dir, required this.models});
 
-  /// Folder on the device to drop new .onnx models into.
+  /// Folder on the device to drop .onnx models into.
   final String dir;
   final List<FaceModelInfo> models;
 
@@ -1773,7 +1767,7 @@ class ZipExportResult {
   final int bytes;
 }
 
-/// What the zip export is doing now (see ZipExportState in the native code).
+/// What the zip export is doing (see ZipExportState in the native code).
 class ZipExportStatus {
   const ZipExportStatus({
     required this.id,

@@ -5,13 +5,10 @@ import dev.raseel.lostandfound.embedder.faces.FaceStore
 import java.util.TimeZone
 
 /**
- * The kinds of memory that are about people rather than a date: someone's first day in the photos, a round
- * number of photos, then and now (one person, or two together), years together, a few days of a trip, a
- * lovely picture out of the blue. Every one is computed from a bounded amount: one person's dated faces,
- * one pair's photos, one year's week - never the whole library - and only for a handful of people a day
- * (the day decides which, so it is different every day and the same all day).
- *
- * All warm: what there is, never what is missing.
+ * The kinds of memory about people rather than a date: someone's first day in the photos, a round number of photos,
+ * then and now (one person or two), years together, a few days of a trip, a lovely picture out of the blue. Each is
+ * computed from a bounded amount, never the whole library, and only a few people are looked at a day. The day decides
+ * which, so it is the same all day. All warm: what there is, never what is missing.
  */
 class MemoryEvergreen(
     private val dates: LibraryDates,
@@ -50,8 +47,7 @@ class MemoryEvergreen(
         return out
     }
 
-    // ---- someone's first day ----
-
+    /** Someone's first day in the photos, on its date. One photo with a wrong date is not a beginning. */
     private fun personAnniversary(c: Ctx, stats: List<FaceStore.PersonStat>): Notice? {
         val (year, month, day) = MemoryDays.ymd(c.now, c.tz)
         for (s in stats) {
@@ -59,7 +55,6 @@ class MemoryEvergreen(
             val (y, m, d) = MemoryDays.ymd(s.firstMs, c.tz)
             if (m != month || d != day || y >= year) continue
             val all = faces.personDatedFaces(s.id)
-            // One photo with a wrong date is not a beginning.
             if (!FirstAppearance.real(all.map { it.takenMs }, s.firstMs)) continue
             val early = all.filter { it.takenMs - s.firstMs <= 60 * DAY_MS && it.key !in c.exclude }
             val pick = early.maxByOrNull { suited(it) } ?: continue
@@ -77,18 +72,15 @@ class MemoryEvergreen(
         return null
     }
 
-    // ---- a round number ----
-
+    /** A round number of photos reached. The picture is a collage of them across the years, the latest good one big, and how many more. */
     private fun milestone(c: Ctx): Notice? {
         val announced = c.announced ?: return null
         for (p in faces.listPeople(false)) {
             val name = p.name?.takeIf { it.isNotBlank() } ?: continue
             val step = Milestones.crossed(p.photoCount, announced[p.id] ?: 0) ?: continue
             val all = faces.personDatedFaces(p.id).filter { it.key !in c.exclude }
-            // The latest good picture of them.
             val recent = all.filter { it.takenMs >= c.now - 365 * DAY_MS }.ifEmpty { all }
             val pick = recent.maxByOrNull { suited(it) } ?: continue
-            // The picture is a collage of them across the years, the latest good one big, and how many more.
             val others = spread(all.filter { it.key != pick.key }, COLLAGE_OTHERS)
             val pics = listOf(pick) + others
             return Notice(
@@ -107,8 +99,10 @@ class MemoryEvergreen(
         return null
     }
 
-    // ---- one person, then and now ----
-
+    /**
+     * Then and now for one person. The two pictures can be mixed, on their own one time and with someone the other.
+     * Another person is only spoken of, and framed, when they have a name.
+     */
     private fun thenNow(c: Ctx, stats: List<FaceStore.PersonStat>): Notice? {
         val eligible = stats.filter {
             it.photos >= MIN_FOR_THEN_NOW && it.lastMs - it.firstMs >= 200 * DAY_MS &&
@@ -118,8 +112,6 @@ class MemoryEvergreen(
             val r = ThenNow.choose(faces.personDatedFaces(s.id).map { cand(it) }, c.tz, seed = c.today * 31L + s.id) ?: continue
             val a = r.then[r.startThen]
             val b = r.now[r.startNow]
-            // The pictures can be mixed (on their own one time, with someone the other); another person
-            // is only spoken of - and framed - when they have a name.
             val names = faces.namesOf(listOfNotNull(a.partner, b.partner))
             val withA = a.partner?.takeIf { names[it] != null }
             val withB = b.partner?.takeIf { names[it] != null }
@@ -138,14 +130,15 @@ class MemoryEvergreen(
         return null
     }
 
-    // ---- a lovely picture, out of the blue ----
-
+    /**
+     * A lovely picture of someone from an earlier year. It is on their own if there are enough such, else the best
+     * there is, and one of the best few by the day.
+     */
     private fun vault(c: Ctx, stats: List<FaceStore.PersonStat>): Notice? {
         val eligible = stats.filter { it.photos >= MIN_FOR_VAULT && MemoryRotation.personSubject(it.id) !in c.subjects }.sortedBy { it.id }
         for (s in DayChoice.rotated(eligible, c.today).take(TRIES)) {
             val old = faces.personDatedFaces(s.id).filter { it.takenMs < c.now - 300 * DAY_MS && it.key !in c.exclude }
             if (old.size < 5) continue
-            // On their own if there are enough such, else the best there is; one of the best few, by the day.
             val solo = old.filter { it.faces == 1 }
             val pool = if (solo.size >= 3) solo else old
             val top = pool.sortedByDescending { suited(it) }.take(5)
@@ -165,8 +158,7 @@ class MemoryEvergreen(
         return null
     }
 
-    // ---- a few busy days in a row ----
-
+    /** A few busy days in a row around this date in an earlier year, with the best photo of the first, a middle and the last day. */
     private fun trip(c: Ctx): Notice? {
         val (year, month, day) = MemoryDays.ymd(c.now, c.tz)
         val firstYear = dates.bounds()?.let { MemoryDays.ymd(it.first, c.tz).first } ?: return null
@@ -182,7 +174,6 @@ class MemoryEvergreen(
         }
         val (run, y, photos) = best ?: return null
 
-        // The best photo of the first, a middle and the last day.
         val days = listOf(run.startDay, (run.startDay + run.endDay) / 2, run.endDay).distinct()
         val byDay = photos.filter { MemoryDays.dayNumber(it.takenMs, c.tz) in run.startDay..run.endDay && it.key !in c.exclude }
             .groupBy { MemoryDays.dayNumber(it.takenMs, c.tz) }
@@ -214,8 +205,6 @@ class MemoryEvergreen(
         )
     }
 
-    // ---- two people ----
-
     private fun pairs(c: Ctx, out: MutableMap<MemoryKind, Notice>) {
         val together = planner.timeline(c.now).together
         val seen = HashSet<Pair<Long, Long>>()
@@ -238,6 +227,7 @@ class MemoryEvergreen(
         }
     }
 
+    /** Then and now for two people. Both of them are in every one of these pictures, alone together or in a small group. */
     private fun pairThenNow(c: Ctx, pp: List<FaceStore.PairPhoto>, a: Long, b: Long, nameA: String, nameB: String, subject: String): Notice? {
         val cands = pp.map {
             ThenNow.Cand(
@@ -247,7 +237,6 @@ class MemoryEvergreen(
                 pair = b,
             )
         }
-        // Both of them are in every one of these pictures: the two of them alone, or in a small group.
         val r = ThenNow.choose(cands, c.tz, seed = c.today * 31L + a) ?: return null
         val x = r.then[r.startThen]
         val y = r.now[r.startNow]
@@ -264,6 +253,7 @@ class MemoryEvergreen(
         )
     }
 
+    /** Years together. The picture shows the two of them now and, small in the corner, the first photo of the two of them. */
     private fun togetherSince(c: Ctx, pp: List<FaceStore.PairPhoto>, a: Long, nameA: String, nameB: String, subject: String): Notice? {
         val times = pp.map { it.takenMs }
         val start = times.firstOrNull { FirstAppearance.real(times, it) } ?: return null
@@ -284,7 +274,6 @@ class MemoryEvergreen(
             "$count photos of the two of you over ${MemoryNotices.years(years)}.",
             PlanPhoto(pick.key, pick.uri, false, 0L, pick.takenMs, 0f, listOf(nameA, nameB)),
             since,
-            // The two of them now, and - small, in the corner - the first photo of the two of them.
             pics = listOfNotNull(
                 Pic(pick.uri, false, box, pick.photoW, pick.photoH, DUO_MARGIN, 0f),
                 pp.firstOrNull { it.takenMs >= start && it.key != pick.key }?.let {
@@ -300,8 +289,6 @@ class MemoryEvergreen(
             personId = a,
         )
     }
-
-    // ---- bits ----
 
     /**
      * Up to [n] of [faces] from across their whole time, oldest first: the time is cut into [n] equal spans and
@@ -325,7 +312,7 @@ class MemoryEvergreen(
         return picked.sortedBy { it.takenMs }
     }
 
-    // How good a picture of the person it is, crowds counting for less.
+    /** How good a picture of the person it is, crowds counting for less. */
     private fun suited(f: FaceStore.ThenNowFace): Float = f.rank / (1f + 0.35f * (f.faces - 1).coerceAtLeast(0))
 
     private fun planPhoto(f: FaceStore.ThenNowFace, names: List<String>) = PlanPhoto(f.key, f.uri, false, 0L, f.takenMs, 0f, names)
@@ -338,7 +325,7 @@ class MemoryEvergreen(
     private fun portrait(f: FaceStore.ThenNowFace, label: String? = null): Pic =
         Pic(f.uri, false, floatArrayOf(f.boxL, f.boxT, f.boxR, f.boxB), f.photoW, f.photoH, FaceCrops.PORTRAIT_MARGIN, FaceCrops.PORTRAIT_LIFT, label)
 
-    /** [c] framed: the person alone, or - with [withId] in the photo too - the two of them. */
+    /** [c] framed: the person alone, or the two of them when [withId] is in the photo too. */
     private fun portrait(c: ThenNow.Cand, withId: Long?, label: String? = null): Pic {
         val box = c.box(withId)
         val pair = withId != null && c.others.any { it.personId == withId }

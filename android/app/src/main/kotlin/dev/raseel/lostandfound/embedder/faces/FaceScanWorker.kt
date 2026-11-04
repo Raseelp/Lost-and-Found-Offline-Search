@@ -24,12 +24,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Runs [FaceScanner] as WorkManager work - the same reasoning as the indexing
- * scan: it is resumable (finished photos are skipped), so if the system stops
- * this process the work simply starts again and carries on.
+ * Runs [FaceScanner] as WorkManager work, for the same reason as the indexing scan. It is resumable (finished photos
+ * are skipped), so if the system stops this process the work starts again and carries on.
  */
 class FaceScanWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
+    /**
+     * Runs the face scan until it ends or is stopped. If setForeground fails the work carries on. A stop on purpose
+     * cancels the coroutine, which is rethrown and not treated as an error.
+     * WorkManager takes the notification down as soon as the work is stopped, and a late status tick would bring it
+     * back as an ongoing notification nothing would remove. So nothing is posted once the work has ended.
+     */
     override suspend fun doWork(): Result {
         FaceScanHub.running = true
         notificationDismissed = false
@@ -38,7 +43,6 @@ class FaceScanWorker(context: Context, params: WorkerParameters) : CoroutineWork
         try {
             setForeground(foregroundInfo(buildNotification(0, 0, paused = false)))
         } catch (e: Exception) {
-            // Losing the keep-alive isn't worth failing the work over.
             Log.w(TAG, "setForeground failed, continuing anyway: ${e.message}")
         }
 
@@ -61,14 +65,13 @@ class FaceScanWorker(context: Context, params: WorkerParameters) : CoroutineWork
                             NotificationManagerCompat.from(applicationContext)
                                 .notify(NOTIFICATION_ID, buildNotification(processed, total, paused, phase))
                         } catch (_: Exception) {
-                            // Notification permission revoked - fine.
+                            // Notification permission was revoked, so there is nothing to post.
                         }
                     }
                 }
             }
             Result.success()
         } catch (e: CancellationException) {
-            // Stopped on purpose (the user paused, or the model changed) - not an error.
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "face scan failed: ${e.message}", e)
@@ -83,10 +86,6 @@ class FaceScanWorker(context: Context, params: WorkerParameters) : CoroutineWork
             Result.failure()
         } finally {
             FaceScanHub.running = false
-            // WorkManager takes the notification down as soon as the work is stopped,
-            // which can be before the last status tick has been posted - that would
-            // bring it back as an ongoing notification nothing would ever remove. So
-            // nothing is posted after this, and it is taken down here, after the last post.
             synchronized(notifyLock) {
                 ended = true
                 try {
@@ -100,7 +99,7 @@ class FaceScanWorker(context: Context, params: WorkerParameters) : CoroutineWork
     private val notifyLock = Any()
     private var ended = false
 
-    // How fast the photos (or videos) are gone through, starting over on each new phase.
+    /** How fast the photos (or videos) are gone through. It starts over on each phase. */
     private val rate = ScanNotification.Rate()
     private var ratePhase: String? = null
 
@@ -111,6 +110,10 @@ class FaceScanWorker(context: Context, params: WorkerParameters) : CoroutineWork
             ForegroundInfo(NOTIFICATION_ID, notification)
         }
 
+    /**
+     * Builds the notification of the face scan on its own (no indexing in it): only the faces, with what they are
+     * being found in. A tap opens the app on the Library tab, where the scan is.
+     */
     private fun buildNotification(processed: Int, total: Int, paused: Boolean, phase: String = "scan"): Notification {
         val counting = !paused && phase != "tune" && total > 0
         if (!counting || phase != ratePhase) rate.reset()
@@ -122,7 +125,6 @@ class FaceScanWorker(context: Context, params: WorkerParameters) : CoroutineWork
         } else {
             null
         }
-        // The face scan on its own (no indexing in it): only the faces, with what they are being found in.
         val faces = when {
             paused -> ScanNotification.Faces(
                 processed, total, "Finding faces", "Waits until indexing is done", null, waiting = true,
@@ -145,7 +147,6 @@ class FaceScanWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 speed,
             )
         }
-        // A tap opens the app on the Library tab, where the scan is.
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
             action = MainActivity.ACTION_OPEN_LIBRARY
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -186,7 +187,7 @@ class FaceScanWorker(context: Context, params: WorkerParameters) : CoroutineWork
         const val UNIQUE_WORK_NAME = "face_scan"
         private const val NOTIFY_INTERVAL_MS = 2000L
 
-        // The user swiped the face scan's notification away: not posted again this run.
+        /** The user swiped the face scan's notification away, so it is not posted again this run. */
         @Volatile
         var notificationDismissed: Boolean = false
 

@@ -11,13 +11,13 @@ class IndexNudgeTest {
     fun nineTenthsIsFinishedAndLessIsNot() {
         assertTrue(IndexShare(onPhone = 100, indexed = 90).finished)
         assertFalse(IndexShare(onPhone = 100, indexed = 89).finished)
-        assertTrue(IndexShare(onPhone = 0, indexed = 0).finished) // nothing on the phone
-        assertTrue(IndexShare(onPhone = 50, indexed = 60).finished) // the index can hold more than the gallery
+        assertTrue(IndexShare(onPhone = 0, indexed = 0).finished)
+        assertTrue(IndexShare(onPhone = 50, indexed = 60).finished)
     }
 
     @Test
     fun thePercentIsRoundedDownAndTheMissingCountNeverGoesBelowZero() {
-        assertEquals(89, IndexShare(onPhone = 1000, indexed = 899).percent) // 89.9 is not 90
+        assertEquals(89, IndexShare(onPhone = 1000, indexed = 899).percent)
         assertEquals(0, IndexShare(onPhone = 1000, indexed = 0).percent)
         assertEquals(100, IndexShare(onPhone = 50, indexed = 60).percent)
         assertEquals(0, IndexShare(onPhone = 50, indexed = 60).missing)
@@ -28,14 +28,11 @@ class IndexNudgeTest {
     fun theNoteIsSentOnlyWhenThereIsSomethingToSayAndNothingElseIsGoingOn() {
         val partly = IndexShare(onPhone = 400, indexed = 100)
         assertEquals(NudgeVerdict.SEND, IndexNudge.verdict(partly, scanning = false, enabled = true, sent = 0, noteToday = false))
-        // A scan is running, or another note went out today: tomorrow.
         assertEquals(NudgeVerdict.WAIT, IndexNudge.verdict(partly, scanning = true, enabled = true, sent = 0, noteToday = false))
         assertEquals(NudgeVerdict.WAIT, IndexNudge.verdict(partly, scanning = false, enabled = true, sent = 1, noteToday = true))
-        // Off, finished, or three already sent: no more.
         assertEquals(NudgeVerdict.STOP, IndexNudge.verdict(partly, scanning = false, enabled = false, sent = 0, noteToday = false))
         assertEquals(NudgeVerdict.STOP, IndexNudge.verdict(IndexShare(400, 380), scanning = false, enabled = true, sent = 0, noteToday = false))
         assertEquals(NudgeVerdict.STOP, IndexNudge.verdict(partly, scanning = false, enabled = true, sent = 3, noteToday = false))
-        // Finished wins over a scan that happens to be running: nothing is asked of someone who is done.
         assertEquals(NudgeVerdict.STOP, IndexNudge.verdict(IndexShare(400, 380), scanning = true, enabled = true, sent = 0, noteToday = true))
     }
 
@@ -54,15 +51,13 @@ class IndexNudgeTest {
         assertEquals(NudgeKind.PEOPLE, IndexNudge.pickKind(everything, 1))
         assertEquals(NudgeKind.THIS_DAY, IndexNudge.pickKind(everything, 2))
         assertEquals(NudgeKind.SEARCH, IndexNudge.pickKind(everything, 3))
-        assertEquals(NudgeKind.RING, IndexNudge.pickKind(everything, 4)) // round again
-        // No named person and no photos of this day: the second note is the next that can be said.
+        assertEquals(NudgeKind.RING, IndexNudge.pickKind(everything, 4))
         assertEquals(NudgeKind.SEARCH, IndexNudge.pickKind(setOf(NudgeKind.SEARCH), 1))
         assertEquals(NudgeKind.RING, IndexNudge.pickKind(emptySet(), 1))
     }
 
     @Test
     fun aLibraryThatIsNeverFinishedGetsThreeNotesAndThenNoMore() {
-        // The app is left on day 0 and never opened again: replay what the worker does, day by day.
         val partly = IndexShare(onPhone = 400, indexed = 100)
         var sent = 0
         var due: Int? = IndexNudge.nextGapDays(0)
@@ -95,7 +90,6 @@ class IndexNudgeTest {
         assertEquals(NudgeVerdict.STOP, done.verdict)
         assertEquals(0, done.sent)
         assertNull(done.nextDays)
-        // Switched off, or given up: the count stays as it was.
         assertEquals(2, IndexNudge.step(partly, scanning = false, enabled = false, sent = 2, noteToday = false).sent)
     }
 
@@ -108,6 +102,7 @@ class IndexNudgeTest {
             IndexNudge.words(NudgeKind.RING, tiny, null, 0, 0, "x"),
         )
     }
+/** Also covers a day the clocks went forward (New York, 10 March 2019), which is 23 hours long. */
 
     @Test
     fun thisDayInEarlierYearsHandlesLeapDaysAndClockChanges() {
@@ -115,19 +110,16 @@ class IndexNudgeTest {
         fun at(zone: java.util.TimeZone, y: Int, m: Int, d: Int) =
             java.util.Calendar.getInstance(zone).apply { clear(); set(y, m - 1, d, 15, 30, 0) }.timeInMillis
 
-        // An ordinary day: twenty years back, each a whole day long.
         val ordinary = IndexGap.sameDayInEarlierYears(at(utc, 2026, 11, 4), utc)
         assertEquals(20, ordinary.size)
         assertTrue(ordinary.all { (from, to) -> to - from == 86_400_000L })
         assertEquals(at(utc, 2025, 11, 4) - 15 * 3_600_000L - 30 * 60_000L, ordinary.first().first)
 
-        // 29 February: only the leap years have it.
         val leap = IndexGap.sameDayInEarlierYears(at(utc, 2024, 2, 29), utc)
         assertEquals(listOf(2020, 2016, 2012, 2008, 2004), leap.map {
             java.util.Calendar.getInstance(utc).apply { timeInMillis = it.first }.get(java.util.Calendar.YEAR)
         })
 
-        // A day the clocks went forward (New York, 10 March 2019) is 23 hours long, and the range says so.
         val ny = java.util.TimeZone.getTimeZone("America/New_York")
         val clocks = IndexGap.sameDayInEarlierYears(at(ny, 2020, 3, 10), ny, yearsBack = 1)
         assertEquals(1, clocks.size)
@@ -141,7 +133,6 @@ class IndexNudgeTest {
         assertEquals("300 photos", IndexNudge.counts(share(300, 0)))
         assertEquals("1 video", IndexNudge.counts(share(0, 1)))
         assertEquals("1 photo and 1 video", IndexNudge.counts(share(1, 1)))
-        // Not told apart (or both counts came to zero though a tenth is missing): the total.
         assertEquals("300 photos and videos", IndexNudge.counts(share(null, null)))
         assertEquals("300 photos and videos", IndexNudge.counts(share(0, 0)))
         assertEquals(

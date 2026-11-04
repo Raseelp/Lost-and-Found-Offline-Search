@@ -42,8 +42,8 @@ class ImageViewScreen extends StatefulWidget {
   State<ImageViewScreen> createState() => _ImageViewScreenState();
 }
 
-/// Coming back from a photo or video to the results, the search box was getting its
-/// focus back and pulling the keyboard up. Nobody asked for that - drop it again.
+/// Drops the focus the search box gets back when a photo or video returns to the results, which would pull the
+/// keyboard up.
 void _dropSearchFocus() {
   WidgetsBinding.instance.addPostFrameCallback((_) {
     if (Get.isRegistered<NativeController>()) {
@@ -52,34 +52,39 @@ void _dropSearchFocus() {
   });
 }
 
+/// The full-screen photo viewer. Leaving it takes the search box's focus away, so the keyboard does not come back. The
+/// people button and its panel are hidden while the details are up. The similar-to-this strip fades with an
+/// [AnimatedSwitcher] instead of an if, so closing it before [_openSimilarItem] navigates away does not cut it off,
+/// and its label says this photo because it can turn up videos too. A soft scrim sits behind the top buttons so the
+/// icons stay legible over a bright sky. A photo that is one of the moments says so under the top buttons.
 class _ImageViewScreenState extends State<ImageViewScreen>
     with SingleTickerProviderStateMixin {
   late Uint8List imageBytes = widget.imageBytes;
   String get uri => widget.uri;
 
-  // The recognised people in this photo (empty until looked up, or if there are none).
+  /// The recognised people in this photo. Empty until looked up, or if there are none.
   List<PhotoFace> _faces = const [];
 
-  // True while the photo's faces are being looked for and it takes a noticeable
-  // moment (a photo the background scan hasn't reached): drives a subtle shimmer.
+  /// True while the photo's faces are being looked for and it takes a noticeable moment, as with a photo the
+  /// background scan has not reached. Drives a subtle shimmer.
   bool _looking = false;
   String _scanMessage = 'Looking for faces';
   Timer? _poll;
 
-  // Tells the phone which viewer is asking, so a scan queued for a viewer that has since
-  // closed (flicking through unscanned photos) can be skipped.
+  /// Tells the phone which viewer is asking, so a scan queued for a viewer that has since closed (flicking through
+  /// unscanned photos) can be skipped.
   final int _token = DateTime.now().microsecondsSinceEpoch;
 
-  // ---- the People button: everyone recognised in this photo, in a panel ----
   final GlobalKey<ZoomableImageState> _zoomKey =
       GlobalKey<ZoomableImageState>();
   bool _peopleOpen = false;
 
-  // ---- "Similar to this": the strip opened from the search-with-image button ----
   bool _similarOpen = false;
+  /// Bumped to make the people button draw the eye after a scan just found people.
   int _peoplePulse =
-      0; // bumped to make the button draw the eye (a scan just found people)
-  bool _sawGlow = false; // the scan took long enough to show the glow
+      0;
+  /// True when the scan took long enough to show the glow.
+  bool _sawGlow = false;
   int? _pointedPerson;
   int _pointId = 0;
   FaceFlight? _flight;
@@ -106,8 +111,9 @@ class _ImageViewScreenState extends State<ImageViewScreen>
     return out;
   }
 
-  // A person picked in the panel: their face flies to their head in the picture and becomes the
-  // outline - the same transition as in a video, without a seek to wait for.
+  /// Flies the face of a person picked in the panel to their head in the picture, where it becomes the outline.
+  /// It is the same transition as in a video, without a seek to wait for. Zoomed in, the head may be out of view, so
+  /// the whole picture is brought back first.
   Future<void> _pointAtPerson(VideoPerson vp, Rect from) async {
     final zoom = _zoomKey.currentState;
     final face = _faces.where((f) => f.person.id == vp.person.id).firstOrNull;
@@ -117,7 +123,6 @@ class _ImageViewScreenState extends State<ImageViewScreen>
       _pointedPerson = vp.person.id;
     });
     final id = ++_pointId;
-    // Zoomed in, the head may be out of view: bring the whole picture back first.
     await zoom.resetZoom();
     if (!mounted || id != _pointId) return;
 
@@ -174,16 +179,20 @@ class _ImageViewScreenState extends State<ImageViewScreen>
     super.dispose();
   }
 
+  /// Looks for the faces in the photo.
+  ///
+  /// A photo that was already scanned answers at once, so the shimmer shows only if it drags on. While it works, the
+  /// scan status is polled to say how far it has got, and the message is reset first so it does not show what the
+  /// last scan ended on. If a scan long enough to show the glow finds people for the first time, the people button
+  /// pulses to point at where they are.
   Future<void> _loadFaces() async {
-    // Already-scanned photos answer at once; only show the shimmer if it drags on.
     final slow = Timer(const Duration(milliseconds: 450), () {
       if (!mounted) return;
       setState(() {
         _looking = true;
         _sawGlow = true;
-        _scanMessage = 'Looking for faces'; // not what the last scan ended on
+        _scanMessage = 'Looking for faces';
       });
-      // While it works, ask how far it has got and say so.
       _poll?.cancel();
       _poll = Timer.periodic(const Duration(milliseconds: 250), (_) async {
         try {
@@ -203,12 +212,11 @@ class _ImageViewScreenState extends State<ImageViewScreen>
         final firstPeople = _faces.isEmpty && found.isNotEmpty;
         setState(() {
           _faces = found;
-          // A scan just found people (it was long enough to show): point at where they are.
           if (firstPeople && _sawGlow) _peoplePulse++;
         });
       }
     } catch (_) {
-      // No faces to tap - the photo is still fully usable.
+      // No faces to tap. The photo is still usable.
     } finally {
       slow.cancel();
       _poll?.cancel();
@@ -216,20 +224,24 @@ class _ImageViewScreenState extends State<ImageViewScreen>
     }
   }
 
+  /// Opens [PersonScreen] and looks for the faces again on return, since the person may have been renamed, merged or
+  /// hidden there.
   Future<void> _openPerson(Person person) async {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => PersonScreen(person: person)));
-    // Back from their page: they may have been renamed, merged or hidden there.
     if (mounted) _loadFaces();
   }
 
-  // How long the strip takes to fade away, here and in build()'s AnimatedSwitcher - shared so
-  // the two always agree, since _openSimilarItem below times the navigation off this same value.
+  /// How long the strip takes to fade away, here and in the build method's [AnimatedSwitcher]. It is shared so the
+  /// two always agree, since [_openSimilarItem] times the navigation off this value.
   static const _similarCloseDuration = Duration(milliseconds: 200);
 
-  // A tile in the "similar to this" strip: SimilarItemsBar only wires a tile's tap up once its
-  // thumbnail has actually arrived, but bytes stays nullable here to match its callback type.
+  /// Opens a tile of the similar-to-this strip. [SimilarItemsBar] wires a tile's tap only once its thumbnail has
+  /// arrived, but [bytes] stays nullable to match its callback type. Only a grid-sized thumbnail was loaded for the
+  /// strip, so the viewer loads the sharp photo itself. An open strip is closed first and given time to fade out,
+  /// because it shares one cache on the controller with other screens' results, which may have overwritten what it
+  /// shows.
   void _openSimilarItem(Map<String, dynamic> item, Uint8List? bytes) {
     if (bytes == null) return;
     final itemUri = item['path'] as String;
@@ -250,7 +262,6 @@ class _ImageViewScreenState extends State<ImageViewScreen>
       } else {
         Navigator.of(context).push(
           mediaViewRoute(
-            // Only a small grid-sized thumbnail was loaded for the strip - the viewer loads the sharp photo itself.
             (_) => ImageViewScreen(
               imageBytes: bytes,
               uri: itemUri,
@@ -262,11 +273,6 @@ class _ImageViewScreenState extends State<ImageViewScreen>
     }
 
     if (_similarOpen) {
-      // Closed first, not left open behind the new screen: coming back here later would
-      // otherwise still show whatever the strip was last showing - possibly overwritten by
-      // then with another screen's results for a different photo entirely (they share one
-      // cache on the controller). Letting it fade out before the push means the close reads
-      // as deliberate, not as something that got cut off by the navigation.
       setState(() => _similarOpen = false);
       Future.delayed(_similarCloseDuration, () {
         if (mounted) push();
@@ -284,7 +290,7 @@ class _ImageViewScreenState extends State<ImageViewScreen>
       );
       if (mounted) setState(() => imageBytes = sharp);
     } catch (_) {
-      // Keep showing the thumbnail - blurry beats blank.
+      // Keep showing the thumbnail.
     }
   }
 
@@ -294,7 +300,6 @@ class _ImageViewScreenState extends State<ImageViewScreen>
       builder: (controller) {
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: kMediaOverlayStyle,
-          // Leaving: make sure the search box doesn't get its focus (and keyboard) back.
           child: PopScope(
             onPopInvokedWithResult: (_, __) {
               if (Get.isRegistered<NativeController>()) {
@@ -332,7 +337,6 @@ class _ImageViewScreenState extends State<ImageViewScreen>
                       captionInset: _faces.isEmpty ? 0 : 44,
                     ),
                   ),
-
                   Positioned.fill(
                     child: PhotoScanGlow(
                       visible: _looking,
@@ -340,7 +344,6 @@ class _ImageViewScreenState extends State<ImageViewScreen>
                     ),
                   ),
 
-                  // The people in this photo (opens a panel above): out of the way while the details are up.
                   if (_faces.isNotEmpty && !controller.showMetadata) ...[
                     if (_peopleOpen)
                       Positioned(
@@ -373,10 +376,6 @@ class _ImageViewScreenState extends State<ImageViewScreen>
                     ),
                   ],
 
-                  // "Similar to this": up to ten close matches, right here instead of a full
-                  // search screen - out of the way while the details are up, same as the people panel.
-                  // AnimatedSwitcher rather than an if(): closing (by hand, or automatically before
-                  // _openSimilarItem navigates away) fades it out instead of cutting it off dead.
                   Positioned(
                     left: AppSpacing.base,
                     right: AppSpacing.base,
@@ -391,8 +390,6 @@ class _ImageViewScreenState extends State<ImageViewScreen>
                                   controller.similarThumbCache[controller
                                       .cacheKeyForResult(item)],
                               loading: controller.isLoadingSimilar,
-                              // Not "similar photos" - this can turn up videos too, same as the
-                              // search this button falls back to.
                               label: 'Similar to this photo',
                               onTapItem: (item, bytes) =>
                                   _openSimilarItem(item, bytes),
@@ -411,7 +408,6 @@ class _ImageViewScreenState extends State<ImageViewScreen>
                     ),
                   ),
 
-                  // Their face, flying from the panel to their head.
                   if (_flight != null)
                     Positioned.fill(
                       child: IgnorePointer(
@@ -425,10 +421,6 @@ class _ImageViewScreenState extends State<ImageViewScreen>
                       ),
                     ),
 
-                  // A soft scrim behind the top chrome, not just translucent
-                  // buttons on their own - keeps the icons legible over a
-                  // bright sky or a white wall, not just over typical photo
-                  // midtones.
                   Positioned(
                     top: 0,
                     left: 0,
@@ -507,8 +499,6 @@ class _ImageViewScreenState extends State<ImageViewScreen>
                     ),
                   ),
 
-                  // If this photo is one of the moments (the first photo of two people together, the
-                  // whole gang, a reunion), it says so, under the top buttons.
                   if (!controller.showMetadata)
                     Positioned(
                       top:
@@ -540,9 +530,10 @@ class _ImageViewScreenState extends State<ImageViewScreen>
   }
 }
 
-// The sheet's actual content - DraggableMetadataSheet handles the
-// container/handle/drag physics around this, so this is just what goes
-// inside it (loading state, "why this matched", file info).
+/// The content of the details sheet: the loading state, "why this matched" and the file information.
+///
+/// [DraggableMetadataSheet] handles the container, the handle and the drag around it. "Why this matched" is absent,
+/// not shown as an empty state, unless this was opened from a text search result, see loadMatchExplanation.
 class _MetadataContent extends StatelessWidget {
   const _MetadataContent({
     required this.metadata,
@@ -567,9 +558,6 @@ class _MetadataContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Absent (not a disabled/empty state) unless this was actually
-          // opened from a text search result - see loadMatchExplanation's
-          // doc for exactly when that's true.
           if (matchExplanation.isNotEmpty) ...[
             const InfoGroupLabel('Why this matched'),
             const SizedBox(height: AppSpacing.sm),

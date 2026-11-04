@@ -7,6 +7,7 @@ import android.os.Bundle
 
 class SafPickerActivity : Activity() {
 
+    /** Opens the system picker for the mode in [EXTRA_MODE]. The export folder is asked for with write access too, because a zip is saved there. */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -24,7 +25,6 @@ class SafPickerActivity : Activity() {
                 }
             }
 
-            // A folder to save a zip in: it has to be writable.
             MODE_EXPORT_FOLDER -> {
                 Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
                     addFlags(

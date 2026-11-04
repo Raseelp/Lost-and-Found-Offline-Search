@@ -38,8 +38,8 @@ class _TourFaceDemoState extends State<TourFaceDemo>
   static const String _photo = 'assets/tour/photos/supercup.jpg';
   static const Size _photoSize = Size(900, 601);
 
-  // Every face the viewer finds in the picture (all of them are traced), left to right. Only the ones with a
-  // name are tapped, in this order: Messi, then Suárez. Iniesta, soft behind them, is found but left alone.
+  /// Every face the viewer finds in the picture (all of them are traced), left to right. Only the ones with a name
+  /// are tapped, in this order: Messi, then Suárez. Iniesta, soft behind them, is found but left alone.
   static const List<_DemoFace> _faces = [
     _DemoFace(Rect.fromLTRB(0.159, 0.233, 0.206, 0.316), null, 0, null),
     _DemoFace(
@@ -56,7 +56,7 @@ class _TourFaceDemoState extends State<TourFaceDemo>
     ),
   ];
 
-  // The order the taps go in (positions in [_faces]).
+  /// The order the taps go in (positions in [_faces]).
   static const List<int> _taps = [2, 1];
 
   late final AnimationController _open = AnimationController(
@@ -83,10 +83,10 @@ class _TourFaceDemoState extends State<TourFaceDemo>
   int _generation = 0;
   bool _selected = false;
 
-  // Which face is tapped (or was last).
+  /// Which face is tapped (or was last).
   int _current = 2;
 
-  // When the phone asks for no animations the demo is one still picture (Messi picked), not a loop.
+  /// When the phone asks for no animations the demo is one still picture (Messi picked), not a loop.
   bool _still = false;
 
   @override
@@ -137,20 +137,19 @@ class _TourFaceDemoState extends State<TourFaceDemo>
   Future<void> _wait(int ms) =>
       Future<void>.delayed(Duration(milliseconds: ms));
 
+  /// Plays the demo while the page shows: the photo opens, the faces are traced, then each face in turn is tapped,
+  /// shown, and let go.
   Future<void> _loop(int generation) async {
     while (!_stale(generation)) {
       setState(_reset);
-      // The photo opens.
       await _wait(500);
       if (_stale(generation)) return;
       unawaited(_open.forward(from: 0));
       await _wait(900);
       if (_stale(generation)) return;
-      // The faces are traced.
       unawaited(_hint.forward(from: 0));
       await _wait(3300);
       if (_stale(generation)) return;
-      // Each face in turn is tapped, shown, and let go.
       for (var k = 0; k < _taps.length; k++) {
         setState(() => _current = _taps[k]);
         unawaited(_tap.forward(from: 0));
@@ -181,8 +180,8 @@ class _TourFaceDemoState extends State<TourFaceDemo>
     super.dispose();
   }
 
-  // Where the picture sits, "contain"-fitted in [size] (as the viewer shows a photo), and so where a head is: round
-  // the whole head, a little bigger and higher than the face box, as the viewer works it out.
+  /// Where the picture sits, "contain"-fitted in [size] (as the viewer shows a photo), and so where a head is: round
+  /// the whole head, a little bigger and higher than the face box, as the viewer works it out.
   HeadSpot _head(Size size, _DemoFace face) {
     final aspect = _photoSize.width / _photoSize.height;
     final double w, h;
@@ -206,9 +205,12 @@ class _TourFaceDemoState extends State<TourFaceDemo>
     return HeadSpot(centre, math.max(faceW, faceH) * 0.5 * 1.4);
   }
 
+  /// One label for a screen reader instead of the chips and labels coming and going. The layers are the photo, the
+  /// hint (every face traced, with a sparkle), the tapped head (dimmed photo and the turning outline), "Tap a face to
+  /// see who" fading with the hint, a fingertip landing on the face, and the person's chip under the head, centred
+  /// but never off the edge.
   @override
   Widget build(BuildContext context) {
-    // One line for a screen reader instead of the chips and labels coming and going.
     return Semantics(
       label:
           'Demo: a photo is opened, the faces in it are outlined, and tapping one shows who it is',
@@ -246,7 +248,6 @@ class _TourFaceDemoState extends State<TourFaceDemo>
                             },
                             child: Image.asset(_photo, fit: BoxFit.contain),
                           ),
-                          // The hint: every face traced, with a sparkle.
                           CustomPaint(
                             painter: _Live(
                               repaint: _hint,
@@ -261,7 +262,6 @@ class _TourFaceDemoState extends State<TourFaceDemo>
                               },
                             ),
                           ),
-                          // The tapped head: dimmed photo and the turning outline.
                           CustomPaint(
                             painter: _Live(
                               repaint: Listenable.merge([_enter, _spin]),
@@ -278,7 +278,6 @@ class _TourFaceDemoState extends State<TourFaceDemo>
                               },
                             ),
                           ),
-                          // "Tap a face to see who", fading in and out with the hint.
                           AnimatedBuilder(
                             animation: _hint,
                             builder: (context, _) {
@@ -310,7 +309,6 @@ class _TourFaceDemoState extends State<TourFaceDemo>
                               );
                             },
                           ),
-                          // A fingertip landing on the face.
                           AnimatedBuilder(
                             animation: _tap,
                             builder: (context, _) {
@@ -342,7 +340,6 @@ class _TourFaceDemoState extends State<TourFaceDemo>
                               );
                             },
                           ),
-                          // The person's chip, under the head.
                           AnimatedBuilder(
                             animation: _enter,
                             builder: (context, _) {
@@ -377,7 +374,6 @@ class _TourFaceDemoState extends State<TourFaceDemo>
                                   size.height - chipHeight - 12,
                                 ),
                                 child: Align(
-                                  // Centred under the head, but never off the edge.
                                   alignment: Alignment(
                                     (head.center.dx / size.width * 2 - 1).clamp(
                                       -1.0,

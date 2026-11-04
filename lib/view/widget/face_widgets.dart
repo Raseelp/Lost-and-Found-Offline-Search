@@ -10,8 +10,8 @@ import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/widget/confirm_dialog.dart';
 
-/// A face picture, cut from its photo on demand (see FacesController.crop).
-/// Round for avatars, or a rounded square for the review grid.
+/// A face picture, cut from its photo on demand by [FacesController.crop].
+/// It is round for avatars, or a rounded square for the review grid.
 class FaceAvatar extends StatefulWidget {
   const FaceAvatar({
     super.key,
@@ -25,7 +25,7 @@ class FaceAvatar extends StatefulWidget {
   final double size;
   final bool square;
 
-  /// Corner radius of a square avatar (a small one by default).
+  /// Corner radius of a square avatar. Small by default.
   final double? radius;
 
   @override
@@ -35,7 +35,7 @@ class FaceAvatar extends StatefulWidget {
 class _FaceAvatarState extends State<FaceAvatar> {
   final FacesController _controller = Get.find<FacesController>();
   Uint8List? _bytes;
-  // The face this widget has asked the controller for and not yet been given.
+  /// The face this widget has asked the controller for and not yet been given.
   int? _holding;
 
   @override
@@ -64,6 +64,8 @@ class _FaceAvatarState extends State<FaceAvatar> {
     if (old.faceId != widget.faceId) _load();
   }
 
+  /// Shows the face from the cache, or asks for it. While it is being cut, the picture already showing (the person's
+  /// previous one) stays until this one is ready, so a change is a fade and never a blank tile.
   void _load() {
     _release();
     final id = widget.faceId;
@@ -73,8 +75,6 @@ class _FaceAvatarState extends State<FaceAvatar> {
       return;
     }
 
-    // Not made yet: the picture already showing (the person's previous one) stays
-    // until this one is ready, so a change is a fade, never a blank tile.
     _holding = id;
     _controller.crop(id).then((bytes) {
       if (_holding == id) _release();
@@ -82,6 +82,8 @@ class _FaceAvatarState extends State<FaceAvatar> {
     });
   }
 
+  /// The picture cross-fades when it is swapped. The switcher's stack fills the tile, so the pictures are not left
+  /// loose in it.
   @override
   Widget build(BuildContext context) {
     final dpr = MediaQuery.of(context).devicePixelRatio;
@@ -100,8 +102,6 @@ class _FaceAvatarState extends State<FaceAvatar> {
             cacheWidth: (widget.size * dpr).round(),
             gaplessPlayback: true,
           );
-    // Cross-fades when the picture is swapped (stack that fills the tile, so
-    // the pictures aren't left loose in it).
     final child = AnimatedSwitcher(
       duration: const Duration(milliseconds: 350),
       layoutBuilder: (current, previous) => Stack(
@@ -121,11 +121,12 @@ class _FaceAvatarState extends State<FaceAvatar> {
   }
 }
 
-/// One person in the people grid: a small tilted stack of their faces (the cover on top, two
-/// more of their clearest behind it), with the name and the number of photos under it. Each
-/// stack leans its own way (from the person's id, so it is always the same), fans out when the
-/// tile first shows, and straightens a little when pressed - the same idea as the stacks on the
-/// Collections tab.
+/// One person in the people grid: a small tilted stack of their faces, with the name and the number of photos under
+/// it.
+///
+/// The cover is on top and two of their clearest faces are behind it. Each stack leans its own way, taken from the
+/// person's id so it is always the same, fans out when the tile first shows, and straightens a little when pressed.
+/// It is the same idea as the stacks on the Collections tab.
 class PersonTile extends StatefulWidget {
   const PersonTile({
     super.key,
@@ -142,16 +143,17 @@ class PersonTile extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
 
-  /// For a person without a name: tapping the words under the faces asks for one (instead of opening the
-  /// person). Not while choosing.
+  /// For a person without a name. Tapping the words under the faces asks for a name instead of opening the person.
+  /// Not used while choosing.
   final VoidCallback? onAddName;
 
-  // While picking several people: every tile shows a tick circle; ticked ones
-  // get a ring around the stack.
+  /// True while several people are being picked. Every tile then shows a tick circle, and ticked ones get a ring
+  /// around the stack.
   final bool selecting;
   final bool selected;
 
-  /// Where the tile is in the grid: the stacks open one after another.
+  /// Where the tile is in the grid. The first screenful of stacks opens one after another, and a tile that scrolls in
+  /// later just opens.
   final int index;
 
   @override
@@ -171,7 +173,6 @@ class _PersonTileState extends State<PersonTile> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    // The first screenful opens one after another; a tile that scrolls in later just opens.
     final delay = Duration(milliseconds: widget.index < 8 ? widget.index * 45 : 0);
     Future<void>.delayed(delay, () {
       if (mounted) _fan.forward();
@@ -185,8 +186,8 @@ class _PersonTileState extends State<PersonTile> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  // One face in the stack: a white-bordered rounded square (blank, if the person has too few
-  // faces to fill it).
+  /// One face in the stack: a white-bordered rounded square. It is blank when the person has too few faces to fill
+  /// the stack.
   Widget _card(int? faceId, double size, {required bool top}) {
     final radius = size * 0.24;
     return DecoratedBox(
@@ -217,6 +218,11 @@ class _PersonTileState extends State<PersonTile> with TickerProviderStateMixin {
     );
   }
 
+  /// The lean of the top face is from -6.6 to 6.6 degrees and never flat. The two behind lean the other way and the
+  /// same way, a different amount each, and peek out to the sides. The faces are a little smaller than the room for
+  /// the stack, because they tilt, and the selection ring goes round all of it. The name and the count together are
+  /// what is tapped for a person without a name, while the faces still open the person. The target is the full width
+  /// and both lines tall without making the tile taller.
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -224,8 +230,6 @@ class _PersonTileState extends State<PersonTile> with TickerProviderStateMixin {
     final named = person.name != null;
     final selected = widget.selected;
 
-    // The lean of the top face is from -6.6 to 6.6 degrees, never flat; the two behind lean the
-    // other way and the same way, a different amount each, and peek out to the sides.
     final h = person.id * 2654435761 & 0x7fffffff;
     final steps = (h % 7) - 3;
     var lean = steps * 2.2;
@@ -238,7 +242,6 @@ class _PersonTileState extends State<PersonTile> with TickerProviderStateMixin {
     final label = Column(
       children: [
         if (addName)
-          // Looks like something to tap: the app's colour and a pencil.
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -282,8 +285,6 @@ class _PersonTileState extends State<PersonTile> with TickerProviderStateMixin {
           children: [
             LayoutBuilder(
               builder: (context, box) {
-                // The room for the stack: the faces tilt, so they are a little smaller than
-                // the space they sit in, and the ring (when chosen) goes round all of it.
                 final area = (box.maxWidth - 24).clamp(60.0, 112.0);
                 final card = area * 0.84;
                 final shifts = [Offset.zero, Offset(dir * area * 0.07, -area * 0.03), Offset(-dir * area * 0.06, -area * 0.04)];
@@ -315,7 +316,6 @@ class _PersonTileState extends State<PersonTile> with TickerProviderStateMixin {
                           child: Stack(
                             alignment: Alignment.center,
                             children: [
-                              // Furthest back first.
                               for (final layer in const [2, 1, 0])
                                 AnimatedBuilder(
                                   animation: Listenable.merge([_fan, _press]),
@@ -360,9 +360,6 @@ class _PersonTileState extends State<PersonTile> with TickerProviderStateMixin {
             ),
             const SizedBox(height: AppSpacing.sm),
             if (addName)
-              // The name and the count together are what is tapped (the faces still open the person), so the
-              // target is the full width and both lines tall without making the tile any taller. A tap that
-              // lands here by mistake only opens the name box, which closes without a change.
               Semantics(
                 button: true,
                 label: 'Add a name, ${person.photoCount == 1 ? '1 photo' : '${person.photoCount} photos'}',
@@ -382,9 +379,9 @@ class _PersonTileState extends State<PersonTile> with TickerProviderStateMixin {
   }
 }
 
-/// Where the face scan is, as a small pill that takes the place of the "Update people"
-/// button while it runs: a progress ring, what it is doing, and a pause button. Pausing puts
-/// the "Update people" button back (tapping it carries on).
+/// Where the face scan is, as a small pill that takes the place of the "Update people" button while it runs.
+/// It has a progress ring, what the scan is doing, and a pause button. Pausing puts the "Update people" button back,
+/// and tapping that carries on.
 class FaceSyncPill extends StatelessWidget {
   const FaceSyncPill({
     super.key,
@@ -456,8 +453,6 @@ class FaceSyncPill extends StatelessWidget {
     );
   }
 }
-
-// ---- sheets and dialogs ----
 
 class SheetRow extends StatelessWidget {
   const SheetRow({

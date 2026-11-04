@@ -12,17 +12,10 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Finds and recognises the people in videos.
- *
- * A video is treated as a set of sampled frames. Every frame is searched for faces (the
- * cheap step); faces in neighbouring frames are then linked into tracks (one person moving
- * through the video), and only the best one or two faces of each track are recognised (the
- * expensive step). The rest of a track's kept faces are simply given the same person. So a
- * ten-second clip costs a handful of recognitions, not hundreds.
- *
- * Faces in video are held to a higher standard than in photos (motion blur), the picture of
- * each kept face is saved when it is found (a video frame can't be cut out again cheaply),
- * and a video counts as ONE item however many frames a person is in.
+ * Finds and recognises the people in videos. Every sampled frame is searched for faces (the cheap step), faces in
+ * neighbouring frames are linked into tracks, and only the best one or two faces of each track are recognised (the
+ * expensive step). Motion blur makes the standard higher than for photos. Each kept face's picture is saved when it is
+ * found, because a video frame cannot be cut out again cheaply.
  */
 class VideoFaceScanner(private val context: Context, private val services: FaceServices) {
 
@@ -50,10 +43,10 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
     }
 
     /**
-     * Scans one video and stores what was found. Returns how many faces were kept,
-     * [FAILED] if the video could not be opened or read (it is tried again on a later run),
-     * or [STOPPED] if [shouldStop] said to give up.
-     * [gate] is asked before each frame (it waits while the indexing scan runs; false = stop).
+     * Scans one video and stores what was found. Returns how many faces were kept, [FAILED] if the video could not be
+     * opened or read (it is tried again on a later run), [STOPPED] if [shouldStop] said to give up, or [BUSY] if
+     * another scan of the same video is running. Only one runs at a time, so the background scan and the viewer never
+     * place the same faces twice. [gate] is asked before each frame and returns false to stop.
      */
     fun scan(
         video: IndexedVideo,
@@ -62,8 +55,6 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
         background: Boolean = true,
         relax: Int = -1,
     ): Int {
-        // One scan of a video at a time: the background scan and the viewer must never both
-        // place the same frames' faces (the second would find the first's people "taken").
         if (!active.add(video.hash)) return BUSY
         val progress = PhotoScanProgress().also { it.video = true }
         val key = "video:${video.uri}"
@@ -86,14 +77,13 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
     }
 
     /**
-     * How loose the search for faces is for one video (0 standard, 1 looser, 2 loosest). It is
-     * remembered per video - a video where the standard search found nothing keeps needing the
-     * looser one - and never changes the app-wide settings or any other video.
+     * How loose the search for faces is for one video (0 standard, 1 looser, 2 loosest). It is remembered per video,
+     * because a video where the standard search found nothing keeps needing the looser one, and it never changes the
+     * app-wide settings or any other video.
      */
     fun relaxOf(hash: Long): Int = (services.store.getMeta("video_relax_$hash")?.toIntOrNull() ?: 0).coerceIn(0, MAX_RELAX)
 
-    // What each search level accepts. Looser: smaller and blurrier faces, turned heads, less
-    // certain detections, bigger frames and more of them.
+    /** What each search level accepts. Looser means smaller and blurrier faces, turned heads, less certain detections, bigger frames and more of them. */
     private class Relax(val level: Int) {
         val minSize = when (level) { 0 -> FaceQuality.VIDEO_MIN_SIZE_PX; 1 -> 36; else -> 28 }
         val minScore = when (level) { 0 -> FaceQuality.VIDEO_MIN_SCORE; 1 -> 0.4f; else -> 0.3f }
@@ -106,6 +96,12 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
             sizePx >= minSize && score >= minScore && yaw <= maxYaw && sharpness >= minSharpness
     }
 
+    /**
+     * Scans the sampled frames of one video at search level [level]. A scan the user asked for looks harder: small
+     * faces in a group too, and at least the balanced number of frames. The exact frame at a time is read, not the
+     * nearest keyframe, so face positions line up with the picture the player shows. A video that opened but gave no
+     * frame may just have a busy decoder, so it is given up on only after [MAX_READ_FAILURES] failures.
+     */
     private fun scanInner(
         video: IndexedVideo,
         shouldStop: () -> Boolean,
@@ -117,8 +113,6 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
         val relax = Relax(level)
         progress.relax = level
         val reader = VideoFrameReader.open(context, Uri.parse(video.uri), relax.maxSide) ?: return FAILED
-        // Asked for by the user (the button): look harder - small faces in a group too, and
-        // at least the balanced number of frames. The background scan follows the settings.
         val tiled = !background || FaceSettings.thorough(context)
         val dets = ArrayList<Det>()
         val frameDims = HashMap<Int, Pair<Int, Int>>()
@@ -136,12 +130,9 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
                 progress.step = index + 1
                 progress.faces = dets.size
                 progress.stage = "detecting"
-                // The exact frame at that time (not the nearest keyframe): it is the picture the player
-                // shows there, so the face positions stored line up with it.
                 val frame = reader.frameAt(ts, exact = true) ?: continue
                 try {
                     decoded++
-                    // The same picture twice (a sparse-keyframe video): once is enough.
                     val signature = signatureOf(frame)
                     if (signature == lastSignature) continue
                     lastSignature = signature
@@ -161,10 +152,6 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
             reader.close()
         }
 
-        // No frame could be read from a video that opened. That may just be the decoder being
-        // busy (a video playing in the viewer takes it): try again later, and only give up on
-        // the video - as one with nothing to find - after the background scan has failed on it
-        // a few times.
         if (decoded == 0 && dets.isEmpty()) {
             if (!background) return FAILED
             val key = "video_fail_${video.hash}"
@@ -179,7 +166,6 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
 
         return try {
             finish(video, dets, frameDims, progress).also { kept ->
-                // This video keeps the level it was scanned at - its next scan starts there.
                 if (!background && kept >= 0) services.store.setMeta("video_relax_${video.hash}", level.toString())
             }
         } catch (e: Exception) {
@@ -190,8 +176,7 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
         }
     }
 
-    // ---------------- finding faces in a frame ----------------
-
+    /** Finds the faces of one frame and adds the good ones to [out]. Only the clearest [MAX_FACES_PER_FRAME] of a frame are kept, which is plenty in a crowd. */
     private fun findFaces(frame: Bitmap, index: Int, tsMs: Long, out: MutableList<Det>, tiled: Boolean, relax: Relax) {
         val engine = services.engine
         val found = engine.detect(frame, tiled, relax.detectScore)
@@ -215,7 +200,6 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
                 FaceQuality.rank(size, box.score, yaw), aligned.bitmap, crop,
             )
         }
-        // A crowd: the clearest few of a frame are plenty.
         kept.sortByDescending { it.rank }
         for ((i, d) in kept.withIndex()) {
             if (i < MAX_FACES_PER_FRAME) out += d else {
@@ -225,7 +209,7 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
         }
     }
 
-    // A cheap fingerprint of a frame (a few dozen pixels), to notice identical frames.
+    /** A cheap fingerprint of a frame (a few dozen pixels), to notice identical frames. */
     private fun signatureOf(frame: Bitmap): Long {
         var h = 1125899906842597L
         val w = frame.width
@@ -238,14 +222,17 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
         return h
     }
 
-    // ---------------- tracks, recognition, storing ----------------
-
+    /**
+     * Links the faces in [dets] into tracks, recognises the best faces of each track, then stores and places them.
+     * Extra faces of a track carry the fingerprint of its best face, because they were not recognised themselves.
+     * Progress counts tracks, not sightings. If nothing is kept, a second look must not wipe what an earlier scan
+     * found. A video scanned before has its old faces replaced, and people only in them are removed.
+     */
     private fun finish(video: IndexedVideo, dets: List<Det>, frameDims: Map<Int, Pair<Int, Int>>, progress: PhotoScanProgress): Int {
         val engine = services.engine
         val store = services.store
         val clusterer = services.clusterer
 
-        // Link each face to the closest similar one in the frame before: one person, one track.
         val byFrame = dets.groupBy { it.frame }
         var previous: List<Det> = emptyList()
         var nextTrack = 0
@@ -274,7 +261,6 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
             previous = current
         }
 
-        // Recognise each track's best face, and a second from another moment if there is one.
         val tracks = dets.groupBy { it.track }
         val toRecognise = ArrayList<Det>()
         val extras = HashMap<Int, List<Det>>()
@@ -284,7 +270,6 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
             toRecognise += first
             val second = sorted.drop(1).firstOrNull { abs(it.frame - first.frame) >= 2 } ?: sorted.getOrNull(1)
             if (second != null) toRecognise += second
-            // Up to two more, spread through the track, keep the person visible at other moments.
             val rest = sorted.filter { it !== first && it !== second }
             extras[track] = when {
                 rest.size <= 2 -> rest
@@ -293,7 +278,6 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
         }
         val limited = toRecognise.sortedByDescending { it.rank }.take(MAX_RECOGNISED_PER_VIDEO)
         progress.faces = dets.size
-        // How many faces (people moving through the video) are being identified - not the sightings.
         progress.total = tracks.size
         progress.stage = if (limited.isEmpty()) "placing" else "recognising"
         if (limited.isNotEmpty()) {
@@ -304,7 +288,6 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
             }
         }
 
-        // The extras carry the track's best face's fingerprint (they were not recognised themselves).
         val stored = ArrayList<Det>()
         for ((track, list) in tracks) {
             val best = list.filter { it.recognised }.maxByOrNull { it.rank } ?: continue
@@ -318,11 +301,9 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
             }
         }
         if (stored.isEmpty()) {
-            // Scanned before with faces: a second look that finds none must not wipe what the first found.
             val before = store.videoFaceCount(video.hash)
             if (before != null && before > 0) return before
             if (store.videoHasFrames(video.hash)) {
-                // Frames looked at by hand are kept: the video just counts as scanned now.
                 store.markVideoScanned(video.hash, video.uri)
             } else {
                 store.insertVideo(video.hash, video.uri, emptyList())
@@ -332,7 +313,6 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
 
         progress.stage = "placing"
 
-        // One stored frame per sampled moment that has a kept face.
         val frames = stored.groupBy { it.frame }.toSortedMap().map { (frame, list) ->
             val (w, h) = frameDims[frame] ?: (list[0].frameW to list[0].frameH)
             list to FaceStore.FrameFaces(
@@ -347,9 +327,7 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
                 },
             )
         }
-        // Scanned before (the user asked again): its old faces are replaced, so the in-memory
-        // bookkeeping (who is in which frame) must be rebuilt without them.
-        val hadBefore = store.videoHasFrames(video.hash) // an earlier scan, or frames looked at by hand
+        val hadBefore = store.videoHasFrames(video.hash)
         val ids = store.insertVideo(video.hash, video.uri, frames.map { it.second })
         if (hadBefore) clusterer.invalidate()
         frames.forEachIndexed { fi, (list, _) ->
@@ -359,7 +337,6 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
             }
         }
 
-        // Place them among the people: recognised faces first (best first), then the rest of each track.
         val trackPerson = HashMap<Int, Long>()
         for (d in stored.filter { it.recognised }.sortedByDescending { it.rank }) {
             val person = clusterer.assignVideoFace(
@@ -371,13 +348,11 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
             val person = trackPerson[d.track] ?: continue
             clusterer.attachTracked(d.faceId, store.frameHash(video.hash, d.tsMs), video.hash, person)
         }
-        // People who were only in the faces that were replaced are gone.
         if (hadBefore) store.pruneEmptyPeople()
         return stored.size
     }
 
-    // A long, crowded video could keep a thousand faces (each with a small picture): keep the
-    // clearest few hundred, so memory stays modest.
+    /** Keeps only the clearest [MAX_KEPT_FACES] of [dets]. A long, crowded video could keep a thousand faces, each with a small picture. */
     private fun trim(dets: MutableList<Det>) {
         if (dets.size <= MAX_KEPT_FACES) return
         dets.sortByDescending { it.rank }
@@ -395,6 +370,10 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
         }
     }
 
+    /**
+     * Picks the moments of a video to look at: 3 up to a cap, about one per step (see [FaceSettings.videoDensity]).
+     * A looser search also looks at more moments.
+     */
     private fun sampleTimes(durationMs: Long, atLeastBalanced: Boolean, level: Int): List<Long> {
         var mode = FaceSettings.videoDensity(context)
         if (atLeastBalanced && mode == FaceSettings.DENSITY_FAST) mode = FaceSettings.DENSITY_BALANCED
@@ -403,7 +382,6 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
             FaceSettings.DENSITY_THOROUGH -> 1000L to 60
             else -> 2000L to 30
         }
-        // A looser search also looks at more moments.
         if (level >= 1) {
             step = 1000L
             cap = if (level >= 2) 90 else 60
@@ -411,8 +389,6 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
         val count = (durationMs / step).toInt().coerceIn(3, cap)
         return (0 until count).map { i -> durationMs * (2 * i + 1) / (2 * count) }
     }
-
-    // ---------------- the video viewer: who is in this frame? ----------------
 
     /** A face in one frame and who it is (0..1 fractions of the upright frame). */
     class FrameIdentity(
@@ -423,7 +399,7 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
         val frameW: Int,
         val frameH: Int,
         val personId: Long,
-        // What is needed to store this face as part of the video (see [storeLooked]).
+        /** What is needed to store this face as part of the video, from here down (see [storeLooked]). */
         val landmarks: FloatArray,
         val score: Float,
         val sizePx: Int,
@@ -435,14 +411,14 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
     )
 
     /**
-     * Who is in the frame of [uri] at [positionMs], looked up on the spot. Nothing is stored
-     * and nobody's fingerprint changes: it only names faces that match people already known.
-     * Null if the frame could not be read.
+     * Who is in the frame of [uri] at [positionMs], looked up on the spot. Nothing is stored and nobody's fingerprint
+     * changes: it only names faces that match people already known. Null if the frame could not be read. It uses the
+     * search level this video needed (a video the standard search missed faces in). The clearest faces come first, so
+     * a crowd is recognised best-first.
      */
     fun identifyFrame(uri: String, positionMs: Long, progress: PhotoScanProgress): List<FrameIdentity>? {
         val engine = services.engine
         if (!engine.isReady()) return null
-        // The level this video needed (a video the standard search missed faces in).
         val hash = ScanEngineHolder.embeddingEngine(context).indexedVideos().firstOrNull { it.uri == uri }?.hash
         val relax = Relax(if (hash != null) relaxOf(hash) else 0)
         val reader = VideoFrameReader.open(context, Uri.parse(uri), relax.maxSide) ?: return null
@@ -463,7 +439,6 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
                 if (size < min(FaceQuality.MIN_EMBED_PX, relax.minSize)) continue
                 aligned += box to engine.align(frame, box.landmarks)
             }
-            // The clearest first, so a crowd is recognised best-first.
             aligned.sortByDescending { (box, a) ->
                 FaceQuality.rank(min(box.width, box.height).toInt(), box.score, FaceQuality.yaw(box.landmarks)) + a.sharpness * 0.001f
             }
@@ -501,11 +476,10 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
     }
 
     /**
-     * Keeps what a look at one frame found: the faces that matched people are stored as that
-     * frame of the video (with their pictures) and put with those people, exactly as a scan would -
-     * so a person found this way has a real position for that moment. They don't shape anyone
-     * (like the weaker faces of a scan). Skipped if a scan of the video is running (it stores
-     * its own), or that moment is already stored.
+     * Keeps what a look at one frame found. The faces that matched people are stored as that frame of the video, with
+     * their pictures, and put with those people exactly as a scan would, so a person found this way has a real
+     * position for that moment. They don't shape anyone (like the weaker faces of a scan). Skipped if a scan of the
+     * video is running, which stores its own, or that moment is already stored.
      */
     fun storeLooked(uri: String, positionMs: Long, identities: List<FrameIdentity>) {
         if (identities.isEmpty()) return
@@ -534,25 +508,25 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
         private const val TAG = "VideoFaceScanner"
         const val FAILED = -1
         const val STOPPED = -2
-        const val BUSY = -3 // someone else is scanning this video right now
+        /** Someone else is scanning this video at the moment. */
+        const val BUSY = -3
 
         /** The loosest search level (0 standard, 1 looser, 2 loosest). */
         const val MAX_RELAX = 2
 
-        // Videos being scanned right now (by the background scan or a viewer), by hash.
+        /** The hashes of the videos being scanned at the moment, by the background scan or a viewer. */
         private val active: MutableSet<Long> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
-        // Frames sampled: 3 to this many, about one per step (see FaceSettings.videoDensity).
         private const val MAX_FACES_PER_FRAME = 12
         private const val MAX_RECOGNISED_PER_VIDEO = 60
 
-        // Faces held in memory while one video is scanned.
+        /** Faces held in memory while one video is scanned. */
         private const val MAX_KEPT_FACES = 300
 
-        // Background runs that find no readable frame before a video is given up on.
+        /** Background runs that find no readable frame before a video is given up on. */
         private const val MAX_READ_FAILURES = 3
 
-        // Same person from one sampled frame to the next: how far it may move (in face sizes) and change size.
+        /** Same person from one sampled frame to the next: how far it may move (in face sizes) and change size. */
         private const val TRACK_DISTANCE = 1.0f
         private const val TRACK_RATIO_LOW = 0.55f
         private const val TRACK_RATIO_HIGH = 1.8f

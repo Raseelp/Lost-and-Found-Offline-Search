@@ -11,11 +11,10 @@ import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 
-// The Collections tab's mosaic: the same bento idea as the search results, with fewer, bigger
-// tiles (a collection is a place to go to, not a thumbnail). Three shapes on a four-cell grid:
-// a square (2x2 cells), a tall tile (4 rows x 2 columns) and a wide one (2 rows x 4 columns).
-// The biggest collections get the tall and wide tiles.
-
+/// The shapes of a tile in the Collections tab's mosaic. It is the same bento idea as the search results, with
+/// fewer, bigger tiles, because a collection is a place to go to, not a thumbnail. The grid is four cells across. A
+/// square is 2 by 2 cells, a tall tile is 4 rows by 2 columns and a wide one is 2 rows by 4 columns. The biggest
+/// collections get the tall and wide tiles.
 enum BentoShape { square, tall, wide }
 
 QuiltedGridTile bentoTile(BentoShape shape) {
@@ -31,9 +30,8 @@ QuiltedGridTile bentoTile(BentoShape shape) {
 
 int _area(BentoShape shape) => shape == BentoShape.square ? 4 : 8;
 
-// Each block fills whole rows on its own (the grid places tiles one after another, never
-// going back), so any run of blocks leaves no gaps. B is A mirrored: its tall tile is on the
-// right.
+/// Each block fills whole rows on its own, because the grid places tiles one after another and never goes back. So
+/// any run of blocks leaves no gaps. [_blockB] is this block mirrored, with its tall tile on the right.
 const List<BentoShape> _blockA = [
   BentoShape.tall,
   BentoShape.square,
@@ -123,9 +121,8 @@ SliverGridDelegate bentoDelegate(List<BentoShape> shapes) {
   );
 }
 
-// The quilted grid always makes square cells. This lays the tiles out the same way and then
-// stretches every row by [tallness], keeping the gaps as they are, so tiles come out a bit
-// taller than wide and everything still lines up.
+/// The quilted grid always makes square cells. This lays the tiles out the same way and then stretches every row by
+/// [tallness], keeping the gaps as they are, so tiles come out a bit taller than wide and everything still lines up.
 class _TallerQuiltDelegate extends SliverGridDelegate {
   _TallerQuiltDelegate(
     this.inner, {
@@ -171,8 +168,7 @@ class _TallerQuiltLayout extends SliverGridLayout {
   final double newStride;
   final double spacing;
 
-  // Rows are whole numbers of strides, so a position is worked out in rows and put back in the
-  // taller scale.
+  /// Moves a position to the taller scale. Rows are whole numbers of strides, so it is worked out in rows.
   double _scale(double value) => (((value + spacing) / stride) * newStride) - spacing;
 
   @override
@@ -199,11 +195,10 @@ class _TallerQuiltLayout extends SliverGridLayout {
       inner.getMaxChildIndexForScrollOffset((scrollOffset / newStride) * stride);
 }
 
-// ------------------------------------------------------------------------------- the hero
-
-/// One featured collection at the top of the tab, a different one every few seconds (and a
-/// different set each day, with the ones that just got new photos first). Swipe to move on
-/// yourself; it holds still while a finger is on it. The cover drifts slowly while it is up.
+/// One featured collection at the top of the tab, a different one every few seconds and a different set each day, with
+/// the ones that just got photos first. Swipe to move on yourself. It holds still while a finger is on it, and the
+/// cover drifts slowly while it is up. Its ticker stops by itself while the tab is not on screen, because the tabs are
+/// kept alive but told to stop their tickers.
 class CollectionsHero extends StatefulWidget {
   const CollectionsHero({
     super.key,
@@ -223,12 +218,12 @@ class CollectionsHero extends StatefulWidget {
 }
 
 class _CollectionsHeroState extends State<CollectionsHero> with SingleTickerProviderStateMixin {
-  // How long one collection stays up before the next slides in.
+  /// Seconds that one collection stays up before the next slides in.
   static const double _pageSeconds = 6.5;
 
   final PageController _pages = PageController();
   final ValueNotifier<double> _drift = ValueNotifier(0);
-  // The page showing (the pages that are built while sliding in read it too).
+  /// The page showing. The pages that are built while sliding in read it too.
   final ValueNotifier<int> _showing = ValueNotifier(0);
   late final Ticker _ticker = createTicker(_tick);
   Duration _last = Duration.zero;
@@ -240,8 +235,6 @@ class _CollectionsHeroState extends State<CollectionsHero> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    // A ticker stops by itself while this tab is not on screen (the tabs are kept alive but
-    // told to stop their tickers), so nothing runs for a tab nobody is looking at.
     _ticker.start();
   }
 
@@ -443,7 +436,7 @@ class _HeroPage extends StatelessWidget {
   }
 }
 
-// One small pill per featured collection; the one showing is wider and solid.
+/// One small pill per featured collection. The one showing is wider and solid.
 class _HeroDots extends StatelessWidget {
   const _HeroDots({required this.pages, required this.count});
 

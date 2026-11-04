@@ -54,7 +54,7 @@ the phone. Nothing is uploaded.
 - Watch silent video previews right in the grids.
 
 Details: [People](docs/people.md) · [Export](docs/export.md) · [Memories](docs/memories.md) ·
-[Stories](docs/stories.md) · [Changelog](CHANGELOG.md)
+[Stories](docs/stories.md) · [Design notes](docs/design-notes.md) · [Comments](docs/comments.md) · [Changelog](CHANGELOG.md)
 
 ## How it works
 

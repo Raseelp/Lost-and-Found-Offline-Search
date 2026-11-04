@@ -9,22 +9,10 @@ import java.io.File
 enum class FaceModelKind { DETECTOR, EMBEDDER }
 
 /**
- * Everything the pipeline needs to know about one face model - the code never
- * hard-codes a particular network, it reads this. A model is just an `.onnx`
- * file; if it needs settings other than the defaults, a `<name>.json` next to
- * it overrides them:
- *
- *   { "kind": "embedder", "inputSize": 112, "mean": 127.5, "std": 127.5,
- *     "rgb": true, "name": "AdaFace R100" }
- *
- * Defaults (no JSON): a file whose name contains "det", "scrfd", "retina" or
- * "yunet" is a detector (SCRFD family, 640 input, (v-127.5)/128); anything else
- * is an ArcFace-style embedder (112 input, (v-127.5)/127.5, RGB).
- *
- *  - kind      "detector" or "embedder"
- *  - inputSize side of the square input the network expects
- *  - mean/std  each channel is (pixel - mean) / std, pixel in 0..255
- *  - rgb       false for models that want BGR channel order
+ * Everything the pipeline needs to know about one face model, so the code never hard-codes a network. A model is an
+ * `.onnx` file, and a `<name>.json` next to it overrides the defaults with "kind", "inputSize", "mean", "std", "rgb"
+ * and "name". Without one, a file name containing "det", "scrfd", "retina" or "yunet" is a detector (SCRFD defaults)
+ * and anything else is an ArcFace style embedder.
  */
 data class FaceModelSpec(
     val id: String,
@@ -36,27 +24,23 @@ data class FaceModelSpec(
     val rgb: Boolean,
 )
 
-// Friendly names for the models the app knows by id (others show their file name, or the
-// name from their JSON file).
+/** Friendly names for the models the app knows by id. Others show their file name, or the name from their JSON file. */
 private val KNOWN_NAMES = mapOf("w600k_mbf" to "MobileFaceNet")
 
-/** A model file found somewhere on the device, with its resolved settings. */
+/** A model file found somewhere on the device, with its resolved settings. A model is either [file] on disk, dropped in or downloaded, or bundled in the APK as [assetName]. */
 data class LocatedFaceModel(
     val spec: FaceModelSpec,
-    val file: File?,       // on disk (dropped in / downloaded), or
-    val assetName: String?, // bundled in the APK
+    val file: File?,
+    val assetName: String?,
     val sizeBytes: Long,
 ) {
     val source get() = if (file != null) "device" else "bundled"
 }
 
 /**
- * Finds face models and opens them. Nothing else in the face code knows where a
- * model lives, so swapping one is: put a new `.onnx` in the models folder (see
- * [modelsDir]) and choose it - no rebuild.
- *
- * Search order for the same id: the app's external files folder (reachable over
- * adb / a file manager), then its private files folder, then the APK's assets.
+ * Finds face models and opens them. Nothing else in the face code knows where a model lives, so swapping one means
+ * putting an `.onnx` in [modelsDir] and choosing it, with no rebuild. For the same id the app's external files folder
+ * (reachable over adb or a file manager) is searched first, then its private files folder, then the APK's assets.
  */
 class FaceModelStore(private val context: Context) {
 
@@ -85,15 +69,17 @@ class FaceModelStore(private val context: Context) {
 
     private fun prefKey(kind: FaceModelKind) = "selected_${kind.name.lowercase()}"
 
-    /** Opens a session for [model] with the settings tuned for this phone; the caller closes it. */
+    /** Opens a session for [model] with the settings tuned for this phone. The caller closes it. */
     fun openSession(model: LocatedFaceModel): OrtSession =
         openSession(model, FaceTuner.configFor(context, model.spec))
 
-    /** Opens a session with explicit settings (used by the tuner's benchmark). */
+    /**
+     * Opens a session with explicit settings, used by the tuner's benchmark. The session gets one thread because
+     * XNNPACK has a thread pool of its own and a second pool would compete for the cores. The model is loaded from a
+     * path, not a byte array, because a 170 MB model would sit in memory twice while loading.
+     */
     fun openSession(model: LocatedFaceModel, config: RunConfig): OrtSession {
         val options = OrtSession.SessionOptions().apply {
-            // XNNPACK has a thread pool of its own (sized below); a second one here would make the two compete for
-            // the cores, which ONNX Runtime warns about.
             setIntraOpNumThreads(if (config.provider == "xnnpack") 1 else config.threads)
             setInterOpNumThreads(1)
             config.affinity?.let { addConfigEntry("session.intra_op_thread_affinities", it) }
@@ -103,15 +89,14 @@ class FaceModelStore(private val context: Context) {
             }
         }
         val file = model.file ?: copyAssetToCache(model.assetName!!)
-        // From a path, not a byte array: a 170MB model would otherwise sit in
-        // memory twice while loading.
         return env.createSession(file.absolutePath, options)
     }
 
-    // ONNX Runtime opens files by path, so a bundled model is unpacked once.
-    // Re-copied after an app update (the bundled file may have changed). The
-    // asset's size can't be asked for directly: assets are compressed in the
-    // APK, and openFd() refuses those.
+    /**
+     * Unpacks a bundled model to the cache, because ONNX Runtime opens files by path. It is copied again after an app
+     * update, since the bundled file may have changed. The asset's size is found by reading it through, because assets
+     * are compressed in the APK and openFd() refuses those.
+     */
     private fun copyAssetToCache(assetName: String): File {
         val target = File(privateDir, ".bundled_$assetName")
         val stamp = File(privateDir, ".bundled_$assetName.stamp")
@@ -131,7 +116,7 @@ class FaceModelStore(private val context: Context) {
         "0"
     }
 
-    // Counted once per asset by reading it through (a few MB at most).
+    /** The size of each asset, counted once by reading it through. It is a few MB at most. */
     private val assetSizes = HashMap<String, Long>()
 
     private fun assetSize(name: String): Long = assetSizes.getOrPut(name) {
@@ -154,9 +139,7 @@ class FaceModelStore(private val context: Context) {
     private fun all(): List<LocatedFaceModel> {
         val found = LinkedHashMap<String, LocatedFaceModel>()
 
-        // Earlier sources win for the same id.
         for (dir in listOf(modelsDir, privateDir)) {
-            // Hidden files (".bundled_*", the unpacked copies of bundled models) are not models.
             dir.listFiles { f -> f.isFile && !f.name.startsWith(".") && f.extension.equals("onnx", true) }
                 ?.sortedBy { it.name }
                 ?.forEach { file ->

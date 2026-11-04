@@ -36,7 +36,6 @@ class SettingsScreen extends StatelessWidget {
         final hasEmbeddings =
             controller.totalEmbeddings > 0 ||
             controller.allIndexedFoldersList.isNotEmpty;
-        // What a delete would free: the downloaded (search) models.
         final deletableBytes = controller.searchModelsVerified
             ? controller.searchModelBytes
             : 0;
@@ -254,9 +253,6 @@ class SettingsScreen extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              // The expert controls are switched off (their defaults give the
-                              // best results). To bring them back, add:
-                              //   ..._expertFaceRows(context, faces, st, null)
                             ],
                           );
                         },
@@ -337,7 +333,6 @@ class SettingsScreen extends StatelessWidget {
                                 confirmLabel: 'Delete',
                                 onConfirm: () {
                                   controller.deleteModels().then((_) {
-                                    // Back to the root: the app gate now shows the setup screen.
                                     if (context.mounted) {
                                       Navigator.of(
                                         context,
@@ -347,7 +342,6 @@ class SettingsScreen extends StatelessWidget {
                                 },
                               ),
                             ),
-                          // Greyed out once there is nothing left to clear.
                           _DangerRow(
                             title: 'Clear all embeddings',
                             subtitle: hasEmbeddings
@@ -505,7 +499,6 @@ class _SettingsRow extends StatelessWidget {
         vertical: AppSpacing.md,
       ),
       child: Row(
-        // Long text wraps to more lines instead of being cut off.
         children: [
           Icon(
             icon,
@@ -591,22 +584,12 @@ class _DangerRow extends StatelessWidget {
   }
 }
 
-// Only ever checked once at startup before - this screen is reached by a
-// normal push now (not kept alive under an IndexedStack), so a fresh check
-// in initState is enough on its own; the lifecycle observer still catches
-// granting/revoking from system Settings while this screen is open.
-// Every permission the app ever asks for should have a row here - this is
-// meant to be the one place a user (or us, reviewing it) can see the
-// app's complete permission footprint at a glance. Whenever a new one is
-// added anywhere else in the app, add its row here too:
-//  - Photos/Videos: storage access, requested in NativeController.
-//    requestMediaPermission - required, the app can't scan without it.
-//  - Notifications: "keep this going in the background" - requested by
-//    NativeController.requestBackgroundScanPermission (see its doc),
-//    tracked in backgroundNotificationsGranted, refreshed automatically
-//    on every app resume by NativeController's own WidgetsBindingObserver -
-//    optional, scanning works without it, it just won't show a progress
-//    notification.
+/// Every permission the app asks for, one row each. It is the one place that shows the app's whole permission
+/// footprint, so a permission added anywhere else gets its row here too. Photos and videos are required for scanning
+/// ([NativeController.requestMediaPermission]). Notifications are optional: they keep a scan going in the background
+/// and show its progress, and [NativeController] refreshes `backgroundNotificationsGranted` on every resume. The rows
+/// always show, because hiding the card once everything is granted would leave the Permissions label above nothing.
+/// The check runs when the card opens and on resume, to catch a change made in system Settings.
 class _PermissionsCard extends StatefulWidget {
   const _PermissionsCard({required this.controller});
 
@@ -653,9 +636,6 @@ class _PermissionsCardState extends State<_PermissionsCard>
   Widget build(BuildContext context) {
     final controller = widget.controller;
 
-    // Always shows every status row, granted or not - hiding the whole
-    // card once granted left the "Permissions" label sitting above
-    // nothing, which reads as broken rather than as good news.
     final needsStorageGrant =
         _photosGranted == false || _videosGranted == false;
     final needsNotificationGrant = !controller.backgroundNotificationsGranted;
@@ -859,8 +839,6 @@ class _LicenseRow extends StatelessWidget {
   }
 }
 
-// A settings row that does something when tapped - dimmed and inert when
-// [onTap] is null.
 Future<void> _copyLogs(BuildContext context) async {
   String message;
   try {
@@ -877,6 +855,7 @@ Future<void> _copyLogs(BuildContext context) async {
   AppToast.show(message);
 }
 
+/// A settings row that does something when tapped.
 class _TapRow extends StatelessWidget {
   const _TapRow({
     required this.icon,
@@ -902,14 +881,10 @@ class _TapRow extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------------------------
-// The face controls that are not shown (their defaults are the best settings). They moved here
-// from the old Faces options sheet. Everything they call still works: FacesController
-// .setStrictness / setRefine / setThorough / retune / regroup / models / selectModel. To bring any
-// back, add these rows to the People section above, e.g.
-//   ..._expertFaceRows(context, faces, st, models)
-// ---------------------------------------------------------------------------------------------
-
+/// The face controls that are not shown, because their defaults are the best settings. To bring them back, add
+/// `..._expertFaceRows(context, faces, st, models)` to the People section. They call [FacesController] members such
+/// as `setStrictness`, `setRefine`, `setThorough`, `retune`, `regroup` and `selectModel`. The grouping strictness
+/// applies when "Regroup now" runs.
 // ignore: unused_element
 List<Widget> _expertFaceRows(
   BuildContext context,
@@ -944,7 +919,6 @@ List<Widget> _expertFaceRows(
   }
 
   return [
-    // Sorts the automatic groups again from every face known now (names and hand edits are kept).
     SheetRow(
       icon: Icons.auto_fix_high_rounded,
       label: 'Regroup now',
@@ -952,7 +926,6 @@ List<Widget> _expertFaceRows(
           'Sorts the faces into people again. Names and your edits are kept',
       onTap: faces.regroup,
     ),
-    // Models (the detector and the recognition model).
     Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.base,
@@ -980,7 +953,6 @@ List<Widget> _expertFaceRows(
         ],
       ),
     ),
-    // How strict the grouping is (applied by "Regroup now").
     Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.base,
@@ -1041,10 +1013,8 @@ List<Widget> _expertFaceRows(
   ];
 }
 
-// ---------------------------------------------------------------------------------------------
-// The daily memory: one notification a day at most, only when there is something good.
-// ---------------------------------------------------------------------------------------------
-
+/// The settings for the daily memory notification. The reminder to finish indexing shows as on only when the phone
+/// lets the app show notifications at all, because it could not come otherwise.
 class _MemoriesSection extends StatelessWidget {
   const _MemoriesSection();
 
@@ -1108,7 +1078,6 @@ class _MemoriesSection extends StatelessWidget {
                     title: 'Finish indexing reminder',
                     subtitle: 'A note, up to three, if some of your photos and videos are not indexed yet. It shows what you are missing.',
                     trailing: Switch(
-                      // On only if the phone lets the app show notes at all (else it could not come).
                       value: native.indexNudgeEnabled && native.backgroundNotificationsGranted,
                       onChanged: (on) async {
                         await native.setIndexNudgeEnabled(on);

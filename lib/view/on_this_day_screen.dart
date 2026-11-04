@@ -11,9 +11,9 @@ import 'package:lost_and_found/view/widget/collection_widgets.dart';
 import 'package:lost_and_found/view/widget/memory_widgets.dart';
 import 'package:lost_and_found/view/widget/timeline_preview.dart';
 
-/// "On this day": today's date in the past years of the library - a section for each year, with the
-/// photos that stand for it, and a card for every first photo together that has its anniversary today.
-/// [focusYear] scrolls to that year (a tapped notification is about one).
+/// "On this day": today's date in the past years of the library. It has a section for each year, with the photos that
+/// stand for it, and a card for every first photo together that has its anniversary today. [focusYear] scrolls to
+/// that year, since a tapped notification is about one.
 class OnThisDayScreen extends StatefulWidget {
   const OnThisDayScreen({super.key, this.focusYear});
 
@@ -23,6 +23,8 @@ class OnThisDayScreen extends StatefulWidget {
   State<OnThisDayScreen> createState() => _OnThisDayScreenState();
 }
 
+/// The memories are loaded again when the screen opens, because a notification can open it before the card has
+/// loaded. The collection tools that apply are the zip export and Hide.
 class _OnThisDayScreenState extends State<OnThisDayScreen> {
   final PreviewLoader _loader = PreviewLoader();
   final ScrollController _scroll = ScrollController();
@@ -32,7 +34,6 @@ class _OnThisDayScreenState extends State<OnThisDayScreen> {
   @override
   void initState() {
     super.initState();
-    // Fresh when opened (a notification can open it before the card has loaded).
     Get.find<MemoriesController>().loadToday();
   }
 
@@ -44,7 +45,7 @@ class _OnThisDayScreenState extends State<OnThisDayScreen> {
 
   GlobalKey _keyFor(int year) => _keys.putIfAbsent(year, GlobalKey.new);
 
-  // A tapped notification is about one year: scrolled to once it is on screen.
+  /// Scrolls to [OnThisDayScreen.focusYear] once it is on screen.
   void _focusIfNeeded() {
     final year = widget.focusYear;
     if (_focused || year == null) return;
@@ -52,8 +53,8 @@ class _OnThisDayScreenState extends State<OnThisDayScreen> {
     _scrollToYear(year, 12);
   }
 
-  // The list builds only what is near the screen, so a year further down has no widget yet: the list is
-  // moved on a screenful at a time until it has.
+  /// The list builds only what is near the screen, so a year further down has no widget yet. The list is moved on a
+  /// screenful at a time until it has.
   void _scrollToYear(int year, int tries) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -108,7 +109,6 @@ class _OnThisDayScreenState extends State<OnThisDayScreen> {
                         onPressed: () => Navigator.of(context).maybePop(),
                       ),
                       const Spacer(),
-                      // The tools of a collection that apply: the zip export, and Hide.
                       if (!today.isEmpty)
                         IconButton(
                           tooltip: 'More',

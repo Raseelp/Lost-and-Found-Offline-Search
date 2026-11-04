@@ -12,13 +12,10 @@ const double _minScale = 1.0;
 const double _maxScale = 5.0;
 const double _doubleTapScale = 3.0;
 
-// Pinch-to-zoom (InteractiveViewer's own gesture handling) plus double-tap-
-// to-zoom toward wherever was tapped (InteractiveViewer doesn't provide
-// that on its own - built here the same way Flutter's own cookbook example
-// does it, animating the transform matrix rather than snapping). A zoom-%
-// pill fades in while zoomed and fades back out shortly after the gesture
-// settles, and a light haptic tick marks crossing back to 1x or hitting the
-// zoom ceiling.
+/// Pinch-to-zoom, using the [InteractiveViewer]'s own gesture handling, plus double-tap-to-zoom toward wherever was
+/// tapped, which [InteractiveViewer] does not provide on its own. The double tap animates the transform matrix
+/// instead of snapping. A zoom percentage pill fades in while zoomed and fades out shortly after the gesture
+/// settles, and a light haptic tick marks crossing back to 1x or hitting the zoom ceiling.
 class ZoomableImage extends StatefulWidget {
   const ZoomableImage({
     super.key,
@@ -43,7 +40,7 @@ class ZoomableImage extends StatefulWidget {
   State<ZoomableImage> createState() => ZoomableImageState();
 }
 
-/// Where a head is on screen right now (centre in global coordinates, and its radius).
+/// Where a head is on screen (centre in global coordinates, and its radius).
 class HeadOnScreen {
   const HeadOnScreen(this.center, this.radius);
 
@@ -51,6 +48,9 @@ class HeadOnScreen {
   final double radius;
 }
 
+/// A tap on empty photo first puts away a picked face, then behaves as usual. When the people are looked up again,
+/// the same face stays picked with fresh details. A photo already in memory shows at once. Otherwise it fades in when
+/// its first frame is ready, and nothing shows until then, so the underlay stays visible.
 class ZoomableImageState extends State<ZoomableImage> with SingleTickerProviderStateMixin {
   final TransformationController _transformController = TransformationController();
   late final AnimationController _animController;
@@ -60,15 +60,14 @@ class ZoomableImageState extends State<ZoomableImage> with SingleTickerProviderS
   bool _showZoomPill = false;
   Timer? _hidePillTimer;
 
-  // When the photo is swapped for a sharper one (a thumbnail first, the real
-  // thing a moment later), the old one stays underneath while the new one is
-  // decoded and then fades in over it - so there is never a blank frame or a
-  // jump between the two.
+  /// The previous photo, kept under the incoming one while that is decoded and fades in, so there is never a blank
+  /// frame or a jump between a thumbnail and the sharp version.
   Uint8List? _underlay;
 
-  // The face currently picked (ring + name chip showing), if any.
+  /// The face currently picked (ring and name chip showing), if any.
   PhotoFace? _selectedFace;
-  RingEntry? _ringEntry; // set when a face was picked from outside and a flight lands on it
+  /// Set when a face was picked from outside and a flight lands on it.
+  RingEntry? _ringEntry;
 
   /// Brings the whole picture back into view (so every head is on screen); done when it has.
   Future<void> resetZoom() async {
@@ -80,7 +79,7 @@ class ZoomableImageState extends State<ZoomableImage> with SingleTickerProviderS
     await _animController.forward(from: 0).orCancel.then((_) {}, onError: (_) {});
   }
 
-  /// Where [face]'s head is on screen now, following the zoom and pan.
+  /// Where [face]'s head is on screen, following the zoom and pan.
   HeadOnScreen? headOnScreen(PhotoFace face) {
     final box = context.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return null;
@@ -104,7 +103,6 @@ class ZoomableImageState extends State<ZoomableImage> with SingleTickerProviderS
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.imageBytes, widget.imageBytes)) _underlay = oldWidget.imageBytes;
 
-    // The people were looked up again: keep the same face picked, now with fresh details.
     if (!identical(oldWidget.faces, widget.faces) && _selectedFace != null) {
       final id = _selectedFace!.faceId;
       _selectedFace = widget.faces.where((f) => f.faceId == id).firstOrNull;
@@ -180,7 +178,6 @@ class ZoomableImageState extends State<ZoomableImage> with SingleTickerProviderS
       children: [
         Positioned.fill(
           child: GestureDetector(
-            // A tap on empty photo first puts away a picked face, then behaves as usual.
             onTap: () {
               if (_selectedFace != null) {
                 setState(() {
@@ -192,9 +189,7 @@ class ZoomableImageState extends State<ZoomableImage> with SingleTickerProviderS
               }
             },
             onDoubleTapDown: _handleDoubleTapDown,
-            // Required alongside onDoubleTapDown for Flutter to actually
-            // recognize the double tap - the position comes from the
-            // onDoubleTapDown callback above, this one's body is unused.
+            // Flutter only recognises the double tap with this set. The position comes from onDoubleTapDown.
             onDoubleTap: () {},
             child: InteractiveViewer(
               transformationController: _transformController,
@@ -210,9 +205,6 @@ class ZoomableImageState extends State<ZoomableImage> with SingleTickerProviderS
                       widget.imageBytes,
                       fit: BoxFit.contain,
                       gaplessPlayback: true,
-                      // Already in memory: show at once. Otherwise fade in when the
-                      // first frame is ready (nothing shows until then, so the
-                      // underlay stays visible).
                       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
                         if (wasSynchronouslyLoaded || _underlay == null) return child;
                         return AnimatedOpacity(

@@ -4,7 +4,7 @@ import 'package:flutter/painting.dart';
 ///
 /// Named by hue and lightness (a higher number is darker; an `A` and a number is how opaque it is).
 /// Everything here belongs to a picture that is drawn in code, so it does not follow the theme in
-/// AppColors - which is for the screens themselves.
+/// AppColors, which is for the screens themselves.
 class ViewerPalette {
   ViewerPalette._();
 

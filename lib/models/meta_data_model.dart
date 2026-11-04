@@ -11,10 +11,7 @@ class ImageMetadata {
   final String cameraModel;
   final double? latitude;
   final double? longitude;
-  // Video only - 0 for an image. Kept on this same model rather than a
-  // separate VideoMetadata type since everything else here (name/size/
-  // mime/resolution) already applies equally to both; the sheet just shows
-  // this row only when it's non-zero.
+  /// The length of a video in milliseconds, and 0 for an image.
   final int durationMs;
 
   const ImageMetadata({

@@ -2,9 +2,9 @@ import 'package:flutter/painting.dart';
 
 /// The colours the People timeline gives each person, so every row of it has its own.
 ///
-/// Named by hue and lightness (a higher number is darker; an `A` and a number is how opaque it is).
-/// Everything here belongs to a picture that is drawn in code, so it does not follow the theme in
-/// AppColors - which is for the screens themselves.
+/// Named by hue and lightness (a higher number is darker; an `A` and a number is how opaque it is). Everything here
+/// belongs to a picture that is drawn in code, so it does not follow the theme in AppColors, which is for the
+/// screens themselves.
 class PeoplePalette {
   PeoplePalette._();
 

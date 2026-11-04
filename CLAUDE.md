@@ -12,3 +12,7 @@
 - When a change makes something in README.md or `docs/` wrong, fix it in the same commit.
 - Style: plain short sentences, no marketing words, no emoji, no em dashes, no bullets that start
   with a bolded phrase.
+
+## Comments
+
+- Follow `docs/comments.md` for every comment you write or touch, in Dart, Kotlin and tests.

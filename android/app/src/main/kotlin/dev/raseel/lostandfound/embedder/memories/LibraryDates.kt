@@ -9,22 +9,10 @@ import dev.raseel.lostandfound.embedder.faces.FaceStore
 import dev.raseel.lostandfound.embedder.faces.MediaDates
 
 /**
- * When every photo and video in the search index was taken - the catalog behind "on this day".
- *
- * Built to stay cheap however big the library is:
- *  - **Following the index, not re-reading it.** The embedding file only ever grows (until a folder is
- *    removed), so [sync] reads just what was added since last time, from a saved byte position, and
- *    never loads an embedding. A rewrite of the file (a folder removed, everything cleared) is noticed
- *    by its generation number and the catalog is then checked against the whole file once, keeping the
- *    dates already found.
- *  - **Looking dates up a slice at a time.** [resolve] works through the files without a date for a
- *    time budget, so it can be called again and again, and takes the dates the people timeline already
- *    found before reading anything itself.
- *  - **One range scan per past year.** A day is found with the date index, so the cost of "this day in
- *    every year" depends on the years there are, not on the photos there are.
- * Only dates that can be trusted count for a memory (the gallery's taken date, the picture's own, a
- * date in its name): a file's change date is when it was copied, not when it was taken. Screenshots
- * are left out.
+ * When every photo and video in the search index was taken, the catalog behind on this day. [sync] follows the index
+ * and reads only what was added, because the embedding file only grows until a folder is removed. [resolve] looks
+ * dates up a slice at a time. Only trusted dates count, because a file's change date is when it was copied.
+ * Screenshots are left out.
  */
 class LibraryDates private constructor(context: Context) : SQLiteOpenHelper(context.applicationContext, "library_dates.db", null, 1) {
 
@@ -41,7 +29,7 @@ class LibraryDates private constructor(context: Context) : SQLiteOpenHelper(cont
                 junk INTEGER NOT NULL DEFAULT 0
             )"""
         )
-        // Only what can be used for a memory is in the date index, and only what is still to look up in the other.
+        /** Only what can be used for a memory is in the date index, and only what is still to look up in the other. */
         db.execSQL("CREATE INDEX days_taken ON days(taken_ms) WHERE $RELIABLE")
         db.execSQL("CREATE INDEX days_pending ON days(src) WHERE src = -1")
         db.execSQL("CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)")
@@ -57,8 +45,10 @@ class LibraryDates private constructor(context: Context) : SQLiteOpenHelper(cont
     }
 
     /**
-     * Brings the catalog up to date with the search index. Cheap when nothing was added. Returns how
-     * many files are in the catalog afterwards.
+     * Brings the catalog up to date with the search index. Cheap when nothing was added. Returns how many files are in
+     * the catalog afterwards. A record that does not start where expected means the file changed under us without a
+     * generation change, so everything is looked at again next time. Files that left the index are removed and the
+     * dates of those that stay are kept.
      */
     @Synchronized
     fun sync(engine: EmbeddingEngine): Int {
@@ -90,13 +80,11 @@ class LibraryDates private constructor(context: Context) : SQLiteOpenHelper(cont
                 }
             }
             if (end < 0) {
-                // Not where a record starts: the file changed under us without a new generation. Everything is looked at again next time.
                 setMeta(db, "generation", "-1")
                 db.setTransactionSuccessful()
                 return count(db)
             }
             if (full) {
-                // Files no longer in the index go; the dates of those that stay are kept.
                 db.execSQL("DELETE FROM days WHERE key NOT IN (SELECT key FROM temp.seen)")
                 db.execSQL("DROP TABLE temp.seen")
             }
@@ -177,8 +165,6 @@ class LibraryDates private constructor(context: Context) : SQLiteOpenHelper(cont
         }
     }
 
-    // ---- what the memories ask ----
-
     /** The first and last time a trustworthy date was found, or null when there are none. */
     fun bounds(): Pair<Long, Long>? {
         fun edge(order: String): Long? =
@@ -196,7 +182,7 @@ class LibraryDates private constructor(context: Context) : SQLiteOpenHelper(cont
     @Synchronized
     fun datesFor(uris: List<String>): List<DateOf> {
         val out = ArrayList<DateOf>(uris.size)
-        // Looked up by file, so the file has its own index (made once, here: the catalog only had one by date).
+        /** Looked up by file, so the file has its own index (made once, here: the catalog only had one by date). */
         if (!uriIndexed) {
             writableDatabase.execSQL("CREATE INDEX IF NOT EXISTS days_uri ON days(uri)")
             uriIndexed = true

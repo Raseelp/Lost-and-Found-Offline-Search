@@ -3,9 +3,7 @@ import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 
-// Shared by the image and video metadata sheets - same grouped-card grammar
-// as Settings: a pearl-toned card, dividerSoft between rows, an uppercase
-// muted caption above each group.
+/// The small uppercase caption above a group of rows in the image and video metadata sheets.
 class InfoGroupLabel extends StatelessWidget {
   const InfoGroupLabel(this.text, {super.key});
 

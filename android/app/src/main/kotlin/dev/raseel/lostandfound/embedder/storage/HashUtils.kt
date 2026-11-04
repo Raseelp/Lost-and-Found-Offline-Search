@@ -7,9 +7,11 @@ import java.security.MessageDigest
 
 object HashUtils {
 
-    // Cheap dedup key for scan loops - doesn't read file content, so it's
-    // fast enough for a whole-device scan. Rolls size + lastModified + name
-    // across a full 64-bit space to keep collisions effectively impossible.
+    /**
+     * A cheap dedup key for scan loops. It does not read the file content, so it is fast
+     * enough for a whole-device scan. It rolls size, lastModified and name across a full 64-bit
+     * space to keep collisions effectively impossible.
+     */
     fun identityHash(size: Long, lastModified: Long, name: String): Long {
         var h = 1125899906842597L
         h = 31 * h + size
@@ -20,8 +22,7 @@ object HashUtils {
         return h
     }
 
-    // True content hash (SHA-256), for when reading the whole file is
-    // affordable. Not used by the scan loops.
+    /** A true content hash (SHA-256), for when reading the whole file is affordable. The scan loops do not use it. */
     fun hashUriToLong(
         context: Context,
         uri: Uri

@@ -8,10 +8,10 @@ import android.os.Build
 import dev.raseel.lostandfound.embedder.faces.FaceScanWorker
 
 /**
- * Told when the user swipes a scan's notification away. The scan carries on (it is a
- * foreground service; on Android 14+ its notification can be dismissed), but it must not
- * put the notification back with its next progress update - see
- * [ScanForegroundService.notificationDismissed] and [FaceScanWorker.notificationDismissed].
+ * Told when the user swipes a scan's notification away.
+ * The scan carries on, because from Android 14 the notification of a foreground service can be dismissed. It must not
+ * put the notification back with its next progress update, see [ScanForegroundService.notificationDismissed] and
+ * [FaceScanWorker.notificationDismissed].
  */
 class NotificationDismissReceiver : BroadcastReceiver() {
 
@@ -27,7 +27,7 @@ class NotificationDismissReceiver : BroadcastReceiver() {
         const val WHICH_SCAN = "scan"
         const val WHICH_FACES = "faces"
 
-        // One PendingIntent per notification (the extra does not tell two of them apart).
+        /** One [PendingIntent] per notification, because the extra does not tell two of them apart. */
         fun pending(context: Context, which: String): PendingIntent {
             val app = context.applicationContext
             val intent = Intent(app, NotificationDismissReceiver::class.java).putExtra(EXTRA_WHICH, which)

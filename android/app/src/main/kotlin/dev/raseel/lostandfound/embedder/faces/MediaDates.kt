@@ -13,13 +13,9 @@ import java.util.Calendar
 import java.util.Locale
 
 /**
- * When each photo or video was taken, for the People timeline.
- *
- * The date of a file is more than one thing: the gallery's own "taken" date is best; the picture's
- * EXIF date is next (folders picked by hand have no gallery date); then a date in the file's name
- * (IMG_20190812..., WhatsApp, screenshots); then when the file was last changed, and last when it
- * was added. A date before 1990 or in the future is a camera with no clock set, never a real one,
- * so it is skipped for the next kind.
+ * When each photo or video was taken, for the People timeline. The gallery's own "taken" date is best, then the
+ * picture's EXIF date, then a date in the file name, then the last change, and last the date added. A date before 1990
+ * or in the future is a camera with no clock set, so it is skipped for the next kind.
  */
 object MediaDates {
     const val SRC_NONE = 0
@@ -29,10 +25,10 @@ object MediaDates {
     const val SRC_MODIFIED = 4
     const val SRC_ADDED = 5
 
-    /** [junk]: a screenshot or screen recording, which is not a memory whatever its date. */
+    /** A date with its source. [junk] is a screenshot or screen recording, which is not a memory whatever its date. */
     class Found(val ms: Long, val src: Int, val junk: Boolean = false)
 
-    // 1990-01-01. Cameras with no clock set write 1970 or 2000-01-01 (or the day they were made).
+    /** 1990-01-01. Cameras with no clock set write 1970 or 2000-01-01, or the day they were made. */
     private const val MIN_MS = 631152000000L
     private const val DAY_MS = 86_400_000L
     private const val CHUNK = 300
@@ -40,14 +36,14 @@ object MediaDates {
     private val nameDate = Regex("(?<!\\d)((?:19|20)\\d{2})[-_.]?(0[1-9]|1[0-2])[-_.]?(0[1-9]|[12]\\d|3[01])(?!\\d)")
     private val videoExt = setOf("mp4", "mov", "3gp", "3gpp", "mkv", "webm", "avi", "m4v", "mpg", "mpeg", "wmv", "flv")
 
-    // A camera that has lost its clock starts at 2000-01-01 00:00 (in whatever time zone it is read).
+    /** A camera that has lost its clock starts at 2000-01-01 00:00 in whatever time zone it is read. */
     private const val CLOCK_RESET_START = 946684800000L - 14 * 3_600_000L
     private const val CLOCK_RESET_END = 946684800000L + DAY_MS + 14 * 3_600_000L
 
     fun valid(ms: Long, now: Long): Boolean =
         ms in MIN_MS..(now + DAY_MS) && ms !in CLOCK_RESET_START..CLOCK_RESET_END
 
-    /** The best of the dates there are (0 for "not known"), in the order described above. */
+    /** The best of the dates there are, 0 for "not known", in the order described above. */
     fun pick(taken: Long, exif: Long, named: Long, modified: Long, added: Long, now: Long): Found = when {
         valid(taken, now) -> Found(taken, SRC_TAKEN)
         valid(exif, now) -> Found(exif, SRC_EXIF)
@@ -57,7 +53,7 @@ object MediaDates {
         else -> Found(0, SRC_NONE)
     }
 
-    /** A date written in a file name ("IMG_20190812_101500.jpg", "IMG-20190812-WA0001.jpg"), at noon; 0 if none. */
+    /** A date written in a file name, such as "IMG_20190812_101500.jpg" or "IMG-20190812-WA0001.jpg", at noon. 0 if there is none. */
     fun dateFromName(name: String?): Long {
         if (name == null) return 0
         val m = nameDate.find(name) ?: return 0
@@ -70,9 +66,10 @@ object MediaDates {
     private class Meta(val name: String?, val taken: Long, val modified: Long, val added: Long)
 
     /**
-     * The dates of [items] (key to uri), as many as there is time for before [deadline] (an
-     * [SystemClock.elapsedRealtime] value). Anything not in the result was not decided and is asked
-     * for again later - a file is never given a worse date only because time ran out.
+     * The dates of [items] (key to uri), as many as there is time for before [deadline], an
+     * [SystemClock.elapsedRealtime] value. What is not in the result is asked for again later, because time running
+     * out never gives a file a worse date. A gallery without the "taken" column fails the whole query, so it is asked
+     * again without it.
      */
     fun resolve(context: Context, items: List<Pair<Long, String>>, now: Long, deadline: Long): Map<Long, Found> {
         val out = HashMap<Long, Found>()
@@ -109,7 +106,7 @@ object MediaDates {
 
     private fun lookup(context: Context, chunk: List<Pair<Long, String>>): Map<Long, Meta> {
         val out = HashMap<Long, Meta>()
-        val byId = HashMap<Long, Long>() // gallery id -> key
+        val byId = HashMap<Long, Long>()
         for ((key, uriString) in chunk) {
             val uri = try { Uri.parse(uriString) } catch (_: Exception) { continue }
             if (uri.authority == MediaStore.AUTHORITY) {
@@ -121,8 +118,6 @@ object MediaDates {
         if (byId.isNotEmpty()) {
             val files = MediaStore.Files.getContentUri("external")
             val selection = "_id IN (${byId.keys.joinToString(",")})"
-            // A phone whose gallery lacks the "taken" column fails the whole query: it is asked
-            // again without it, so the other dates still count.
             for (columns in listOf(
                 arrayOf("_id", "_display_name", "datetaken", "date_modified", "date_added"),
                 arrayOf("_id", "_display_name", "date_modified", "date_added"),
@@ -149,7 +144,7 @@ object MediaDates {
         return out
     }
 
-    // A file from a folder picked by hand: what the provider says about its name and its change date.
+    /** A file from a folder picked by hand: what the provider says about its name and its change date. */
     private fun lookupOne(context: Context, uri: Uri): Meta {
         val document = DocumentsContract.isDocumentUri(context, uri)
         val columns = if (document) {

@@ -7,9 +7,8 @@ import android.graphics.Bitmap
 class AlignedFace(val bitmap: Bitmap, val sharpness: Float)
 
 /**
- * The whole face pipeline behind one object: detect -> align -> embed. It knows
- * nothing about specific networks - [FaceModelStore] supplies whichever
- * detector and embedder are selected - so scanning and anything later use this
+ * The whole face pipeline behind one object: detect, align, embed. It knows nothing about specific networks.
+ * [FaceModelStore] supplies whichever detector and embedder are selected, so scanning and anything later use this
  * and stay unchanged when a model is swapped.
  */
 class FaceEngine(context: Context) : AutoCloseable {
@@ -23,9 +22,8 @@ class FaceEngine(context: Context) : AutoCloseable {
         store.selected(FaceModelKind.DETECTOR) != null && embedder.isAvailable()
 
     /**
-     * Identifies the detector + recognition pair. Stored vectors are only
-     * comparable with ones made by the same pair, so a change means
-     * everything is redone.
+     * Identifies the detector and recognition pair. Stored vectors are only comparable with ones made by the same pair,
+     * so a change means everything is redone.
      */
     fun modelKey(): String? {
         val det = detector.modelId ?: return null
@@ -38,9 +36,8 @@ class FaceEngine(context: Context) : AutoCloseable {
         detector.detect(bitmap, scoreThreshold, tiled = thorough)
 
     /**
-     * Cuts and straightens one face (landmarks are 10 numbers in [bitmap]'s
-     * pixels). Cheap, and it tells how sharp the face is - so the caller can
-     * decide whether it is worth the far more expensive [embedAligned].
+     * Cuts and straightens one face (landmarks are 10 numbers in [bitmap]'s pixels). It is cheap and tells how sharp the
+     * face is, so the caller can decide whether it is worth the far more expensive [embedAligned].
      */
     fun align(bitmap: Bitmap, landmarks: FloatArray): AlignedFace {
         val aligned = FaceAligner.align(bitmap, landmarks, embedder.inputSize)

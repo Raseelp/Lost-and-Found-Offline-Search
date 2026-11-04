@@ -11,24 +11,22 @@ import 'package:lost_and_found/view/person_screen.dart';
 import 'package:lost_and_found/view/widget/permission_prompt.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Memories: "on this day" (the card on the Library tab and its screen), "then and now" for a person,
-/// and the settings of the daily notification.
+/// Memories: "on this day" (the card on the Library tab and its screen), "then and now" for a person, and the
+/// settings of the daily notification.
 ///
-/// The dates of everything indexed are looked up a slice at a time in the background (native
-/// LibraryDates), with pauses between slices, and "on this day" is shown from whatever is dated as
-/// soon as there is anything - then again once the rest is in.
+/// The dates of everything indexed are looked up a slice at a time in the background by the native LibraryDates, with
+/// pauses between slices. "On this day" is shown from whatever is dated as soon as there is anything, and again once
+/// the rest is in.
 class MemoriesController extends GetxController with WidgetsBindingObserver {
   final _native = NativeServices();
-
-  // ---- on this day ----
 
   OnThisDay today = OnThisDay.empty;
   bool loaded = false;
 
-  /// What the card is called while collections are chosen for export (next to the real collections' ids).
+  /// What the card is called while collections are chosen for export, next to the ids of the real collections.
   static const String selectionId = 'on-this-day';
 
-  /// Whether the user took the card off the Collections tab. Kept; undone with [restore].
+  /// Whether the user took the card off the Collections tab. It is kept, and undone with [restore].
   bool hidden = false;
   static const String _hiddenKey = 'on_this_day_hidden';
 
@@ -60,8 +58,8 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  /// Takes the card off the Collections tab (or brings it back). The screen stays reachable from
-  /// the daily notification either way.
+  /// Takes the card off the Collections tab, or brings it back. The screen stays reachable from the daily
+  /// notification either way.
   Future<void> setHidden(bool value) async {
     hidden = value;
     update();
@@ -80,10 +78,10 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
     super.onClose();
   }
 
+  /// Back in the app the day may have turned over, and a notification may have been tapped.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
-    // Back in the app: the day may have turned over, and a notification may have been tapped.
     unawaited(loadToday());
     unawaited(loadSettings());
     unawaited(checkLaunch());
@@ -91,8 +89,12 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
 
   static String _dayKey(DateTime t) => '${t.year}-${t.month}-${t.day}';
 
-  /// Looks up today's date in the past years. Does nothing again for half an hour unless [force], or
-  /// the date has changed.
+  /// Looks up today's date in the past years. Does nothing again for half an hour unless [force] is set or the date
+  /// has changed.
+  ///
+  /// The first slice brings the catalog in step with the index, and what is dated by then is shown. The rest follows
+  /// gently in short turns with pauses, because the dates of a big library can take a while. It gives up after four
+  /// turns without progress.
   Future<void> loadToday({bool force = false}) async {
     final now = DateTime.now();
     final fresh =
@@ -103,13 +105,11 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
     if (_running || fresh) return;
     _running = true;
     try {
-      // The first slice brings the catalog in step with the index; what is dated by then is shown.
       await _native.memoryPrepare(budgetMs: 300);
       today = await _native.onThisDay();
       loaded = true;
       update();
 
-      // Then the rest, gently: short turns with pauses (the dates of a big library can take a while).
       var stuck = 0;
       var before = -1;
       var progressed = false;
@@ -139,8 +139,8 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
 
   int _lastIndexed = -1;
 
-  /// The number of things indexed changed (a scan finished): the memories are looked up again, since
-  /// there are new photos to date. The first call only notes the number.
+  /// Called when the number of things indexed changed because a scan finished. The memories are looked up again, since
+  /// there are more photos to date. The first call only notes the number.
   void onIndexChanged(int indexed) {
     if (indexed == _lastIndexed) return;
     final first = _lastIndexed < 0;
@@ -148,16 +148,17 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
     if (!first) unawaited(loadToday(force: true));
   }
 
-  /// Opens the memory a tapped notification was about (once), when the home screen is up.
+  /// Opens the memory a tapped notification was about, once, when the home screen is up.
+  ///
+  /// A memory about a person opens their page, where then and now is. The others open the day. When the app was
+  /// opened cold from the notification, the people may not be loaded yet, so they are refreshed first.
   Future<void> checkLaunch() async {
     if (!homeReady) return;
     try {
       final launch = await _native.takeLaunchMemory();
       if (launch == null) return;
-      // A memory about a person opens their page (where then and now is); the others open the day.
       if (launch.personId != 0 && Get.isRegistered<FacesController>()) {
         final faces = Get.find<FacesController>();
-        // Opened cold from the notification: the people may not be in yet.
         if (faces.people.isEmpty) await faces.refreshPeople();
         final people = faces.people.where((p) => p.id == launch.personId);
         if (people.isNotEmpty) {
@@ -176,14 +177,12 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
     Get.to<void>(() => OnThisDayScreen(focusYear: focusYear));
   }
 
-  // ---- then and now ----
-
-  // Kept for the day (which photos are shown first changes daily). "Not enough to compare" is not kept: the
-  // dates may still be coming in.
+  /// Kept for the day, because which photos are shown first changes daily. "Not enough to compare" is not kept, since
+  /// the dates may still be coming in.
   final Map<String, ThenNow> _thenNow = {};
 
-  /// [person]'s clearest photo from their first year and from their latest, or null when there are not
-  /// enough photos over enough time to compare. Kept until their photos change.
+  /// [person]'s clearest photo from their first year and from their latest, or null when there are not enough photos
+  /// over enough time to compare. Kept until their photos change.
   Future<ThenNow?> thenNowFor(Person person) async {
     final key = '${person.id}:${person.photoCount}:${_dayKey(DateTime.now())}';
     final known = _thenNow[key];
@@ -198,9 +197,10 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  // A few portraits are kept (they are small, but a person flips between them and the full screen).
+  /// A few portraits are kept. They are small, but a person flips between them and the full screen.
   final LinkedHashMap<String, Uint8List> _portraits = LinkedHashMap();
 
+  /// The portrait of one side of then and now, cut on demand and kept in [_portraits].
   Future<Uint8List?> portrait(ThenNowSide side) async {
     final key = side.cropKey;
     final kept = _portraits.remove(key);
@@ -223,10 +223,11 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  // Small ones for choosing from (an end can have dozens), kept apart from the big ones so flicking through
-  // them never pushes out the pair being compared.
+  /// Small portraits to choose from, since an end can have dozens. They are kept apart from the big ones, so flicking
+  /// through them never pushes out the pair being compared.
   final LinkedHashMap<String, Uint8List> _thumbs = LinkedHashMap();
 
+  /// The small portrait of one side of then and now, cut on demand and kept in [_thumbs].
   Future<Uint8List?> portraitThumb(ThenNowSide side) async {
     final key = side.cropKey;
     final kept = _thumbs.remove(key);
@@ -249,8 +250,6 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  // ---- the daily notification ----
-
   MemorySettings settings = const MemorySettings();
 
   Future<void> loadSettings() async {
@@ -262,11 +261,11 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  /// Turns the daily memory on or off. Turning it on asks for the notification permission first (Android 13
-  /// and later) and stays off if it is refused. Returns whether it is on now.
+  /// Turns the daily memory on or off. Turning it on asks for the notification permission first (Android 13 and later)
+  /// and stays off if it is refused. The permission is asked as every permission is (see [askPermission]), and it says
+  /// why if it is turned down. Returns whether it is on.
   Future<bool> setEnabled(bool on) async {
     if (on) {
-      // Asked as every permission is (see askPermission): it says why if it is turned down.
       final allowed = await askPermission(
         AppPermission.notifications,
         purpose: 'send your daily memory',
@@ -281,7 +280,7 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
     return settings.enabled;
   }
 
-  /// Sends today's memory now. Returns what happened, in words.
+  /// Sends today's memory at once. Returns what happened, in words.
   Future<String> sendTest() async {
     try {
       final message = await _native.memoryTest();

@@ -17,9 +17,8 @@ String friendlyModelName(String fileName) {
   }
 }
 
-/// First run (and after the models are deleted from Settings). One glance
-/// answers three questions - what is this, what do I get, what will it cost -
-/// and the download button is always on screen, never below the fold.
+/// Shown on the first run and after the models are deleted from Settings. One glance answers what this is, what the
+/// user gets and what it costs. The download button is pinned at the bottom, so it is always on screen.
 class ModelDownloadScreen extends StatelessWidget {
   const ModelDownloadScreen({super.key});
 
@@ -94,7 +93,6 @@ class ModelDownloadScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Pinned: the action is always in reach.
                 Padding(
                   padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.sm, AppSpacing.xl, AppSpacing.xl),
                   child: Center(
@@ -191,8 +189,8 @@ class _ModelRow extends StatelessWidget {
   }
 }
 
-/// The bottom of the screen: the button (with the total size), or the
-/// progress while downloading; an error sits just above whichever it is.
+/// The bottom of the screen. It holds the button with the total size, or the progress while downloading. An error sits
+/// just above whichever it is.
 class _ActionArea extends StatelessWidget {
   const _ActionArea({required this.controller});
 
@@ -254,9 +252,10 @@ class _ActionArea extends StatelessWidget {
   }
 }
 
-/// What is happening right now, in words: connecting, downloading (with speed
-/// and time left), or checking the file. The first seconds used to be a bare
-/// "Starting..." - nobody knows what that means, or whether it is stuck.
+/// What is happening, in words: connecting, downloading with speed and time left, or checking the file.
+///
+/// While connecting and while checking a finished file there is no fraction to show, so the bar just shows that it is
+/// working.
 class _Progress extends StatelessWidget {
   const _Progress({required this.progress, required this.bytesPerSecond, required this.eta});
 
@@ -315,8 +314,6 @@ class _Progress extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppRadius.pill),
           child: LinearProgressIndicator(
             minHeight: 6,
-            // Waiting for the first bytes, or checking a finished file: no
-            // fraction to show, just "working".
             value: (connecting || verifying) ? null : progress.overallFraction,
             backgroundColor: AppColors.hairline,
             valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),

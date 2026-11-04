@@ -8,8 +8,11 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/widget/collection_widgets.dart';
 import 'package:lost_and_found/view/widget/search_results.dart';
 
-// One collection's members - the same tiles and viewers as search results,
-// with the collection as the header instead of a search bar.
+/// One collection's members, with the same tiles and viewers as search results and the collection as the header
+/// instead of a search bar.
+///
+/// A collection deleted from its own menu leaves nothing to show, so the screen leaves. A photo collection has no
+/// words, so no match is explained by any.
 class CollectionScreen extends StatefulWidget {
   const CollectionScreen({super.key});
 
@@ -36,7 +39,6 @@ class _CollectionScreenState extends State<CollectionScreen> {
         final textTheme = Theme.of(context).textTheme;
 
         if (collection == null) {
-          // Deleted from its own menu - nothing left to show, so leave.
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && Navigator.of(context).canPop()) {
               Navigator.of(context).pop();
@@ -205,7 +207,6 @@ class _CollectionScreenState extends State<CollectionScreen> {
                       results: members,
                       bytesFor: (item) =>
                           collections.memberThumbs[collections.memberKey(item)],
-                      // A photo collection has no words to explain a match by.
                       matchQuery: collection.isPhotos
                           ? ''
                           : collection.queryText,

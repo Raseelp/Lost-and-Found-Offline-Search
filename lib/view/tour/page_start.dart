@@ -5,7 +5,7 @@ import 'package:lost_and_found/view/tour/depth_widgets.dart';
 import 'package:lost_and_found/view/tour/tour_screen.dart';
 import 'package:lost_and_found/view/tour/tour_widgets.dart';
 
-/// Page 1: the whole app at a glance. Its widgets (a video, "On this day", people, Then & now, a memory, search,
+/// Page 1: the whole app at a glance. Its widgets (a video, "On this day", people, Then and now, a memory, search and
 /// privacy) float at different depths and take turns coming forward.
 class StartPage extends StatelessWidget {
   const StartPage({super.key, required this.scope});

@@ -20,12 +20,12 @@ import 'package:lost_and_found/view/widget/mention_text_controller.dart';
 
 String _countLabel(int count) => count == 1 ? '1 item' : '$count items';
 
-// One collection in the Collections tab's mosaic: its cover photo filling the whole tile, the name and the
-// number of items over a dark fade at the bottom, and a "New" tag when something from the latest scan is in
-// it. The cover is the collection's photo of the day (see CollectionsController.coverFor), loaded when the
-// tile comes on screen and at the size that fits the tile: a small picture first if one is at hand, then a
-// sharper one for a big tile. While a collection is being (re)computed its picture breathes; when that ends
-// the tile pops once. Pressing it shrinks it a little.
+/// One collection in the Collections tab's mosaic: its cover photo filling the tile, the name and item count over a
+/// dark fade, and a "New" tag when something from the latest scan is in it.
+/// The cover is the collection's photo of the day (see [CollectionsController.coverFor]), loaded when the tile comes
+/// on screen: a small picture first if one is at hand, then a sharper one, asked for a third larger than the tile's
+/// longer side so it fills the tile either way round. While a collection is computed the picture breathes (still with
+/// motion off), and the tile pops once when that ends.
 class CollectionCard extends StatefulWidget {
   const CollectionCard({
     super.key,
@@ -83,20 +83,23 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
     duration: const Duration(milliseconds: 180),
   );
 
-  // The cover loaded for this tile, and the size asked for so far (0: nothing yet).
+  /// The cover loaded for this tile.
   Uint8List? _loaded;
+
+  /// The size asked for so far, 0 for nothing yet.
   int _asked = 0;
 
-  // The sizes a cover is asked for in: few, so the pictures are shared between tiles and chips.
+  /// The sizes a cover is asked for in. There are few, so the pictures are shared between tiles and chips.
   static const _sizes = [480, 720, 960, 1280, 1600];
 
+  /// Asks for a cover of at least [needed] pixels. The load starts after this frame, because this is called while the
+  /// tile is being laid out.
   void _want(int needed) {
     if (widget.coverKey == null) return;
     final size = _sizes.firstWhere((s) => s >= needed, orElse: () => _sizes.last);
     if (size <= _asked) return;
     _asked = size;
     final key = widget.coverKey;
-    // After this frame: it is asked for while the tile is being laid out.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final bytes = await widget.loadCover(size);
       if (!mounted || bytes == null || key != widget.coverKey || identical(bytes, _loaded)) return;
@@ -107,7 +110,6 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // With motion off the picture stays still while it syncs ("Finding matches..." says so).
     if (widget.syncing) loopUnlessCalm(context, _sweep);
   }
 
@@ -115,7 +117,6 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
   void didUpdateWidget(covariant CollectionCard old) {
     super.didUpdateWidget(old);
     if (widget.coverKey != old.coverKey) {
-      // Another picture is the cover now (the photo of the day changed).
       _loaded = null;
       _asked = 0;
     }
@@ -157,10 +158,7 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
             borderRadius: radius,
             child: LayoutBuilder(
               builder: (context, box) {
-                // The big tiles of the mosaic (the tall and the wide ones) get a bigger name.
                 final big = box.maxWidth > 260 || box.maxHeight > 300;
-                // The picture must fill the tile whichever way round it is, so it is asked for a third larger
-                // than the longer side of the tile, in device pixels.
                 final needed = (math.max(box.maxWidth, box.maxHeight) * MediaQuery.devicePixelRatioOf(context) * 1.33)
                     .ceil();
                 _want(needed);
@@ -196,7 +194,6 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
                 return Stack(
                   fit: StackFit.expand,
                   children: [
-                    // The picture, which breathes while the collection is being worked out.
                     Positioned.fill(
                       child: AnimatedBuilder(
                         animation: _sweep,
@@ -218,7 +215,6 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
                               ),
                       ),
                     ),
-                    // A dark fade at the bottom, so the name reads on any photo.
                     Positioned.fill(
                       child: IgnorePointer(
                         child: DecoratedBox(
@@ -292,7 +288,6 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
                               : null,
                         ),
                       ),
-                    // The touch target, above everything else.
                     Positioned.fill(
                       child: Material(
                         type: MaterialType.transparency,
@@ -314,11 +309,9 @@ class _CollectionCardState extends State<CollectionCard> with TickerProviderStat
   }
 }
 
-/// Name (+ the phrase to search, when it isn't already known) for a new or
-/// edited collection. [onSave] gets the finished values - [query] already
-/// has any "@name" mentions stripped out (same as search's own
-/// queryWithoutMention), with those names broken out separately into
-/// [onSave]'s third argument.
+/// Asks for the name of a new or edited collection, and the phrase to search when it is not already known. [onSave]
+/// gets the finished values. Its query already has any "@name" mentions stripped out, the same as the search's own
+/// queryWithoutMention, and those people come separately in [onSave]'s third argument.
 Future<void> showSaveCollectionSheet(
   BuildContext context, {
   String? title,
@@ -360,14 +353,15 @@ class _SaveCollectionSheet extends StatefulWidget {
   State<_SaveCollectionSheet> createState() => _SaveCollectionSheetState();
 }
 
+/// The sheet's content scrolls, so a tall keyboard or a long "@name and @name2" query cannot push it taller than the
+/// space left above it, and the Save button stays reachable.
 class _SaveCollectionSheetState extends State<_SaveCollectionSheet> {
   late final TextEditingController _name = TextEditingController(
     text: widget.initialName,
   );
-  // Same "@name" recognition the search box uses - lets a collection made
-  // from the Collections page (not just one saved from an existing search)
-  // filter by person too. peopleProvider mirrors NativeController's own
-  // construction of its searchTextController.
+  /// The same "@name" recognition the search box uses, so a collection made from the Collections page, and not only
+  /// one saved from an existing search, can filter by person too. The people provider mirrors how NativeController
+  /// builds its searchTextController.
   late final MentionTextEditingController _query = MentionTextEditingController(
     peopleProvider: () =>
         Get.isRegistered<FacesController>() ? Get.find<FacesController>().people : const [],
@@ -383,9 +377,8 @@ class _SaveCollectionSheetState extends State<_SaveCollectionSheet> {
   bool get _canSave =>
       widget.showQuery ? _query.text.trim().isNotEmpty : _name.text.trim().isNotEmpty;
 
-  // Closes right away and does the work behind it - the new card appears in
-  // the list and plays its own "finding matches" animation, so there's
-  // nothing to wait on here.
+  /// Closes the sheet at once and does the work behind it. The new card appears in the list and plays its own
+  /// "finding matches" animation, so there is nothing to wait on here.
   void _save() {
     final query = widget.showQuery ? _query.queryWithoutMention : (widget.initialQuery ?? '');
     final personIds = widget.showQuery
@@ -422,10 +415,6 @@ class _SaveCollectionSheetState extends State<_SaveCollectionSheet> {
         ),
         child: SafeArea(
           top: false,
-          // A tall keyboard (or a long "@name and @name2..." query) can
-          // otherwise push this sheet's own content taller than the space
-          // actually left above it - scrollable rather than clipped/
-          // overflowing keeps the Save button reachable either way.
           child: SingleChildScrollView(
             child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -556,8 +545,8 @@ class _Field extends StatelessWidget {
   }
 }
 
-/// Long-press menu for a collection card. Every collection can be edited,
-/// hidden or deleted; a built-in that's been edited can also be reset.
+/// Long-press menu for a collection card. Every collection can be edited, hidden or deleted, and a built-in that has
+/// been edited can also be reset.
 void showCollectionMenu(
   BuildContext context,
   SmartCollection collection,
@@ -646,9 +635,9 @@ void showCollectionMenu(
   );
 }
 
-/// Long-press menu for the "On this day" card: it is not a saved search, so there is nothing to
-/// rename or change - it can be exported, or taken off the tab (and brought back from there).
-/// [onHidden] runs after it is hidden (the memories screen closes itself).
+/// Long-press menu for the "On this day" card. It is not a saved search, so there is nothing to rename or change.
+/// It can be exported, or taken off the tab and brought back from there. [onHidden] runs after it is hidden (the
+/// memories screen closes itself).
 void showOnThisDayMenu(
   BuildContext context,
   MemoriesController memories, {
@@ -711,12 +700,16 @@ void showOnThisDayMenu(
   );
 }
 
+/// Edits [collection]. A photo collection has no phrase to edit, so only its name can change. Otherwise the field
+/// shows the short phrase, because a built-in's several prompts are an implementation detail, and leaving it alone
+/// keeps the built-in's own. People already mentioned are put back in front of the phrase, the same way the search's
+/// own lastQueryWithMentions does. The field's name recognition then picks them up as soon as it opens, and the
+/// collection does not look as if it had no person filter.
 Future<void> showEditCollectionSheet(
   BuildContext context,
   SmartCollection collection,
   CollectionsController controller,
 ) {
-  // A photo collection has no phrase to edit - just its name.
   if (collection.isPhotos) {
     return showSaveCollectionSheet(
       context,
@@ -729,13 +722,6 @@ Future<void> showEditCollectionSheet(
     );
   }
 
-  // Shows the short phrase (a built-in's several prompts are an
-  // implementation detail); leaving it alone keeps the built-in's own. Any
-  // already-mentioned people are put back in front of it, the same way
-  // search's own lastQueryWithMentions does - so the field's own name
-  // recognition picks them up again as soon as it opens, rather than
-  // silently starting from a collection that looks like it has no person
-  // filter at all.
   final currentQuery = collection.queryText;
   final currentPersonNames = collection.personIds.isEmpty || !Get.isRegistered<FacesController>()
       ? const <String>[]

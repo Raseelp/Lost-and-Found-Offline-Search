@@ -14,12 +14,12 @@ import 'package:lost_and_found/utils/palettes/people_palette.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/view/widget/timeline_preview.dart';
 
-// The People tab's timeline, built like the timeline of a video editor: a column of faces on the
-// left that stays put, and the years sliding by beside it. Drag to move through the years (it
-// carries on a little when let go), pinch to zoom from the whole library down to single months,
-// or jump with the zoom buttons. A line in the middle is the playhead: whoever has photos in the
-// month under it lights up, everyone else dims. A thin overview of all the years sits at the top
-// with a window showing where you are; drag it to jump.
+/// The People tab's timeline, built like the timeline of a video editor: a column of faces on the
+/// left that stays put, and the years sliding by beside it. Drag to move through the years (it
+/// carries on a little when let go), pinch to zoom from the whole library down to single months,
+/// or jump with the zoom buttons. A line in the middle is the playhead: whoever has photos in the
+/// month under it lights up, everyone else dims. A thin overview of all the years sits at the top
+/// with a window showing where you are; drag it to jump.
 
 const double _pad = AppSpacing.base;
 const double _leftColumn = 64;
@@ -44,14 +44,14 @@ const double _openingMonths = 36;
 
 /// A person's colour on the timeline: soft, a little dusty, and the same every time.
 const List<Color> _tones = [
-  PeoplePalette.red450, // terracotta
-  AppColors.honey, // honey
-  PeoplePalette.red400, // rose
-  PeoplePalette.green450, // sage
-  AppColors.primary, // the app's teal
-  PeoplePalette.sky450, // dusty blue
-  PeoplePalette.indigo450, // plum
-  PeoplePalette.gold550, // olive
+  PeoplePalette.red450,
+  AppColors.honey,
+  PeoplePalette.red400,
+  PeoplePalette.green450,
+  AppColors.primary,
+  PeoplePalette.sky450,
+  PeoplePalette.indigo450,
+  PeoplePalette.gold550,
 ];
 
 /// The stretches of months a person is in, as (first, last) places on the axis: months in a row
@@ -79,10 +79,9 @@ IconData _momentIcon(MilestoneKind kind) {
   }
 }
 
-/// How an AnimatedSwitcher stacks its pictures, without ever having two children with the same key. The
-/// default can: when what it shows goes A, B, A again before the first A has faded out (a caption
-/// changing as the playhead crosses months, quickly), the old A and the new A are both in the stack and
-/// Flutter complains. The old one is dropped here instead.
+/// How an AnimatedSwitcher stacks its pictures, without ever having two children with the same key. The default can:
+/// when what it shows goes A, B, A before the first A has faded out (a caption changing quickly as the playhead
+/// crosses months), both A are in the stack and Flutter complains. Here the older one is dropped.
 AnimatedSwitcherLayoutBuilder switcherStack({
   AlignmentGeometry alignment = Alignment.center,
   StackFit fit = StackFit.loose,
@@ -107,8 +106,6 @@ class TimelineMemory {
   final Set<int> developed = {};
 }
 
-// ------------------------------------------------------------------------------------ window
-
 /// Which stretch of the years is on screen, shared by the ruler, the overview and every strip.
 /// Months here are absolute (year * 12 + month), so the view stays where it is when more dates
 /// arrive and the axis grows.
@@ -130,8 +127,8 @@ class TimelineWindow extends ChangeNotifier {
   /// While two fingers are on the strips: the list must not scroll under them.
   final ValueNotifier<bool> pinching = ValueNotifier(false);
 
-  /// True while anything moves the years - a finger, a glide, a settling, a zoom - and for a
-  /// moment after: false only once it has come to rest on the middle of a month.
+  /// True while anything moves the years (a finger, a glide, a settling, a zoom) and for a moment after: false only
+  /// once it has come to rest on the middle of a month.
   final ValueNotifier<bool> moving = ValueNotifier(false);
 
   /// True from a finger touching the strips (moving or zooming them) until the years are at rest
@@ -172,7 +169,7 @@ class TimelineWindow extends ChangeNotifier {
   /// The width of a strip, and the stretch there is something to show (the end is not included).
   double width = 0, minMonth = 0, maxMonth = 1;
 
-  // Once the person has moved or zoomed it, new dates arriving no longer reset the view.
+  /// Once the person has moved or zoomed it, new dates arriving no longer reset the view.
   bool _touched = false;
   bool _dragging = false;
 
@@ -202,15 +199,15 @@ class TimelineWindow extends ChangeNotifier {
     _changed();
   }
 
-  // Opens on the last three years, ending today.
+  /// Opens on the last three years, ending today.
   void _openOnLatest() {
     ppm = (width / _openingMonths).clamp(minPpm, _maxPixelsPerMonth);
     start = _highStart;
     _clampStart();
   }
 
-  // The playhead can rest on any month, the first and the last included (so the view may show a
-  // little empty space before the first month or after the last).
+  /// The playhead can rest on any month, the first and the last included (so the view may show a
+  /// little empty space before the first month or after the last).
   double get _lowStart => minMonth + 0.5 - span / 2;
   double get _highStart => maxMonth - 0.5 - span / 2;
 
@@ -222,7 +219,6 @@ class TimelineWindow extends ChangeNotifier {
     if (_disposed) return;
     final month = (start + span / 2).floor();
     if (month != centre.value) {
-      // A light tick on every new year while a finger is moving the years.
       if (_dragging && month ~/ 12 != centre.value ~/ 12) HapticFeedback.selectionClick();
       centre.value = month;
     }
@@ -236,8 +232,6 @@ class TimelineWindow extends ChangeNotifier {
     _fling.stop();
     _tween.stop();
   }
-
-  // ---- finger on the strips ----
 
   void dragStart({bool fromStrip = false}) {
     if (fromStrip) stripActive.value = true;
@@ -260,13 +254,11 @@ class TimelineWindow extends ChangeNotifier {
       _updateMoving();
       return;
     }
-    final velocity = -pixelsPerSecond / ppm; // months per second
+    final velocity = -pixelsPerSecond / ppm;
     if (pixelsPerSecond.abs() < 150) {
       snapToMonth(velocity: velocity);
       return;
     }
-    // It carries on at the speed the finger let go and slows down the way a scroll does; once it is
-    // nearly still it settles onto the middle of the next month along.
     _flingDirection = velocity.sign.toInt();
     final simulation = FrictionSimulation(_drag, start, velocity);
     _flingSimulation = simulation;
@@ -274,32 +266,31 @@ class TimelineWindow extends ChangeNotifier {
     _updateMoving();
   }
 
-  // Slower than a scroll's, so a flick glides a good way.
+  /// Slower than a scroll's, so a flick glides a good way.
   static const double _drag = 0.12;
 
-  // Below this many pixels a second the glide has done its work and the settling takes over.
+  /// Below this many pixels a second the glide has done its work and the settling takes over.
   static const double _settleSpeed = 40;
 
-  // The settling: a spring that is neither bouncy nor sluggish, so it takes over from the glide
-  // with the speed it had and eases into the middle of the month.
+  /// The settling: a spring that is neither bouncy nor sluggish, so it takes over from the glide
+  /// with the speed it had and eases into the middle of the month.
   static const double _springStiffness = 150;
   static final double _springOmega = math.sqrt(_springStiffness);
   static final SpringDescription _spring =
       SpringDescription.withDampingRatio(mass: 1, stiffness: _springStiffness, ratio: 1);
 
-  FrictionSimulation? _flingSimulation; // set while gliding, null while settling
+  /// Set while gliding, null while settling.
+  FrictionSimulation? _flingSimulation;
   double? _springTarget;
   int _flingDirection = 0;
 
   void _onFling() {
     start = _fling.value;
     if (_flingSimulation == null) {
-      // Settling: a spring, which comes to rest exactly where it is headed.
       _changed();
       return;
     }
     _clampStart();
-    // Stopped at either end: that is where it stays.
     if (start <= _lowStart || start >= _highStart) {
       _fling.stop();
       _flingSimulation = null;
@@ -327,8 +318,8 @@ class TimelineWindow extends ChangeNotifier {
     _updateMoving();
   }
 
-  // The first month on screen that puts the playhead in the middle of a month: the nearest to
-  // [from], or - going [direction] (1 later, -1 earlier) - the next one along.
+  /// The first month on screen that puts the playhead in the middle of a month: the nearest to [from], or, going
+  /// [direction] (1 later, -1 earlier), the next one along.
   double _snapped(double from, {int direction = 0}) {
     final centre = from + span / 2 - 0.5;
     final month = direction > 0 ? centre.ceil() : (direction < 0 ? centre.floor() : centre.round());
@@ -375,8 +366,6 @@ class TimelineWindow extends ChangeNotifier {
     snapToMonth();
   }
 
-  // ---- two fingers: pinch ----
-
   final Map<int, Offset> _pointers = {};
   double _stripLeft = 0;
   double _pinchDistance = 1, _pinchPpm = 1, _pinchMonth = 0;
@@ -419,8 +408,6 @@ class TimelineWindow extends ChangeNotifier {
     }
   }
 
-  // ---- buttons and the overview ----
-
   /// Smoothly shows [years] years (everything, if that is more than there is), around the middle.
   void showYears(double years) {
     if (width <= 0) return;
@@ -430,8 +417,8 @@ class TimelineWindow extends ChangeNotifier {
     _animateTo(targetPpm, start + span / 2);
   }
 
-  /// Glides to [month] (an absolute month) and rests on the middle of it - from a flag on a line or
-  /// the button that goes to the next moment.
+  /// Glides to [month] (an absolute month) and rests on the middle of it, from a flag on a line or the button that
+  /// goes to the next moment.
   void jumpToMonth(int month) {
     if (width <= 0) return;
     jumps.value++;
@@ -449,7 +436,6 @@ class TimelineWindow extends ChangeNotifier {
     _touched = true;
     if (!_holding) _stopMoving();
     if (animate) {
-      // Onto the middle of the month tapped, where the playhead rests.
       _animateTo(ppm, month.floor() + 0.5);
     } else {
       start = month - span / 2;
@@ -480,7 +466,6 @@ class TimelineWindow extends ChangeNotifier {
   void _onTween() {
     final t = _curve.transform(_tween.value);
     ppm = _fromPpm + (_toPpm - _fromPpm) * t;
-    // The middle glides from where it was to where it is going.
     final fromCentre = _fromStart + (width / _fromPpm) / 2;
     final centreNow = fromCentre + (_toCentre - fromCentre) * t;
     start = centreNow - span / 2;
@@ -503,8 +488,6 @@ class TimelineWindow extends ChangeNotifier {
     super.dispose();
   }
 }
-
-// ------------------------------------------------------------------------------------ header
 
 /// Above the list, while the dates are still being read: how far it is (nothing once done).
 class TimelineIntro extends StatelessWidget {
@@ -607,7 +590,7 @@ class TimelineZoomBar extends StatelessWidget {
 
   final TimelineWindow window;
 
-  // The number of years each button shows (null: everything).
+  /// The number of years each button shows (null: everything).
   static const _steps = [
     ('All', null),
     ('5 years', 5.0),
@@ -713,7 +696,6 @@ class TimelineHeaderDelegate extends SliverPersistentHeaderDelegate {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Where the playhead is: the month, and how many people have photos in it.
           SizedBox(
             width: _columnWidth(compact),
             height: _overview + 4 + _ruler,
@@ -749,7 +731,6 @@ class TimelineHeaderDelegate extends SliverPersistentHeaderDelegate {
             child: LayoutBuilder(
               builder: (context, box) {
                 final width = box.maxWidth;
-                // The strips are this wide too: the shared window is told, once the frame is done.
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   window.configure(
                     width: width,
@@ -854,7 +835,6 @@ class _OverviewPainter extends CustomPainter {
         bar,
       );
     }
-    // The part that is on screen.
     if (window.width > 0) {
       final left = ((window.start - layout.startMonth) * cw).clamp(0.0, size.width);
       final right = ((window.start + window.span - layout.startMonth) * cw).clamp(0.0, size.width);
@@ -905,7 +885,6 @@ class _RulerPainter extends CustomPainter {
       ..color = AppColors.hairline
       ..strokeWidth = 1;
 
-    // Years: every year, or every few when they would run into each other.
     final yearWidth = ppm * 12;
     final step = yearWidth >= 46 ? 1 : (yearWidth >= 23 ? 2 : (yearWidth >= 11 ? 5 : 10));
     final firstYear = start ~/ 12;
@@ -914,24 +893,19 @@ class _RulerPainter extends CustomPainter {
       final x = (y * 12 - start) * ppm;
       final named = y % step == 0;
       if (x >= -1 && x <= size.width) {
-        // A named year has its tick up by the label; the others (and, until the months show,
-        // every year) a short one at the bottom, clear of the labels.
         if (named) canvas.drawLine(Offset(x, 0), Offset(x, 13), line);
         if (ppm < 11) canvas.drawLine(Offset(x, 22), Offset(x, 30), line);
       }
       if (!named) continue;
-      // The year the left edge is in keeps its name there, until the next one pushes it off.
       var labelX = x + 3;
       if (x < 0) {
         final following = ((y + 1) * 12 - start) * ppm;
         labelX = math.min(3.0, following - 33);
       }
-      // A year pushed mostly off the left edge is dropped, not shown as a fragment.
       if (labelX > size.width - 26 || labelX < -6) continue;
       _text(canvas, '$y', labelX, -1);
     }
 
-    // Months, once there is room for them.
     if (ppm >= 11) {
       final names = ppm >= 30 ? _monthShort : _monthInitials;
       for (var m = start.floor(); m <= end.ceil(); m++) {
@@ -946,8 +920,6 @@ class _RulerPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _RulerPainter old) => old.style != style;
 }
-
-// -------------------------------------------------------------------------------------- rows
 
 class TimelineRow extends StatefulWidget {
   const TimelineRow({
@@ -1033,7 +1005,7 @@ class _TimelineRowState extends State<TimelineRow> with TickerProviderStateMixin
     if (!_develop.isAnimating && _develop.value == 0) _developWhenReady();
   }
 
-  // The strip develops once there is something on it, a moment after the row has come in.
+  /// The strip develops once there is something on it, a moment after the row has come in.
   void _developWhenReady() {
     final id = widget.row.person.id;
     if (!widget.row.hasDates || widget.memory.developed.contains(id)) return;
@@ -1052,7 +1024,7 @@ class _TimelineRowState extends State<TimelineRow> with TickerProviderStateMixin
     super.dispose();
   }
 
-  // Leans a little, the same way every time (the way their tile on the grid does).
+  /// Leans a little, the same way every time (the way their tile on the grid does).
   double get _lean {
     final h = widget.row.person.id * 2654435761 & 0x7fffffff;
     var lean = ((h % 7) - 3) * 1.6;
@@ -1060,8 +1032,8 @@ class _TimelineRowState extends State<TimelineRow> with TickerProviderStateMixin
     return lean;
   }
 
-  // The collapsed row: the name (dimmed while the playhead is on a month they are not in) and
-  // one line along the years.
+  /// The collapsed row: the name (dimmed while the playhead is on a month they are not in) and
+  /// one line along the years.
   Widget _compactContent(BuildContext context, Color tone) {
     final textTheme = Theme.of(context).textTheme;
     final row = widget.row;
@@ -1173,8 +1145,6 @@ class _TimelineRowState extends State<TimelineRow> with TickerProviderStateMixin
             child: widget.compact ? _compactContent(context, tone) : Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Their face and name stay put; they dim while the playhead is on a month they
-                // are not in.
                 SizedBox(
                   width: _leftColumn,
                   child: ValueListenableBuilder<int>(
@@ -1228,8 +1198,6 @@ class _TimelineRowState extends State<TimelineRow> with TickerProviderStateMixin
                         child: ValueListenableBuilder<int>(
                           valueListenable: widget.window.centre,
                           builder: (context, month, _) {
-                            // The range ("Since 2019") - or, while the playhead is on a month they
-                            // are in, what they have in that month (and no room for anything else).
                             final count = row.countAt(month - widget.layout.startMonth);
                             final moments = [
                               for (final m in row.milestones)
@@ -1348,8 +1316,8 @@ class _Strip extends StatelessWidget {
         ),
       },
       child: Listener(
-        // Two fingers anywhere on the strips are a pinch (followed here, not through the gesture
-        // arena, so the list can be told to stand still while it lasts).
+        // Two fingers anywhere on the strips are a pinch, followed here and not through the gesture arena, so the list
+        // can stand still while it lasts.
         behavior: HitTestBehavior.opaque,
         onPointerDown: (e) {
           final box = context.findRenderObject() as RenderBox?;
@@ -1421,8 +1389,6 @@ class _Avatar extends StatelessWidget {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(2.5),
-                  // Their face - or, once the playhead has settled on a month they are in, their own
-                  // photo of that month, which fades in over it and back out when the playhead moves.
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8.5),
                     child: SizedBox(
@@ -1450,7 +1416,6 @@ class _Avatar extends StatelessWidget {
                                           key: ValueKey(photo.cacheKey),
                                           photo: photo,
                                           loader: preview!.loader,
-                                          // Faces sit in the upper part of a photo.
                                           alignment: const Alignment(0, -0.35),
                                         ),
                                 );
@@ -1483,8 +1448,6 @@ class _Avatar extends StatelessWidget {
     );
   }
 }
-
-// ---------------------------------------------------------------------------------- the strip
 
 class _StripPainter extends CustomPainter {
   _StripPainter({
@@ -1531,7 +1494,6 @@ class _StripPainter extends CustomPainter {
       return;
     }
 
-    // A faint line at every new year, like the edge of a frame.
     final tick = Paint()
       ..color = AppColors.hairline
       ..strokeWidth = 1;
@@ -1540,7 +1502,6 @@ class _StripPainter extends CustomPainter {
       canvas.drawLine(Offset(x, _inset), Offset(x, h - _inset - 1), tick);
     }
 
-    // The month under the playhead: a soft column behind its cell.
     final centreMonth = (start + w / ppm / 2).floor();
     final centreX = (centreMonth - start) * ppm;
     canvas.drawRRect(
@@ -1548,7 +1509,6 @@ class _StripPainter extends CustomPainter {
       Paint()..color = color.withValues(alpha: 0.16),
     );
 
-    // Only the months in view are drawn (the offsets are in order).
     final maxCount = row.maxCount;
     final alone = row.offsets.length == 1;
     var i = _firstAtOrAfter(row.offsets, (start - base).floor());
@@ -1556,10 +1516,8 @@ class _StripPainter extends CustomPainter {
       final month = base + row.offsets[i];
       final x = (month - start) * ppm;
       if (x > w) break;
-      // Developing sweeps from the left with a soft edge.
       final shown = ((reveal * 1.25 - x / w) * 5).clamp(0.0, 1.0);
       if (shown <= 0) continue;
-      // The more photos, the darker and the taller (never less than a third of the strip).
       final t = maxCount <= 1 ? 1.0 : math.sqrt(row.counts[i] / maxCount);
       final cellW = alone ? math.max(7.0, ppm - 1) : math.max(ppm - math.min(1.0, ppm * 0.12), 2.4);
       final left = x + (ppm - cellW) / 2;
@@ -1581,7 +1539,6 @@ class _StripPainter extends CustomPainter {
       }
     }
 
-    // The playhead.
     canvas.drawLine(
       Offset(w / 2, 0),
       Offset(w / 2, h),
@@ -1593,8 +1550,8 @@ class _StripPainter extends CustomPainter {
     canvas.restore();
   }
 
-  // The collapsed strip: a thin rounded line for every stretch of months they are in, broken
-  // where they are not. No heights, no counts - just when.
+  /// The collapsed strip: a thin rounded line for every stretch of months they are in, broken where they are not. It
+  /// shows when, with no heights or counts.
   void _paintCompact(Canvas canvas, Size size, double reveal) {
     final w = size.width, h = size.height;
     final ppm = window.ppm;
@@ -1602,7 +1559,6 @@ class _StripPainter extends CustomPainter {
     final thickness = h * 0.46;
     final y = (h - thickness) / 2;
 
-    // Faint year lines.
     final tick = Paint()
       ..color = AppColors.hairline
       ..strokeWidth = 1;
@@ -1611,7 +1567,6 @@ class _StripPainter extends CustomPainter {
       canvas.drawLine(Offset(x, 3), Offset(x, h - 3), tick);
     }
 
-    // The line develops from the left, like the strips of the full list.
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(0, 0, w * reveal * 1.1, h));
     final paint = Paint()..color = color.withValues(alpha: 0.9);
@@ -1620,7 +1575,6 @@ class _StripPainter extends CustomPainter {
       final x2 = (base + last + 1 - start) * ppm;
       if (x2 < 0 || x1 > w) continue;
       var left = x1 + 0.5, right = x2 - 0.5;
-      // A single month is a dot, not a hair.
       if (right - left < thickness) {
         final mid = (left + right) / 2;
         left = mid - thickness / 2;
@@ -1642,7 +1596,7 @@ class _StripPainter extends CustomPainter {
     );
   }
 
-  // The first place in [sorted] holding a value of at least [value].
+  /// The first place in [sorted] holding a value of at least [value].
   static int _firstAtOrAfter(List<int> sorted, int value) {
     var lo = 0, hi = sorted.length;
     while (lo < hi) {
@@ -1664,8 +1618,6 @@ class _StripPainter extends CustomPainter {
       !identical(old.row, row) ||
       !identical(old.window, window);
 }
-
-// ------------------------------------------------------------------------------------ order
 
 /// The people for the timeline, after the search and in the order chosen.
 enum TimelineSort { earliest, recent, mostPhotos, az }

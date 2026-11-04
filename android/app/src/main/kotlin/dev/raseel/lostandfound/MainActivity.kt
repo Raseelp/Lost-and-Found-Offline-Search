@@ -63,22 +63,22 @@ import dev.raseel.lostandfound.embedder.models.ModelsNotReadyException
 class MainActivity : FlutterActivity() {
 
     companion object {
-        // What a tap on the scan's notification (indexing or faces) opens with: the Library tab, where the scan is.
+        /** What a tap on the scan's notification (indexing or faces) opens with: the Library tab, where the scan is. */
         const val ACTION_OPEN_LIBRARY = "dev.raseel.lostandfound.OPEN_LIBRARY"
 
-        // What a tap on the stories note opens with: the Search tab, where the rings are.
+        /** What a tap on the stories note opens with: the Search tab, where the rings are. */
         const val ACTION_OPEN_STORIES = "dev.raseel.lostandfound.OPEN_STORIES"
 
-        // The home tabs a notification can open (as the app numbers them).
+        /** The home tabs a notification can open (as the app numbers them). */
         private const val TAB_SEARCH = 0
         private const val TAB_LIBRARY = 2
     }
 
-    // The home tab a tapped notification wants shown, not yet taken by the app (takeOpenTab); -1: none.
+    /** The home tab a tapped notification wants shown, not yet taken by the app (takeOpenTab); -1: none. */
     @Volatile
     private var openTab = -1
 
-    // The "Index now" button of the finish-indexing note was pressed, not yet taken by the app (takeIndexNow).
+    /** The "Index now" button of the note was pressed. takeIndexNow gives it to the app once. */
     @Volatile
     private var indexNow = false
 
@@ -88,91 +88,97 @@ class MainActivity : FlutterActivity() {
     private val MODEL_DOWNLOAD_CHANNEL = "lostandfound/modelDownload"
     private val PICK_REQUEST = 2001
 
-    // A "compressed" load (loadImageBytes/loadVideoThumbnail) only ever
-    // backs a grid thumbnail or, at most, a phone-sized full-screen view -
-    // never worth decoding a multi-thousand-pixel original for. This caps
-    // the longest side well above a normal grid tile's size, so it's still
-    // sharp, while avoiding the memory a full-resolution decode would cost
-    // for no visible benefit. This is the default for every tile; a bento
-    // tile bigger than normal asks for one of the three caps below instead
-    // (via the optional "maxDimension" argument both calls accept) rather
-    // than this cap being raised for every tile just to satisfy a handful
-    // of them.
+    /**
+     * The cap on the longest side of a compressed load (loadImageBytes, loadVideoThumbnail), which backs only a grid
+     * thumbnail or a phone-sized full-screen view. It is well above a normal tile so the picture stays sharp. The
+     * bigger bento tiles ask for one of the caps below through the optional "maxDimension" argument.
+     */
     private val MAX_COMPRESSED_DIMENSION = 1600
 
-    // For the bento grid's 2-cell wide/tall filler tiles (next to a hero or
-    // showcase) - a little bigger than a normal 1-cell tile, so only a
-    // small bump over MAX_COMPRESSED_DIMENSION is needed.
+    /** The cap for the bento grid's 2-cell wide or tall filler tiles, a little bigger than a normal tile. */
     private val MAX_COMPRESSED_DIMENSION_WIDE = 1900
 
-    // For the bento grid's 2x2 hero tile - noticeably bigger than a normal
-    // tile, but nowhere near as big as an 8/16-slot showcase, so it only
-    // needs a modest bump over MAX_COMPRESSED_DIMENSION, not the showcase
-    // cap below.
+    /** The cap for the bento grid's 2x2 hero tile, bigger than a normal tile but far below the showcase cap. */
     private val MAX_COMPRESSED_DIMENSION_HERO = 2200
 
-    // For the bento grid's 8-slot/16-slot showcase tiles specifically
-    // (search_results.dart decides which indices qualify), so raising this
-    // doesn't cost anything for the normal case - typically only a handful
-    // of these decode per screen, unlike MAX_COMPRESSED_DIMENSION above
-    // which every single grid thumbnail shares.
+    /**
+     * The cap for the bento grid's 8 and 16 slot showcase tiles (search_results.dart decides which). Only a handful of
+     * these decode per screen, so the high cap costs little, unlike the default that every grid thumbnail shares.
+     */
     private val MAX_COMPRESSED_DIMENSION_SHOWCASE = 3200
 
     private var pendingPickResult: MethodChannel.Result? = null
-    // Both process-wide (ScanEngineHolder), not per-Activity instances -
-    // see its doc for why a lateinit var here was the actual bug behind
-    // "cancelEmbedding does nothing after the app is reopened from
-    // Recents". These properties keep every existing call site unchanged.
+    /**
+     * Both process-wide (ScanEngineHolder), not per-Activity instances -
+     * see its doc for why a lateinit var here was the actual bug behind
+     * "cancelEmbedding does nothing after the app is reopened from
+     * Recents". These properties keep every existing call site unchanged.
+     */
     private val modelManager: ModelManager get() = ScanEngineHolder.modelManager(this)
     private val embeddingEngine: EmbeddingEngine get() = ScanEngineHolder.embeddingEngine(this)
-    // The progress EventChannel's sink now lives on ScanForegroundService
-    // (process-wide, not tied to this Activity instance) - see there for
-    // why. modelDownloadSink doesn't need the same treatment: a model
-    // download isn't kept alive by a foreground service, so it can't
-    // outlive this Activity anyway.
+    /**
+     * The sink of the model download progress. A model download is not kept alive by a foreground service, so unlike
+     * the scan progress sink on ScanForegroundService it cannot outlive this Activity.
+     */
     private var modelDownloadSink: EventChannel.EventSink? = null
-    // Deliberately NOT process-wide, unlike modelManager/embeddingEngine
-    // above - see ScanEngineHolder's doc for why sharing this one thread
-    // between a running scan and quick queries like areModelsReady was
-    // tried and caused those quick calls to hang behind the scan.
+    /**
+     * Deliberately not process-wide, unlike modelManager above. Sharing this thread between a running scan and quick
+     * queries like areModelsReady made those queries hang behind the scan (see ScanEngineHolder).
+     */
     private val executor = Executors.newSingleThreadExecutor()
-    // Downloads get their own thread so a long-running download never blocks
-    // unrelated calls (e.g. loading an already-cached thumbnail) sitting
-    // behind it on the shared executor.
+    /**
+     * Downloads get their own thread so a long-running download never blocks
+     * unrelated calls (e.g. loading an already-cached thumbnail) sitting
+     * behind it on the shared executor.
+     */
     private val downloadExecutor = Executors.newSingleThreadExecutor()
-    // Search gets its own thread too, so it doesn't sit queued behind a
-    // scan that can run for an hour or more. EmbeddingEngine/EmbeddingStore
-    // are built to allow this now (locks around the shared vision module
-    // and the on-disk store) - see their comments.
+    /**
+     * Search gets its own thread so it does not queue behind a scan that can run for an hour or more. EmbeddingEngine
+     * and EmbeddingStore allow this with locks around the shared vision module and the on-disk store.
+     */
     private val searchExecutor = Executors.newSingleThreadExecutor()
-    // Grid thumbnails only: a few in parallel so a collection's tiles fill in
-    // together, and off searchExecutor so they never queue behind a search.
+    /**
+     * Grid thumbnails only: a few in parallel so a collection's tiles fill in
+     * together, and off searchExecutor so they never queue behind a search.
+     */
     private val thumbnailExecutor = Executors.newFixedThreadPool(3)
-    // Face pictures get their own threads: a grid of photo thumbnails filling in
-    // (or a search) must never make an avatar wait, and the other way round.
+    /**
+     * Face pictures get their own threads: a grid of photo thumbnails filling in
+     * (or a search) must never make an avatar wait, and the other way round.
+     */
     private val faceCropExecutor = Executors.newFixedThreadPool(3)
 
-    // Work for the zip export that is quick but not instant (reading file sizes and dates).
+    /** Work for the zip export that is quick but not instant (reading file sizes and dates). */
     private val exportExecutor = Executors.newSingleThreadExecutor()
-    // Face detection has its own thread and detector (with its own ONNX
-    // session), so it never waits behind - or holds up - search or a scan.
+    /**
+     * Face detection has its own thread and detector, with its own ONNX session, so it never waits behind or holds up
+     * search or a scan.
+     */
     private val faceExecutor = Executors.newSingleThreadExecutor()
-    // The memories (dates of everything indexed, "on this day", "then and now") have their own thread,
-    // so reading dates never holds up the face calls or a search.
+    /**
+     * The memories (dates of everything indexed, "on this day", "then and now") have their own thread,
+     * so reading dates never holds up the face calls or a search.
+     */
     private val memoryExecutor = Executors.newSingleThreadExecutor()
     private val logExecutor = Executors.newSingleThreadExecutor()
-    // A photo opened in the viewer that the face scan hasn't reached yet is analysed on
-    // its own thread, so it doesn't queue behind the other face calls.
+    /**
+     * A photo opened in the viewer that the face scan hasn't reached yet is analysed on
+     * its own thread, so it doesn't queue behind the other face calls.
+     */
     private val photoFacesExecutor = Executors.newSingleThreadExecutor()
-    // A whole video is scanned on its own thread too: it can take a while, and must not hold up
-    // the quick look-ups (a photo's faces, the paused frame of a video).
+    /**
+     * A whole video is scanned on its own thread too: it can take a while, and must not hold up
+     * the quick look-ups (a photo's faces, the paused frame of a video).
+     */
     private val videoScanExecutor = Executors.newSingleThreadExecutor()
-    // Viewers that were closed before their photo's turn came (one photo is scanned at a time),
-    // by the token each viewer sent: those requests are skipped instead of scanned for nobody.
+    /**
+     * Viewers that were closed before their photo's turn came (one photo is scanned at a time),
+     * by the token each viewer sent: those requests are skipped instead of scanned for nobody.
+     */
     private val cancelledPhotoScans: MutableSet<Long> = java.util.concurrent.ConcurrentHashMap.newKeySet()
     private val faces by lazy { FaceServices.get(applicationContext) }
 
-    // A photo or video standing for a moment of several people, as the timeline wants it.
+    /** A photo or video standing for a moment of several people, as the timeline wants it. */
     private fun groupMap(g: dev.raseel.lostandfound.embedder.faces.FaceStore.GroupMedia) = mapOf(
         "key" to g.key,
         "takenMs" to g.ms,
@@ -183,7 +189,7 @@ class MainActivity : FlutterActivity() {
         "tsMs" to g.tsMs,
     )
 
-    // Runs [block] on the face thread and hands its value (or its error) to Flutter.
+    /** Runs [block] on the face thread and hands its value (or its error) to Flutter. */
     private fun faceTask(result: MethodChannel.Result, block: () -> Any?) {
         faceExecutor.execute {
             try {
@@ -195,19 +201,18 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /**
+     * Notes the tap that started the Activity, but not when it is only recreated, because that tap was already shown.
+     * Draws behind the system bars with the navigation bar in the app background colour, because some OEM skins (a
+     * vivo/iQOO was tested) keep an opaque black bar unless the window opts in natively. Keeps the daily memory
+     * scheduled.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         noteMemoryTap(intent)
-        // Not again when only recreated (turned, say): that tap was already shown.
         if (savedInstanceState == null) noteTabTap(intent)
-        // The daily memory, if the person turned it on: kept scheduled (a new install of the app or a restart does not lose it).
         try { MemoryScheduler.apply(applicationContext) } catch (_: Exception) {}
 
-        // Draw behind the system bars, with the navigation bar (gesture
-        // pill / 3-button strip) in the app background colour. Flutter's own
-        // SystemChrome calls ask for this too, but some OEM skins (this app
-        // was tested on a vivo/iQOO) keep an opaque black bar unless the
-        // window itself opts in natively.
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = Color.WHITE
@@ -223,15 +228,18 @@ class MainActivity : FlutterActivity() {
         noteTabTap(intent)
     }
 
+    /**
+     * The app is left: the "finish indexing" note is set for a few days after, and comes only if the library is not
+     * all indexed then.
+     */
     override fun onStop() {
         super.onStop()
-        // The app is left: the "finish indexing" note is set for a few days from now (it only comes if the library is not all indexed then).
         try { IndexNudge.arm(applicationContext) } catch (_: Exception) {}
     }
 
+    /** The app is in use: unanswered stories notes stop counting. */
     override fun onResume() {
         super.onResume()
-        // The app is in use: the stories notes that went unanswered no longer count.
         try { StoriesReminder.noteOpened(applicationContext) } catch (_: Exception) {}
     }
 
@@ -246,7 +254,9 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    // A tap on the daily memory's notification: remembered, and the app picks it up (takeLaunchMemory) to open the memory.
+    /**
+     * A tap on the daily memory's notification: remembered, and the app picks it up (takeLaunchMemory) to open the memory.
+     */
     private fun noteMemoryTap(intent: Intent?) {
         if (intent?.action != MemoryNotifier.ACTION_OPEN) return
         MemoryPrefs(applicationContext).setLaunch(
@@ -300,13 +310,16 @@ class MainActivity : FlutterActivity() {
         return mapOf("powerSave" to powerSave, "maxDecoders" to hardwareVideoDecoders)
     }
 
-    // How many H.264 hardware decoders can run at once: looked up once (it walks every codec of the phone).
+    /**
+     * How many H.264 hardware decoders can run at once, looked up once because it walks every codec of the phone.
+     * Software decoders are left out because they claim to run dozens at once, which would make a weak phone look
+     * strong.
+     */
     private val hardwareVideoDecoders: Int by lazy {
         var decoders = 1
         try {
             for (info in android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS).codecInfos) {
                 if (info.isEncoder || !info.supportedTypes.any { it.equals("video/avc", ignoreCase = true) }) continue
-                // The software decoders say they can run dozens at once; they would make a weak phone look strong.
                 val software = if (Build.VERSION.SDK_INT >= 29) {
                     !info.isHardwareAccelerated || info.isSoftwareOnly
                 } else {
@@ -341,6 +354,12 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /**
+     * Registers the method channel handlers. Anything that can block (hashing a model, reading the whole store,
+     * SQLite) runs on a dedicated executor, never on the platform thread. Starting a scan replaces any queued one,
+     * because Dart calls it only when nothing is scanning, and its result comes when the work is enqueued, not
+     * finished.
+     */
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -376,12 +395,6 @@ class MainActivity : FlutterActivity() {
                     val folderId    = call.argument<String>("folderId") ?: "default"
                     val contentMode = call.argument<String>("contentMode") ?: "both"
 
-                    // A quick check, not the scan itself - still needs a
-                    // background thread since areModelsReady() can hash a
-                    // whole model file (see its own handler's comment
-                    // below). Enqueueing WorkManager work that would just
-                    // immediately fail isn't worth it - better to report
-                    // this the same way the old synchronous path did.
                     executor.execute {
                         if (!modelManager.areModelsReady()) {
                             runOnUiThread {
@@ -405,33 +418,17 @@ class MainActivity : FlutterActivity() {
                             )
                             .build()
 
-                        // REPLACE, not APPEND - this is only ever called
-                        // when the Dart side already knows nothing else is
-                        // scanning (see NativeController.pickAndScanFolders'
-                        // isScanning guard), so it's always "start the one
-                        // scan", never a queue of several.
                         WorkManager.getInstance(applicationContext).enqueueUniqueWork(
                             ScanWorker.UNIQUE_WORK_NAME,
                             ExistingWorkPolicy.REPLACE,
                             request
                         )
 
-                        // Resolves once the work is *enqueued*, not once it
-                        // *finishes* - completion is reported entirely
-                        // through the progress stream (see
-                        // ScanForegroundService.pushProgress), which was
-                        // already how NativeController tracked it even
-                        // before this: a resumed scan (app reopened
-                        // mid-scan) never had a pending RPC to await in the
-                        // first place, so its done-handling already lived
-                        // there, not here.
                         runOnUiThread { result.success(true) }
                     }
                 }
 
                 "areModelsReady" -> {
-                    // isModelVerified() can occasionally hash a whole model
-                    // file (see ModelManager) - never call it on the UI thread.
                     executor.execute {
                         val ready = modelManager.areModelsReady()
                         runOnUiThread { result.success(ready) }
@@ -455,8 +452,6 @@ class MainActivity : FlutterActivity() {
                 }
 
                 "downloadModels" -> {
-                    // The search (CLIP) models - the only ones downloaded; the face models
-                    // are bundled in the app.
                     val requested = ModelCatalog.MODELS
                     executor.execute {
                         if (requested.all { modelManager.isModelVerified(it) }) {
@@ -508,9 +503,6 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
-                // Deletes the downloaded (search) models. People already found and the
-                // search index are kept; search and indexing wait until the models are
-                // downloaded again. The face models are part of the app and stay.
                 "deleteModels" -> faceTask(result) {
                     modelManager.deleteModels()
                     true
@@ -529,11 +521,6 @@ class MainActivity : FlutterActivity() {
                     result.success(embeddingEngine.getStoredCountForFolder(folderId))
                 }
 
-                // Backs the Library tab's stat tiles - called on a timer
-                // while a scan is running (see NativeController), not just
-                // once it finishes, so it goes through searchExecutor like
-                // search itself does rather than blocking the platform
-                // thread with a readAll() of a potentially large store.
                 "getLibraryStats" -> {
                     searchExecutor.execute {
                         val stats = embeddingEngine.getLibraryStats()
@@ -556,13 +543,11 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
-                // The Library tab has told the person that their index was dropped for a new search model.
                 "acknowledgeModelReset" -> {
                     embeddingEngine.clearModelReset()
                     result.success(true)
                 }
 
-                // The performance logs (adb logcat -s LostFoundBench), on unless turned off.
                 "getBenchLogs" -> result.success(BenchLog.enabled(applicationContext))
 
                 "setBenchLogs" -> {
@@ -570,7 +555,6 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
-                // The app's recent log as text, to copy into a bug report.
                 "appLogs" -> logExecutor.execute {
                     try {
                         val text = LogDump.collect(applicationContext)
@@ -586,10 +570,8 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_TOKENS", "Expected 77 tokens", null)
                         return@setMethodCallHandler
                     }
-                    // Off the platform thread: the first call also loads both
-                    // CLIP models from disk (hundreds of MB), and collections
-                    // call this dozens of times in a row - on the main thread
-                    // that froze the UI badly enough to get the app killed.
+                    // The first call loads both CLIP models from disk (hundreds of MB). On the main thread this froze
+                    // the UI badly enough to get the app killed.
                     searchExecutor.execute {
                         try {
                             val embedding = embeddingEngine.encodeText(tokens.toIntArray())
@@ -606,15 +588,6 @@ class MainActivity : FlutterActivity() {
                     val tokens = call.argument<List<Int>>("tokens")
                     val topK   = call.argument<Int>("topK") ?: 20
                     val contentMode = call.argument<String>("contentMode") ?: "both"
-                    // "@name"s (or plain recognised names) in the search box: the person half
-                    // of the query, resolved here to their shared photos/videos via FaceStore -
-                    // "together" mode, same as peoplePhotos' own default reading of several
-                    // names side by side - and handed to EmbeddingEngine as a plain path
-                    // restriction, not anything it needs to know is about people at all.
-                    //
-                    // mapNotNull + safe cast, not a direct List<Number> cast + .map{it.toLong()}:
-                    // the latter throws (ClassCastException/NPE) on any malformed element instead
-                    // of just dropping it, same defensive parsing parseCollectionSpecs uses below.
                     val personIds = (call.argument<List<*>>("personIds"))
                         ?.mapNotNull { (it as? Number)?.toLong() }
                         ?: emptyList()
@@ -633,8 +606,8 @@ class MainActivity : FlutterActivity() {
                             val encodedNs = System.nanoTime()
                             val results = embeddingEngine.searchByText(textEmbedding, topK, contentMode, pathFilter)
                             val rankedNs = System.nanoTime()
-                            // Where a search's time goes (performance logs). Only numbers: nothing of what was
-                            // searched for, and no file names, since logs can end up in a shared bug report.
+                            // Only numbers are logged, nothing searched for and no file names, since logs can end up
+                            // in a shared bug report.
                             BenchLog.log(applicationContext) {
                                 "search: encode text ${(encodedNs - startedNs) / 1_000_000}ms, rank ${(rankedNs - encodedNs) / 1_000_000}ms, " +
                                     "${results.size} results | top scores ${results.take(5).map { "%.3f".format(it.score) }}"
@@ -697,9 +670,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // Collections - see EmbeddingEngine's "Collections" section for
-                // how membership is decided. Both go through searchExecutor
-                // (a full read of the store, like search itself).
                 "scoreCollections" -> {
                     val specs = parseCollectionSpecs(call)
                     if (specs == null) {
@@ -754,9 +724,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // The raw embedding of a photo, or of one frame of a video
-                // when a timestamp is given - what a photo-seeded collection
-                // stores as its "query" (see CollectionsController).
                 "encodeImage" -> {
                     val uriString = call.argument<String>("uri")
                     val timestampMs = (call.argument<Number>("timestampMs"))?.toLong()
@@ -799,11 +766,8 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // Image search seeded by one moment of a video (the frame
-                // paused on in the video viewer) instead of a picked photo.
-                // OPTION_CLOSEST (not the CLOSEST_SYNC the thumbnail loader
-                // uses) - a thumbnail can settle for the nearest keyframe,
-                // but a search should embed the frame actually on screen.
+                // OPTION_CLOSEST, not the CLOSEST_SYNC of the thumbnail loader: a search must embed the frame on
+                // screen, not the nearest keyframe.
                 "searchByVideoFrame" -> {
                     val uriString = call.argument<String>("uri")
                     val timestampMs = (call.argument<Number>("timestampMs") ?: 0).toLong()
@@ -819,8 +783,6 @@ class MainActivity : FlutterActivity() {
                         try {
                             val uri = android.net.Uri.parse(uriString)
 
-                            // Same decode lock as the thumbnail loader/scan
-                            // frame extraction - see loadVideoThumbnail.
                             val embedding = synchronized(VideoFrameExtractor.decodeLock) {
                                 val retriever = MediaMetadataRetriever()
                                 try {
@@ -858,10 +820,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // "Why this matched" for one result - see EmbeddingEngine.
-                // scoreWordsAgainstItem's doc for what this is (and isn't).
-                // Called lazily when a result is actually opened, not for
-                // every result a search returns.
                 "explainMatch" -> {
                     val path = call.argument<String>("path")
                     val isVideo = call.argument<Boolean>("isVideo") ?: false
@@ -918,8 +876,6 @@ class MainActivity : FlutterActivity() {
                         return@setMethodCallHandler
                     }
 
-                    // The thumbnail pool, not searchExecutor: a search's tiles load three at a time, and a
-                    // new search never waits behind the tiles of the previous one.
                     thumbnailExecutor.execute {
                         try {
                             val uri = android.net.Uri.parse(uriString)
@@ -953,22 +909,9 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // Grid-sized thumbnail (a few hundred px, not the 1600px a
-                // full-screen view gets): decoding + re-encoding a huge bitmap
-                // per tile was the slow part of a collection filling in. Runs
-                // on a small pool so several decode at once.
-                // ---- Faces ----
-                // Everything below runs on faceExecutor (crops on the
-                // thumbnail pool) so it never waits behind search or a scan.
-
-                // Starts the automatic face scan (a no-op if it is already
-                // running - unique work). Called on launch, when the Faces
-                // tab opens, and after indexing finishes.
                 "startFaceScan" -> faceTask(result) {
-                    // While indexing runs, faces are found in step with it (set up when it
-                    // starts; this covers it not being set up, e.g. after the model was
-                    // downloaded mid-scan). Otherwise the face worker, and only when there
-                    // is something to do.
+                    // Faces follow indexing. Starting it here covers it not being set up, such as when the model was
+                    // downloaded mid-scan.
                     if (ScanForegroundService.isScanActive) FaceFollower.start(applicationContext)
                     else FaceScanWorker.enqueueIfNeeded(applicationContext)
                 }
@@ -980,8 +923,6 @@ class MainActivity : FlutterActivity() {
                         "photos" to photos,
                         "faces" to faceCount,
                         "people" to people,
-                        // Finding faces in step with an indexing scan counts as running
-                        // even between the batches it works through.
                         "running" to (FaceScanHub.running || FaceFollower.isArmed()),
                         "paused" to (hub?.get("paused") == true && FaceScanHub.running),
                         "following" to FaceFollower.isArmed(),
@@ -1007,8 +948,6 @@ class MainActivity : FlutterActivity() {
                     )
                 }
 
-                // The user's own stop / go for the scan. Stopping is remembered, so
-                // the automatic start leaves it alone until they resume.
                 "pauseFaceScan" -> faceTask(result) {
                     FaceSettings.setPaused(applicationContext, true)
                     FaceFollower.stop()
@@ -1022,7 +961,6 @@ class MainActivity : FlutterActivity() {
                     else FaceScanWorker.enqueueIfNeeded(applicationContext)
                 }
 
-                // Run the one-off speed test for this phone again.
                 "retuneFaces" -> faceTask(result) {
                     WorkManager.getInstance(applicationContext).cancelUniqueWork(FaceScanWorker.UNIQUE_WORK_NAME)
                     FaceTuner.reset(applicationContext)
@@ -1059,7 +997,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // Photos and videos in the shape the search results grid already reads.
                 "personPhotos" -> faceTask(result) {
                     val id = (call.argument<Number>("personId") ?: 0).toLong()
                     faces.store.personMedia(id).map { m ->
@@ -1073,8 +1010,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // Photos by several people at once. [mode]: any / together / only
-                // (see FaceStore.peoplePhotos). Same shape as personPhotos.
                 "peoplePhotos" -> faceTask(result) {
                     val ids = (call.argument<List<Number>>("personIds") ?: emptyList()).map { it.toLong() }
                     val mode = call.argument<String>("mode") ?: "together"
@@ -1094,15 +1029,11 @@ class MainActivity : FlutterActivity() {
                     faces.store.peopleCounts(ids)
                 }
 
-                // The people in these photos and videos, most first (see FaceStore.peopleIn).
                 "peopleIn" -> faceTask(result) {
                     val uris = call.argument<List<String>>("uris") ?: emptyList()
                     faces.store.peopleIn(uris).map { (id, count) -> mapOf("personId" to id, "count" to count) }
                 }
 
-                // When people appear: finds the date of photos and videos not looked up yet (for as
-                // long as [budgetMs] allows, so the app can show progress and ask again), then returns
-                // each listed person's months. See MediaDates and FaceStore.peopleTimeline.
                 "peopleTimeline" -> faceTask(result) {
                     val budget = (call.argument<Number>("budgetMs") ?: 800).toLong()
                     val now = System.currentTimeMillis()
@@ -1141,7 +1072,6 @@ class MainActivity : FlutterActivity() {
                     )
                 }
 
-                // The photos on the timeline's filmstrip: the best few of every month, in date order.
                 "timelinePicks" -> faceTask(result) {
                     faces.store.timelinePicks(perMonth = 6, burstMs = 120_000L).map { m ->
                         mapOf(
@@ -1154,8 +1084,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // Each person's clearest photo or video in a stretch of time (the month under the
-                // timeline's playhead).
                 "timelineMonthPhotos" -> faceTask(result) {
                     val start = (call.argument<Number>("startMs") ?: 0).toLong()
                     val end = (call.argument<Number>("endMs") ?: 0).toLong()
@@ -1172,7 +1100,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // The best photos and videos of one month, and how many it has (the timeline at rest).
                 "timelineMonthMedia" -> faceTask(result) {
                     val start = (call.argument<Number>("startMs") ?: 0).toLong()
                     val end = (call.argument<Number>("endMs") ?: 0).toLong()
@@ -1193,10 +1120,6 @@ class MainActivity : FlutterActivity() {
                     )
                 }
 
-                // ---- memories: "on this day", "then and now", and the daily notification ----
-
-                // Brings the catalog of dates (everything in the search index) up to date and looks dates up for up
-                // to [budgetMs]; call again while [pending] is above 0.
                 "memoryPrepare" -> memoryTask(result) {
                     val budget = (call.argument<Number>("budgetMs") ?: 600).toLong()
                     val dates = LibraryDates.get(applicationContext)
@@ -1206,8 +1129,6 @@ class MainActivity : FlutterActivity() {
                     mapOf("total" to dates.progress().first, "pending" to pending)
                 }
 
-                // When each of these files was taken, and whether it is a screenshot, for the stories: brings the
-                // catalog of dates up to date first (for a short while), then answers from it.
                 "mediaDates" -> memoryTask(result) {
                     val uris = call.argument<List<String>>("uris") ?: emptyList()
                     val dates = LibraryDates.get(applicationContext)
@@ -1220,10 +1141,8 @@ class MainActivity : FlutterActivity() {
                     dates.datesFor(uris).map { mapOf("uri" to it.uri, "takenMs" to it.takenMs, "junk" to it.junk) }
                 }
 
-                // The "your stories have refreshed" notification: on or off, set for a time, or taken away.
                 "storiesReminder" -> {
                     call.argument<Boolean>("enabled")?.let { StoriesReminder.setEnabled(applicationContext, it) }
-                    // Who will be in the note (a list of rings as text), kept for when it is made.
                     if (call.hasArgument("ringsJson")) StoriesReminder.setRings(applicationContext, call.argument<String>("ringsJson"))
                     if (call.argument<Boolean>("cancel") == true) StoriesReminder.cancel(applicationContext)
                     call.argument<Number>("atMs")?.let { StoriesReminder.schedule(applicationContext, it.toLong()) }
@@ -1235,32 +1154,23 @@ class MainActivity : FlutterActivity() {
                     )
                 }
 
-                // Shows the "stories have refreshed" note now, with these rings, to see what it looks like (it does not
-                // touch the one that is set). Whether it was shown.
                 "storiesReminderTest" -> memoryTask(result) {
                     StoriesReminder.post(applicationContext, call.argument<String>("ringsJson"), test = true)
                 }
 
-                // This date in past years (and, when it has nothing, the week round it), with the first photos
-                // together that have their anniversary today.
                 "onThisDay" -> memoryTask(result) {
                     val planner = MemoryPlanner(LibraryDates.get(applicationContext), faces.store)
                     planMap(planner.plan(System.currentTimeMillis(), withWeek = true, withAnniversaries = true))
                 }
 
-                // A person's start next to their latest: up to three photos at each end - from about the first
-                // couple of months and about the latest couple - mixed in kind (on their own, with another person,
-                // in a small group), and which are shown first. Null: not enough to compare.
                 "thenAndNow" -> memoryTask(result) {
                     val personId = (call.argument<Number>("personId") ?: 0).toLong()
                     val found = faces.store.personDatedFaces(personId)
-                    // Which are shown first is random, but the same all day.
                     val seed = MemoryDays.dayNumber(System.currentTimeMillis()) * 31L + personId
                     val r = ThenNow.choose(found.map { MemoryEvergreen.cand(it) }, seed = seed)
                     if (r == null) {
                         null
                     } else {
-                        // Another person is only spoken of (and framed) when they have a name.
                         val names = faces.store.namesOf((r.allThen + r.allNow).mapNotNull { it.partner }.toSet())
                         fun side(c: ThenNow.Cand): Map<String, Any?> {
                             val withId = c.partner?.takeIf { names[it] != null }
@@ -1281,8 +1191,6 @@ class MainActivity : FlutterActivity() {
                                 "withName" to withId?.let { names[it] },
                             )
                         }
-                        // Every photo from each end's months, oldest first, to choose from; the one shown first is
-                        // still one of the best few, found in that list.
                         val startThen = r.allThen.indexOf(r.then[r.startThen]).coerceAtLeast(0)
                         val startNow = r.allNow.indexOf(r.now[r.startNow]).coerceAtLeast(0)
                         mapOf(
@@ -1296,7 +1204,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // The head-and-shoulders picture for "then and now".
                 "portraitCrop" -> faceCropExecutor.execute {
                     try {
                         val bytes = faces.crops.portrait(
@@ -1317,7 +1224,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // Every photo and video of one stretch of time (a day of a past year), in the order taken.
                 "memoryDay" -> memoryTask(result) {
                     val start = (call.argument<Number>("startMs") ?: 0).toLong()
                     val end = (call.argument<Number>("endMs") ?: 0).toLong()
@@ -1339,8 +1245,6 @@ class MainActivity : FlutterActivity() {
 
                 "memorySettings" -> result.success(memorySettingsMap())
 
-                // What decides whether the grids may play video previews: battery saver, and how many video
-                // decoders the phone can run at once (a second one is only used to get the next preview ready).
                 "videoEnv" -> result.success(videoEnvMap())
 
                 "setMemorySettings" -> {
@@ -1350,22 +1254,18 @@ class MainActivity : FlutterActivity() {
                     result.success(memorySettingsMap())
                 }
 
-                // Sends today's memory now, to see what it looks like (never uses up the day's real one).
                 "memoryTest" -> memoryTask(result) {
                     val outcome = MemoryDay.run(applicationContext, test = true, budgetMs = 4_000L)
                     mapOf("sent" to outcome.sent?.code, "message" to outcome.message)
                 }
 
-                // The phone's Android version (for wording where a setting is, and what needs a permission).
                 "androidSdk" -> result.success(Build.VERSION.SDK_INT)
 
-                // The home tab a tapped notification wants shown since last asked, or -1 (taken once).
                 "takeOpenTab" -> {
                     result.success(openTab)
                     openTab = -1
                 }
 
-                // The finish-indexing note: on or off, and whether "Index now" was pressed since last asked (taken once).
                 "getIndexNudge" -> result.success(IndexNudge.enabled(applicationContext))
 
                 "setIndexNudge" -> {
@@ -1378,7 +1278,6 @@ class MainActivity : FlutterActivity() {
                     indexNow = false
                 }
 
-                // The memory a tapped notification wants opened (taken once), or null.
                 "takeLaunchMemory" -> {
                     val launch = MemoryPrefs(applicationContext).takeLaunch()
                     result.success(launch?.let { mapOf("kind" to it.kind, "year" to it.year, "personId" to it.personId) })
@@ -1391,9 +1290,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // The people in one photo, for tapping their faces in the viewer (hidden people stay out).
-                // Who is in the frame at [positionMs] of a video (looked up now). The faces that match people
-                // are stored as that frame of the video, so tapping them later is instant.
                 "videoFaces" -> photoFacesExecutor.execute {
                     try {
                         val uri = call.argument<String>("uri") ?: ""
@@ -1411,10 +1307,8 @@ class MainActivity : FlutterActivity() {
                         } finally {
                             faces.scanner.photoProgress.remove(key)
                         } ?: emptyList()
-                        // Named in this video now: they join its list of people, and their faces are stored.
                         try {
                             faces.store.recordVideoSeen(uri, positionMs, identities.map { it.personId }.toSet())
-                            // And kept as real faces of that frame, so tapping them later is instant.
                             faces.videoScanner.storeLooked(uri, positionMs, identities)
                         } catch (_: Throwable) {
                         }
@@ -1424,7 +1318,7 @@ class MainActivity : FlutterActivity() {
                                 null
                             } else {
                                 mapOf(
-                                    // Not a stored face: a made-up id, just to tell them apart on screen.
+                                    // Not a stored face: a made-up id, only to tell them apart on screen.
                                     "faceId" to -(i + 1).toLong(),
                                     "left" to f.left, "top" to f.top, "right" to f.right, "bottom" to f.bottom,
                                     "photoW" to f.frameW, "photoH" to f.frameH,
@@ -1445,8 +1339,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // The faces the scan stored for the frame at exactly [tsMs]: they can be shown at once
-                // (no new look) when [exact] says the scan read exact frames.
                 "videoFrameFaces" -> faceTask(result) {
                     val uri = call.argument<String>("uri") ?: ""
                     val tsMs = (call.argument<Number>("tsMs") ?: 0).toLong()
@@ -1475,19 +1367,14 @@ class MainActivity : FlutterActivity() {
                     mapOf("exact" to exact, "faces" to list)
                 }
 
-                // The people seen in a video (found by a scan) and when: for the strip and the markers
-                // under the video. Unhidden people known elsewhere, or seen at 2+ moments of this video.
                 "videoPeople" -> faceTask(result) {
                     val uri = call.argument<String>("uri") ?: ""
                     val times = LinkedHashMap<Long, MutableList<Long>>()
-                    // The moments where a face of theirs is stored (a position to point at).
                     val stored = HashMap<Long, MutableList<Long>>()
                     for ((personId, ts) in faces.store.videoSightings(uri)) {
                         times.getOrPut(personId) { ArrayList() }.add(ts)
                         stored.getOrPut(personId) { ArrayList() }.add(ts)
                     }
-                    // Also the people found by looking at single frames: they were named on purpose,
-                    // so they count without needing two moments.
                     val looked = HashSet<Long>()
                     for ((personId, ts) in faces.store.videoSeen(uri)) {
                         times.getOrPut(personId) { ArrayList() }.add(ts)
@@ -1495,8 +1382,8 @@ class MainActivity : FlutterActivity() {
                     }
                     times.mapNotNull { (personId, list) ->
                         val p = faces.store.personSummary(personId)
-                        // Someone known elsewhere, or seen in at least two moments of this video (one
-                        // stray frame is more likely a bystander).
+                        // Someone known elsewhere, or seen in at least two moments of this video: one stray frame is
+                        // more likely a bystander.
                         val enough = p != null &&
                             (p.photoCount >= dev.raseel.lostandfound.embedder.faces.FaceStore.MIN_PHOTOS_TO_SHOW ||
                                 list.distinct().size >= 2 || personId in looked)
@@ -1519,17 +1406,11 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // Whether a video can be scanned and has been: "needs", "done" or "unavailable"
-                // (not in the search index, or the face models aren't ready).
-                // Also which search level a tap would use (looser when the last look found nothing) and
-                // how many faces the last look kept.
                 "videoScanState" -> faceTask(result) {
                     val plan = faces.scanner.videoScanPlan(call.argument<String>("uri") ?: "")
                     mapOf("state" to plan.state, "level" to plan.level, "lastFaces" to plan.lastFaces)
                 }
 
-                // A video the user asked to scan: scan it now if it hasn't been (see FaceScanner.scanVideoNow).
-                // Progress is readable meanwhile with photoScanStatus("video:<uri>").
                 "scanVideoFaces" -> videoScanExecutor.execute {
                     try {
                         val uri = call.argument<String>("uri") ?: ""
@@ -1568,8 +1449,6 @@ class MainActivity : FlutterActivity() {
                             runOnUiThread { result.success(emptyList<Any>()) }
                             return@execute
                         }
-                        // Not scanned yet: scan it. Scanned, but with faces still unrecognised: finish them.
-                        // If that goes wrong, whatever faces are already stored are still returned.
                         try {
                             faces.scanner.scanOne(uri)
                         } catch (e: Throwable) {
@@ -1602,7 +1481,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // How far the scan of a photo opened in the viewer has got (null when none is running).
                 "photoScanStatus" -> faceTask(result) {
                     faces.scanner.photoProgress[call.argument<String>("uri") ?: ""]?.let { p ->
                         mapOf(
@@ -1612,7 +1490,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // Which build this is, for the About row in Settings.
                 "buildInfo" -> result.success(
                     mapOf(
                         "version" to BuildConfig.VERSION_NAME,
@@ -1623,11 +1500,9 @@ class MainActivity : FlutterActivity() {
                     ),
                 )
 
-                // What this phone's processor is called, for the marking on the chip in the Library.
                 "deviceChip" -> {
                     val soc = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                     val cores = Runtime.getRuntime().availableProcessors()
-                    // The fastest core's top speed, where the system lets an app read it.
                     var maxKhz = 0L
                     for (i in 0 until cores) {
                         try {
@@ -1654,8 +1529,6 @@ class MainActivity : FlutterActivity() {
                     )
                 }
 
-                // A photo turned upright by its EXIF tag (as the face finder sees it), small, for
-                // drawing the boxes the face scan found on it.
                 "loadUprightPhoto" -> {
                     val uriString = call.argument<String>("uri")
                     val maxSide = (call.argument<Number>("maxSide") ?: 360).toInt().coerceAtLeast(64)
@@ -1709,7 +1582,6 @@ class MainActivity : FlutterActivity() {
                     true
                 }
 
-                // Returns the merge's history id (for "Undo"), 0 if nothing was merged.
                 "mergePeople" -> faceTask(result) {
                     faces.clusterer.merge(
                         (call.argument<Number>("keepId") ?: 0).toLong(),
@@ -1717,7 +1589,6 @@ class MainActivity : FlutterActivity() {
                     )
                 }
 
-                // Past merges that can still be undone, newest first.
                 "mergeHistory" -> faceTask(result) {
                     faces.store.mergeHistory().map { r ->
                         mapOf(
@@ -1733,7 +1604,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // The two groups a person's faces fall into (null if too few clear faces).
                 "previewSplit" -> faceTask(result) {
                     faces.clusterer.previewSplit((call.argument<Number>("personId") ?: 0).toLong())?.let { p ->
                         mapOf(
@@ -1754,7 +1624,6 @@ class MainActivity : FlutterActivity() {
                     faces.clusterer.undoMerge((call.argument<Number>("id") ?: 0).toLong())
                 }
 
-                // Pairs of people who may be the same person, most likely first.
                 "suggestMerges" -> faceTask(result) {
                     val limit = (call.argument<Number>("limit") ?: 20).toInt()
                     faces.clusterer.suggestMerges(limit).map {
@@ -1775,18 +1644,15 @@ class MainActivity : FlutterActivity() {
                     true
                 }
 
-                // Rebuild the automatic groups with the current strictness.
                 "regroupFaces" -> faceTask(result) {
                     faces.clusterer.regroup()
                     true
                 }
 
-                // Forget every face and person (including names) and search all photos again.
                 "resetFaces" -> faceTask(result) {
-                    // Stop a running scan first so it doesn't write into the fresh start.
+                    // Stop a running scan first so it does not write into the fresh start.
                     FaceFollower.stop()
                     WorkManager.getInstance(applicationContext).cancelUniqueWork(FaceScanWorker.UNIQUE_WORK_NAME)
-                    // Asking to start over is asking for it to run.
                     FaceSettings.setPaused(applicationContext, false)
                     faces.store.wipeAll()
                     faces.clusterer.invalidate()
@@ -1796,7 +1662,6 @@ class MainActivity : FlutterActivity() {
                 "setFaceSettings" -> faceTask(result) {
                     call.argument<Boolean>("thorough")?.let { FaceSettings.setThorough(applicationContext, it) }
                     call.argument<Boolean>("refine")?.let {
-                        // Only a setting: the face scan never starts by itself (see FaceScanWorker).
                         FaceSettings.setRefine(applicationContext, it)
                     }
                     call.argument<String>("strictness")?.let {
@@ -1811,7 +1676,6 @@ class MainActivity : FlutterActivity() {
                     true
                 }
 
-                // The face models found on the device and which are in use.
                 "faceModels" -> faceTask(result) {
                     val store = faces.engine.store
                     val models = FaceModelKind.values().flatMap { kind ->
@@ -1861,9 +1725,8 @@ class MainActivity : FlutterActivity() {
                                     try {
                                         retriever.setDataSource(this, uri)
                                         val maybeFrame: android.graphics.Bitmap? = if (android.os.Build.VERSION.SDK_INT >= 27) {
-                                            // The target size is given per axis, so work
-                                            // it out from the video's own shape (after
-                                            // rotation) to keep the frame undistorted.
+                                            // The target size is given per axis, so it is worked out from the video's
+                                            // own shape after rotation to keep the frame undistorted.
                                             fun meta(key: Int) = retriever.extractMetadata(key)?.toIntOrNull() ?: 0
                                             var vw = meta(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)
                                             var vh = meta(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)
@@ -1931,16 +1794,8 @@ class MainActivity : FlutterActivity() {
                         try {
                             val uri = android.net.Uri.parse(uriString)
 
-                            // Same lock VideoFrameExtractor uses for a scan's
-                            // own frame extraction - this can otherwise run
-                            // at the same time as a scan decoding a *different*
-                            // video (this is the "recently scanned" strip
-                            // fetching a thumbnail for one it just embedded),
-                            // and a device only has a handful of concurrent
-                            // hardware video-decoder sessions. Without this,
-                            // one or both silently fail under that
-                            // contention - a missing thumbnail here, or that
-                            // video getting silently skipped by the scan.
+                            // Takes the decode lock: a scan decoding another video at the same time can exhaust the
+                            // few hardware decoder sessions, and one of the two then fails silently.
                             val bytes = synchronized(VideoFrameExtractor.decodeLock) {
                                 val retriever = MediaMetadataRetriever()
                                 try {
@@ -1950,13 +1805,8 @@ class MainActivity : FlutterActivity() {
                                         timestampMs * 1000L,
                                         MediaMetadataRetriever.OPTION_CLOSEST_SYNC
                                     ) ?: throw Exception("Frame extraction failed")
-                                    // A frame comes out at the video's own
-                                    // resolution (often 1080p+) - capped for
-                                    // the same reason loadImageBytes caps a
-                                    // photo, just post-decode instead of
-                                    // pre-decode (MediaMetadataRetriever
-                                    // doesn't offer a sampling hint the way
-                                    // BitmapFactory does).
+                                    // A frame comes out at the video's own resolution, so it is capped after decoding.
+                                    // MediaMetadataRetriever has no sampling hint.
                                     val scaled = capBitmapDimension(bitmap, maxDimension)
 
                                     val output = ByteArrayOutputStream()
@@ -2012,12 +1862,8 @@ class MainActivity : FlutterActivity() {
                             } else {
                                 loadImageMetadata(uri, fileName, fileSize, mimeType)
                             }
-                            // Both keys point at the same string - "uri" is
-                            // what identifies the file to other native calls
-                            // (share/save/wallpaper), "imagePath" is what
-                            // ImageMetadata.fromMap actually reads for the
-                            // sheet's "File path" row. This used to only set
-                            // "uri", so that row always showed "Unknown."
+                            // Both keys hold the same string: "uri" identifies the file to other native calls, and
+                            // "imagePath" is what ImageMetadata.fromMap reads for the "File path" row.
                             metadata["uri"] = uriString
                             metadata["imagePath"] = uriString
 
@@ -2134,9 +1980,6 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
-                // ---- zip export (see export/ZipExportWorker.kt) ----
-
-                // A folder to save a zip in.
                 "pickExportFolder" -> {
                     if (pendingPickResult != null) {
                         result.error("BUSY", "Picker already open", null)
@@ -2146,7 +1989,6 @@ class MainActivity : FlutterActivity() {
                     launchSafPicker(SafPickerActivity.MODE_EXPORT_FOLDER)
                 }
 
-                // Name, size and date of each of the given photos and videos (for the estimate).
                 "exportItemInfo" -> {
                     val uris = (call.argument<List<String>>("uris") ?: emptyList())
                     exportExecutor.execute {
@@ -2167,7 +2009,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // Room left where a zip goes by default (the phone's storage), in bytes.
                 "exportFreeSpace" -> {
                     result.success(
                         try {
@@ -2178,7 +2019,6 @@ class MainActivity : FlutterActivity() {
                     )
                 }
 
-                // Zips go to Downloads from Android 10 on; before that a folder has to be chosen.
                 "exportDownloadsAvailable" -> result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
 
                 "startZipExport" -> {
@@ -2207,7 +2047,6 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
-                // The zips that were made, to send on.
                 "shareZips" -> {
                     val uris = (call.argument<List<String>>("uris") ?: emptyList()).map { android.net.Uri.parse(it) }
                     if (uris.isEmpty()) {
@@ -2233,7 +2072,6 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // The items the latest indexing scan stored (once: the app tags them as new).
                 "takeLatestScan" -> {
                     faceCropExecutor.execute {
                         val items = try {
@@ -2245,34 +2083,11 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                // Asked by a freshly (re)created Dart layer on init - e.g.
-                // after the app was removed from Recents and reopened,
-                // which recreates the Activity/Flutter engine without
-                // killing a scan already running (see ScanForegroundService's
-                // progressSink doc). Null if nothing is currently scanning.
-                //
-                // No "retryBackgroundScan" handler anymore - that existed
-                // to promote the old Service to foreground after the user
-                // granted notification permission mid-scan, since it was
-                // only ever started once. ScanWorker calls setForeground()
-                // unconditionally as soon as a scan starts, regardless of
-                // notification permission state, so there's nothing to
-                // retry: the next notify() call after permission is
-                // granted just starts succeeding on its own.
-                //
-                // No battery-optimization-exemption handlers anymore
-                // either - Play policy only allows requesting that for a
-                // short list of core-function use cases (real-time fitness/
-                // navigation/VoIP/IoT) that this app doesn't fit, and
-                // WorkManager's own retry-after-interruption is the
-                // replacement: instead of asking to not be killed, the
-                // scan now survives being killed.
+                // No battery-optimization exemption is requested: Play policy allows it only for a short list of core
+                // uses, and WorkManager restarts a killed scan.
                 "getActiveScanProgress" -> {
-                    // A scan that is running but has not reported yet (WorkManager starts one again
-                    // by itself after the app was killed): say it is starting, so the app shows it
-                    // instead of offering to start another.
-                    // "stopping" is read live from the engine: after Stop, no new progress tick may
-                    // come until the scan has ended, so the cached one can't say it.
+                    // A running scan that has not reported yet (WorkManager restarts one after a kill) shows as
+                    // starting. "stopping" is read live: no tick comes after Stop.
                     result.success(
                         ScanForegroundService.activeProgress()
                             ?.plus("stopping" to embeddingEngine.wasCancelled())
@@ -2353,12 +2168,11 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    // Resolves each spec's personIds (from an "@name" search) to an actual
-    // pathFilter via FaceStore - same "together" reading of several people
-    // searchByText's own personIds uses. Called from inside a
-    // searchExecutor.execute{} block, never before dispatching to one:
-    // peopleMedia is a real SQLite read, and parseCollectionSpecs above
-    // runs synchronously on whichever thread the channel call arrives on.
+    /**
+     * Resolves each spec's personIds (from an "@name" search) to a pathFilter via FaceStore, with the same "together"
+     * reading of several people as searchByText. Call it inside a searchExecutor.execute block: peopleMedia is a real
+     * SQLite read, and parseCollectionSpecs runs synchronously on the thread the channel call arrives on.
+     */
     private fun resolvePathFilters(
         specs: List<EmbeddingEngine.CollectionSpec>
     ): List<EmbeddingEngine.CollectionSpec> = specs.map { spec ->
@@ -2367,9 +2181,11 @@ class MainActivity : FlutterActivity() {
         )
     }
 
-    // The bounds+EXIF half of loadMetadataByUri, split out so the handler
-    // can pick this or loadVideoMetadata below by isVideo instead of one
-    // branchy function trying to do both.
+    /**
+     * The bounds+EXIF half of loadMetadataByUri, split out so the handler
+     * can pick this or loadVideoMetadata below by isVideo instead of one
+     * branchy function trying to do both.
+     */
     private fun loadImageMetadata(
         uri: android.net.Uri,
         fileName: String,
@@ -2412,11 +2228,11 @@ class MainActivity : FlutterActivity() {
         )
     }
 
-    // Video has no EXIF/BitmapFactory bounds to read - MediaMetadataRetriever
-    // is the video-shaped equivalent. No camera/GPS/orientation fields (videos
-    // don't carry them the same way) - the metadata sheet already hides those
-    // sections when they're empty, so this just leaves them out rather than
-    // faking a value.
+    /**
+     * Metadata for a video, read with MediaMetadataRetriever because a video has no EXIF or BitmapFactory bounds. The
+     * camera, GPS and orientation fields are left out, since the metadata sheet hides them when empty. A corrupt or
+     * unusual video shows zeros instead of failing the sheet.
+     */
     private fun loadVideoMetadata(
         uri: android.net.Uri,
         fileName: String,
@@ -2437,8 +2253,6 @@ class MainActivity : FlutterActivity() {
             durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                 ?.toLongOrNull() ?: 0L
         } catch (e: Exception) {
-            // A corrupt/unusual video shouldn't fail the whole sheet - it
-            // just shows zeros, same as any other "unknown" field here.
         } finally {
             try { retriever.release() } catch (e: Exception) {}
         }
@@ -2459,12 +2273,11 @@ class MainActivity : FlutterActivity() {
         )
     }
 
-    // Copies the source content straight into a new MediaStore entry rather
-    // than writing to a raw file path - the only way that reliably works
-    // across every Android version this app supports without needing
-    // WRITE_EXTERNAL_STORAGE on modern (scoped-storage) devices. IS_PENDING
-    // brackets the copy on API 29+ so nothing else sees a half-written file
-    // in the gallery mid-copy.
+    /**
+     * Copies the source content straight into a MediaStore entry instead of writing to a raw file path, the only way
+     * that works on every supported Android version without WRITE_EXTERNAL_STORAGE on scoped-storage phones.
+     * IS_PENDING brackets the copy on API 29 and up, so the gallery never sees a half-written file.
+     */
     private fun saveCopyToGallery(uri: android.net.Uri, isVideo: Boolean) {
         val mimeType = contentResolver.getType(uri) ?: if (isVideo) "video/mp4" else "image/jpeg"
         val extension = if (isVideo) "mp4" else "jpg"
@@ -2507,20 +2320,15 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    // Standard two-pass bitmap loading: read just the dimensions first
-    // (inJustDecodeBounds - cheap, doesn't allocate pixel data), work out
-    // a power-of-two sample size from that, then do the real decode
-    // *at* the reduced size. Costs one extra stream open/close over a
-    // plain decodeStream, but never allocates a full-resolution bitmap
-    // just to immediately shrink it - the difference that matters for a
-    // multi-thousand-pixel photo destined for a small grid tile.
+    /**
+     * Loads a bitmap sampled down to [maxDimension]. It reads the dimensions first (inJustDecodeBounds), picks a
+     * power-of-two sample size, then decodes at the reduced size. That costs one extra stream open but never allocates
+     * a full-resolution bitmap just to shrink it, which matters for a photo of thousands of pixels shown in a small
+     * tile.
+     */
     private fun decodeSampledBitmap(uri: android.net.Uri, maxDimension: Int): android.graphics.Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        // Checked by whether the stream itself opened, not by the decode's
-        // return value - inJustDecodeBounds always returns a null bitmap by
-        // design (that's the whole point of a bounds-only pass), so relying
-        // on that null to mean "failed to open" was returning null here for
-        // every image unconditionally, valid or not.
+        // Failure is judged by whether the stream opened, because a bounds-only decode always returns a null bitmap.
         val boundsStream = contentResolver.openInputStream(uri) ?: return null
         boundsStream.use { BitmapFactory.decodeStream(it, null, bounds) }
 
@@ -2538,11 +2346,11 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    // Scales down only if needed - returns the same bitmap untouched
-    // otherwise. Used where the decode itself can't be sampled down
-    // directly (a video frame from MediaMetadataRetriever), unlike
-    // decodeSampledBitmap above which avoids the full-size allocation
-    // entirely.
+    /**
+     * Scales down only if needed, otherwise returns the same bitmap. For where the decode itself cannot be sampled
+     * down, a video frame from MediaMetadataRetriever, unlike decodeSampledBitmap, which avoids the full-size
+     * allocation.
+     */
     private fun capBitmapDimension(
         bitmap: android.graphics.Bitmap,
         maxDimension: Int

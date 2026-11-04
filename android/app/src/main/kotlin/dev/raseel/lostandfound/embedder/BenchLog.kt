@@ -10,12 +10,9 @@ import android.util.Log
 import java.io.File
 
 /**
- * The performance logs for finding where indexing's time goes - CLIP and faces both
- * log through here under one tag, so they can be read side by side:
- *
- *   adb logcat -s LostFoundBench
- *
- * Switched by "Performance logs" in Settings; on unless the user turns it off.
+ * The performance logs for finding where indexing's time goes.
+ * CLIP and faces both log through here under [TAG], so they can be read side by side. The "Performance logs" setting
+ * switches them, and they are on unless the user turns them off.
  */
 object BenchLog {
 
@@ -40,22 +37,15 @@ object BenchLog {
         cached = value
     }
 
-    /** Logs [message] if the logs are on - the message is only built then. */
+    /** Logs [message] if the logs are on. The message is only built then. */
     fun log(context: Context, message: () -> String) {
         if (enabled(context)) Log.i(TAG, message())
     }
 
     /**
-     * The phone's state in one short string, put on the timing lines: a model that gets
-     * slower and slower over a long scan is usually the phone throttling, and this is
-     * what tells the two apart.
-     *  - thermal: Android's own verdict (NONE, LIGHT, MODERATE, SEVERE, ...), Android 10+.
-     *  - headroom: how close to throttling in the next 10 s, 0 = cool, 1 = at the limit
-     *    (Android 11+, not on every phone).
-     *  - battery: its temperature in degrees C.
-     *  - cpu: current / maximum MHz per group of cores that share a maximum (so a
-     *    cluster running far below its maximum is a throttled one). Not every phone lets
-     *    an app read the current speed.
+     * The phone's state in one short string for the timing lines, so a model that slows down over a long scan can be
+     * told from a throttling phone. It holds the thermal status, the thermal headroom (0 is cool, 1 is the limit), the
+     * battery temperature in degrees C and [cpuSpeeds]. Older Android versions and some phones lack the first two.
      */
     fun device(context: Context): String {
         val parts = ArrayList<String>()
@@ -93,8 +83,11 @@ object BenchLog {
         else -> "status$status"
     }
 
-    // "cpu[MHz now/max] 0-3:1180/1800 4-5:1500/2400 6-7:1100/2800", or null if the
-    // phone doesn't let an app read the cores' current speed.
+    /**
+     * The current and maximum MHz per group of cores that share a maximum, such as
+     * "cpu[MHz now/max] 0-3:1180/1800 4-5:1500/2400". A cluster far below its maximum is
+     * a throttled one. Null when the phone does not let an app read the current speed.
+     */
     private fun cpuSpeeds(): String? {
         val count = Runtime.getRuntime().availableProcessors()
         val now = LongArray(count)

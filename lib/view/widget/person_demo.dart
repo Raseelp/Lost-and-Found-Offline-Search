@@ -58,9 +58,11 @@ class DemoCast {
   DemoPic mine(int i) => me[i % me.length];
 }
 
-/// A short looping film of what one action on the person page does, played with the person's own
-/// faces and photos inside the bubble that asks about it. One clock runs each film, so every move in
-/// it is worked out from the same moment and nothing can drift or stutter.
+/// A short looping film of what one action on the person page does, played with the person's own faces and photos
+/// inside the bubble that asks about it. One clock runs each film, so every move is worked out from the same moment
+/// and nothing drifts or stutters. It is a drawing with fixed measures, so its text keeps its size however large the
+/// phone's text is set, and a screen reader skips it, because the bubble's own words say the same. Each round fades in
+/// and out so the join never jumps.
 class PersonDemo extends StatefulWidget {
   const PersonDemo({super.key, required this.kind, required this.cast});
 
@@ -74,7 +76,7 @@ class PersonDemo extends StatefulWidget {
 }
 
 class _PersonDemoState extends State<PersonDemo> with SingleTickerProviderStateMixin {
-  // How long each film runs before it starts again (it fades out and back in at the join).
+  /// How long each film runs before it starts again. It fades out and back in at the join.
   static const Map<PersonDemoKind, int> _lengths = {
     PersonDemoKind.together: 5800,
     PersonDemoKind.merge: 5400,
@@ -84,7 +86,7 @@ class _PersonDemoState extends State<PersonDemo> with SingleTickerProviderStateM
     PersonDemoKind.save: 5600,
   };
 
-  // Where each film comes to rest, shown still when animations are turned off.
+  /// Where each film comes to rest, shown still when animations are turned off.
   static const Map<PersonDemoKind, int> _restAt = {
     PersonDemoKind.together: 4600,
     PersonDemoKind.merge: 4400,
@@ -120,8 +122,6 @@ class _PersonDemoState extends State<PersonDemo> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     final length = _lengths[widget.kind]!.toDouble();
     final still = MediaQuery.disableAnimationsOf(context);
-    // A drawing with fixed measures: the text in it keeps its size however large the phone's text is set (it
-    // would not fit its places otherwise), and a screen reader skips it (the bubble's own words say the same).
     return ExcludeSemantics(
       child: MediaQuery.withNoTextScaling(
         child: RepaintBoundary(
@@ -139,7 +139,6 @@ class _PersonDemoState extends State<PersonDemo> with SingleTickerProviderStateM
                   animation: _clock,
                   builder: (context, _) {
                     final ms = _clock.value * length;
-                    // Fades in at the start of each round and out at its end, so the join never jumps.
                     final round = still ? 1.0 : math.min(_t(ms, 0, 260), 1 - _t(ms, length - 300, length));
                     final s = _Scene(ms, box.maxWidth, widget.cast);
                     return Opacity(
@@ -166,13 +165,13 @@ class _PersonDemoState extends State<PersonDemo> with SingleTickerProviderStateM
   };
 }
 
-// How far along [from]..[to] (in ms) the moment [ms] is, 0 to 1, eased by [curve].
+/// How far along [from] to [to] (in ms) the moment [ms] is, 0 to 1, eased by [curve].
 double _t(double ms, double from, double to, [Curve curve = Curves.linear]) =>
     curve.transform(((ms - from) / (to - from)).clamp(0.0, 1.0));
 
 double _lerp(double a, double b, double t) => a + (b - a) * t;
 
-// A gentle spring: overshoots a little and settles.
+/// A gentle spring: overshoots a little and settles.
 const Curve _spring = Curves.easeOutBack;
 const Curve _glide = Curves.easeInOutCubic;
 const Curve _out = Curves.easeOutCubic;
@@ -193,8 +192,8 @@ class _Scene {
 
   double t(double from, double to, [Curve curve = Curves.linear]) => _t(ms, from, to, curve);
 
-  // Something on the stage by its top-left corner; skipped while invisible. [id] keeps each thing the
-  // same widget from frame to frame (so a face never reloads mid-move).
+  /// Something on the stage by its top-left corner, skipped while invisible. [id] keeps each thing the same widget
+  /// from frame to frame, so a face never reloads mid-move.
   Widget? at(
     String id,
     double x,
@@ -224,7 +223,7 @@ class _Scene {
     );
   }
 
-  // Comes in: from a little smaller and transparent to itself, with a small overshoot.
+  /// Comes in from a little smaller and transparent to itself, with a small overshoot.
   (double, double) appear(double from, [double length = 360]) {
     final p = t(from, from + length);
     return (Curves.easeOut.transform(p), _lerp(0.8, 1, _spring.transform(p)));
@@ -252,7 +251,7 @@ class _Scene {
     ),
   );
 
-  // A finger tap at (x, y), starting at [from]: a ring lands and widens away.
+  /// A finger tap at (x, y), starting at [from]: a ring lands and widens away.
   Widget? tap(String id, double x, double y, double from) {
     final land = t(from, from + 260, _out);
     final leave = t(from + 260, from + 640, _out);
@@ -277,12 +276,14 @@ class _Scene {
 
   List<Widget> keep(List<Widget?> parts) => [for (final p in parts) if (p != null) p];
 
-  // ---- With someone: the person, an empty place, people to pick; one is picked and flies in, and
-  // the photos they're both in rise up. ----
+  /// The film for [PersonDemoKind.together].
+  ///
+  /// The person and an empty place beside them come in, with the people to pick from. The one picked flies up into the
+  /// empty place, growing to match the person. Then the pair becomes a small heading and the photos they are both in
+  /// rise up.
   List<Widget> together() {
     final parts = <Widget?>[];
     final picked = 2;
-    // The person and the empty place beside them, until the pair turns into a small heading.
     final pairOut = t(2700, 3050, _out);
     final (meIn, meScale) = appear(0);
     parts.add(at('me', cx - 52, 14, 44, 44, face(cast.mine(0), 44),
@@ -293,7 +294,6 @@ class _Scene {
         opacity: slotIn * (1 - slotGone), scale: slotScale));
     parts.add(at('plus', cx + 8, 14, 44, 44, const Icon(Icons.add_rounded, size: 18, color: Color(0xFF9DB3AD)),
         opacity: slotIn * (1 - slotGone)));
-    // The people to pick from.
     final step = math.min(56.0, (w - 24) / 4);
     for (var i = 0; i < 4; i++) {
       final (pic, name) = cast.others[i];
@@ -301,7 +301,6 @@ class _Scene {
       final (inP, inS) = appear(180 + i * 70.0);
       final leave = i == picked ? 0.0 : t(1900, 2150);
       if (i == picked) {
-        // Flies up into the empty place, growing to match the person.
         final fly = t(1950, 2500, _glide);
         final grow = _spring.transform(t(1950, 2500));
         final fx = _lerp(x, cx + 8, fly), fy = _lerp(86, 14, fly) - 14 * math.sin(math.pi * fly);
@@ -316,7 +315,6 @@ class _Scene {
       }
     }
     parts.add(tap('tap', cx - step * 2 + picked * step + step / 2, 104, 1300));
-    // The pair as a small heading, and the photos they're both in.
     final (hIn, hS) = appear(2950, 320);
     parts.add(at('ha', cx - 92, 14, 26, 26, face(cast.mine(0), 26), opacity: hIn, scale: hS));
     parts.add(at('hb', cx - 72, 14, 26, 26, face(cast.others[picked].$1, 26), opacity: hIn, scale: hS));
@@ -336,17 +334,17 @@ class _Scene {
     return keep(parts);
   }
 
-  // ---- Same person: the person and an unnamed copy of them; the copy slides in and is taken up,
-  // and the number of photos adds up. ----
+  /// The film for [PersonDemoKind.merge]. The person and a copy of them come in, with the person's real photo count
+  /// and a smaller, made-up one for the copy. The copy is drawn first, so it slides in under the person. The person
+  /// swells as the copy runs into them, then moves to the middle, and the number of photos adds up. The line "same
+  /// person?" shows under the two and is later replaced by "one person".
   List<Widget> merge() {
     final parts = <Widget?>[];
-    // The person's real count, and a smaller, made-up one for the copy.
     final countA = math.max(cast.photoCount, 1);
     final extra = (countA * 0.12).round().clamp(3, 40);
     final slide = t(2000, 2650, _glide);
     final (aIn, aS) = appear(0);
     final (bIn, bS) = appear(120);
-    // The person: swells as the copy runs into them, then moves to the middle.
     final swell = math.sin(math.pi * t(2300, 2900)) * 0.16;
     final move = t(2000, 2700, _glide);
     final ax = cx - 96 + 64 * move;
@@ -354,26 +352,24 @@ class _Scene {
     parts.add(at('al', ax - 16, 88, 96, 14, text(who, _label), opacity: aIn));
     final counted = (countA + extra * t(2600, 3500, _out)).round();
     parts.add(at('ac', ax - 16, 104, 96, 13, text('${ms < 2600 ? countA : counted} photos', _sub), opacity: aIn));
-    // The copy.
     final bx = cx + 32 - 128 * slide;
     final bFade = t(2450, 2650);
-    // Drawn first, so it slides in under the person rather than over them.
     parts.insert(0, at('b', bx, 18, 64, 64, face(cast.mine(1), 64), opacity: bIn * (1 - bFade), scale: bS * _lerp(1, 0.6, slide)));
     final bLabels = 1 - t(1900, 2150);
     parts.add(at('bl', cx + 16, 88, 96, 14, text('Unnamed', _sub.copyWith(fontWeight: FontWeight.w600, fontSize: 11)),
         opacity: bIn * bLabels));
     parts.add(at('bc', cx + 16, 104, 96, 13, text('$extra photos', _sub), opacity: bIn * bLabels));
-    // "same person", then "one person now".
     final same = t(1000, 1300, _out) * (1 - t(1850, 2050));
-    // Under the two, where "one person now" comes later.
     parts.add(at('same', cx - 60, 124 + 6 * (1 - t(1000, 1300, _out)), 120, 22, chip('same person?'), opacity: same));
     final (dIn, dS) = appear(3500, 320);
     parts.add(at('done', cx - 60, 124, 120, 22, chip('one person now'), opacity: dIn, scale: dS));
     return keep(parts);
   }
 
-  // ---- Two people: the person's faces turn out to be two people; they sort into two groups, and
-  // each group becomes its own person. ----
+  /// The film for [PersonDemoKind.separate].
+  ///
+  /// Eight faces are sorted, the person's to the left and the other person's to the right, and then each group is
+  /// gathered into one face. Each group becomes its own person.
   List<Widget> separate() {
     final parts = <Widget?>[];
     const isMine = [true, false, true, true, false, true, false, true];
@@ -387,10 +383,8 @@ class _Scene {
       final mine = isMine[i];
       final n = mine ? mi++ : oi++;
       final x0 = startX + (i % 4) * (d + gap), y0 = 28 + (i ~/ 4) * (d + gap);
-      // Sorted: the person's faces to the left, the other person's to the right.
       final x1 = (mine ? cx - 116 : cx + 30) + (n % 3) * 30, y1 = 32.0 + (n ~/ 3) * 30;
       final sort = _spring.transform(t(1500 + n * 40.0, 2120 + n * 40.0));
-      // Gathered into one face per group.
       final x2 = mine ? cx - 92 : cx + 44, y2 = 38.0;
       final x = _lerp(_lerp(x0, x1, sort), x2, gather);
       final y = _lerp(_lerp(y0, y1, sort), y2, gather);
@@ -411,8 +405,9 @@ class _Scene {
     return keep(parts);
   }
 
-  // ---- Wrong faces: every face counted as the person, with one that isn't; it is tapped, marked,
-  // lifted out, and the faces after it close the gap. ----
+  /// The film for [PersonDemoKind.check].
+  ///
+  /// One face in a grid is marked as the wrong one and lifted out, and the faces after it close the gap.
   List<Widget> check() {
     final parts = <Widget?>[];
     const cols = 5, count = 10, odd = 6;
@@ -451,8 +446,10 @@ class _Scene {
     return keep(parts);
   }
 
-  // ---- Hide: the Faces tab's row of people; the person lifts, drops into Hidden people, and the
-  // row closes up behind them. ----
+  /// The film for [PersonDemoKind.hide].
+  ///
+  /// The person lifts as if picked, then drops into the drawer's empty place with a small hop, and the row closes up
+  /// behind them. The drawer is drawn first, so the person dropping into it is drawn over it.
   List<Widget> hide() {
     final parts = <Widget?>[];
     const d = 46.0;
@@ -461,7 +458,6 @@ class _Scene {
     final row = [cast.others[0], cast.others[1], (cast.mine(0), cast.name ?? ''), cast.others[2]];
     final drawerX = cx - 78, drawerY = 104.0;
     final close = _spring.transform(t(2300, 2800));
-    // The drawer first, so the person dropping into it is drawn over it.
     final (drIn, drS) = appear(1450, 320);
     parts.add(at('drawer', drawerX, drawerY, 156, 30,
         Container(
@@ -486,7 +482,6 @@ class _Scene {
       var x = startX + i * step;
       if (i == 3) x -= step * close;
       if (i == 2) {
-        // Lifts as if picked, then drops into the drawer's empty place with a small hop.
         final pick = math.sin(math.pi * 0.5 * t(1200, 1450, _out)) * 0.12;
         final drop = t(1800, 2450, _glide);
         final tx = _lerp(x, drawerX + 6, drop), ty = _lerp(10, drawerY + 5 - (d - 20) / 2, drop);
@@ -507,7 +502,9 @@ class _Scene {
     return keep(parts);
   }
 
-  // ---- Save all: the person's photos fly one by one into a zip file, which counts up its size. ----
+  /// The film for [PersonDemoKind.save].
+  ///
+  /// Six photos fly into a zip, which gives a little bump as each one lands in it.
   List<Widget> save() {
     final parts = <Widget?>[];
     const d = 46.0, gap = 6.0;
@@ -526,7 +523,6 @@ class _Scene {
           scale: inS * _lerp(1, 0.2, fly), turn: (i.isEven ? -0.14 : 0.14) * math.sin(math.pi * fly)));
       mb += 8 * t(start + 420, start + 640, _out);
     }
-    // The zip, which gives a little bump as each photo lands in it.
     var bump = 0.0;
     for (var i = 0; i < 6; i++) {
       final land = 1300 + 280.0 * i + 420;
@@ -543,6 +539,7 @@ class _Scene {
   }
 }
 
+/// A zip file. Its teeth run down the middle and turn into a tick once it is done.
 class _Zip extends StatelessWidget {
   const _Zip({required this.name, required this.size, required this.done});
 
@@ -560,7 +557,6 @@ class _Zip extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // The zip's teeth down the middle, turning into a tick once it's done.
           Positioned(
             left: 29,
             top: 0,

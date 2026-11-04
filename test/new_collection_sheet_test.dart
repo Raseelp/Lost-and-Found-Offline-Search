@@ -9,12 +9,12 @@ import 'package:lost_and_found/models/collection_model.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/view/widget/new_collection_sheet.dart';
 
-// The people the fake library knows.
+/// The people the fake library knows.
 final _maya = Person(id: 1, name: 'Maya', hidden: false, faceCount: 40, photoCount: 38, coverFaceId: 11);
 final _anna = Person(id: 2, name: 'Anna', hidden: false, faceCount: 22, photoCount: 21, coverFaceId: 12);
 
 class _FakeFaces extends FacesController {
-  // The real setup starts a face scan and calls the phone: skipped on purpose.
+  /// The real setup starts a face scan and calls the phone, so it is skipped on purpose.
   @override
   // ignore: must_call_super
   void onInit() {
@@ -23,18 +23,18 @@ class _FakeFaces extends FacesController {
 }
 
 class _FakeNative extends NativeController {
-  // The real setup loads from the phone: skipped on purpose.
+  /// The real setup loads from the phone, so it is skipped on purpose.
   @override
   // ignore: must_call_super
   void onInit() {}
 }
 
-// Answers the preview with a fixed library, and records what is saved.
+/// Answers the preview with a fixed library, and records what is saved.
 class _FakeCollections extends CollectionsController {
   final List<Map<String, Object?>> previews = [];
   final List<Map<String, Object?>> created = [];
 
-  // The real setup loads the saved collections: skipped on purpose.
+  /// The real setup loads the saved collections, so it is skipped on purpose.
   @override
   // ignore: must_call_super
   void onInit() {}
@@ -103,7 +103,6 @@ void main() {
     late _FakeCollections collections;
 
     setUp(() {
-      // Face pictures and anything else native: nothing to give.
       messenger.setMockMethodCallHandler(channel, (call) async => null);
       Get.put<FacesController>(_FakeFaces());
       Get.put<NativeController>(_FakeNative()..totalEmbeddings = 5000);
@@ -116,7 +115,6 @@ void main() {
     });
 
     Future<void> open(WidgetTester tester) async {
-      // A phone's screen.
       tester.view.physicalSize = const Size(1170, 2532);
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
@@ -163,7 +161,6 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
       expect(find.text('142 photos and videos'), findsOneWidget);
-      // Person 99 is not listed (hidden, say), so only the two known people are named.
       expect(find.text('With Maya and Anna'), findsOneWidget);
     });
 

@@ -41,8 +41,10 @@ class _GridVideoLayerState extends State<GridVideoLayer> {
     _watchScroll,
   );
 
-  // What the tile knows about where it is, read while it builds (a probe is made outside a build).
+  /// What the tile knows about where it is. These are read while it builds, because a probe is made outside a build.
   bool _tickers = true;
+
+  /// Whether the tab is showing. The home screen keeps all of its tabs built, with their animations running.
   bool _shown = true;
   bool _noMotion = false;
   Size _screen = Size.zero;
@@ -65,11 +67,11 @@ class _GridVideoLayerState extends State<GridVideoLayer> {
     }
   }
 
+  /// Checks what plays after the frame, so that a tab switched away from or a screen opened stops the preview at once
+  /// and not at the next tick. Where things are is not asked in the middle of building them.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // The tab was switched away from, or a screen opened: what plays here stops now, not at the next tick (after
-    // the frame: where things are is not asked in the middle of building them).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _controller.checkActive();
@@ -86,8 +88,7 @@ class _GridVideoLayerState extends State<GridVideoLayer> {
 
   void _onScroll() => _controller.scrolled();
 
-  // Another screen opens over this one (the tile was tapped): the preview stops at once, before the viewer starts
-  // its own player.
+  /// Stops the preview at once when another screen opens over this one, before the viewer starts its own player.
   void _onCovered(AnimationStatus status) {
     if (status != AnimationStatus.dismissed) {
       _controller.checkActive();
@@ -96,7 +97,7 @@ class _GridVideoLayerState extends State<GridVideoLayer> {
 
   Animation<double>? _watchedRoute;
 
-  // While this tile plays, it tells the controller when its list moves or a screen opens over it.
+  /// While this tile plays, it tells the controller when its list moves or a screen opens over it.
   void _watchScroll(bool on) {
     _watched?.removeListener(_onScroll);
     _watched = null;
@@ -117,11 +118,12 @@ class _GridVideoLayerState extends State<GridVideoLayer> {
     }
   }
 
+  /// Where the tile is, or null when it may not play: its tickers are off, its tab is not showing, animations are off,
+  /// or its screen is not the current one or is still sliding in or out.
   GridVideoSpot? _probe() {
     if (!mounted || !_tickers || !_shown || _noMotion) return null;
     final route = _route;
     if (route != null) {
-      // Only the screen that is showing, and not while it is still sliding in or out.
       if (!route.isCurrent) {
         return null;
       }
@@ -165,7 +167,6 @@ class _GridVideoLayerState extends State<GridVideoLayer> {
   @override
   Widget build(BuildContext context) {
     _tickers = TickerMode.of(context);
-    // A tab that is not showing (the home screen keeps all of them built, with their animations running).
     _shown = Visibility.of(context);
     _noMotion = MediaQuery.disableAnimationsOf(context);
     _screen = MediaQuery.sizeOf(context);
@@ -204,7 +205,7 @@ class _GridVideoLayerState extends State<GridVideoLayer> {
   }
 }
 
-// The video, filling the tile the way the picture does (cropped, not squeezed).
+/// The video, filling the tile the way the picture does: cropped, not squeezed.
 class _Picture extends StatelessWidget {
   const _Picture({required this.controller});
 
@@ -227,7 +228,7 @@ class _Picture extends StatelessWidget {
   }
 }
 
-// The time left, as the video's length is shown in Google Photos: only while it plays.
+/// The time left, shown the way Google Photos shows a video's length, and only while it plays.
 class _Countdown extends StatelessWidget {
   const _Countdown({required this.remaining});
 

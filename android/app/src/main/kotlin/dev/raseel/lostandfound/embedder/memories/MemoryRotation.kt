@@ -7,17 +7,36 @@ package dev.raseel.lostandfound.embedder.memories
  * round number of photos); the rest are there any day there is something good to say.
  */
 enum class MemoryKind(val code: String, val label: String, val special: Boolean = false) {
-    ANNIVERSARY("anniversary", "ANNIVERSARY", special = true), // two people's first photo together, on its anniversary
-    PERSON_ANNIVERSARY("person_anniversary", "FIRST DAY", special = true), // someone's first day in the photos
-    MILESTONE("milestone", "MILESTONE", special = true), // someone reaches a round number of photos
-    THEN_NOW("then_now", "THEN & NOW"), // a person, first year next to latest
-    PAIR_THEN_NOW("pair_then_now", "THEN & NOW, TOGETHER"), // two people together, first year next to latest
+    /** Two people's first photo together, on its anniversary. */
+    ANNIVERSARY("anniversary", "ANNIVERSARY", special = true),
+
+    /** Someone's first day in the photos. */
+    PERSON_ANNIVERSARY("person_anniversary", "FIRST DAY", special = true),
+
+    /** Someone reaches a round number of photos. */
+    MILESTONE("milestone", "MILESTONE", special = true),
+
+    /** A person, first year next to latest. */
+    THEN_NOW("then_now", "THEN & NOW"),
+
+    /** Two people together, first year next to latest. */
+    PAIR_THEN_NOW("pair_then_now", "THEN & NOW, TOGETHER"),
     ON_THIS_DAY("on_this_day", "ON THIS DAY"),
-    TOGETHER_SINCE("together_since", "TOGETHER"), // two people's years of photos together
-    TRIP("trip", "A FEW DAYS"), // a few busy days in a row, in a past year, round this date
-    SAME_DAY("same_day", "ACROSS THE YEARS"), // this date in three or more different years
-    VAULT("vault", "REMEMBER"), // a lovely picture of someone, out of the blue
-    THIS_WEEK("this_week", "THIS WEEK"); // the week round the date, when nothing else is there
+
+    /** Two people's years of photos together. */
+    TOGETHER_SINCE("together_since", "TOGETHER"),
+
+    /** A few busy days in a row, in a past year, round this date. */
+    TRIP("trip", "A FEW DAYS"),
+
+    /** This date in three or more different years. */
+    SAME_DAY("same_day", "ACROSS THE YEARS"),
+
+    /** A lovely picture of someone, out of the blue. */
+    VAULT("vault", "REMEMBER"),
+
+    /** The week round the date, when nothing else is there. */
+    THIS_WEEK("this_week", "THIS WEEK");
 
     companion object {
         fun fromCode(code: String?): MemoryKind? = entries.firstOrNull { it.code == code }
@@ -43,8 +62,10 @@ object MemoryRotation {
     /** A kind that went out, the day (see [MemoryDays.dayNumber]) and which of the two times. */
     class Used(val kind: MemoryKind, val day: Int, val slot: Slot = Slot.MORNING)
 
-    // The order the ordinary kinds are preferred in when none has been used more recently than another: the
-    // morning looks back, the evening is about people.
+    /**
+     * The order the ordinary kinds are preferred in when none has been used more recently than another. The morning
+     * looks back and the evening is about people.
+     */
     private val MORNING = listOf(
         MemoryKind.ON_THIS_DAY, MemoryKind.SAME_DAY, MemoryKind.TRIP, MemoryKind.TOGETHER_SINCE,
         MemoryKind.THEN_NOW, MemoryKind.VAULT, MemoryKind.PAIR_THEN_NOW,
@@ -54,15 +75,15 @@ object MemoryRotation {
         MemoryKind.TRIP, MemoryKind.ON_THIS_DAY, MemoryKind.SAME_DAY,
     )
 
-    // The special ones that belong to each time; the other time's are taken too if they were missed.
+    /** The special kinds that belong to each time. The other time's are taken too if they were missed. */
     private val MORNING_SPECIAL = listOf(MemoryKind.ANNIVERSARY, MemoryKind.PERSON_ANNIVERSARY)
     private val EVENING_SPECIAL = listOf(MemoryKind.MILESTONE)
 
     /**
-     * The kind for [slot] today from what is [available], given what went out before: a special one that
-     * belongs to this time first; otherwise the kind that has gone longest without (never used counts as
-     * longest), in this time's order, and never one that already went out today or that went out
-     * yesterday while another is there. "This week" is only the fallback. Null: nothing good.
+     * The kind for [slot] today from what is [available], given what went out before, or null when nothing is good. A
+     * special kind that belongs to this time comes first. Otherwise it is the kind unused longest, never one that went
+     * out today, or yesterday while another is there. "This week" is only the fallback. The other time's special kind
+     * is taken only when it was missed.
      */
     fun choose(available: Set<MemoryKind>, history: List<Used>, today: Int, slot: Slot = Slot.MORNING): MemoryKind? {
         val sentToday = history.filter { it.day == today }.map { it.kind }.toSet()
@@ -70,7 +91,6 @@ object MemoryRotation {
         val own = if (slot == Slot.MORNING) MORNING_SPECIAL else EVENING_SPECIAL
         val other = if (slot == Slot.MORNING) EVENING_SPECIAL else MORNING_SPECIAL
         (own + other).firstOrNull { it in there }?.let {
-            // The other time's special is only taken in this time when it was missed, which is when it is the only thing there.
             if (it in own || there.none { k -> !k.special && k != MemoryKind.THIS_WEEK }) return it
         }
         val order = if (slot == Slot.MORNING) MORNING else EVENING
@@ -84,7 +104,10 @@ object MemoryRotation {
         return options.maxWithOrNull(compareBy<MemoryKind> { idle(it) }.thenBy { -order.indexOf(it) })
     }
 
-    /** For "send one now": the next kind that is there, after [last] in the order of the kinds, so every press shows something else. */
+    /**
+     * For the test send: the next kind that is there after [last] in the order of the kinds, so every press shows
+     * something else.
+     */
     fun chooseForTest(available: Set<MemoryKind>, last: MemoryKind?): MemoryKind? {
         if (available.isEmpty()) return null
         val all = MemoryKind.entries
@@ -111,8 +134,6 @@ object MemoryRotation {
 
     private const val HISTORY_KEEP = 28
 
-    // ---- what was shown lately ----
-
     /** What was shown lately, by photo, as "key=daynumber" entries: the ones from the last [keepDays] days. */
     fun prune(seen: Map<Long, Int>, today: Int, keepDays: Int = KEEP_DAYS): Map<Long, Int> =
         seen.filterValues { today - it in 0 until keepDays }
@@ -136,8 +157,6 @@ object MemoryRotation {
         }
         return out
     }
-
-    // ---- who it was about lately (a person or a pair is not the subject again for a while) ----
 
     const val SUBJECT_DAYS = 45
 

@@ -3,8 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 
-// The pictures of the zip export: the tick when it is done, and the sizes written out.
-
 /// "1.2 GB", "340 MB", "12 KB".
 String zipBytes(num bytes) {
   if (bytes < 0) return '-';
@@ -16,8 +14,6 @@ String zipBytes(num bytes) {
   final gb = bytes / (1024 * 1024 * 1024);
   return '${gb.toStringAsFixed(gb < 10 ? 2 : 1)} GB';
 }
-
-// ------------------------------------------------------------------------------ the tick
 
 /// A circle that draws itself and then a tick inside it, once.
 class ZipDoneMark extends StatelessWidget {

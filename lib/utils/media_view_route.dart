@@ -1,26 +1,9 @@
 import 'package:flutter/material.dart';
 
-// A single, cheap transition for opening/closing the photo and video
-// viewers (search results, a person's photos, a collection, and the
-// "Similar to this" strip inside the viewers themselves) - a plain
-// PageRouteBuilder rather than a Hero.
-//
-// A Hero flight was tried first: growing the tapped tile's own rect into
-// the full-screen view. On a real (modestly-powered) device it fought with
-// everything else already happening on that same frame - the bento grid's
-// own tile animations, a video player's native initialization, a staged
-// "chrome fades in after the flight" sequence - and the result was
-// flickering and a flight that barely played before snapping to its end
-// state, worse than not animating at all.
-//
-// This is deliberately much less for Flutter to compute per frame: no rect
-// tweening between two different widget trees, no per-tile tag bookkeeping,
-// nothing to keep hidden-then-reveal in step with a flight's completion.
-// The whole destination screen (photo/video *and* its buttons together)
-// fades in while scaling up very slightly from its final size, which still
-// reads as a deliberate "this is arriving," not a plain instant cut, and
-// PageRouteBuilder reverses the exact same animation automatically on pop -
-// so closing settles back down and fades out with no extra code.
+/// The transition for opening and closing the photo and video viewers: the whole screen fades in while growing very
+/// slightly, and the same animation plays backwards when it closes. It is a plain [PageRouteBuilder] and not a Hero.
+/// A Hero flight from the tapped tile to the full screen flickered and barely played on modest phones, because the
+/// grid's tile animations and the video player starting all wanted the same frame.
 Route<T> mediaViewRoute<T>(WidgetBuilder builder) {
   return PageRouteBuilder<T>(
     pageBuilder: (context, animation, secondaryAnimation) => builder(context),

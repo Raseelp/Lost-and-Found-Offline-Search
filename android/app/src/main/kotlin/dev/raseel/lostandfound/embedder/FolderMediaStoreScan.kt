@@ -9,44 +9,23 @@ import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.util.Log
 
-// A picked SAF folder has no pre-built index - listing it means a live
-// filesystem walk (see SafUtils), and even with that already optimized to
-// one query per directory, a directory with many files still costs
-// whatever the document provider itself spends stat()-ing each one to
-// answer that query. MediaStore ("Index my phone") has none of that cost:
-// it's a database Android already built and keeps current in the
-// background, so querying it is just a SELECT regardless of file count.
-//
-// When a picked folder is on this device's primary storage, its files are
-// almost always *also* sitting in that same MediaStore index - so this
-// resolves the folder to a MediaStore path filter and queries that
-// instead of walking SAF at all, giving folder scans the same speed as a
-// whole-device scan for the common case.
-//
-// Deliberately narrow and fail-safe: every function here returns null
-// the moment anything is even slightly uncertain (wrong provider, a
-// storage volume other than primary, an unparsable id, an Android/-owned
-// path with its own scoped-storage history, an API level too old for the
-// column this relies on, the query itself failing) - EmbeddingEngine
-// treats null as "can't confirm this is complete and correct", and falls
-// back to the real directory walk rather than risk returning fewer files
-// than actually exist.
+/**
+ * Lists the media in a picked folder from MediaStore instead of walking the folder. Every function returns null when
+ * anything is uncertain, such as another volume, a folder under Android/, an API level below 29 or a failed query, and
+ * [EmbeddingEngine] then walks the directory, so it never gets fewer files than exist.
+ */
 object FolderMediaStoreScan {
 
     private const val TAG = "FolderMediaStoreScan"
 
-    // RELATIVE_PATH (and multi-volume MediaStore queries) need API 29.
-    // Below that, always use the real directory walk - not worth the risk
-    // of reconstructing an equivalent from the legacy, deprecated DATA
-    // column across however many OEM storage layouts exist pre-Q.
+    /** RELATIVE_PATH and the per-volume queries need API 29. Older phones use the directory walk. */
     private val SUPPORTED = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 
-    // Null unless folderUri is confidently known to be some path on this
-    // device's primary storage, expressed the way MediaStore's
-    // RELATIVE_PATH column expresses it (no leading slash, trailing slash
-    // included, e.g. "Pictures/Camera/"). Empty string means "the primary
-    // volume's root itself was picked" - queryImages/queryVideos treat
-    // that as "no path filter needed" further down.
+    /**
+     * The path of [folderUri] on the primary storage as RELATIVE_PATH writes it, such as "Pictures/Camera/". An empty
+     * string means the volume root. Null when the folder is not surely on the primary storage, and for Android/data,
+     * obb and media, which MediaStore lists differently across versions.
+     */
     fun resolvePrimaryRelativePath(folderUri: Uri): String? {
         if (!SUPPORTED) return null
         if (folderUri.authority != "com.android.externalstorage.documents") return null
@@ -65,26 +44,18 @@ object FolderMediaStoreScan {
 
         val relativePath = docId.substring(colonIndex + 1).trim('/')
 
-        // Android/data, Android/obb and Android/media have their own
-        // scoped-storage history and aren't consistently represented in
-        // MediaStore across OS versions - safer to always walk these for
-        // real than risk an incomplete match.
         if (relativePath == "Android" || relativePath.startsWith("Android/")) return null
 
         return if (relativePath.isEmpty()) "" else "$relativePath/"
     }
 
-    // Same selection criteria as SafUtils' extension check (.jpg/.jpeg/
-    // .png/.webp) applied as a post-filter on the query results, so this
-    // fast path can never return a different *set* of files than the slow
-    // path would have for the same folder - only the same set, faster.
+    /**
+     * The images under [relativePath] from [resolvePrimaryRelativePath], or null to fall back.
+     *
+     * It filters by the same extensions as the directory walk, so both paths find the same files. It checks the API
+     * level itself so that Android Lint sees the guard next to the calls that need it.
+     */
     fun queryImages(context: Context, relativePath: String): List<ImageSource>? {
-        // Self-guarded, not just relying on the SUPPORTED check in
-        // resolvePrimaryRelativePath - VOLUME_EXTERNAL_PRIMARY and
-        // RELATIVE_PATH below both need API 29, and keeping that check in
-        // the same function that uses them is what lets Android Lint's
-        // NewApi check actually verify it (it can't always see across a
-        // guard living in a different function).
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
         return try {
             val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
@@ -111,11 +82,6 @@ object FolderMediaStoreScan {
                         ImageSource(
                             uri = ContentUris.withAppendedId(collection, id),
                             size = c.getLong(sizeCol),
-                            // MediaStore's DATE_MODIFIED is Unix seconds,
-                            // not milliseconds - normalized here so a file
-                            // hashes the same (HashUtils.identityHash)
-                            // whether this fast path or the millisecond-
-                            // based SAF fallback found it, on any retry.
                             lastModified = c.getLong(modCol) * 1000L,
                             name = name
                         )
@@ -129,6 +95,12 @@ object FolderMediaStoreScan {
         }
     }
 
+    /**
+     * The videos under [relativePath], or null to fall back.
+     *
+     * Like [queryImages]. MediaStore stores the modified time in seconds, so it is converted to milliseconds, which
+     * makes [HashUtils.identityHash] give a file the same hash as the directory walk does.
+     */
     fun queryVideos(context: Context, relativePath: String): List<VideoSource>? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
         return try {
@@ -151,11 +123,6 @@ object FolderMediaStoreScan {
                 val mimeCol = c.getColumnIndexOrThrow(MediaStore.Video.Media.MIME_TYPE)
 
                 while (c.moveToNext()) {
-                    // Same criteria as SafUtils' video check
-                    // (mimeType.startsWith("video/")) - MediaStore's Video
-                    // collection should already only contain these, this
-                    // is just parity with the fallback path, not a real
-                    // expected filter.
                     val mimeType = c.getString(mimeCol) ?: ""
                     if (!mimeType.startsWith("video/")) continue
                     val id = c.getLong(idCol)
@@ -182,24 +149,12 @@ object FolderMediaStoreScan {
             lower.endsWith(".png") || lower.endsWith(".webp")
     }
 
-    // Matches the folder itself and everything under it, the same
-    // recursive reach SafUtils' directory walk has - MediaStore always
-    // stores RELATIVE_PATH with a trailing slash (e.g. "Pictures/Camera/"
-    // for a file directly in it, "Pictures/Camera/2024/" for one in a
-    // subfolder), so a LIKE 'prefix/%' catches both. Empty relativePath
-    // means the primary volume's root was picked - no filter needed, every
-    // file on the volume already qualifies.
-    //
-    // Matched against RELATIVE_PATH *or* the legacy DATA (absolute path)
-    // column, not RELATIVE_PATH alone - RELATIVE_PATH is often NULL for
-    // entries that predate an Android 10 upgrade or haven't been rescanned
-    // since, and LIKE against NULL matches nothing, so a RELATIVE_PATH-only
-    // filter can silently return zero rows for a folder that's very much
-    // not empty (this is exactly what happened testing this: even DCIM
-    // came back empty). DATA is officially deprecated for writing under
-    // scoped storage, but has stayed reliably populated for reading across
-    // every Android version specifically because so much software depends
-    // on it. Matching either column can only find more files, never fewer.
+    /**
+     * The SQL selection and arguments that match the folder and everything under it.
+     *
+     * It matches RELATIVE_PATH or the legacy DATA column, because RELATIVE_PATH is often NULL for older entries and a
+     * LIKE on NULL matches nothing. Without a known storage root, only RELATIVE_PATH is used.
+     */
     private fun relativePathSelection(relativePath: String): Pair<String?, Array<String>?> {
         if (relativePath.isEmpty()) return null to null
 
@@ -210,11 +165,6 @@ object FolderMediaStoreScan {
             "(${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ? OR ${MediaStore.MediaColumns.DATA} LIKE ?)" to
                 arrayOf("$relativePath%", "$dataPrefix%")
         } else {
-            // Couldn't resolve the storage root for some reason - fall
-            // back to RELATIVE_PATH alone rather than fail the query
-            // entirely (still better than nothing, and queryImages/
-            // queryVideos returning null on a genuine problem elsewhere
-            // is the real safety net here).
             "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?" to arrayOf("$relativePath%")
         }
     }

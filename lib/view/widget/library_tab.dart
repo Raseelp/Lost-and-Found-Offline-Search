@@ -16,10 +16,14 @@ import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/view/widget/library_orbit.dart';
 import 'package:lost_and_found/view/widget/scan_square.dart';
 
-// The list of indexed folders is switched off for now (it comes back with per-folder
-// actions); the code for it is kept below.
+/// Whether the list of indexed folders is shown. It is switched off until per-folder actions exist, and the code for
+/// it is kept.
 const bool _showIndexedFolders = false;
 
+/// The Library page: the chip at the top, the controls under it and a card of what is indexed so far.
+///
+/// The chip stays where it is through idle, scanning and done, and only what is on it changes. The card is not there
+/// while a scan runs, as the chip shows the progress, nor at all until something is indexed.
 class LibraryTab extends StatelessWidget {
   const LibraryTab({super.key, required this.controller});
 
@@ -38,8 +42,6 @@ class LibraryTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // The chip stays where it is through idle, scanning and done: only what is on it
-          // (and what is written under it) changes.
           _ChipHero(controller: controller),
           AnimatedSize(
             duration: const Duration(milliseconds: 340),
@@ -58,8 +60,6 @@ class LibraryTab extends StatelessWidget {
                     ),
             ),
           ),
-          // What is indexed so far: one card, which is not there while a scan runs (the chip
-          // above shows the progress), nor at all until something is indexed.
           AnimatedSize(
             duration: const Duration(milliseconds: 320),
             curve: Curves.easeOutCubic,
@@ -135,8 +135,8 @@ Future<void> startIndexing(
   }
 }
 
-// Before a scan (and after one): what to include, and the way to index one folder instead of
-// the whole phone.
+/// The controls under the chip before a scan and after one: what to include, and the way to index one folder instead
+/// of the whole phone.
 class _IdleControls extends StatelessWidget {
   const _IdleControls({super.key, required this.controller});
 
@@ -216,7 +216,7 @@ String _scopeLabel(ContentMode mode) {
   }
 }
 
-// A row of choices, all in view, one tap to pick (used for what to index and where to look).
+/// A row of choices, all in view, one tap to pick. It is used for what to index and where to look.
 class _Segmented<T> extends StatelessWidget {
   const _Segmented({
     required this.options,
@@ -297,8 +297,6 @@ class _Segmented<T> extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------- what is indexed
-
 String _grouped(int n) {
   final digits = n.abs().toString();
   final out = StringBuffer(n < 0 ? '-' : '');
@@ -334,9 +332,9 @@ String _timeAgo(DateTime time) {
   return '${time.day}/${time.month}/${time.year}';
 }
 
-// What is indexed so far, as one card: the two numbers people asked for (photos and videos)
-// large, and under them, quietly, the rest (folders, embeddings, size on the phone, when it was
-// last scanned). Files that could not be read get a line of their own when there are some.
+/// What is indexed so far, as one card: the photos and videos counts large, and under them, quietly, the rest
+/// (folders, embeddings, size on the phone and when it was last scanned). Files that could not be read get a line of
+/// their own when there are some.
 class _LibraryCard extends StatelessWidget {
   const _LibraryCard({
     super.key,
@@ -482,21 +480,21 @@ class _BigCount extends StatelessWidget {
   }
 }
 
-// The chip at the top of the page: waiting to be started, scanning (indexing's progress, the
-// photos being read and the queue of those waiting for their faces, and when indexing stops
-// to find the faces of a batch the faces lifted out of their photos and placed among the
-// people), or done. It is one widget for all three, so the chip itself never moves.
+/// The chip at the top of the page: waiting to be started, scanning, or done.
+///
+/// While scanning it shows indexing's progress, the photos being read and the queue of those waiting for their
+/// faces. Indexing and finding faces take turns: every so many photos indexing waits while their faces are found,
+/// and then the chip shows the faces lifted out of their photos and placed among the people. It is one widget for
+/// all three modes, so the chip itself never moves.
 class _ChipHero extends StatelessWidget {
   const _ChipHero({required this.controller});
 
   final NativeController controller;
 
-  // Before a total is known, native is still walking the picked folder
-  // (a whole-device scan skips this phase entirely - see ScanProgress.path)
-  // and already reports a live "found N files so far" through path. Parsed
-  // back out below to drive an animated counter instead of just printing
-  // the string as-is - a number that visibly ticks up reads as "actively
-  // working" far more than the same text replacing itself every so often.
+  /// The number in the "found N files so far" text that native reports through [IndexedFolder.path] while it is
+  /// still walking the picked folder, before a total is known. A whole-device scan skips that phase. The number
+  /// drives an animated counter, because a number that visibly ticks up reads as working far more than the same text
+  /// replacing itself now and then.
   int? _foundSoFarCount(IndexedFolder scan) {
     final match = RegExp(r'\d+').firstMatch(scan.path);
     if (match == null) return null;
@@ -508,8 +506,6 @@ class _ChipHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Indexing and finding faces take turns: every so many photos, indexing waits
-    // while their faces are found. The chip shows whichever is happening right now.
     if (!Get.isRegistered<FacesController>()) return _body(context, null);
     return GetBuilder<FacesController>(
       builder: (faces) => _body(context, faces),
@@ -561,8 +557,6 @@ class _ChipHero extends StatelessWidget {
 
     return SquareScanHero(
       mode: mode,
-      // Tapping the chip does what the "Where to look" choice says: the whole phone as before, or
-      // ask for a folder.
       onStart: () => startIndexing(context, controller),
       idleHint: controller.scanWholePhone
           ? 'TAP TO SCAN'
@@ -610,7 +604,8 @@ class _ChipHero extends StatelessWidget {
   }
 }
 
-// While a scan runs: the controls under the chip.
+/// The controls under the chip while a scan runs. The banner about notifications shows only until the permission is
+/// given.
 class _ScanningControls extends StatelessWidget {
   const _ScanningControls({super.key, required this.controller});
 
@@ -643,7 +638,6 @@ class _ScanningControls extends StatelessWidget {
             height: 1.4,
           ),
         ),
-        // Only until the notification permission is given; after that there is nothing to say.
         if (!controller.backgroundNotificationsGranted) ...[
           const SizedBox(height: AppSpacing.base),
           _BackgroundScanBanner(controller: controller),
@@ -653,9 +647,9 @@ class _ScanningControls extends StatelessWidget {
   }
 }
 
-// Asks for the permission that keeps a scan going in the background. Sets expectations rather
-// than overpromising: background scanning genuinely can get cut short on some phones, so a big
-// library is more reliably finished with the app open.
+/// Asks for the permission that keeps a scan going in the background. It sets expectations rather than
+/// overpromising, because background scanning can get cut short on some phones, so a big library is more reliably
+/// finished with the app open.
 class _BackgroundScanBanner extends StatelessWidget {
   const _BackgroundScanBanner({required this.controller});
 
@@ -724,15 +718,9 @@ class _BackgroundScanBanner extends StatelessWidget {
   }
 }
 
-// Shown in place of the usual scan buttons when a scan was still going the
-// last time this app process existed but isn't anymore - see
-// NativeController._checkForInterruptedScan for how that's detected.
-// Resuming picks up exactly where it left off (embedImages skips whatever
-// it already finished, by hash), so this is a one-tap fix rather than a
-// full rescan.
-// Shown once after the app moved to a new search model: what was indexed with the old one cannot be searched with the
-// new one, so the index was started again and the photos need to be scanned again. (People and their faces are
-// kept: they are not part of the index.)
+/// Shown once after the search model changed. What was indexed with the previous model cannot be searched with the
+/// current one, so the index was started again and the photos need to be scanned again. People and their faces are
+/// kept, as they are not part of the index.
 class _ModelUpdatedBanner extends StatelessWidget {
   const _ModelUpdatedBanner({required this.controller});
 
@@ -830,6 +818,10 @@ class _ModelUpdatedBanner extends StatelessWidget {
   }
 }
 
+/// Shown in place of the usual scan buttons when a scan was still going the last time the app process existed but
+/// is not any more. See NativeController._checkForInterruptedScan for how that is detected. Resuming picks up where
+/// it left off, because embedImages skips whatever it already finished, by hash, so this is a one-tap fix rather
+/// than a full rescan.
 class _InterruptedScanBanner extends StatelessWidget {
   const _InterruptedScanBanner({required this.controller});
 

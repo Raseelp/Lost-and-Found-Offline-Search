@@ -6,20 +6,18 @@ import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/floating_bar.dart';
 import 'package:lost_and_found/utils/motion.dart';
 
-/// The one way the app says something for a moment ("Copied.", "Merged two people." with an Undo). Every toast
-/// comes from here, so they all look the same: a light frosted card that sits clear of the floating bar. A new one
-/// replaces the one on screen. It needs no BuildContext, so it is safe to call after a screen has gone.
-///
-/// Wording: a sentence that ends with a full stop, in the app's plain voice ("Couldn't copy.", not "Error").
-///
-/// A toast with a button (Undo, View) shows how much time is left as a thin line along its lower edge that
-/// shrinks. With the phone's "Remove animations" on nothing slides or shrinks: the toast just appears and goes.
+/// Shows every short message in the app ("Copied.", "Merged two people." with an Undo) as one light frosted card. A
+/// message replaces the one on screen. It needs no BuildContext, so it can be called after a screen has gone. A
+/// message with a button shows the time left as a thin line that shrinks, and with "Remove animations" on nothing
+/// slides or shrinks.
 class AppToast {
   const AppToast._();
 
   static OverlayEntry? _entry;
 
-  /// Shows [message]. With [actionLabel] and [onAction] it has a button, and the time left is drawn as a line.
+  /// Shows [message]. With [actionLabel] and [onAction] it has a button and the time left is drawn as a line. The
+  /// card sits above the floating bar when the home screen shows with nothing on top of it, and at the bottom of the
+  /// screen anywhere else.
   static void show(
     String message, {
     String? actionLabel,
@@ -29,8 +27,6 @@ class AppToast {
     final navigator = Get.key.currentState;
     final overlay = navigator?.overlay;
     if (navigator == null || overlay == null) return;
-    // The floating bar is only there on the home screen, with nothing on top of it: anywhere else the message
-    // sits at the bottom of the screen.
     Route<dynamic>? top;
     navigator.popUntil((route) {
       top = route;
@@ -69,7 +65,7 @@ class AppToast {
       entry.remove();
       entry.dispose();
     } catch (_) {
-      // An entry whose overlay is already gone (the app restarted, say) has nothing left to take away.
+      // The entry's overlay is already gone, so there is nothing to remove.
     }
   }
 }
@@ -98,7 +94,7 @@ class _ToastCard extends StatefulWidget {
 }
 
 class _ToastCardState extends State<_ToastCard> with TickerProviderStateMixin {
-  // The slide in and out.
+  /// The slide in and out.
   late final AnimationController _in = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 320),
@@ -106,7 +102,7 @@ class _ToastCardState extends State<_ToastCard> with TickerProviderStateMixin {
     animationBehavior: AnimationBehavior.preserve,
   );
 
-  // The time the toast stays: 0 when it appears, 1 when it goes (the line shrinks with it).
+  /// How much of its time the toast has used: 0 when it appears, 1 when it goes. The line shrinks with it.
   late final AnimationController _life = AnimationController(
     vsync: this,
     duration: widget.duration,
@@ -116,12 +112,13 @@ class _ToastCardState extends State<_ToastCard> with TickerProviderStateMixin {
   bool _started = false;
   bool _gone = false;
 
+  /// Starts the slide in. A toast with a button stays twice as long when a screen reader or switch access is on,
+  /// since reaching a button takes longer.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
-    // Someone using a screen reader or switch access needs longer to get to a button.
     final slow = MediaQuery.accessibleNavigationOf(context) && widget.actionLabel != null;
     if (slow) _life.duration = widget.duration * 2;
     if (calm(context)) {
@@ -151,11 +148,13 @@ class _ToastCardState extends State<_ToastCard> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  /// Places the card just above the keyboard when it is up, above the floating bar when that is showing, and near the
+  /// bottom of the screen otherwise. On a wide screen it stays 520 wide and centred. Swiping it sideways dismisses
+  /// it, and a screen reader reads it out when it appears.
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final keyboard = media.viewInsets.bottom;
-    // Just above the keyboard when it is up; clear of the floating bar when that is there; else near the bottom.
     final bottom = keyboard > 0
         ? keyboard + 16
         : widget.aboveBar
@@ -237,7 +236,6 @@ class _ToastCardState extends State<_ToastCard> with TickerProviderStateMixin {
       left: 20 + media.viewPadding.left,
       right: 20 + media.viewPadding.right,
       bottom: bottom,
-      // On a wide screen the card stays a readable width, in the middle.
       child: Align(
         alignment: Alignment.bottomCenter,
         heightFactor: 1,
@@ -252,7 +250,6 @@ class _ToastCardState extends State<_ToastCard> with TickerProviderStateMixin {
                 child: Transform.translate(offset: Offset(0, 24 * (1 - t)), child: child),
               );
             },
-            // Swiped sideways, it goes.
             child: Dismissible(
               key: const ValueKey('app-toast'),
               direction: DismissDirection.horizontal,
@@ -260,7 +257,6 @@ class _ToastCardState extends State<_ToastCard> with TickerProviderStateMixin {
                 _gone = true;
                 widget.onGone();
               },
-              // Read out when it appears, for a screen reader.
               child: Semantics(
                 liveRegion: true,
                 container: true,

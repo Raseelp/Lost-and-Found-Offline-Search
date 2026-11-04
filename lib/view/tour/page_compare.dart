@@ -34,10 +34,10 @@ class _ComparePageState extends State<ComparePage>
     if (widget.scope.active) _c.forward();
   }
 
+  /// With animations turned off the whole table is there from the start.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // With animations turned off the whole table is simply there.
     _still = MediaQuery.disableAnimationsOf(context);
     if (_still) _c.value = 1;
   }
@@ -129,7 +129,8 @@ class _Table extends StatelessWidget {
 
   static const double _gap = 8;
 
-  // Row [i] (0 is the header) starts a little after the one above it.
+  /// When row [i] starts, as a fraction of the page's animation. Row 0 is the header, and each row starts a little
+  /// after the one above it.
   static double _start(int i) => 0.04 + 0.105 * i;
 
   double _at(double from, double to, [Curve curve = Curves.easeOutCubic]) =>
@@ -165,7 +166,6 @@ class _Table extends StatelessWidget {
             ),
             child: Align(alignment: Alignment.topLeft, child: child),
           ),
-          // The thin line between this row and the one above.
           if (!first)
             Positioned(
               left: AppSpacing.md,
@@ -183,6 +183,9 @@ class _Table extends StatelessWidget {
     );
   }
 
+  /// One row of the table, with a thin line above it unless it is the [first]. The check pops in a beat after its
+  /// words. The label is darker than the app's usual quiet grey, because at this size the usual one is under 4.5:1
+  /// on white. The row is announced as one sentence, whatever the animation is showing.
   Widget _row(
     TextTheme textTheme,
     int i, {
@@ -229,7 +232,6 @@ class _Table extends StatelessWidget {
             a,
             _OursAnswer(
               text: ours,
-              // The check pops in a beat after its words.
               pop: _at(s + 0.08, s + 0.28, Curves.easeOutBack),
             ),
             dy: 8,
@@ -242,7 +244,6 @@ class _Table extends StatelessWidget {
         children: [
           Text(
             label.toUpperCase(),
-            // Darker than the app's usual quiet grey: at this size the usual one is under 4.5:1 on white.
             style: small?.copyWith(color: TourPalette.gray600),
           ),
           const SizedBox(height: 3),
@@ -259,7 +260,6 @@ class _Table extends StatelessWidget {
         ],
       );
     }
-    // The row is announced as one sentence, whatever the animation is showing.
     return Semantics(
       label: first
           ? 'Lost and Found compared with Google Photos'
@@ -392,6 +392,7 @@ class _SourceButton extends StatelessWidget {
     if (!opened) AppToast.show("Couldn't open the link.");
   }
 
+  /// The words are in a [Flexible], so with large text they wrap instead of running out of the button.
   @override
   Widget build(BuildContext context) {
     return Semantics(
@@ -420,7 +421,6 @@ class _SourceButton extends StatelessWidget {
               children: [
                 const Icon(Icons.code_rounded, size: 20, color: AppColors.ink),
                 const SizedBox(width: AppSpacing.sm),
-                // Flexible: with large text the words wrap instead of running out of the button.
                 Flexible(
                   child: Text(
                     'View source code on GitHub',

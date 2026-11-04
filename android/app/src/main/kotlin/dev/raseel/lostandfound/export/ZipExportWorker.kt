@@ -37,20 +37,16 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Makes the zip (or zips) of a [ZipJob] as background work with a notification, so it carries on
- * when the app is left. Nothing is compressed and nothing is changed or removed on the phone: the
- * files are only read. If it is cancelled, or fails, whatever it had made is deleted again.
- *
- * Every album gets a folder of its name in the zip, with an Images and a Videos folder in it
- * (only the ones that have something in them), and each zip has a list.json describing what is in
- * it (when the job asked for one). The zips of a job are planned before the first is written, so
- * their names can say how many there are, and no file is ever cut across two of them.
+ * Makes the zip (or zips) of a [ZipJob] as background work with a notification, so it carries on when the app is left.
+ * Nothing is compressed or changed on the phone, and if the job is cancelled or fails, whatever it had made is
+ * deleted. Each album gets a folder with an Images and a Videos folder in it. The zips are planned before the first is
+ * written, so their names can say how many there are.
  */
 class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
     private class Cancelled : RuntimeException()
 
-    // One file to go in, and where.
+    /** One file to go in, and where. */
     private class Planned(
         val album: ZipAlbum,
         val item: ZipItem,
@@ -69,11 +65,13 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
         val delete: () -> Unit,
     )
 
-    // What the list.json says about one file.
+    /** What the list.json says about one file. */
     private class Listed(val planned: Planned, val size: Long, val incomplete: Boolean)
 
-    // A stream that reports a failed read as the end of the file, so a file that goes bad half
-    // way still makes a valid (if short) entry, and the zip is not left half written.
+    /**
+     * A stream that reports a failed read as the end of the file, so a file that goes bad half
+     * way still makes a valid (if short) entry, and the zip is not left half written.
+     */
     private class ForgivingStream(private val inner: InputStream) : InputStream() {
         var failed = false
         override fun read(): Int = try {
@@ -152,13 +150,12 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
         }
     }
 
-    // ---- the plan ----
-
     private fun checkCancel() {
         if (state.cancelRequested || isStopped) throw Cancelled()
     }
+/** Plans the zips: images first, then videos, each in its own folder. */
 
-    // The files in the order they go in, cut into zips that each stay within the job's limit.
+    /** The files in the order they go in, cut into zips that each stay within the job's limit. */
     private fun plan(job: ZipJob): List<List<Planned>> {
         val context = applicationContext
         val albumFolders = HashSet<String>()
@@ -169,7 +166,6 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
             val folder = unique(safeName(album.name, "Album"), albumFolders)
             val names = HashSet<String>()
             val seen = HashSet<String>()
-            // Images first, then videos, each in its own folder.
             for (videos in listOf(false, true)) {
                 for (item in album.items) {
                     if (item.isVideo != videos || !seen.add(item.uri)) continue
@@ -209,8 +205,10 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
         val size = p.info.size.coerceAtLeast(0)
         return size + 5 * (size / 65535 + 1) + p.path.length * 2L + 200 + (if (withList) 300 else 0)
     }
-
-    // ---- one zip ----
+/**
+ * Writes one zip of [part]. It stays in [created], so if a later zip fails or the job is cancelled, this one is
+ * deleted too.
+ */
 
     private fun writePart(job: ZipJob, part: List<Planned>, index: Int, parts: Int): ZipResult {
         val context = applicationContext
@@ -259,7 +257,6 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
             throw e
         }
         output.finish()
-        // Stays in [created]: if a later zip fails or the job is cancelled, this one goes too.
         return ZipResult(output.shownName, output.uri.toString(), writer.bytesWritten)
     }
 
@@ -296,8 +293,6 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
             .put("albums", albums)
             .toString(2)
     }
-
-    // ---- where it goes ----
 
     private fun openOutput(destination: ZipDestination, fileName: String): Output {
         val context = applicationContext
@@ -357,7 +352,7 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
         )
     }
 
-    // What was made so far is removed again.
+    /** What was made so far is removed again. */
     private fun discard() {
         for (output in created) {
             try {
@@ -380,8 +375,6 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
         }
     }
 
-    // ---- names ----
-
     private fun safeName(text: String, fallback: String): String {
         val cleaned = text.map { c -> if (c in "\\/:*?\"<>|" || c.code < 32) '_' else c }
             .joinToString("")
@@ -392,8 +385,10 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
         return cleaned.ifEmpty { fallback }
     }
 
-    // [name] if it is not taken yet in [taken] (compared without regard to case), else with a
-    // number in front of the extension.
+    /**
+     * [name] if it is not taken yet in [taken] (compared without regard to case), else with a
+     * number in front of the extension.
+     */
     private fun unique(name: String, taken: MutableSet<String>, folder: String = "", keepExtension: Boolean = false): String {
         fun key(n: String) = "$folder/$n".lowercase(Locale.ROOT)
         if (taken.add(key(name))) return name
@@ -407,8 +402,6 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
             n++
         }
     }
-
-    // ---- the notification ----
 
     private fun notifyProgress() {
         val now = System.currentTimeMillis()
@@ -450,7 +443,7 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
         }
     }
 
-    // Someone who left the app should hear that it did not work out.
+    /** Someone who left the app should hear that it did not work out. */
     private fun postFailed(message: String) {
         try {
             createChannel()
@@ -507,16 +500,18 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
     companion object {
         private const val TAG = "ZipExportWorker"
         private const val CHANNEL_ID = "zip_export"
-        // Not 4202: that is the face scan's, and the two can run at the same time.
+        /** Not 4202: that is the face scan's, and the two can run at the same time. */
         private const val NOTIFICATION_ID = 4204
         private const val NOTIFICATION_DONE_ID = 4203
         private const val WAKE_LOCK_MS = 3 * 60 * 60 * 1000L
 
-        // Left free in each zip for the list and the index.
+        /** Left free in each zip for the list and the index. */
         private const val RESERVE_BYTES = 256 * 1024L
 
-        // A zip that is expected to be bigger than this, or to hold more files than this, uses
-        // the 64-bit zip format (plain zip is used otherwise, as every tool reads it).
+        /**
+         * A zip that is expected to be bigger than this, or to hold more files than this, uses
+         * the 64-bit zip format (plain zip is used otherwise, as every tool reads it).
+         */
         private const val ZIP64_ABOVE_BYTES = 3_000_000_000L
         private const val ZIP64_ABOVE_FILES = 60_000
     }

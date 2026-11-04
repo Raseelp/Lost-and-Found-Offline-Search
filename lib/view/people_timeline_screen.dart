@@ -18,9 +18,9 @@ import 'package:lost_and_found/view/widget/people_timeline.dart';
 import 'package:lost_and_found/view/widget/timeline_preview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// The People timeline on a screen of its own, with the whole height for the years: a slim bar at
-/// the top (back, search, order, collapse) and then the timeline. See people_timeline.dart for
-/// how the timeline itself works.
+/// The People timeline on a screen of its own, with the whole height for the years. It has a slim bar at the top with
+/// back, search, order and collapse, and then the timeline. See people_timeline.dart for how the timeline itself
+/// works.
 class PeopleTimelineScreen extends StatefulWidget {
   const PeopleTimelineScreen({super.key});
 
@@ -28,6 +28,12 @@ class PeopleTimelineScreen extends StatefulWidget {
   State<PeopleTimelineScreen> createState() => _PeopleTimelineScreenState();
 }
 
+/// Dates are looked up while the screen is open and for people and photos that arrive. Back first puts the search
+/// away, then leaves.
+/// The photos at the playhead are the first part of the list, collapsing as it scrolls and out of the way while
+/// searching with the keyboard up. A row has no long-press menu, that is for the grid. The zoom buttons are hidden
+/// because the timeline zooms with a pinch, during which the list stands still. The preview shrinks out of the way
+/// only when the person scrolls, not when the list adjusts to the preview growing.
 class _PeopleTimelineScreenState extends State<PeopleTimelineScreen> with TickerProviderStateMixin {
   static const _compactKey = 'faces_timeline_compact';
 
@@ -41,11 +47,10 @@ class _PeopleTimelineScreenState extends State<PeopleTimelineScreen> with Ticker
 
   bool _searching = false;
 
-  // Whether there are moments to go to (the button for them is in the top bar, which is built
-  // apart from the list).
+  /// Whether there are moments to go to. The button for them is in the top bar, which is built apart from the list.
   bool _hasMoments = false;
 
-  // Collapsed to names and thin lines (the choice is kept).
+  /// Collapsed to names and thin lines. The choice is kept.
   bool _compact = false;
 
   TimelineSort _sort = TimelineSort.earliest;
@@ -58,15 +63,14 @@ class _PeopleTimelineScreenState extends State<PeopleTimelineScreen> with Ticker
   @override
   void initState() {
     super.initState();
-    // Dates are looked up while this screen is open (and for new people and photos arriving).
     _faces.timelineWanted = true;
     unawaited(_faces.loadTimeline());
     _loadCompact();
     _window.jumps.addListener(_toTop);
   }
 
-  // A jump to a month (a flag, the moments button) brings the list back to the top, where the
-  // preview opens out at the month it went to.
+  /// A jump to a month, from a flag or the moments button, brings the list back to the top, where the preview opens
+  /// out at the month it went to.
   void _toTop() {
     if (_scroll.hasClients && _scroll.offset > 0) {
       glideTo(context, _scroll, 0, duration: const Duration(milliseconds: 380));
@@ -91,7 +95,7 @@ class _PeopleTimelineScreenState extends State<PeopleTimelineScreen> with Ticker
       final compact = prefs.getBool(_compactKey) ?? false;
       if (mounted && compact != _compact) setState(() => _compact = compact);
     } catch (_) {
-      // The expanded list, as ever.
+      // Falls back to the expanded list.
     }
   }
 
@@ -105,7 +109,8 @@ class _PeopleTimelineScreenState extends State<PeopleTimelineScreen> with Ticker
     }
   }
 
-  // The story: the good moments year by year. Tapping one goes there.
+  /// The story: the good moments year by year. Tapping one goes there. The controller keeps the choice of showing
+  /// everyone, so the photos' moments follow it.
   void _openStory() {
     final faces = _faces;
     HapticFeedback.selectionClick();
@@ -116,7 +121,6 @@ class _PeopleTimelineScreenState extends State<PeopleTimelineScreen> with Ticker
           ? _layout
           : TimelineLayout.build(faces.people, faces.timeline, DateTime.now(), everyone: everyone),
       onEveryoneChanged: (value) {
-        // Kept by the controller: the photos' moments follow the same choice.
         faces.setMomentsEveryone(value);
         if (mounted) setState(() {});
       },
@@ -137,7 +141,7 @@ class _PeopleTimelineScreenState extends State<PeopleTimelineScreen> with Ticker
     setState(() => _searching = false);
   }
 
-  // The axis and rows are worked out again only when the people, their months or the month change.
+  /// The axis and rows are worked out again only when the people, their months or the month change.
   TimelineLayout _layoutFor(FacesController faces) {
     final now = DateTime.now();
     final month = monthIndex(now);
@@ -251,7 +255,6 @@ class _PeopleTimelineScreenState extends State<PeopleTimelineScreen> with Ticker
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     return PopScope(
-      // Back first puts the search away, then leaves.
       canPop: !_searching,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _closeSearch();
@@ -287,12 +290,9 @@ class _PeopleTimelineScreenState extends State<PeopleTimelineScreen> with Ticker
                       datesDone: faces.timelineDone,
                     );
 
-                    // The photos need to know the axis and when the dates change (then they are chosen again).
                     _preview.update(layout, dataVersion: faces.timeline, datesDone: faces.timelineDone);
 
                     final slivers = <Widget>[
-                      // The photos at the playhead: the first part of the list, collapsing as it scrolls
-                      // (and out of the way while searching, with the keyboard up).
                       if (!_searching)
                         TimelineLens(
                           preview: _preview,
@@ -307,14 +307,6 @@ class _PeopleTimelineScreenState extends State<PeopleTimelineScreen> with Ticker
                           child: TimelineIntro(layout: layout, data: faces.timeline, finished: faces.timelineDone, now: now),
                         ),
                       ),
-                      // The zoom buttons (All, 5 years, 1 year, 3 months) are switched off: the
-                      // timeline zooms with a pinch. To bring them back, add:
-                      //   SliverToBoxAdapter(
-                      //     child: Padding(
-                      //       padding: const EdgeInsets.fromLTRB(24, 16, 24, 4),
-                      //       child: TimelineZoomBar(window: _window),
-                      //     ),
-                      //   ),
                       SliverPersistentHeader(
                         pinned: true,
                         delegate: TimelineHeaderDelegate(layout: layout, window: _window, compact: _compact),
@@ -345,7 +337,6 @@ class _PeopleTimelineScreenState extends State<PeopleTimelineScreen> with Ticker
                               datesDone: faces.timelineDone,
                               memory: _memory,
                               index: i,
-                              // No long-press menu here: that is for the grid.
                               onTap: () => Navigator.of(context).push(
                                 MaterialPageRoute(builder: (_) => PersonScreen(person: row.person)),
                               ),
@@ -356,12 +347,9 @@ class _PeopleTimelineScreenState extends State<PeopleTimelineScreen> with Ticker
                       SliverToBoxAdapter(child: SizedBox(height: MediaQuery.of(context).padding.bottom + AppSpacing.xxl)),
                     ];
 
-                    // While two fingers pinch the timeline, the list stands still under them.
-                    // Scrolling the list up or down makes the preview shrink out of its way.
                     return NotificationListener<ScrollNotification>(
                       onNotification: (n) {
                         if (n.metrics.axis != Axis.vertical || n.depth != 0) return false;
-                        // The person scrolling the list (not the list adjusting to the preview growing).
                         if (n is UserScrollNotification && n.direction != ScrollDirection.idle) {
                           _preview.userScrolling();
                         }

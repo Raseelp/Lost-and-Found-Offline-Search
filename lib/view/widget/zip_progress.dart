@@ -7,14 +7,6 @@ import 'package:lost_and_found/controllers/export_controller.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 
-// What the zip export shows while it works: the folders that are going into the zip, listed as
-// they will be in it (each album with its Images and Videos), each filling with its own bar and
-// count, with a real thumbnail of its photos or videos dropping onto the bar as it goes, and a
-// zipper along the top that closes as the whole fills.
-//
-// All of it is driven by one number, how far the show has got (0..1): a folder's part of the
-// bar is a slice of that, so it plays the same whether the zip takes a moment or an hour.
-
 /// A zipper across the width: shut behind the slider, gaping ahead of it. [progress] is 0..1.
 class ZipperBar extends StatelessWidget {
   const ZipperBar({super.key, required this.progress});
@@ -50,7 +42,6 @@ class _ZipperBarPainter extends CustomPainter {
     final left = inset, right = size.width - inset;
     final slider = left + (right - left) * progress;
 
-    // The strip it is sewn into.
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTRB(2, y - 15, size.width - 2, y + 15),
@@ -58,7 +49,6 @@ class _ZipperBarPainter extends CustomPainter {
       ),
       Paint()..color = AppColors.parchment,
     );
-    // What is already shut takes the colour.
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTRB(2, y - 15, math.max(2.0, slider + 6), y + 15),
@@ -90,7 +80,6 @@ class _ZipperBarPainter extends CustomPainter {
       }
       n++;
     }
-    // The slider and its pull.
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromCenter(center: Offset(slider, y), width: 13, height: 19),
@@ -112,7 +101,12 @@ class _ZipperBarPainter extends CustomPainter {
   bool shouldRepaint(_ZipperBarPainter old) => old.progress != progress;
 }
 
-/// The folders, album by album. Follows the folder being filled by scrolling to its album.
+/// The folders going into the zip, listed as they will be in it: each album with its Images and Videos folders, each
+/// filling with its own bar and count, with a real thumbnail of its photos or videos dropping onto the bar as it
+/// goes. It follows the folder being filled by scrolling to its album.
+///
+/// All of it is driven by one number, how far the show has got (0 to 1). A folder's part of the bar is a slice of
+/// that, so it plays the same whether the zip takes a moment or an hour.
 class ZipFolderTree extends StatefulWidget {
   const ZipFolderTree({
     super.key,
@@ -148,7 +142,7 @@ class _ZipFolderTreeState extends State<ZipFolderTree> {
   final ScrollController _scroll = ScrollController();
   int _active = -1;
 
-  // Where each album's block starts in the list (the blocks have fixed heights).
+  /// Where each album's block starts in the list. The blocks have fixed heights.
   late final List<double> _offsets = () {
     var at = 4.0;
     final out = <double>[];
@@ -172,7 +166,7 @@ class _ZipFolderTreeState extends State<ZipFolderTree> {
     super.dispose();
   }
 
-  // Brings the album being filled into view when the filling moves on to the next.
+  /// Brings the album being filled into view when the filling moves on to the next.
   void _follow() {
     final v = widget.progress.value;
     var active = 0;
@@ -212,7 +206,7 @@ class _ZipFolderTreeState extends State<ZipFolderTree> {
   }
 }
 
-// One album: its folder and the Images / Videos folders inside it.
+/// One album: its folder and the Images and Videos folders inside it.
 class _AlbumBlock extends StatelessWidget {
   const _AlbumBlock({
     required this.folders,
@@ -220,7 +214,7 @@ class _AlbumBlock extends StatelessWidget {
     required this.thumbs,
   });
 
-  // Padding, the album's own row, and a row for each folder in it.
+  /// The height of a block: padding, the album's own row, and a row for each folder in it.
   static double heightFor(int folderCount) => 8 + 36 + 44.0 * folderCount;
 
   final List<ZipFolderPlan> folders;
@@ -303,8 +297,8 @@ class _AlbumBlock extends StatelessWidget {
   }
 }
 
-// The Images or the Videos folder of an album: a bar that fills, its count, and the thumbnail of
-// the file going in riding on the head of the bar.
+/// The Images or the Videos folder of an album: a bar that fills, its count, and the thumbnail of the file going in
+/// riding on the head of the bar.
 class _FolderRow extends StatelessWidget {
   const _FolderRow({
     required this.folder,
@@ -447,7 +441,7 @@ class _BarPainter extends CustomPainter {
   bool shouldRepaint(_BarPainter old) => old.p != p;
 }
 
-// A small square of a photo or video (a plain tile with its icon until the thumbnail is there).
+/// A small square of a photo or video. It is a plain tile with its icon until the thumbnail is there.
 class _Thumb extends StatelessWidget {
   const _Thumb({required this.bytes, required this.video, required this.size});
 
@@ -493,7 +487,7 @@ class _Thumb extends StatelessWidget {
   }
 }
 
-// Drops its child in from above with a small bounce when it appears.
+/// Drops its child in from above with a small bounce when it appears.
 class _DropIn extends StatelessWidget {
   const _DropIn({super.key, required this.child});
 

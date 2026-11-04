@@ -46,8 +46,9 @@ class _FirstRunTourState extends State<FirstRunTour> {
   }
 }
 
-/// Settings > Help: the same tour again, with no download (the models are already on the phone), so it can be
-/// seen without reinstalling the app.
+/// The tour again, opened from Help in Settings, with no download (the models are already on the phone), so it can be
+/// seen without reinstalling the app. Close and Done pop the route directly, because a maybePop would ask the tour's own
+/// back handling first, which only turns the page back when the tour is not on its first page.
 Future<void> openHelpTour(BuildContext context) {
   return Navigator.of(
     context,
@@ -76,8 +77,6 @@ class _HelpTourState extends State<_HelpTour> {
       pages: introPages(),
       download: _download,
       mode: TourMode.help,
-      // pop, not maybePop: maybePop asks the tour's own back handling first, which (away from the first page) only
-      // turns the page back, so Close and Done would not leave.
       onFinished: () => Navigator.of(context).pop(),
     );
   }

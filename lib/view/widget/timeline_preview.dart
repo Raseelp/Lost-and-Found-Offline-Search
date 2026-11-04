@@ -12,29 +12,13 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/view/widget/people_timeline.dart';
 
-// The photos on the People timeline.
-//
-//  * The lens: a row of photos in date order, centred on the playhead, the one in the middle
-//    large and the neighbours smaller. The playhead's place in time is turned into a place in the
-//    row, so winding through a busy month steps through its photos one by one, and an empty month
-//    holds the row still.
-//  * The faces in the left column turn into the person's own photo from the month under the
-//    playhead, once it has stayed on a month for a moment.
-//
-// Everything is made to show at once: small versions of every chosen photo are fetched in the
-// background (the ones nearest the playhead first), the sharp version of the middle ones is only
-// asked for once the playhead has slowed down, and a request for a picture nobody wants any more
-// is dropped before it starts.
-
-// ---------------------------------------------------------------------------------- loading
-
 class _Job {
   _Job(this.photo, this.large, [this.sharp = false]);
 
   final PreviewPhoto photo;
   final bool large;
 
-  /// The biggest version (which is [large] too); what a picture shown big is finally sharpened to.
+  /// The biggest version, which is [large] too. A picture shown big is finally sharpened to it.
   final bool sharp;
   final List<Completer<Uint8List?>> waiters = [];
   final List<bool Function()> wanted = [];
@@ -42,7 +26,7 @@ class _Job {
 
   String get id => '${sharp ? 'H' : (large ? 'L' : 'S')}${photo.cacheKey}';
 
-  // Made ahead of time, or somebody still wants it.
+  /// True when it is made ahead of time, or somebody still wants it.
   bool get stillWanted => ahead && waiters.isEmpty || wanted.any((w) => w());
 
   void finish(Uint8List? bytes) {
@@ -53,14 +37,18 @@ class _Job {
   }
 }
 
-/// Small, large and sharp versions of the timeline's photos, kept in memory. At most a few are made at once
-/// (more only slow each other down), the newest request goes first (it is what is on screen now),
-/// and a request nobody wants any more is dropped before it starts.
+/// Small, large and sharp versions of the timeline's photos, kept in memory.
+///
+/// Everything is made to show at once. Small versions of every chosen photo are fetched in the background, the ones
+/// nearest the playhead first. The sharp version of the middle ones is only asked for once the playhead has slowed
+/// down. At most a few are made at once, because more only slow each other down. The latest request goes first, since
+/// it is what is on screen, and a request nobody wants is dropped before it starts.
 class PreviewLoader {
   static const int smallSize = 120;
   static const int largeSize = 400;
 
-  /// For a picture shown big (the middle of the lens, a memory's main photo): the large one is not enough there.
+  /// For a picture shown big, such as the middle of the lens or a memory's main photo, where the large one is not
+  /// enough.
   static const int sharpSize = 1080;
   static const int _maxRunning = 3;
   static const int _keepSmall = 900;
@@ -74,23 +62,27 @@ class PreviewLoader {
   final LinkedHashMap<String, Uint8List> _large = LinkedHashMap();
   final LinkedHashMap<String, Uint8List> _sharp = LinkedHashMap();
   final Map<String, _Job> _jobs = {};
-  final List<_Job> _now = []; // wanted now; newest last
-  final List<_Job> _ahead = []; // made ahead of time, in the order given
+  /// The jobs that are wanted, newest last.
+  final List<_Job> _now = [];
+
+  /// The jobs made ahead of time, in the order given.
+  final List<_Job> _ahead = [];
   final Set<String> _failed = {};
   int _running = 0;
 
-  /// What is in memory already (the sharpest version when [sharp], the large one when [large], else the small one).
+  /// What is in memory already: the sharpest version when [sharp], the large one when [large], else the small one. The
+  /// picture counts as most recently used.
   Uint8List? peek(PreviewPhoto photo, {required bool large, bool sharp = false}) {
     final cache = sharp ? _sharp : (large ? _large : _small);
     final bytes = cache.remove(photo.cacheKey);
-    if (bytes != null) cache[photo.cacheKey] = bytes; // most recently used goes last
+    if (bytes != null) cache[photo.cacheKey] = bytes;
     return bytes;
   }
 
   bool failed(PreviewPhoto photo) => _failed.contains('S${photo.cacheKey}');
 
-  /// The picture, from memory or made now. [wanted] says whether it is still needed once its turn
-  /// comes (a frame that has slid away no longer needs it).
+  /// The picture, from memory or made on request. [wanted] says whether it is still needed once its turn comes, since
+  /// a frame that has slid away does not need it any more.
   Future<Uint8List?> get(PreviewPhoto photo, {required bool large, bool sharp = false, bool Function()? wanted}) {
     final cached = peek(photo, large: large, sharp: sharp);
     if (cached != null) return Future.value(cached);
@@ -103,7 +95,7 @@ class PreviewLoader {
       _jobs[id] = job;
       _now.add(job);
     } else if (_ahead.remove(job)) {
-      _now.add(job); // asked for now after all
+      _now.add(job);
     }
     final completer = Completer<Uint8List?>();
     job.waiters.add(completer);
@@ -112,8 +104,8 @@ class PreviewLoader {
     return completer.future;
   }
 
-  /// Makes the small versions of [photos] when there is nothing more urgent. With [front] they go
-  /// before what is already waiting (the ones near where the playhead is now).
+  /// Makes the small versions of [photos] when there is nothing more urgent. With [front] they go before what is
+  /// already waiting, for the ones near the playhead.
   void prefetch(Iterable<PreviewPhoto> photos, {bool front = false}) {
     final fresh = <_Job>[];
     for (final photo in photos) {
@@ -176,9 +168,9 @@ class PreviewLoader {
   }
 }
 
-/// A picture of the timeline, shown as soon as there is anything of it: the small version at once, then the
-/// large one when [large] and it has arrived, then - when [sharp], for a picture shown big - the sharp one. Each
-/// better version fades in over the one before, so nothing jumps or blinks while it sharpens.
+/// A picture of the timeline, shown as soon as there is anything of it. The small version shows at once, then the
+/// large one when [large] is set and it has arrived, then the sharp one when [sharp] is set, for a picture shown big.
+/// Each better version fades in over the one before, so nothing jumps or blinks while it sharpens.
 class PreviewImage extends StatefulWidget {
   const PreviewImage({
     super.key,
@@ -206,11 +198,15 @@ class PreviewImage extends StatefulWidget {
 }
 
 class _PreviewImageState extends State<PreviewImage> {
-  // What is on show, and a better version fading in over it. _top is the best version either of them is.
+  /// What is on show, and a better version fading in over it.
   Uint8List? _shown;
   Uint8List? _incoming;
-  bool _incomingReady = false; // decoded, so it is at least starting to show
-  int _top = 0; // 0 nothing yet, 1 small, 2 large, 3 sharp
+
+  /// True when the incoming version is decoded, so it is at least starting to show.
+  bool _incomingReady = false;
+
+  /// The best version either of them is: 0 nothing yet, 1 small, 2 large, 3 sharp.
+  int _top = 0;
 
   @override
   void initState() {
@@ -230,6 +226,8 @@ class _PreviewImageState extends State<PreviewImage> {
     if (old.photo.cacheKey != widget.photo.cacheKey || old.large != widget.large || old.sharp != widget.sharp) _resolve();
   }
 
+  /// Takes the best version in memory and asks for the better ones. A version already in memory is shown at once if
+  /// there is nothing yet, else it fades in over what is there.
   void _resolve() {
     final photo = widget.photo, loader = widget.loader;
     final wantLarge = widget.large || widget.sharp;
@@ -240,7 +238,6 @@ class _PreviewImageState extends State<PreviewImage> {
     final rank = sharp != null ? 3 : (large != null ? 2 : (small != null ? 1 : 0));
     if (best != null && rank > _top) {
       _top = rank;
-      // Already in memory: shown at once if there is nothing yet, else faded in over what is there.
       if (_shown == null && _incoming == null) {
         _shown = best;
       } else {
@@ -258,31 +255,31 @@ class _PreviewImageState extends State<PreviewImage> {
     }
   }
 
+  /// Asks the loader for version [rank] of the photo with [key]. The sharp version follows the large one and is not
+  /// asked for at the same time, because a picture that is only passing by never needs it.
   void _fetch(String key, int rank) {
     bool wanted() =>
         mounted && widget.photo.cacheKey == key && (rank <= 1 || widget.large || widget.sharp) && (rank < 3 || widget.sharp);
     widget.loader.get(widget.photo, large: rank >= 2, sharp: rank == 3, wanted: wanted).then((b) {
       if (b == null || !wanted()) return;
       _deliver(b, rank);
-      // The sharp version follows the large one (not asked for at the same time: a picture that is only passing by
-      // never needs it).
       if (rank == 2 && widget.sharp) _fetch(key, 3);
     });
   }
 
+  /// Fades the latest version in over what is shown. A version that is already showing becomes what is shown. One that
+  /// has not been decoded yet is dropped, because it would leave a hole where the picture was.
   void _deliver(Uint8List bytes, int rank) {
     if (rank <= _top) return;
     setState(() {
       _top = rank;
-      // One that is already showing becomes what is shown, and this one fades in over it. One that has not been
-      // decoded yet is dropped: it would leave a hole where the picture was.
       if (_incoming != null && _incomingReady) _shown = _incoming;
       _incoming = bytes;
       _incomingReady = false;
     });
   }
 
-  // The fade of the newest version has ended: it is what is shown now.
+  /// Called when the fade of the latest version has ended. It becomes what is shown.
   void _promote() {
     if (!mounted || _incoming == null) return;
     setState(() {
@@ -339,10 +336,11 @@ class MonthMedia {
   final List<PreviewPhoto> photos;
 }
 
-// ---------------------------------------------------------------------------- the controller
-
-/// What the timeline's photos need: the picks for the filmstrip, the place of the playhead in
-/// them, and each person's photo for the month the playhead has settled on.
+/// What the timeline's photos need: the picks for the filmstrip, the place of the playhead in them, and each person's
+/// photo for the month the playhead has settled on.
+///
+/// The faces in the left column turn into the person's own photo from the month under the playhead, once it has
+/// stayed on a month for a moment.
 class TimelinePreview extends ChangeNotifier {
   TimelinePreview({required this.window}) {
     window.centre.addListener(_onCentre);
@@ -355,7 +353,7 @@ class TimelinePreview extends ChangeNotifier {
 
   TimelineLayout _layout = TimelineLayout.empty;
 
-  // Set on dispose: answers that arrive after it are dropped.
+  /// Set on dispose. Answers that arrive after it are dropped.
   bool _disposed = false;
 
   @override
@@ -363,13 +361,11 @@ class TimelinePreview extends ChangeNotifier {
     if (!_disposed) super.notifyListeners();
   }
 
-  // ---- the filmstrip ----
-
   /// The chosen photos and videos, in the order they were taken.
   List<PreviewPhoto> picks = const [];
 
-  // For each month of the axis: how many picks it has, and the place of its first (or of the next
-  // one, for an empty month).
+  /// For each month of the axis, how many picks it has, and the place of its first, or of the next one for an empty
+  /// month.
   List<int> _count = const [];
   List<int> _first = const [];
   int _base = 0;
@@ -378,8 +374,8 @@ class TimelinePreview extends ChangeNotifier {
   bool _fetching = false;
   bool _fetchAgain = false;
 
-  /// Tells it the axis and people now showing. [dataVersion] changes whenever the dates change;
-  /// then the picks are chosen again.
+  /// Tells it the axis and people showing. [dataVersion] changes whenever the dates change, and then the picks are
+  /// chosen again.
   void update(TimelineLayout layout, {required Object dataVersion, required bool datesDone}) {
     _layout = layout;
     if (datesDone && !identical(_fetchedFor, dataVersion)) {
@@ -390,11 +386,11 @@ class TimelinePreview extends ChangeNotifier {
     }
   }
 
-  // The picks are chosen again when the dates change, but not more than every few seconds: while photos
-  // are being scanned the dates change all the time, and every choosing reads all the faces.
   Timer? _fetchTimer;
   DateTime? _lastFetch;
 
+  /// Chooses the picks again, but not more than every few seconds. While photos are being scanned the dates change
+  /// all the time, and every choosing reads all the faces.
   void _scheduleFetch() {
     final last = _lastFetch;
     final wait = last == null ? Duration.zero : const Duration(seconds: 4) - DateTime.now().difference(last);
@@ -406,6 +402,8 @@ class TimelinePreview extends ChangeNotifier {
     }
   }
 
+  /// Fetches the picks. What was shown for the month the playhead is on, the people's photos and the photos of the
+  /// month, is asked for again.
   Future<void> _fetchPicks() async {
     if (_disposed) return;
     _lastFetch = DateTime.now();
@@ -422,7 +420,6 @@ class TimelinePreview extends ChangeNotifier {
         _byMonth.clear();
         _media.clear();
         _reindex();
-        // What was shown for the month it is on (people's photos, the month's photos) is asked for again.
         if (settled) unawaited(_loadPeople(_settledMonth));
         if (!window.moving.value) unawaited(_loadMonth(window.centre.value));
       } while (_fetchAgain);
@@ -433,6 +430,8 @@ class TimelinePreview extends ChangeNotifier {
     }
   }
 
+  /// Counts the picks of each month of the axis. Picks are in date order, so the first of each month is the running
+  /// total before it.
   void _reindex() {
     final months = _layout.monthCount;
     _base = _layout.startMonth;
@@ -444,7 +443,6 @@ class TimelinePreview extends ChangeNotifier {
       count[o]++;
       kept.add(p);
     }
-    // Picks are in date order, so the first of each month is the running total before it.
     final first = List<int>.filled(count.length, 0);
     var run = 0;
     for (var i = 0; i < count.length; i++) {
@@ -458,7 +456,7 @@ class TimelinePreview extends ChangeNotifier {
     notifyListeners();
   }
 
-  // The picks that fall on the axis (the ones the lens walks through).
+  /// The picks that fall on the axis, the ones the lens walks through.
   List<PreviewPhoto> _shown = const [];
   List<PreviewPhoto> get shown => _shown;
 
@@ -468,10 +466,9 @@ class TimelinePreview extends ChangeNotifier {
     return o < 0 || o >= _count.length ? 0 : _count[o];
   }
 
-  /// Where the playhead (at [monthFloat], a month and the part of it gone by) is in [shown]: a
-  /// photo's number, with a fraction between two. The photos of a month share its length, so a
-  /// month with many has the row linger, and an empty one holds it still between the photos
-  /// either side.
+  /// Where the playhead is in [shown], given as a photo's number with a fraction between two. [monthFloat] is a month
+  /// and the part of it gone by. The photos of a month share its length, so a month with many has the row linger, and
+  /// an empty one holds it still between the photos either side.
   double indexAt(double monthFloat) {
     if (_count.isEmpty) return 0;
     final rel = monthFloat - _base;
@@ -481,7 +478,7 @@ class TimelinePreview extends ChangeNotifier {
     return c > 0 ? _first[month] + part * c - 0.5 : _first[month] - 0.5;
   }
 
-  // The small versions of the photos near the playhead first, then everyone else's.
+  /// Fetches the small versions of the photos near the playhead first, then everyone else's.
   void _prefetchAround({required bool front}) {
     if (_shown.isEmpty) return;
     final centre = indexAt(window.centreMonth).round().clamp(0, _shown.length - 1);
@@ -493,10 +490,8 @@ class TimelinePreview extends ChangeNotifier {
     loader.prefetch(front ? order.take(40) : order, front: front);
   }
 
-  // ---- settling ----
-
-  /// Whether the playhead has stayed on a month for a moment (the sharp photos and the people's
-  /// photos wait for that, so a fast drag costs nothing).
+  /// Whether the playhead has stayed on a month for a moment. The sharp photos and the people's photos wait for that,
+  /// so a fast drag costs nothing.
   bool settled = true;
   Timer? _settleTimer;
   int _settledMonth = -1;
@@ -510,22 +505,21 @@ class TimelinePreview extends ChangeNotifier {
     _settleTimer = Timer(const Duration(milliseconds: 90), _onSettled);
   }
 
+  /// Called when the playhead has stayed on a month. Resting on a month, also when the timeline has just opened, fills
+  /// the preview with its photos.
   void _onSettled() {
     settled = true;
     _settledMonth = window.centre.value;
     notifyListeners();
     unawaited(_loadPeople(_settledMonth));
-    // Resting on a month (also when the timeline has just opened): its photos fill the preview.
     if (!window.moving.value) unawaited(_loadMonth(_settledMonth));
     _prefetchAround(front: true);
   }
 
-  // ---- each person's photo of the month ----
-
   final LinkedHashMap<int, Map<int, PreviewPhoto>> _byMonth = LinkedHashMap();
 
-  /// [personId]'s clearest photo of the month the playhead is on - once it has settled there; null
-  /// while it is moving, or when they have none then.
+  /// [personId]'s clearest photo of the month the playhead is on, once it has settled there. Null while it is moving,
+  /// or when they have none then.
   PreviewPhoto? photoFor(int personId) {
     if (!settled || _settledMonth != window.centre.value) return null;
     return _byMonth[_settledMonth]?[personId];
@@ -559,16 +553,14 @@ class TimelinePreview extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ---- the month at rest ----
-
   final LinkedHashMap<int, MonthMedia> _media = LinkedHashMap();
 
-  /// The photos of [month] (the best few, and how many in all), once they are known.
+  /// The photos of [month], the best few and how many in all, once they are known.
   MonthMedia? mediaFor(int month) => _media[month];
 
+  /// When the years have come to rest on a month, its photos are fetched to fill the preview. As they were just moved,
+  /// the preview may open out whatever the list is doing.
   void _onMoving() {
-    // The years have come to rest on a month: its photos are fetched, to fill the preview - and, as
-    // they were just moved, it may open out whatever the list is doing.
     if (!window.moving.value) {
       if (_scrollCollapsed) {
         _scrollCollapsed = false;
@@ -578,6 +570,8 @@ class TimelinePreview extends ChangeNotifier {
     }
   }
 
+  /// Fetches the photos of [month]. Their small versions are made at once, so the tiles have something to show as they
+  /// open.
   Future<void> _loadMonth(int month) async {
     if (_media.containsKey(month)) {
       notifyListeners();
@@ -591,7 +585,6 @@ class TimelinePreview extends ChangeNotifier {
       while (_media.length > 12) {
         _media.remove(_media.keys.first);
       }
-      // Small versions at once, so the tiles have something to show as they open.
       loader.prefetch(found.photos, front: true);
     } catch (e) {
       debugPrint('timelineMonthMedia failed: $e');
@@ -608,32 +601,30 @@ class TimelinePreview extends ChangeNotifier {
     return null;
   }
 
-  /// The moments of several people (the whole gang, new faces, a reunion) in [month].
+  /// The moments of several people, such as the whole gang, a reunion or people appearing for the first time, in
+  /// [month].
   List<GroupMoment> groupsIn(int month) => _layout.groupsIn(month);
 
-  /// The moments (first photo together, a return, a lovely run) that fall in [month].
+  /// The moments that fall in [month], such as a first photo together, a return or a lovely run.
   List<({TimelineRowData row, Milestone milestone})> momentsIn(int month) => _layout.momentsIn(month);
 
-  /// How many months one pixel of dragging the lens moves the timeline: a photo's width of
-  /// dragging is one photo, which is a part of the month it is in.
+  /// How many months one pixel of dragging the lens moves the timeline. A photo's width of dragging is one photo,
+  /// which is a part of the month it is in.
   double monthsPerLensPixel(double step) => 1 / (math.max(1, countIn(window.centre.value)) * step);
 
-  // ---- making room for the list ----
-
-  // Set when the person scrolls the list (up or down the page): the preview slims with it and stays
-  // slim, since they have gone to look at the list. Cleared when the list is back at the top, or when
-  // the years have been moved again (a slide along a line, a drag of the row): then they want to see
-  // the month, wherever the list is.
+  /// Set when the person scrolls the list up or down the page. The preview slims with it and stays slim, since they
+  /// have gone to look at the list. Cleared when the list is back at the top, or when the years have been moved again
+  /// by a slide along a line or a drag of the row, because then they want to see the month wherever the list is.
   bool _scrollCollapsed = false;
 
-  /// The person is scrolling the list (a finger on it, or it still gliding).
+  /// Called when the person is scrolling the list, with a finger on it or while it is still gliding.
   void userScrolling() {
     if (_scrollCollapsed) return;
     _scrollCollapsed = true;
     notifyListeners();
   }
 
-  /// Where the list is scrolled to: back at the top, the preview may open out again.
+  /// Tells where the list is scrolled to. Back at the top, the preview may open out again.
   void setListOffset(double pixels) {
     if (_scrollCollapsed && pixels <= 6) {
       _scrollCollapsed = false;
@@ -641,8 +632,8 @@ class TimelinePreview extends ChangeNotifier {
     }
   }
 
-  /// Whether the preview should stay out of the way of the list: it was scrolled away from the
-  /// top, or a finger is moving the strips.
+  /// Whether the preview should stay out of the way of the list, because it was scrolled away from the top or a finger
+  /// is moving the strips.
   bool get compact => _scrollCollapsed || window.stripActive.value;
 
   @override
@@ -657,10 +648,11 @@ class TimelinePreview extends ChangeNotifier {
   }
 }
 
-// ------------------------------------------------------------------------------------- bento
-
-/// How [count] pictures are laid out in a box [size]: the first (the hero) biggest, the rest
-/// around it, no gaps but [gap]. [heroRight] puts the hero on the right instead of the left.
+/// How [count] pictures are laid out in a box [size]: the first, the hero, biggest and the rest around it, with no
+/// gaps but [gap]. [heroRight] puts the hero on the right instead of the left.
+///
+/// From four pictures on there are four columns. The hero is two across and two down, and the rest fill the cells
+/// round it a row at a time, with the last row stretched so nothing is left empty.
 List<Rect> bentoRects(int count, Size size, {bool heroRight = false, double gap = 4}) {
   if (count <= 0) return const [];
   final w = size.width, h = size.height;
@@ -678,8 +670,6 @@ List<Rect> bentoRects(int count, Size size, {bool heroRight = false, double gap 
       Rect.fromLTWH(big + gap, ch + gap, small, ch),
     ];
   } else {
-    // Four columns; the hero is two across and two down, the rest fill the cells round it a row at
-    // a time, the last row stretched so nothing is left empty.
     const cols = 4;
     final rows = count <= 5 ? 2 : (count <= 9 ? 3 : 4);
     final cw = (w - gap * (cols - 1)) / cols, ch = (h - gap * (rows - 1)) / rows;
@@ -704,8 +694,6 @@ List<Rect> bentoRects(int count, Size size, {bool heroRight = false, double gap 
   return rects;
 }
 
-// ------------------------------------------------------------------------------------- lens
-
 /// The photos under the top bar. While the years move: a row of photos in date order, the one at
 /// the playhead large (and dragging the row moves the years). When they come to rest on a month,
 /// the preview grows and that month opens out into all its photos around the one that was in the
@@ -724,14 +712,14 @@ class TimelineLens extends StatefulWidget {
 }
 
 class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMixin {
-  // 0 = the row of photos, 1 = the month opened out.
+  /// 0 = the row of photos, 1 = the month opened out.
   late final AnimationController _open = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 640),
     reverseDuration: const Duration(milliseconds: 340),
   );
 
-  // 0 = the row at its size, 1 = shrunk to a slim row (the list is being scrolled).
+  /// 0 = the row at its size, 1 = shrunk to a slim row (the list is being scrolled).
   late final AnimationController _shrink = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 240),
@@ -757,15 +745,15 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
     super.dispose();
   }
 
-  // The month the preview opened out for, and the photo that led it: kept while it folds back, even
-  // though the playhead has moved on by then.
+  /// The month the preview opened out for, and the photo that led it: kept while it folds back, even
+  /// though the playhead has moved on by then.
   int? _openedMonth;
   PreviewPhoto? _openedHero;
 
+  /// Only a finger on the strips makes the row itself slimmer. A scrolled list does that by scrolling, and the header
+  /// collapses with it.
   void _sync() {
     if (!mounted) return;
-    // Only a finger on the strips makes the row itself slimmer; a scrolled list does that by
-    // scrolling (the header collapses with it).
     final compact = widget.preview.compact;
     if (widget.window.stripActive.value) {
       if (_shrink.status != AnimationStatus.forward && _shrink.status != AnimationStatus.completed) _shrink.forward();
@@ -791,10 +779,14 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
     }
   }
 
-  // Frame sizes follow the height the row has.
+  /// Frame sizes follow the height the row has.
   static double _frameHeight(double collapsed) => collapsed * 0.705;
   static double _frameWidth(double collapsed) => _frameHeight(collapsed) * 0.71;
 
+  /// The row is slimmer while a finger is on the strips, and opened out it grows from there. The header of the list is
+  /// pinned and collapses as the list scrolls, slimming step by step going down and growing step by step going up.
+  /// Opened out it keeps the room it needs even when the list is scrolled, because the month was opened on purpose,
+  /// while folded it can collapse to the slim row. The row can be dragged too, to move the years.
   @override
   Widget build(BuildContext context) {
     final screen = MediaQuery.sizeOf(context).height;
@@ -807,13 +799,8 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
         final photos = widget.preview.shown;
         if (photos.isEmpty) return const SliverToBoxAdapter(child: SizedBox(width: double.infinity));
         final t = _open.value;
-        // The row, or - while a finger is on the strips - a slimmer one; opened out it grows from there.
         final base = rowHeight + (_slimHeight - rowHeight) * Curves.easeOutCubic.transform(_shrink.value);
         final full = base + (opened - base) * Curves.easeInOutCubic.transform(t);
-        // A header of the list that is pinned and collapses as the list scrolls: scrolling down
-        // slims it step by step, scrolling back up grows it step by step.
-        // Opened out, it keeps the room it needs even when the list is scrolled (the month was opened
-        // on purpose); folded it can collapse to the slim row.
         final least = _slimHeight + (opened - _slimHeight) * Curves.easeInOutCubic.transform(t);
         return SliverPersistentHeader(
           pinned: true,
@@ -828,7 +815,6 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
                 padding: const EdgeInsets.fromLTRB(AppSpacing.base, 0, AppSpacing.base, gap),
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  // The row can be dragged too: it moves the years.
                   onHorizontalDragStart: (_) => widget.window.dragStart(),
                   onHorizontalDragUpdate: (d) =>
                       widget.window.dragBy(d.delta.dx * _toStripPixels(_frameWidth(rowNow))),
@@ -858,12 +844,12 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
     );
   }
 
-  // Dragging the row by a pixel moves the strips by this many pixels (it is in photos, the strips
-  // in months).
+  /// Dragging the row by a pixel moves the strips by this many pixels (it is in photos, the strips
+  /// in months).
   double _toStripPixels(double frameWidth) =>
       widget.preview.monthsPerLensPixel(frameWidth * 0.9) * widget.window.ppm;
 
-  // Where frame [i] is in the row (in the preview's top-left corner coordinates).
+  /// Where frame [i] is in the row (in the preview's top-left corner coordinates).
   Rect _frameRect(int i, double idx, double width, double collapsed) {
     final fw = _frameWidth(collapsed), fh = _frameHeight(collapsed);
     final dist = i - idx;
@@ -875,6 +861,8 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
     return Rect.fromLTWH(x, (collapsed - h) / 2, w, h);
   }
 
+  /// Opened or folding back, it is the month it was opened for that shows, not where the playhead has got to since.
+  /// The row of photos fades out as the month opens.
   Widget _body(
     BuildContext context,
     double width,
@@ -886,8 +874,6 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
     final preview = widget.preview, window = widget.window;
     final month = window.centre.value;
     final idx = preview.indexAt(window.centreMonth);
-    // Opened (or folding back) it is the month it was opened for that shows, not where the
-    // playhead has got to since.
     final openMonth = _openedMonth ?? month;
     var heroIndex = idx.round().clamp(0, photos.length - 1);
     final led = _openedHero;
@@ -898,7 +884,6 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
 
     return Stack(
       children: [
-        // The row of photos - fading out as the month opens.
         if (t < 0.6)
           Positioned.fill(
             child: Opacity(
@@ -906,10 +891,8 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
               child: _row(context, width, collapsed, photos, idx, month),
             ),
           ),
-        // The month opened out.
         if (t > 0)
           ..._opened(context, width, collapsed, opened, t, photos[heroIndex], _frameRect(heroIndex, idx, width, collapsed), openMonth),
-        // Where the playhead is.
         Positioned(
           left: width / 2 - 3,
           bottom: 0,
@@ -926,13 +909,15 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
     );
   }
 
+  /// Draws the frames, farthest first so the nearest paint on top. Only the middle few get the sharp version, once the
+  /// playhead is still. Frames further out are veiled and not see-through, because they sit behind the next one. A
+  /// month with nothing in it makes the row wait and say why.
   Widget _row(BuildContext context, double width, double collapsed, List<PreviewPhoto> photos, double idx, int month) {
     final textTheme = Theme.of(context).textTheme;
     final preview = widget.preview;
     final first = math.max(0, idx.floor() - 5);
     final last = math.min(photos.length - 1, idx.floor() + 6);
 
-    // Farthest first, so the nearest paint on top.
     final order = [for (var i = first; i <= last; i++) i]..sort((a, b) => (b - idx).abs().compareTo((a - idx).abs()));
     final children = <Widget>[];
     for (final i in order) {
@@ -964,14 +949,11 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
                   PreviewImage(
                     photo: photo,
                     loader: preview.loader,
-                    // The sharp one only for the middle few, and once the playhead is still.
                     large: near && preview.settled,
-                    // The one in the middle, big on the screen, is sharpened once the playhead is still.
                     sharp: a < 0.8 && preview.settled && PreviewLoader.wantsSharp(rect.size, MediaQuery.devicePixelRatioOf(context)),
                     fill: AppColors.hairline,
                   ),
                   if (near)
-                    // On the outer corner, so the frame in front does not cover it.
                     Positioned(
                       left: dist > 0.4 ? null : 6,
                       right: dist > 0.4 ? 6 : null,
@@ -991,7 +973,6 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
                       top: 5,
                       child: Icon(Icons.play_circle_fill_rounded, size: 18, color: AppColors.onMedia),
                     ),
-                  // Frames further out are veiled, not see-through: they sit behind the next one.
                   if (a > 0.3)
                     Positioned.fill(
                       child: ColoredBox(
@@ -1009,7 +990,6 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
     return Stack(
       children: [
         ...children,
-        // A month with nothing in it: the row waits, and says why.
         Positioned(
           left: 0,
           right: 0,
@@ -1039,8 +1019,10 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
     );
   }
 
-  // The month's photos in a bento: the one that was in the middle of the row grows into the big
-  // tile, and the others come out from behind it, one after another.
+  /// The month's photos in a bento: the one that was in the middle of the row grows into the big tile, which starts
+  /// where the middle frame was, and the others come out small from behind it, one after another, in the order they
+  /// were taken. The big tiles are sharpened once settled and the last one says how many more there are. Chips across
+  /// the top show the two moments that matter most, and a first photo together is one chip with both faces.
   List<Widget> _opened(
     BuildContext context,
     double width,
@@ -1055,7 +1037,6 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
     final media = widget.preview.mediaFor(month);
     if (media == null || media.photos.isEmpty) return const [];
 
-    // The middle photo leads; the rest follow in the order they were taken.
     final photos = <PreviewPhoto>[
       middle,
       for (final p in media.photos)
@@ -1069,7 +1050,6 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
     final out = <Widget>[];
     for (var i = photos.length - 1; i >= 0; i--) {
       final target = rects[i].shift(const Offset(pad, pad));
-      // The hero starts where the middle frame was; the rest start small, behind it.
       final from = i == 0 ? middleRect : Rect.fromCenter(center: middleRect.center, width: middleRect.width * 0.55, height: middleRect.height * 0.55);
       final begin = i == 0 ? 0.0 : math.min(0.55, 0.14 + 0.05 * i);
       final local = Curves.easeOutCubic.transform(((t - begin) / (1 - begin)).clamp(0.0, 1.0));
@@ -1103,7 +1083,6 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
                       photo: photos[i],
                       loader: widget.preview.loader,
                       large: true,
-                      // The big tiles of the opened month, once they have settled into place.
                       sharp: t >= 0.8 && PreviewLoader.wantsSharp(target.size, MediaQuery.devicePixelRatioOf(context)),
                       fill: AppColors.hairline,
                       alignment: const Alignment(0, -0.25),
@@ -1114,7 +1093,6 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
                         top: 6,
                         child: Icon(Icons.play_circle_fill_rounded, size: 20, color: AppColors.onMedia),
                       ),
-                    // The last tile says how many more there are.
                     if (i == photos.length - 1 && remaining > 0)
                       Positioned.fill(
                         child: ColoredBox(
@@ -1137,8 +1115,6 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
       );
     }
 
-    // The moments of the month, as chips across the top: who, and what happened - the two that matter most
-    // (a first photo together is the same moment for both of them: one chip, both faces).
     final candidates = <({int importance, _MomentChip chip})>[];
     final pairs = <String>{};
     for (final m in widget.preview.momentsIn(month)) {
@@ -1197,7 +1173,6 @@ class _TimelineLensState extends State<TimelineLens> with TickerProviderStateMix
       );
     }
 
-    // The month and how many photos it has, on the big tile (shrinking to fit if it is narrow).
     final hero = rects[0].shift(const Offset(pad, pad));
     out.add(
       Positioned(
@@ -1255,7 +1230,6 @@ class _MomentChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // One face, or two overlapping for a pair.
           SizedBox(
             width: 24.0 + (people.length - 1) * 16,
             height: 24,

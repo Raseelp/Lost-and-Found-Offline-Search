@@ -2,15 +2,17 @@ package dev.raseel.lostandfound.embedder.models
 
 import dev.raseel.lostandfound.BuildConfig
 
-// sha256 must be lowercase hex. Update it (and sizeBytes) if the hosted
-// model file ever changes.
+/**
+ * sha256 must be lowercase hex. Update it (and sizeBytes) if the hosted
+ * model file ever changes.
+ */
 data class RemoteModel(
     val id: String,
     val fileName: String,
     val url: String,
     val sha256: String,
     val sizeBytes: Long,
-    // What the model is for - see ModelGroup.
+    /** What the model is for, see [ModelGroup]. */
     val group: String = ModelGroup.SEARCH
 )
 
@@ -22,9 +24,11 @@ object ModelGroup {
 object ModelCatalog {
 
     val MODELS: List<RemoteModel> = listOf(
-        // Made by export_clip/export_mobileclip.py from Apple's 2024 MobileCLIP-S0 checkpoint (where it came from
-        // and under what licence: export_clip/MOBILECLIP_SOURCE.md). Image tower fp32 (fp16 gave NaN on a real
-        // phone), text tower int8.
+        /**
+         * Made by export_clip/export_mobileclip.py from Apple's 2024 MobileCLIP-S0 checkpoint (where it came from
+         * and under what licence: export_clip/MOBILECLIP_SOURCE.md). Image tower fp32 (fp16 gave NaN on a real
+         * phone), text tower int8.
+         */
         RemoteModel(
             id = "vision",
             fileName = "mobileclip_s0_vision.onnx",

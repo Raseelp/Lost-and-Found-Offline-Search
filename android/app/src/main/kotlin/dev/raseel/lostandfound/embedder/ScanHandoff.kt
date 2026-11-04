@@ -1,13 +1,10 @@
 package dev.raseel.lostandfound.embedder
 
 /**
- * Where the indexing scan hands over the photos it has just written to the index,
- * for whoever wants to work on them straight away (the face scan, see FaceFollower).
+ * Where the indexing scan hands the photos it has just written to the face scan in [FaceFollower].
  *
- * The call is synchronous on purpose: the indexing scan waits for it to return, so
- * the two never compete for the CPU - index a batch, find its faces at full speed,
- * then carry on indexing. Whatever the consumer doesn't get to is found later by the
- * face worker's normal comparison of the index against what it has already done.
+ * The call is synchronous on purpose, so the two never compete for the CPU. What the consumer does not get to is found
+ * later by the face worker.
  */
 object ScanHandoff {
 

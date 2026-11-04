@@ -53,7 +53,7 @@ class MemoryPrefs(context: Context) {
             }
         }
 
-    /** The kind "send one now" showed last, so the next press shows another. */
+    /** The kind the send-one button showed last, so the next press shows another. */
     var lastTestKind: MemoryKind?
         get() = MemoryKind.fromCode(prefs.getString("last_test_kind", null))
         set(v) = prefs.edit().putString("last_test_kind", v?.code).apply()
@@ -87,19 +87,23 @@ object MemoryNotifier {
     const val EXTRA_KIND = "memory_kind"
     const val EXTRA_YEAR = "memory_year"
     const val EXTRA_PERSON = "memory_person"
-    // One each for the morning and the evening, so the evening one does not take the morning one's place.
+    /** One id each for the morning and the evening, so the evening one does not take the morning one's place. */
     private fun notificationId(slot: Slot?) = when (slot) {
         Slot.MORNING -> 7301
         Slot.EVENING -> 7302
-        null -> 7303 // "send one now"
+        null -> 7303
     }
-    // The app's teal, for the small icon and the app name.
+    /** The app's teal, for the small icon and the app name. */
     private const val ACCENT = 0xFF165E59.toInt()
 
     /** Whether the system lets this app show notifications at all (the Android 13 permission included). */
     fun allowed(context: Context): Boolean = NotificationManagerCompat.from(context).areNotificationsEnabled()
 
-    /** Sends [notice] with its picture (the lock screen only ever shows the words). Returns whether it went out. */
+    /**
+     * Sends [notice] with its picture and returns whether it went out. The lock screen shows only the words, never the
+     * photo. Folded, the notification shows a rounded picture and a small heading. Opened, it shows the postcard and
+     * the words. Text colours follow the system's, light or dark.
+     */
     fun post(context: Context, notice: Notice, slot: Slot? = null): Boolean {
         val app = context.applicationContext
         if (!allowed(app)) return false
@@ -117,14 +121,11 @@ object MemoryNotifier {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        // What shows on a locked screen: the words only, never the photo.
         val publicVersion = NotificationCompat.Builder(app, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_memory)
             .setContentTitle("A memory from this day")
             .build()
 
-        // Its own look: a rounded picture and a small heading folded, the postcard and the words opened - the
-        // text colours follow the system's (light or dark).
         val rendered = renderedOf(app, notice)
         val small = RemoteViews(app.packageName, R.layout.notification_memory).apply {
             setTextViewText(R.id.memory_eyebrow, notice.kind.label)
@@ -165,8 +166,7 @@ object MemoryNotifier {
         }
     }
 
-    // The postcard of the notice's own pictures (framed faces, side by side), else of its photo with the date
-    // written on it.
+    /** The postcard of the notice's own pictures (framed faces, side by side), else of its photo with the date written on it. */
     private fun renderedOf(context: Context, notice: Notice): Rendered? {
         if (notice.pics.isNotEmpty()) MemoryPictures.render(context, notice.pics, PictureStyle.of(notice.kind), notice.connector)?.let { return it }
         val photo = notice.photo ?: return null
@@ -179,11 +179,14 @@ object MemoryNotifier {
         }
     }
 
+    /**
+     * Creates the notification channel. A channel's importance cannot be raised once it exists,
+     * so the first channel, which was quiet, is deleted and replaced by one with the usual
+     * importance. Phones keep quiet notifications off the lock screen.
+     */
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < 26) return
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        // The first channel was a quiet one, and phones keep quiet notifications off the lock screen. A channel's
-        // importance cannot be raised once it exists, so it is replaced by one with the usual importance.
         manager.deleteNotificationChannel(QUIET_CHANNEL_ID)
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         val channel = NotificationChannel(CHANNEL_ID, "Daily memory", NotificationManager.IMPORTANCE_DEFAULT).apply {

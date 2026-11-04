@@ -6,16 +6,17 @@ import kotlin.math.min
 import kotlin.math.sqrt
 
 /**
- * How trustworthy a face is for deciding who someone is. A weak face (tiny,
- * blurry, or turned far to the side) is still kept and shown, but it can't
- * start or reshape a person - only join one that better faces already made.
- * That is what stops a blurry background face dragging two people together.
+ * How trustworthy a face is for deciding who someone is. A weak face (tiny, blurry, or turned far to the side) is
+ * still kept and shown, but it can only join a person that better faces already made. That stops a blurry background
+ * face from dragging two people together.
  */
 object FaceQuality {
 
-    // Starting values - tuned by looking at real results, so kept together.
-    // Faces smaller than MIN_EMBED_PX are not worth even storing; between that and
-    // MIN_SIZE_PX they are kept but count as weak.
+    /**
+     * The face thresholds, tuned by looking at real results, so they are kept together.
+     * Faces smaller than [MIN_EMBED_PX] are not worth even storing. Between that and
+     * [MIN_SIZE_PX] they are kept but count as weak.
+     */
     const val MIN_EMBED_PX = 44
     const val MIN_SIZE_PX = 48
     const val MIN_SCORE = 0.6f
@@ -23,8 +24,8 @@ object FaceQuality {
     const val MIN_SHARPNESS = 20f
 
     /**
-     * How far the nose sits off the line between the eyes, as a fraction of
-     * the eye distance: ~0 facing the camera, ~0.3 at 45 degrees, 0.6+ in profile.
+     * How far the nose sits off the line between the eyes, as a fraction of the eye distance.
+     * It is about 0 facing the camera, about 0.3 at 45 degrees and 0.6 or more in profile.
      */
     fun yaw(landmarks: FloatArray): Float {
         val dx = landmarks[2] - landmarks[0]
@@ -66,8 +67,11 @@ object FaceQuality {
         return (sumSq / n - mean * mean).toFloat()
     }
 
-    // Video frames are held to nearly the same standard as photos - a touch more on how sharp a
-    // face is, since motion blur is common, but not so much that a face clearly there is skipped.
+    /**
+     * Video frames are held to nearly the same standard as photos. The sharpness limit is
+     * a touch lower, because motion blur is common, but not so low that a face clearly there
+     * is skipped.
+     */
     const val VIDEO_MIN_SIZE_PX = 44
     const val VIDEO_MIN_SCORE = 0.5f
     const val VIDEO_MAX_YAW = 0.65f
@@ -79,7 +83,7 @@ object FaceQuality {
     fun isGood(sizePx: Int, score: Float, sharpness: Float, yaw: Float): Boolean =
         sizePx >= MIN_SIZE_PX && score >= MIN_SCORE && yaw <= MAX_YAW && sharpness >= MIN_SHARPNESS
 
-    /** Higher is a better example of the person (used to pick the cover face). */
+    /** Higher is a better face to pick as the cover of the person. */
     fun rank(sizePx: Int, score: Float, yaw: Float): Float =
         score * min(sizePx, 200) * (1f - 0.5f * min(yaw, 1f))
 }

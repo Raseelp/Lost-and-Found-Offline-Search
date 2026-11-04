@@ -166,7 +166,8 @@ class OnThisDay {
   /// How many photos and videos, over the years shown.
   int get total => years.fold(0, (sum, y) => sum + y.total);
 
-  /// The photos that best stand for the day, one from each of the strongest years (for the card).
+  /// The photos that best stand for the day, one from each of the strongest years (for the card). When there are
+  /// fewer years than [count], the strongest year adds its next photos.
   List<MemoryPhoto> coverPhotos({int count = 3}) {
     final ranked = [...years]..sort((a, b) => b.strength.compareTo(a.strength));
     final out = <MemoryPhoto>[];
@@ -175,7 +176,6 @@ class OnThisDay {
       out.add(y.photos.first);
       if (out.length >= count) break;
     }
-    // A single rich year: its own best few.
     if (out.length < count && ranked.isNotEmpty) {
       for (final p in ranked.first.photos.skip(1)) {
         if (out.length >= count) break;
@@ -204,8 +204,8 @@ class OnThisDay {
   );
 }
 
-/// One side of "then and now": the photo, and where to frame (0..1 fractions of it): the person's face, or
-/// - when the picture is of the two of them - both faces.
+/// One side of "then and now": the photo, and where to frame (0..1 fractions of it). The frame is the person's face,
+/// or both faces when the picture is of the two of them.
 class ThenNowSide {
   const ThenNowSide({
     required this.key,
@@ -307,7 +307,8 @@ class ThenNow {
     return '$y ${months == 1 ? '1 month' : '$months months'}';
   }
 
-  /// Whether the second photos are from about now (else they are their latest, which is some time ago).
+  /// Whether the second photos are from about the present day (else they are the latest there are, which is some time
+  /// ago).
   bool isNow(DateTime today) =>
       (today.year * 12 + today.month - 1) - lastMonth <= 18;
 

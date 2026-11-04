@@ -24,6 +24,11 @@ object ExportItems {
         /** The date the file carries in the zip: when it was taken, else when it was changed. */
         val dateMs: Long get() = if (takenMs > 0) takenMs else modifiedMs
     }
+/**
+ * Reads the name, size and dates of the file at [uriString] from its provider. A provider that lacks one of the date
+ * columns fails the whole query, so it is asked again for just the name and the size, and a file never loses its name
+ * over a date. A file with no size anywhere may still open, so it is read for what it is.
+ */
 
     fun resolve(context: Context, uriString: String): Info {
         val uri = try {
@@ -49,8 +54,6 @@ object ExportItems {
             )
             else -> basic
         }
-        // A provider that lacks one of the date columns fails the whole query: it is then asked
-        // again for just the name and the size, so a file never loses its name over a date.
         for (columns in if (projection === basic) listOf(basic) else listOf(projection, basic)) {
             try {
                 resolver.query(uri, columns, null, null, null)?.use { c ->
@@ -80,7 +83,6 @@ object ExportItems {
             }
         }
         if (size < 0) {
-            // No size anywhere, but it may still open: it is then read for what it is.
             try {
                 resolver.openInputStream(uri)?.use { size = 0 }
             } catch (_: Exception) {

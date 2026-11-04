@@ -6,11 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Whether the first-run tour is showing, and which version of the introduction this phone has seen.
 ///
-/// The tour is for fresh installs: it shows before the models are downloaded. Somebody who updates the app
-/// with the models already on the phone never sees it (unless they open it from Settings > Help).
-///
-/// The version number is kept for later: a "What's new" introduction for a later release can use the same
-/// screens ([TourScreen] takes its pages) and compare [seenVersion] with the version it belongs to.
+/// The tour is for fresh installs and shows before the models are downloaded. Somebody who updates with the models
+/// already on the phone never sees it, unless they open it from Settings > Help. A "What's new" introduction can use
+/// the same screens ([TourScreen] takes its pages) and compare [seenVersion] with its own version.
 class TourController extends GetxController {
   static const _seenKey = 'tour_seen_version';
 
@@ -45,14 +43,14 @@ class TourController extends GetxController {
   }
 
   /// Asked by the gate on every build. Decided once, the first time the models are known: a fresh install
-  /// (nothing seen, models not there) gets the tour; a phone that already has the models never does.
+  /// (nothing seen, models not there) gets the tour; a phone that already has the models never does, because an
+  /// update on a phone that is already set up has nothing to introduce.
   bool shouldShow({required bool modelsReady}) {
     if (!loaded) return false;
     if (!_decided) {
       _decided = true;
       if (seenVersion < firstRunVersion) {
         if (modelsReady) {
-          // An update on a phone that is already set up: nothing to introduce.
           seenVersion = firstRunVersion;
           unawaited(_save());
         } else {

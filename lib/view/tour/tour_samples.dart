@@ -30,7 +30,8 @@ class SamplePhoto {
   String get videoAsset => 'assets/tour/videos/$id.mp4';
 }
 
-// The first seven are what shows before the first search.
+/// The sample photos. The first seven are what shows before the first search, and the photos of the person the "@" demo
+/// finds come after them (see [kMentionQuery]).
 const List<SamplePhoto> kSamplePhotos = [
   SamplePhoto('v_football', 'A football match with flares', video: true),
   SamplePhoto('dog_beach', 'A dog on a beach'),
@@ -64,7 +65,6 @@ const List<SamplePhoto> kSamplePhotos = [
   SamplePhoto('friends_beach', 'Friends on a beach at sunset'),
   SamplePhoto('pro_fans', 'Football fans in a stadium'),
   SamplePhoto('cat', 'A grey cat in the grass'),
-  // Photos of the person the "@" demo finds (see [kMentionQuery]).
   SamplePhoto(
     'messi_2026',
     'Lionel Messi in a suit, 2026',
@@ -127,6 +127,8 @@ const List<SampleMention> kMentionPeople = [
 /// Which of [kSampleQueries] is the "@" one: the first search on the second page.
 const int kMentionQuery = 8;
 
+/// The searches the demo plays. The one at [kMentionQuery] has only photos of the person the "@" demo picks, the ones that
+/// look most like a stadium first.
 const List<SampleQuery> kSampleQueries = [
   SampleQuery('a dog on a beach', [
     'dog_beach',
@@ -200,7 +202,6 @@ const List<SampleQuery> kSampleQueries = [
     'snow_hike',
     'cycling',
   ]),
-  // Index [kMentionQuery]. Only photos of that person, the ones that look most like a stadium first.
   SampleQuery(
     '@Messi in a stadium',
     [
@@ -215,9 +216,6 @@ const List<SampleQuery> kSampleQueries = [
     mention: SampleMention('Messi', 'assets/tour/faces/messi.jpg'),
   ),
 ];
-
-// The tour's look: a light, airy page - soft white going to a pale mint, with a little mint and peach glowing
-// behind - and the app's teal for everything that acts. Its colours are in TourPalette.
 
 /// The soft shadow of the tour's white cards.
 const List<BoxShadow> kTourSoftShadow = [

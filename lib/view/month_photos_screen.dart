@@ -43,7 +43,7 @@ class _MonthPhotosScreenState extends State<MonthPhotosScreen> {
   bool _loading = true;
   bool _failed = false;
 
-  // The photo that was tapped in the preview: ringed for a moment.
+  /// The photo that was tapped in the preview. It is ringed for a moment.
   int? _flashKey;
 
   @override
@@ -58,11 +58,11 @@ class _MonthPhotosScreenState extends State<MonthPhotosScreen> {
     super.dispose();
   }
 
+  /// Loads the whole month, bursts included.
   Future<void> _load() async {
     try {
       final from = DateTime(widget.month ~/ 12, widget.month % 12 + 1);
       final to = DateTime(widget.month ~/ 12, widget.month % 12 + 2);
-      // Everything, bursts included: this is the whole month.
       final found = await NativeServices().timelineMonthMedia(from, to, limit: 2000, burstMs: 0);
       if (!mounted) return;
       setState(() {
@@ -82,7 +82,7 @@ class _MonthPhotosScreenState extends State<MonthPhotosScreen> {
     }
   }
 
-  // Scrolls to the photo that was tapped and rings it.
+  /// Scrolls to the photo that was tapped and rings it.
   void _showFocus() {
     final key = widget.focusKey;
     if (key == null) return;
@@ -93,7 +93,6 @@ class _MonthPhotosScreenState extends State<MonthPhotosScreen> {
       if (!mounted || !_scroll.hasClients) return;
       final width = MediaQuery.sizeOf(context).width - AppSpacing.base * 2;
       final tile = (width - _gap * (_columns - 1)) / _columns;
-      // The photos before it by day: a header and rows for each day.
       var offset = 0.0;
       for (final day in _days()) {
         final inDay = day.photos.indexWhere((p) => p.key == key);
@@ -118,7 +117,6 @@ class _MonthPhotosScreenState extends State<MonthPhotosScreen> {
 
   static const double _headerHeight = 40;
 
-  // The photos grouped by the day they were taken.
   List<({DateTime day, List<PreviewPhoto> photos})> _days() {
     final out = <({DateTime day, List<PreviewPhoto> photos})>[];
     for (final p in _photos) {

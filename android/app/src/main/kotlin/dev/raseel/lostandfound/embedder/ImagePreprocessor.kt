@@ -8,9 +8,11 @@ import androidx.exifinterface.media.ExifInterface
 import dev.raseel.lostandfound.embedder.faces.FaceImageLoader
 import kotlin.math.ceil
 
-// Prepares a photo for MobileCLIP-S0, the way Apple's own preprocessing does: the shorter side to 256 (bilinear),
-// the middle 256 x 256, each pixel scaled to 0..1 - and nothing more. Unlike the OpenAI CLIP models this one was
-// trained without the mean/std normalisation, so adding it would only damage the result.
+/**
+ * Prepares a photo for MobileCLIP-S0 the way Apple's own preprocessing does: the shorter side to 256 (bilinear), the
+ * middle 256 x 256, each pixel scaled to 0..1, and nothing more. This model was trained without the mean and std
+ * normalisation of the OpenAI CLIP models, so adding it would damage the result.
+ */
 object ImagePreprocessor {
 
     private const val IMAGE_SIZE = 256
@@ -29,10 +31,10 @@ object ImagePreprocessor {
         }
     }
 
-    // CHW, RGB, each channel's 0..255 pixel value scaled to 0..1. getPixels
-    // always returns standard 32-bit ARGB regardless of the Bitmap's own
-    // Config (RGB_565 included), so this doesn't care how the bitmap was
-    // decoded.
+    /**
+     * Returns [bitmap] as CHW, RGB floats with each channel scaled from 0..255 to 0..1. The bitmap passed in is not
+     * recycled. Any bitmap config works, because getPixels always returns 32-bit ARGB.
+     */
     fun bitmapToFloatArray(bitmap: Bitmap): FloatArray {
         val cropped = resizeAndCenterCrop(bitmap)
         val size = IMAGE_SIZE
@@ -48,7 +50,6 @@ object ImagePreprocessor {
             data[2 * plane + i] = (p and 0xFF) / 255f
         }
 
-        // Only recycle the cropped copy, never the original passed in
         if (cropped !== bitmap) {
             cropped.recycle()
         }
@@ -56,10 +57,10 @@ object ImagePreprocessor {
         return data
     }
 
-    // The model's own preprocessing resizes the shorter side to 256 and
-    // center-crops the rest, so a photo keeps its real proportions - only the
-    // excess on the long side gets trimmed. Stretching straight to a
-    // 256x256 square would warp every non-square photo, which is most of them.
+    /**
+     * Scales the shorter side to 256 and trims the longer side evenly, so a photo keeps its proportions. Stretching to
+     * a square would warp most photos.
+     */
     private fun resizeAndCenterCrop(bitmap: Bitmap): Bitmap {
         val width = bitmap.width
         val height = bitmap.height
@@ -84,6 +85,12 @@ object ImagePreprocessor {
         return cropped
     }
 
+    /**
+     * Decodes the photo near 256 px and returns it upright and cropped.
+     * The decode uses full colour, because RGB_565 moved the vectors of test photos further from Apple's own
+     * preprocessing (cosine 0.994 on average, against 0.997). The photo is turned upright first, because a phone photo
+     * is often stored sideways with a tag and the decoder does not turn it.
+     */
     private fun loadAndResizeBitmap(
         context: Context,
         uri: Uri
@@ -104,9 +111,6 @@ object ImagePreprocessor {
 
             context.contentResolver.openInputStream(uri)?.use { stream2 ->
                 val decodeOptions = BitmapFactory.Options().apply {
-                    // Full colour: RGB_565 keeps 5/6/5 bits per channel, which moved the vectors of test photos
-                    // from Apple's own preprocessing noticeably more (cosine 0.994 on average, against 0.997). The
-                    // decoded picture is only 256-511 px across, so the memory is not a concern.
                     inPreferredConfig = Bitmap.Config.ARGB_8888
                     inSampleSize = sampleSize
                     inMutable = false
@@ -114,9 +118,6 @@ object ImagePreprocessor {
 
                 val decoded = BitmapFactory.decodeStream(stream2, null, decodeOptions)
                     ?: return null
-                // Upright first: a phone photo is often stored sideways with a tag saying how to turn it, and
-                // the decoder does not turn it. The model should see what the person sees (and the middle cut
-                // out of the upright photo, not of the sideways one). Turning the small decode costs little.
                 val sampledBitmap = FaceImageLoader.upright(decoded, orientationOf(context, uri))
 
                 val finalBitmap = resizeAndCenterCrop(sampledBitmap)
@@ -130,7 +131,7 @@ object ImagePreprocessor {
         }
     }
 
-    // The photo's EXIF orientation; normal when it has none or it cannot be read.
+    /** The EXIF orientation of the photo, or normal when it has none or cannot be read. */
     private fun orientationOf(context: Context, uri: Uri): Int = try {
         context.contentResolver.openInputStream(uri)?.use {
             ExifInterface(it).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)

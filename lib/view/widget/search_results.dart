@@ -16,32 +16,22 @@ import 'package:lost_and_found/view/video_full_screen.dart';
 import 'package:lost_and_found/view/widget/grid_video_layer.dart';
 import 'package:lost_and_found/view/widget/moment_badge.dart';
 
-// Higher decode caps requested only for a bento tile big enough to need
-// them (see _bentoUpgradeDimension), instead of raising the cap every tile
-// shares. Three tiers, roughly matching how much bigger than a plain 1-cell
-// tile each one is: a 2-cell tile (the wide/tall filler tiles next to a
-// hero or showcase) needs only a small bump, the 4-cell 2x2 hero a bit
-// more, the 8/16-slot showcases a lot more. These values are just what
-// Dart happens to pass as the "maxDimension" channel argument -
-// MainActivity.kt accepts any value, but its
-// MAX_COMPRESSED_DIMENSION_WIDE/_HERO/_SHOWCASE constants document what to
-// expect here, so keep them in sync.
+/// Higher decode caps requested only for a bento tile big enough to need them (see _bentoUpgradeDimension), instead of
+/// raising the cap every tile shares. Three tiers: a 2-cell tile needs a small bump, the 4-cell hero more, the 8 and
+/// 16 slot showcases a lot more. They are the "maxDimension" channel argument. MainActivity.kt accepts any value, but
+/// its MAX_COMPRESSED_DIMENSION_WIDE, _HERO and _SHOWCASE constants document what to expect, so keep them in sync.
 const int _wideThumbnailMaxDimension = 1900;
 const int _heroThumbnailMaxDimension = 2200;
 const int _showcaseThumbnailMaxDimension = 3200;
 
-// The bento layout is built from small, independently-verified "movements" -
-// each one a short run of tiles that, on its own, ends with every column at
-// the same height (checked with a standalone packing simulation copied from
-// flutter_staggered_grid_view's own algorithm, not just eyeballed). Because
-// concatenating two flush movements is always itself flush, any sequence of
-// these can be chained with zero gaps or overlaps, in any order, any number
-// of times - which is what lets the generator below splice rare showcase
-// movements into the steady rhythm without ever risking a broken layout.
+/// The bento layout is built from small "movements", each a short run of tiles that ends with every column at the same
+/// height, checked with a packing simulation copied from flutter_staggered_grid_view's algorithm. Concatenating two
+/// flush movements is itself flush, so any sequence of them chains with no gaps or overlaps, which lets the generator
+/// splice rare showcase movements into the steady rhythm safely.
 const int _bentoCrossAxisCount = 4;
 
-// Steady rhythm: hero square on the left, a denser no-hero row, hero square
-// on the right - the regular backbone of the mosaic.
+/// Steady rhythm: hero square on the left, a denser row with no hero, hero square on the right. The regular backbone
+/// of the mosaic.
 const List<QuiltedGridTile> _movementHeroLeft = [
   QuiltedGridTile(2, 2),
   QuiltedGridTile(1, 1),
@@ -68,21 +58,21 @@ const List<List<QuiltedGridTile>> _steadyRotation = [
   _movementHeroRight,
 ];
 
-// Rare showcase movements - one full-bleed photo taking up far more room
-// than usual, spliced sparingly into the steady rhythm by
-// _generateBentoPattern below rather than appearing on a fixed schedule.
+/// Rare showcase movements: one full-bleed photo taking up far more room than usual, spliced sparingly into the steady
+/// rhythm by _generateBentoPattern rather than appearing on a fixed schedule. In the tall right hero, a filler placed
+/// first is strictly ahead and forces the hero onto the right half, and a catch-up filler re-flushes the left side.
 const List<QuiltedGridTile> _showcaseHorizontal = [
-  QuiltedGridTile(2, 4), // one photo, full width, 2 rows = 8 cells
+  QuiltedGridTile(2, 4),
 ];
 const List<QuiltedGridTile> _showcaseVerticalLeft = [
-  QuiltedGridTile(4, 2), // tall hero, left half, 4 rows = 8 cells
+  QuiltedGridTile(4, 2),
   QuiltedGridTile(2, 2),
   QuiltedGridTile(2, 2),
 ];
 const List<QuiltedGridTile> _showcaseVerticalRight = [
-  QuiltedGridTile(2, 2), // filler placed first so it's strictly ahead,
-  QuiltedGridTile(4, 2), // forcing the tall hero to land on the right half
-  QuiltedGridTile(2, 2), // catch-up filler that re-flushes the left side
+  QuiltedGridTile(2, 2),
+  QuiltedGridTile(4, 2),
+  QuiltedGridTile(2, 2),
 ];
 const List<List<QuiltedGridTile>> _showcaseOptions = [
   _showcaseHorizontal,
@@ -90,16 +80,13 @@ const List<List<QuiltedGridTile>> _showcaseOptions = [
   _showcaseVerticalRight,
 ];
 const List<QuiltedGridTile> _showcaseGiant = [
-  QuiltedGridTile(4, 4), // one photo, full width, 4 rows = 16 cells
+  QuiltedGridTile(4, 4),
 ];
 
-// The normal grid-tile thumbnail cap (MainActivity.kt's
-// MAX_COMPRESSED_DIMENSION) is tuned for a small tile, so a bento tile
-// bigger than that needs more source resolution to still look sharp -
-// how much more scales with how much bigger the tile actually is. Returns
-// null for anything 1 cell/2 cells (no upgrade needed), the hero cap for
-// the 4-cell 2x2 hero, and the showcase cap for the 8/16-slot tiles. See
-// _ResultTile.upgradeMaxDimension.
+/// The normal grid-tile thumbnail cap (MainActivity.kt's MAX_COMPRESSED_DIMENSION) is tuned for a small tile, so a
+/// bento tile bigger than that needs more source resolution to look sharp, scaling with the tile's size. Returns null
+/// for 1 and 2 cell tiles, the hero cap for the 4-cell hero and the showcase cap for the 8 and 16 slot tiles. See
+/// _ResultTile.upgradeMaxDimension.
 int? _bentoUpgradeDimension(QuiltedGridTile tile) {
   final area = tile.mainAxisCount * tile.crossAxisCount;
   if (area >= 8) return _showcaseThumbnailMaxDimension;
@@ -108,18 +95,17 @@ int? _bentoUpgradeDimension(QuiltedGridTile tile) {
   return null;
 }
 
-// The 14-tile/6-row steady cycle, used as-is for the loading skeleton (which
-// has no real result count to gate showcase rarity against - see
-// _SearchSkeletonGrid.build()). Real result grids use the generator below
-// instead, which is showcase-aware and sized exactly to the result count.
+/// The 14-tile, 6-row steady cycle, used as it is for the loading skeleton, which has no real result count to gate
+/// showcase rarity against (see _SearchSkeletonGrid.build()). Real result grids use the generator below, which is
+/// showcase-aware and sized exactly to the result count.
 const List<QuiltedGridTile> _bentoPattern = [
   ..._movementHeroLeft,
   ..._movementNoHero,
   ..._movementHeroRight,
 ];
 
-// How many full pattern cycles the loading skeleton renders, to comfortably
-// overshoot any real screen height - see _SearchSkeletonGrid.build().
+/// How many full pattern cycles the loading skeleton renders, to comfortably overshoot any real screen height (see
+/// _SearchSkeletonGrid.build()).
 const int _bentoSkeletonCycles = 4;
 
 SliverQuiltedGridDelegate _bentoGridDelegate() {
@@ -132,16 +118,10 @@ SliverQuiltedGridDelegate _bentoGridDelegate() {
   );
 }
 
-// A showcase can't be considered at all until the list has enough room left
-// to stay a small minority of the content - this is what keeps a short
-// result set (a small collection, a person with few photos) from being
-// dominated by one giant tile. The giant tile needs an even larger runway
-// and a wider gap from the last showcase, so it reads as rarer than the
-// 8-slot ones, as requested.
-//
-// The base chances (0.15/0.04) were tuned up by a 2.5x factor after testing
-// on a real device via a temporary Settings slider - settled here as the
-// final values, so the slider (and the multiplier plumbing) was removed.
+/// A showcase is not considered until the list has enough room left to stay a small minority of the content, which
+/// keeps a short result set from being dominated by one giant tile. The giant tile needs an even larger runway and a
+/// wider gap from the last showcase, so it reads as rarer than the 8-slot ones. The base chances (0.15 and 0.04) were
+/// scaled by 2.5 after testing on a real device.
 const int _showcaseMinRemainingItems = 20;
 const int _showcaseMinMovementGap = 3;
 const double _showcaseChance = 0.375;
@@ -149,15 +129,11 @@ const int _giantMinRemainingItems = 40;
 const int _giantMinMovementGap = 6;
 const double _giantChance = 0.1;
 
-// Builds a one-off pattern sized to exactly `resultCount` items (or as close
-// as a whole number of movements allows - see the tail fallback in
-// _ResultsSliverGrid.build), sprinkling rare showcase movements into the
-// steady hero-left/no-hero/hero-right rotation instead of using one fixed
-// pattern for every list. `seed` must be stable across rebuilds of the same
-// result set (the same search or the same collection re-rendering while its
-// thumbnails stream in) or the mosaic would visibly reshuffle mid-load -
-// callers should derive it from something that only changes when the
-// results themselves change, not from a fresh Random() per build().
+/// Builds a one-off pattern sized to exactly `resultCount` items, or as close as a whole number of movements allows,
+/// with the rest finished by the tail in _ResultsSliverGrid.build. It sprinkles rare showcase movements into the
+/// steady rotation instead of using one fixed pattern. `seed` must be stable across rebuilds of the same result set,
+/// or the mosaic would visibly reshuffle mid-load, so derive it from something that only changes when the results do.
+/// A movement that does not fit is left out, because a partial movement cannot be flush.
 List<QuiltedGridTile> _generateBentoPattern({
   required int resultCount,
   required int seed,
@@ -191,9 +167,6 @@ List<QuiltedGridTile> _generateBentoPattern({
       steadyIndex++;
     }
 
-    // Doesn't fit without leaving a partial movement (which can't be flush
-    // by definition) - stop here and let the caller's uniform-grid tail
-    // finish off the remainder gracefully instead.
     if (pattern.length + next.length > resultCount) break;
 
     pattern.addAll(next);
@@ -204,17 +177,10 @@ List<QuiltedGridTile> _generateBentoPattern({
   return pattern;
 }
 
-// Slivers, not a single boxed widget - this used to be a GridView.builder
-// with shrinkWrap:true/NeverScrollableScrollPhysics inside an outer
-// SingleChildScrollView, which is a well-known trap: a shrink-wrapped
-// grid like that loses proper lazy building/recycling (it has to size
-// itself to fit inside a non-scrolling parent), so with enough results
-// (a higher "results per search" setting, say) it ends up holding far
-// more decoded images in memory at once than are ever actually visible -
-// the direct cause of both the occasional crash and the images visibly
-// flickering out and back in while scrolling that were reported. Returned
-// as slivers so SearchTab's CustomScrollView is the one true scrollable,
-// letting the grid genuinely virtualize the way SliverGrid is meant to.
+/// Returns the results as slivers so SearchTab's CustomScrollView is the one scrollable and the grid can virtualize. A
+/// GridView.builder with shrinkWrap inside a SingleChildScrollView loses lazy building and recycling, so with many
+/// results it held far more decoded images than are visible, which caused crashes and images flickering while
+/// scrolling.
 List<Widget> searchResultsSlivers({required NativeController controller}) {
   if (controller.isSearching) {
     return [
@@ -293,15 +259,17 @@ List<Widget> searchResultsSlivers({required NativeController controller}) {
   ];
 }
 
-// A placeholder grid shaped like the real results grid, shown while a search is in flight -
-// the same shimmering _LoadingTile the real grid falls back to for a thumbnail that hasn't
-// arrived yet, just filling the whole space rather than waiting for a spinner to clear before
-// anything about the coming layout is visible.
+/// A placeholder grid shaped like the real results grid, shown while a search is in flight -
+/// the same shimmering _LoadingTile the real grid falls back to for a thumbnail that hasn't
+/// arrived yet, just filling the whole space rather than waiting for a spinner to clear before
+/// anything about the coming layout is visible.
 class _SearchSkeletonGrid extends StatelessWidget {
   const _SearchSkeletonGrid({required this.layout});
 
   final ResultsLayout layout;
 
+  /// Unused for bento, which builds its own SliverQuiltedGridDelegate instead of the fixed cross-axis count this
+  /// getter feeds.
   int get _crossAxisCount {
     switch (layout) {
       case ResultsLayout.list:
@@ -313,23 +281,17 @@ class _SearchSkeletonGrid extends StatelessWidget {
       case ResultsLayout.grid4:
         return 4;
       case ResultsLayout.bento:
-        // Unused - bento builds its own SliverQuiltedGridDelegate below
-        // instead of the fixed-cross-axis-count one this getter feeds.
         return _bentoCrossAxisCount;
     }
   }
 
+  /// Bento tiles are far from uniform in height, so a flat count would fall short of a screen's worth once cut off
+  /// mid-pattern. A skeleton has no data to size itself against, so it renders several full pattern cycles. That is
+  /// cheap, since SliverChildBuilderDelegate only builds the ones that scroll into view.
   @override
   Widget build(BuildContext context) {
     final isList = layout == ResultsLayout.list;
     final isBento = layout == ResultsLayout.bento;
-    // Bento's tiles are far from uniform in height (a hero is 4x a small
-    // square), so the flat "12" tuned for the old same-size grids falls well
-    // short of a screen's worth once cut off mid-pattern. A skeleton has no
-    // real data to size itself against, so instead of guessing a pixel
-    // height we just render several full pattern cycles - cheap, since
-    // SliverChildBuilderDelegate only actually builds the ones that scroll
-    // into view, and a little overscroll of shimmer tiles is harmless.
     final childCount = isBento
         ? _bentoPattern.length * _bentoSkeletonCycles
         : (isList ? 6 : 12);
@@ -353,12 +315,9 @@ class _SearchSkeletonGrid extends StatelessWidget {
   }
 }
 
-// A real SliverGrid, not GridView.builder(shrinkWrap: true) - see
-// searchResultsSlivers' doc for why that distinction is the actual fix
-// here. SliverChildBuilderDelegate keeps its default addAutomaticKeepAlives/
-// addRepaintBoundaries on, which is what stops an offscreen tile's decoded
-// image from being discarded and redecoded every time it scrolls back
-// into view.
+/// A real SliverGrid, not GridView.builder(shrinkWrap: true), as explained in searchResultsSlivers.
+/// SliverChildBuilderDelegate keeps its default addAutomaticKeepAlives and addRepaintBoundaries on, which stops an
+/// offscreen tile's decoded image from being discarded and redecoded every time it scrolls back into view.
 class _ResultsSliverGrid extends StatelessWidget {
   const _ResultsSliverGrid({
     required this.controller,
@@ -370,20 +329,22 @@ class _ResultsSliverGrid extends StatelessWidget {
 
   final NativeController controller;
 
-  // Default to the live search - a collection passes its own list, its own
-  // thumbnail cache, and the phrase to explain matches by.
+  /// Defaults to the live search. A collection passes its own list, its own thumbnail cache, and the phrase to explain
+  /// matches by.
   final List<Map<String, dynamic>>? results;
   final Uint8List? Function(Map<String, dynamic> item)? bytesFor;
   final String? matchQuery;
 
-  // True while thumbnails are still arriving (a collection's progressive
-  // loading): a missing one then shows an animated placeholder instead of
-  // the "couldn't load" icon, which is only for one that really failed.
+  /// True while thumbnails are still arriving (a collection's progressive
+  /// loading): a missing one then shows an animated placeholder instead of
+  /// the "couldn't load" icon, which is only for one that really failed.
   final bool loading;
 
   List<Map<String, dynamic>> get _results =>
       results ?? controller.searchResults;
 
+  /// Unused for bento, which builds its own SliverQuiltedGridDelegate instead of the fixed cross-axis count this
+  /// getter feeds.
   int get _crossAxisCount {
     switch (controller.resultsLayout) {
       case ResultsLayout.list:
@@ -395,16 +356,15 @@ class _ResultsSliverGrid extends StatelessWidget {
       case ResultsLayout.grid4:
         return 4;
       case ResultsLayout.bento:
-        // Unused - bento builds its own SliverQuiltedGridDelegate below
-        // instead of the fixed-cross-axis-count one this getter feeds.
         return _bentoCrossAxisCount;
     }
   }
 
-  // `upgradeMaxDimension` is only ever non-null for a bento hero/showcase
-  // tile (see _bentoUpgradeDimension) - it tells _ResultTile to chase a
-  // sharper thumbnail at that specific cap, since the normal cached [bytes]
-  // below is decoded at a size tuned for an ordinary small grid cell.
+  /// Builds the tile at [index]. [upgradeMaxDimension] is non-null only for a bento hero or showcase tile (see
+  /// _bentoUpgradeDimension) and makes _ResultTile chase a sharper thumbnail. A permanent failure fades in as it is,
+  /// because the reveal pacing is about a photo loading. A rapid double tap would push the viewer twice, so a tap is
+  /// ignored once this tile's route is not on top any more. The match explanation is fetched without waiting. Collection
+  /// grids hold small thumbnails, so the viewer loads the sharp photo itself.
   Widget _buildTile(BuildContext context, int index, {int? upgradeMaxDimension}) {
     final item = _results[index];
     final uri = item['path'] as String;
@@ -415,9 +375,6 @@ class _ResultsSliverGrid extends StatelessWidget {
         ? bytesFor!(item)
         : controller.imageCache[cacheKey];
 
-    // A permanent failure (never expected to arrive) just fades in as-is -
-    // the deliberate reveal pacing below is about a photo actually loading,
-    // not a missing one.
     if (bytes == null && !loading) {
       return AnimatedSwitcher(
         duration: const Duration(milliseconds: 280),
@@ -458,15 +415,7 @@ class _ResultsSliverGrid extends StatelessWidget {
               timestampMs: timestampMs,
               isNew: controller.isInLatestScan(uri),
               onTap: () {
-                // A rapid double-tap otherwise pushes the viewer twice (the
-                // second tap lands before the first push's transition even
-                // starts) - once this tile's own route is no longer the one
-                // on top, a further tap on it is a leftover from that same
-                // gesture, not a fresh one.
                 if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
-                // Fire-and-forget, same as loadMetaDataByUri below - the
-                // viewer picks it up reactively once it resolves rather
-                // than navigation waiting on it.
                 controller.loadMatchExplanation(
                   path: uri,
                   isVideo: isVideo,
@@ -485,9 +434,6 @@ class _ResultsSliverGrid extends StatelessWidget {
                     ),
                   );
                 } else {
-                  // A collection's / person's grid holds small thumbnails,
-                  // so the viewer loads the sharp photo itself; live search
-                  // results are already viewer-sized.
                   Navigator.of(context).push(
                     mediaViewRoute(
                       (_) => ImageViewScreen(imageBytes: bytes, uri: uri, loadFullRes: bytesFor != null),
@@ -499,6 +445,12 @@ class _ResultsSliverGrid extends StatelessWidget {
     );
   }
 
+  /// Builds the grid from a one-off pattern generated for exactly this list (see _generateBentoPattern), not a fixed
+  /// block repeating forever, so showcase placement stays irregular. The seed comes from data that is stable across
+  /// this list's rebuilds, since progressive thumbnail loading changes neither the result count nor its first item,
+  /// but changes for a different search or collection. Whatever the generator could not fit finishes as plain uniform
+  /// rows. SliverMainAxisGroup adds no gap of its own, so the gap between the bento block and the tail is added by
+  /// hand.
   @override
   Widget build(BuildContext context) {
     final isList = controller.resultsLayout == ResultsLayout.list;
@@ -519,15 +471,6 @@ class _ResultsSliverGrid extends StatelessWidget {
       );
     }
 
-    // A one-off pattern generated for exactly this list (see
-    // _generateBentoPattern) - not a fixed block repeating forever, so
-    // showcase placement stays irregular instead of falling into a visible
-    // rhythm, and rare tiles only get considered once the list has enough
-    // room to not be dominated by them. The seed is derived from data that's
-    // stable across this list's own rebuilds (progressive thumbnail loading
-    // doesn't change the result count or its first item) but changes for a
-    // genuinely different search/collection, so the mosaic won't reshuffle
-    // mid-load.
     final seed = Object.hash(
       _results.length,
       _results.isNotEmpty ? _results.first['path'] : null,
@@ -539,10 +482,6 @@ class _ResultsSliverGrid extends StatelessWidget {
     final bentoCount = pattern.length;
     final tailCount = _results.length - bentoCount;
 
-    // The generator only ever produces whole movements, so whatever it
-    // couldn't fit (a partial movement can't be flush - see its own doc)
-    // finishes as a plain uniform row(s) instead of a half-formed mosaic
-    // block.
     final slivers = <Widget>[
       if (bentoCount > 0)
         SliverGrid(
@@ -561,10 +500,6 @@ class _ResultsSliverGrid extends StatelessWidget {
             childCount: bentoCount,
           ),
         ),
-      // SliverMainAxisGroup just stacks its slivers with no gap of its own -
-      // each SliverGrid's mainAxisSpacing only applies between its own rows,
-      // not between two different slivers, so without this the tail's first
-      // row sits flush against the bento block's last row.
       if (bentoCount > 0 && tailCount > 0)
         SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sm)),
       if (tailCount > 0)
@@ -585,24 +520,18 @@ class _ResultsSliverGrid extends StatelessWidget {
   }
 }
 
-// A cache key that has made it through this gate once stays revealed
-// forever (in-memory only, cleared on app restart - purely cosmetic, never
-// worth persisting). So scrolling a tile out of view and back, or any later
-// rebuild while other tiles' thumbnails stream in, never replays the reveal
-// for a photo the user has already been shown.
+/// A cache key that has made it through this gate once stays revealed for good. It is kept in memory only, cleared on
+/// app restart, because it is purely cosmetic. Scrolling a tile out of view and back, or any later rebuild, never
+/// replays the reveal for a photo the user has already been shown.
 final Set<String> _revealedTileKeys = <String>{};
 
-// However fast a photo's bytes actually arrive - even already sitting in
-// memory on the very first frame - the placeholder stays up for at least
-// this long the first time its cache key is shown, so a load always reads
-// as a deliberate reveal rather than an instant, jarring pop-in. Paid once
-// per cache key; see _revealedTileKeys.
+/// However fast a photo's bytes arrive, even if already in memory on the first frame, the placeholder stays up for at
+/// least this long the first time its cache key is shown, so a load always reads as a deliberate reveal rather than a
+/// jarring pop-in. It is paid once per cache key (see _revealedTileKeys).
 const Duration _minimumRevealDelay = Duration(milliseconds: 450);
 
-// Gates the placeholder -> real-content swap behind _minimumRevealDelay
-// (first time only) and a plain crossfade (every time). The timer starts
-// at mount, not at data-arrival, so slow-arriving bytes are never held up
-// any further - it only ever adds a wait when the data was already there.
+/// Gates the swap from placeholder to real content behind _minimumRevealDelay (first time only) and a plain crossfade
+/// (every time). The timer starts at mount, not at data arrival, so slow bytes are never held up any further.
 class _RevealGate extends StatefulWidget {
   const _RevealGate({
     required this.cacheKey,
@@ -629,12 +558,11 @@ class _RevealGateState extends State<_RevealGate> {
     _startOrSkipDelay();
   }
 
+  /// A different item can land in the same slot, from a fresh search or the bento pattern reshuffling which index gets
+  /// which tile. Only a different cache key re-arms the delay.
   @override
   void didUpdateWidget(_RevealGate oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // A different item can land in this same slot (a fresh search, or the
-    // bento pattern reshuffling which index gets which tile) - only a
-    // genuinely different cache key should re-arm the delay.
     if (oldWidget.cacheKey != widget.cacheKey) {
       _delayElapsed = false;
       _startOrSkipDelay();
@@ -668,7 +596,7 @@ class _RevealGateState extends State<_RevealGate> {
   }
 }
 
-// The small play mark in the corner of a video's tile.
+/// The small play mark in the corner of a video's tile.
 class _PlayMark extends StatelessWidget {
   const _PlayMark();
 
@@ -704,15 +632,13 @@ class _ResultTile extends StatefulWidget {
   final bool isVideo;
   final VoidCallback onTap;
 
-  /// Indexed by the latest scan: tagged "New".
+  /// Whether the latest scan indexed it, which tags the tile.
   final bool isNew;
 
-  // Non-null only for a bento hero/showcase tile (see
-  // _bentoUpgradeDimension) - [bytes] above is still the normal, cheap
-  // grid-tile decode (arrives immediately so the tile never waits on this),
-  // and this triggers a one-time background fetch of a sharper version at
-  // that specific cap, crossfaded in once it lands, instead of raising the
-  // shared per-tile cap that every other tile would also pay for.
+  /// Non-null only for a bento hero or showcase tile (see _bentoUpgradeDimension). [bytes] is still the cheap
+  /// grid-tile decode and arrives at once so the tile never waits, and this triggers a one-time background fetch of a
+  /// sharper version at that cap, crossfaded in when it lands, instead of raising the shared per-tile cap that every
+  /// tile would pay for.
   final int? upgradeMaxDimension;
   final String? uri;
   final int timestampMs;
@@ -725,18 +651,13 @@ class _ResultTileState extends State<_ResultTile>
     with SingleTickerProviderStateMixin {
   Uint8List? _upgradedBytes;
 
-  // Bumped every time _maybeUpgrade is (re)triggered - a result that lands
-  // after a newer request has already started is from a superseded uri
-  // (the same State can be reused for a different item at this grid index -
-  // see didUpdateWidget) and must be dropped, not applied on top of the
-  // tile that's now showing.
+  /// Bumped every time _maybeUpgrade is triggered. A result that lands after a later request has started is from a
+  /// superseded uri, since the same State can be reused for a different item at this grid index (see didUpdateWidget),
+  /// and must be dropped.
   int _upgradeRequestId = 0;
 
-  // Plays once, the moment a sharper upgrade actually lands (see
-  // _maybeUpgrade) - never touched for the vast majority of tiles that
-  // have no upgrade at all, so it costs nothing anywhere but the rare
-  // hero/showcase tile it's meant for. See the sheen/scale it drives in
-  // build() below.
+  /// Plays once, the moment a sharper upgrade lands (see _maybeUpgrade). It is never touched for tiles that have no
+  /// upgrade, so it costs nothing except on the rare hero or showcase tile. It drives the sheen and scale in build().
   late final AnimationController _focusReveal = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 550),
@@ -754,13 +675,12 @@ class _ResultTileState extends State<_ResultTile>
     super.dispose();
   }
 
+  /// Uint8List has no structural equality, so this is an identity check. The same cached bytes object coming through
+  /// on a rebuild, while thumbnails for other tiles stream in, correctly does nothing, and only a different item
+  /// landing in this slot re-triggers the fetch.
   @override
   void didUpdateWidget(_ResultTile oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Uint8List has no structural equality, so this is an identity check -
-    // the same cached bytes object coming through on a rebuild (thumbnails
-    // for other tiles streaming in) correctly does nothing here; only a
-    // genuinely different item landing in this slot re-triggers the fetch.
     if (oldWidget.bytes != widget.bytes || oldWidget.uri != widget.uri) {
       _upgradedBytes = null;
       _focusReveal.value = 0;
@@ -768,6 +688,8 @@ class _ResultTileState extends State<_ResultTile>
     }
   }
 
+  /// Fetches the sharper version. The normal-res bytes already on screen are a fine fallback, so a missed upgrade
+  /// never surfaces an error.
   Future<void> _maybeUpgrade() async {
     final maxDimension = widget.upgradeMaxDimension;
     if (maxDimension == null || widget.uri == null) return;
@@ -788,12 +710,15 @@ class _ResultTileState extends State<_ResultTile>
       setState(() => _upgradedBytes = upgraded);
       _focusReveal.forward(from: 0);
     } catch (_) {
-      // The normal-res bytes already on screen are a perfectly fine
-      // fallback - never worth surfacing an error for a missed sharpness
-      // upgrade.
     }
   }
 
+  /// Image.memory decodes only to roughly the tile's on-screen size, off the longer tile edge, because the source's
+  /// full resolution made scrolling memory-hungry. Only cacheWidth is set, because both cacheWidth and cacheHeight
+  /// decode to exactly that box and ignore the photo's aspect ratio, which stretched thumbnails. AnimatedSwitcher's
+  /// default layoutBuilder uses StackFit.loose, which let Image.memory fall back to its intrinsic size and leave a
+  /// border, so the override uses StackFit.expand. _focusReveal adds a one-shot bell-shaped sheen and a small settling
+  /// scale when an upgrade lands, and does nothing for tiles without one.
   @override
   Widget build(BuildContext context) {
     final activeBytes = _upgradedBytes ?? widget.bytes;
@@ -806,24 +731,6 @@ class _ResultTileState extends State<_ResultTile>
           borderRadius: BorderRadius.circular(AppRadius.lg),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              // Bounds the decode to roughly this tile's actual on-screen
-              // size - without this, Image.memory decodes at the source's
-              // full resolution (native already caps that, but it's still
-              // far bigger than a grid cell) just to shrink it for
-              // display, which is the other half of what made scrolling
-              // through many results memory-hungry.
-              //
-              // Only cacheWidth is set, deliberately - passing *both*
-              // cacheWidth and cacheHeight tells Flutter to decode to
-              // exactly that box, ignoring the source photo's own aspect
-              // ratio (that's what was stretching every thumbnail,
-              // worst on list view where the tile's own aspect ratio is
-              // furthest from a typical photo's). With only one given,
-              // Flutter scales the other side to match the source's real
-              // proportions, and BoxFit.cover crops the (correctly
-              // proportioned) result to fill the tile the normal way.
-              // Sized off the longer tile edge so there's always enough
-              // resolution to cover regardless of the tile's own shape.
               final dpr = MediaQuery.of(context).devicePixelRatio;
               final tileEdge = constraints.maxWidth > constraints.maxHeight
                   ? constraints.maxWidth
@@ -835,38 +742,12 @@ class _ResultTileState extends State<_ResultTile>
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Crossfades once _upgradedBytes lands (keyed by object
-                  // identity, so this only fires for that one swap, not on
-                  // every rebuild while _upgradedBytes stays the same).
-                  //
-                  // AnimatedSwitcher's default layoutBuilder stacks its
-                  // children with StackFit.loose, not expand - Image.memory
-                  // has no explicit width/height, so under loose constraints
-                  // it fell back to the source's own intrinsic size instead
-                  // of filling the tile, leaving a gap/border around every
-                  // photo. The override below is the same StackFit.expand
-                  // this Stack itself uses, just applied one level deeper.
-                  //
-                  // _focusReveal (see its own doc) layers a one-shot "coming
-                  // into focus" cue on top of that crossfade: a soft diagonal
-                  // sheen in the app's own accent tint sweeps across once,
-                  // rising and fading back out rather than sitting on
-                  // screen, paired with the sharper image settling in from
-                  // a hair larger than its final size. Both are driven by
-                  // the same controller so they read as one small gesture,
-                  // not two separate effects, and both are complete no-ops
-                  // (a plain crossfade, nothing drawn) for every tile that
-                  // never gets an upgrade in the first place.
                   AnimatedBuilder(
                     animation: _focusReveal,
                     builder: (context, child) {
                       final t = _focusReveal.value;
                       final eased = Curves.easeOutCubic.transform(t);
                       final scale = 1.02 - 0.02 * eased;
-                      // Bell-shaped, not linear: silent at both ends of the
-                      // animation, briefly visible only in the middle of
-                      // the sweep - a flourish that appears and dissolves
-                      // rather than something that's merely there then gone.
                       final sheenStrength = sin(t * pi).clamp(0.0, 1.0);
                       return Transform.scale(
                         scale: scale,
@@ -914,8 +795,6 @@ class _ResultTileState extends State<_ResultTile>
                       ),
                     ),
                   ),
-                  // A video plays its silent preview here when it is the one the grid is playing; the rest of the
-                  // time it is the picture with a small play mark.
                   if (widget.isVideo)
                     widget.uri == null
                         ? const Positioned(right: 6, bottom: 6, child: _PlayMark())
@@ -926,8 +805,6 @@ class _ResultTileState extends State<_ResultTile>
                       top: 6,
                       child: _NewTag(compact: constraints.maxWidth < 96),
                     ),
-                  // A moment (the first photo of two people together, the whole gang, a reunion): a
-                  // little bookmark hanging from the top edge.
                   Positioned(
                     right: 9,
                     top: 0,
@@ -943,8 +820,8 @@ class _ResultTileState extends State<_ResultTile>
   }
 }
 
-// The mark on an item the latest scan indexed. A small pill on a normal tile, a dot on a very
-// small one. The ring keeps it readable on a light or a dark photo.
+/// The mark on an item the latest scan indexed. A small pill on a normal tile, a dot on a very
+/// small one. The ring keeps it readable on a light or a dark photo.
 class _NewTag extends StatelessWidget {
   const _NewTag({required this.compact});
 
@@ -988,9 +865,8 @@ class _NewTag extends StatelessWidget {
   }
 }
 
-// Same bordered-pill-plus-chevron treatment as the scan-scope control, and
-// the same sheet-with-options pattern for picking - one consistent "this is
-// how pickers look and behave" language instead of inventing a new one here.
+/// The same bordered pill with a chevron as the scan-scope control, and the same sheet-with-options pattern for
+/// picking, so pickers look and behave alike.
 class _LayoutPickerButton extends StatelessWidget {
   const _LayoutPickerButton({required this.controller});
 
@@ -1217,9 +1093,8 @@ class _CenterNote extends StatelessWidget {
   }
 }
 
-/// The results grid for something other than the live search (a
-/// collection, a person): same tiles and viewers, its own list and thumbnails. What the
-/// latest scan indexed (tagged New) comes first; the rest keep their order.
+/// The results grid for something other than the live search, such as a collection or a person: same tiles and
+/// viewers, its own list and thumbnails. What the latest scan indexed comes first, and the rest keep their order.
 Widget collectionResultsGrid({
   required NativeController controller,
   required List<Map<String, dynamic>> results,
@@ -1236,10 +1111,9 @@ Widget collectionResultsGrid({
   );
 }
 
-// What a thumbnail that hasn't arrived yet looks like: a soft band of light
-// drifting across the tile while a small icon - one that suits the media,
-// swapping every moment - fades in and out, so a grid that's still filling
-// in feels like it's being developed rather than broken.
+/// What a thumbnail that has not arrived yet looks like: a soft band of light drifting across the tile while a small
+/// icon that suits the media fades in and out, swapping every moment, so a grid that is still filling in feels like it
+/// is being developed rather than broken.
 class _LoadingTile extends StatefulWidget {
   const _LoadingTile({required this.index, required this.isVideo});
 
@@ -1274,24 +1148,23 @@ class _LoadingTileState extends State<_LoadingTile>
 
   List<IconData> get _icons => widget.isVideo ? _videoIcons : _imageIcons;
 
+  /// Neighbouring tiles start at different points so the grid does not pulse in lockstep. The value has to be set
+  /// before repeat() starts, because the AnimationController.value setter stops the controller, and the other order
+  /// cancelled the repeat in the same frame and left the shimmer frozen. With motion off the icon stays as it is,
+  /// because changing it with no fade would blink across the grid.
   @override
   void initState() {
     super.initState();
-    // Neighbouring tiles start at different points so the grid doesn't pulse in lockstep - the
-    // value has to be set *before* repeat() starts, not after: AnimationController.value's
-    // setter stops the controller as part of setting it, so the other order started the repeat
-    // and immediately cancelled it again in the same frame - a shimmer frozen in place.
     _sweep.value = (widget.index * 0.137) % 1;
     _swap = Timer.periodic(const Duration(milliseconds: 1300), (_) {
-      // With motion off the icon stays as it is: changing it with no fade would blink across the grid.
       if (mounted && !calm(context)) setState(() => _iconIndex++);
     });
   }
 
+  /// With motion off the shimmer rests, each tile where it was.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // With motion off the shimmer rests, each tile where it was.
     loopUnlessCalm(context, _sweep, rest: (widget.index * 0.137) % 1);
   }
 
@@ -1302,13 +1175,12 @@ class _LoadingTileState extends State<_LoadingTile>
     super.dispose();
   }
 
+  /// A grid full of these ticks constantly and independently, so the tile has its own compositing layer. Without it,
+  /// every tile's sweep would ask Flutter to reconsider repainting the whole grid each frame.
   @override
   Widget build(BuildContext context) {
     final icon = _icons[_iconIndex % _icons.length];
 
-    // A grid full of these ticks constantly and independently - without its own compositing
-    // layer, every tile's sweep would ask Flutter to reconsider repainting the whole grid each
-    // frame instead of just the one tile that actually changed.
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _sweep,

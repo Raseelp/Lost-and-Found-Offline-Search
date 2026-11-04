@@ -12,9 +12,10 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 
-// Downloads, verifies, and deletes the on-device search model files.
-// Files live in context.filesDir - private, no permission needed, cleaned
-// up on uninstall.
+/**
+ * Downloads, verifies and deletes the on-device search model files. They live in context.filesDir, which is private,
+ * needs no permission and is cleaned up on uninstall.
+ */
 class ModelManager(private val context: Context) {
 
     @Volatile
@@ -27,11 +28,12 @@ class ModelManager(private val context: Context) {
         cleanupLegacyFaceModels()
     }
 
-    // The face recognition model is bundled in the app now (see FaceModelStore), not
-    // downloaded: remove what earlier versions downloaded - the accurate model (170 MB) and
-    // the downloaded copy of the small one - and forget that they were verified. (A model
-    // someone put in the external folder by hand is theirs: only the old accurate model's
-    // files are removed from there.)
+    /**
+     * Removes the face model files that older app versions downloaded (the accurate model of 170 MB and the downloaded
+     * copy of the small one) and forgets that they were verified, because the face model is bundled in the app (see
+     * FaceModelStore). A model put in the external folder by hand is the person's own, so only the accurate model's
+     * files are removed from there.
+     */
     private fun cleanupLegacyFaceModels() {
         val old = listOf("w600k_r50.onnx", "w600k_r50.onnx.part", "w600k_r50.json")
         val downloadedCopyOfBundled = listOf("w600k_mbf.onnx", "w600k_mbf.onnx.part")
@@ -41,12 +43,11 @@ class ModelManager(private val context: Context) {
         if (stale.isNotEmpty()) prefs.edit().apply { stale.forEach { remove(it) } }.apply()
     }
 
-    // One-time migration cleanup: the CLIP models moved from TorchScript
-    // (.pt, loaded by PyTorch Mobile) to ONNX under new file names, so
-    // RemoteModel's catalog no longer points at these - without this they'd
-    // sit in context.filesDir forever, orphaned, on every device that had
-    // already downloaded them. Harmless to run on every launch: once gone,
-    // File.delete() is a silent no-op.
+    /**
+     * Removes the TorchScript (.pt) CLIP models that older app versions downloaded. The ONNX models have other file
+     * names and RemoteModel's catalog does not point at these, so they would sit in context.filesDir orphaned. It is
+     * harmless on every launch: once the files are gone, File.delete() does nothing.
+     */
     private fun cleanupLegacyPyTorchModels() {
         for (name in listOf("clip_vision_ts.pt", "clip_text_ts.pt")) {
             File(context.filesDir, name).delete()
@@ -70,6 +71,11 @@ class ModelManager(private val context: Context) {
 
     private fun verifiedKey(model: RemoteModel) = "verified_${model.id}_${model.sha256}"
 
+    /**
+     * Whether [model] is downloaded in full and verified. A file of the right size that is not flagged verified, such
+     * as one copied into place directly, is hashed once and the result cached. The hash can be slow on a big file, so
+     * call this from a background thread.
+     */
     fun isModelVerified(model: RemoteModel): Boolean {
         seedFromDebugAssetsIfPresent(model)
 
@@ -78,12 +84,6 @@ class ModelManager(private val context: Context) {
 
         if (prefs.getBoolean(verifiedKey(model), false)) return true
 
-        // Right size but not flagged verified - e.g. the file was copied
-        // into place directly (local testing) instead of coming through
-        // downloadOne(). Hash it once to confirm, and cache the result so
-        // this only costs anything the first time. Callers on the UI
-        // thread must not call this before a download has ever run without
-        // going through a background thread first - this can be slow.
         val matches = sha256Of(file).equals(model.sha256, ignoreCase = true)
         if (matches) {
             prefs.edit().putBoolean(verifiedKey(model), true).apply()
@@ -91,17 +91,21 @@ class ModelManager(private val context: Context) {
         return matches
     }
 
-    // Search and indexing need only the search models - the face model is optional
-    // and never holds those back.
+    /**
+     * Whether the search models are in place. Search and indexing need only these, and the face model is optional and
+     * never holds them back.
+     */
     fun areModelsReady(): Boolean {
         val ready = ModelCatalog.MODELS.all { isModelVerified(it) }
         if (ready) removeReplacedSearchModels()
         return ready
     }
 
-    // The search models used to be OpenAI's CLIP ViT-B/32 (about 600 MB, two files under other names), and for a
-    // short while MobileCLIP-S2. Once the new ones are in place those are of no use to anything: removed, once - and
-    // only then, so that a download that fails does not leave the person with no models at all.
+    /**
+     * Removes the replaced search models: OpenAI's CLIP ViT-B/32 (about 600 MB, two files under other names) and
+     * MobileCLIP-S2. It runs once and only after the current models are in place, so a failed download does not leave
+     * the person with no models at all.
+     */
     private fun removeReplacedSearchModels() {
         if (prefs.getBoolean(REPLACED_REMOVED_KEY, false)) return
         for (name in listOf("clip_vision.onnx", "clip_text.onnx", "mobileclip_s2_vision.onnx", "mobileclip_s2_text.onnx")) {
@@ -154,10 +158,11 @@ class ModelManager(private val context: Context) {
         }
     }
 
-    // Downloads every not-yet-verified model of [models] in order (put the ones
-    // that matter most first - a failure later on doesn't lose what is done).
-    // Safe to call again after a cancel or failure - already-verified models are
-    // skipped and partial downloads resume.
+    /**
+     * Downloads every not-yet-verified model of [models] in order. Put the ones that matter most first, so a failure
+     * later does not lose what is done. Safe to call again after a cancel or failure: verified models are skipped and
+     * partial downloads resume.
+     */
     fun download(models: List<RemoteModel>, onProgress: (ModelDownloadProgress) -> Unit) {
         isCancelled = false
 
@@ -173,6 +178,11 @@ class ModelManager(private val context: Context) {
         }
     }
 
+    /**
+     * Downloads one model, resuming a partial file when the server honours the Range request, and discards a stale
+     * file of the wrong size to start clean. When every byte is here it reports that before the size and checksum
+     * check, which takes seconds on a big file, so the app shows "checking" and not a bar frozen near the end.
+     */
     private fun downloadOne(
         model: RemoteModel,
         overallDoneBeforeThisModel: Long,
@@ -182,8 +192,6 @@ class ModelManager(private val context: Context) {
         val target = localFile(model)
         val part = partFile(model)
 
-        // Stale complete-looking file that doesn't match the current manifest
-        // (e.g. model was updated) - discard and start clean.
         if (target.exists() && target.length() != model.sizeBytes) target.delete()
 
         var existingLength = if (part.exists()) part.length() else 0L
@@ -207,7 +215,6 @@ class ModelManager(private val context: Context) {
 
                 val serverHonoredResume = connection.responseCode == HttpURLConnection.HTTP_PARTIAL
                 if (existingLength > 0 && !serverHonoredResume) {
-                    // Server ignored the Range request - fall back to a full re-download.
                     existingLength = 0L
                     part.delete()
                 }
@@ -260,9 +267,6 @@ class ModelManager(private val context: Context) {
 
         if (isCancelled) return
 
-        // Every byte is here; what follows (size and checksum) takes a few
-        // seconds on a big file. Say so - the app shows "checking", not a bar
-        // frozen just short of the end.
         onProgress(
             ModelDownloadProgress(
                 modelId = model.id,
@@ -308,12 +312,11 @@ class ModelManager(private val context: Context) {
         )
     }
 
-    // Debug convenience: if a model file is sitting in
-    // android/app/src/debug/assets/ (a debug-only source set - Gradle never
-    // includes it in a release build, so this can't bloat a real release
-    // APK even by accident), copy it into place so the app skips the
-    // download screen entirely. No-ops instantly whenever nothing's there,
-    // which is the normal case for everyone who isn't using this.
+    /**
+     * Debug convenience: copies a model file found in android/app/src/debug/assets/ into place so the app skips the
+     * download screen. That source set is debug only, so a release APK never includes it. It does nothing when no file
+     * is there, which is the normal case.
+     */
     private fun seedFromDebugAssetsIfPresent(model: RemoteModel) {
         if (!BuildConfig.DEBUG) return
 
@@ -328,7 +331,7 @@ class ModelManager(private val context: Context) {
             }
             Log.d("ModelManager", "Seeded ${model.fileName} from debug assets")
         } catch (e: IOException) {
-            // Not bundled for this build - the normal case, nothing to do.
+            // Not bundled for this build, which is the normal case.
         }
     }
 

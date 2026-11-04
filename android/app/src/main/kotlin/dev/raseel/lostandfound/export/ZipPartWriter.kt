@@ -8,16 +8,10 @@ import java.util.TimeZone
 import java.util.zip.CRC32
 
 /**
- * Writes one zip file to a stream that cannot seek (a file being created through the system's
- * file pickers, say), one entry at a time, without compressing: the data is stored inside
- * "deflate" blocks of the stored kind, so a file's size and checksum are not needed before it is
- * written (they follow it, in a data descriptor) and every unzip tool reads it.
- *
- * [zip64] is chosen by the caller before the first entry, from what it expects to write: the
- * archive then uses 64-bit sizes and offsets, which it needs once it holds 4 GB or 65,535 files.
- * Plain zip is used otherwise, because it is understood everywhere.
- *
- * Entry names are UTF-8. No Android classes are used, so it can be tested on a plain JVM.
+ * Writes one zip file to a stream that cannot seek, one entry at a time and without compressing. Data goes in stored
+ * deflate blocks, so size and checksum follow it in a data descriptor. [zip64] is chosen by the caller before the
+ * first entry, because 64-bit sizes are needed from 4 GB or 65,535 files. Entry names are UTF-8, and no Android
+ * classes are used, so it can be tested on a plain JVM.
  */
 class ZipPartWriter(output: OutputStream, private val zip64: Boolean) : Closeable {
 
@@ -43,9 +37,9 @@ class ZipPartWriter(output: OutputStream, private val zip64: Boolean) : Closeabl
     val entryCount: Int get() = entries.size
 
     /**
-     * Adds [name] (with '/' between folders) holding everything [input] gives. [modifiedMs] is
-     * stored as the file's date. [onBytes] is told about each chunk as it is copied, and may
-     * throw to stop. Returns how many bytes of data the file had.
+     * Adds [name] (with '/' between folders) holding everything [input] gives. [modifiedMs] is stored as the file's
+     * date. [onBytes] is told about each chunk as it is copied, and may throw to stop. Returns how many bytes of data
+     * the file had. One chunk is held back so that the last block can be marked as the last.
      */
     fun addFile(name: String, modifiedMs: Long, input: InputStream, onBytes: (Int) -> Unit = {}): Long {
         check(!finished) { "the zip is finished" }
@@ -54,7 +48,6 @@ class ZipPartWriter(output: OutputStream, private val zip64: Boolean) : Closeabl
         var size = 0L
         var compressed = 0L
 
-        // One chunk is held back so the last block can be marked as the last.
         var held = ByteArray(BLOCK)
         var heldLength = readChunk(input, held)
         var next = ByteArray(BLOCK)
@@ -80,7 +73,10 @@ class ZipPartWriter(output: OutputStream, private val zip64: Boolean) : Closeabl
         addFile(name, modifiedMs, data.inputStream())
     }
 
-    /** Writes the index at the end of the file. The stream is left open. */
+    /**
+     * Writes the index at the end of the file. The stream is left open. With zip64, the ordinary end record marks the
+     * fields that do not fit.
+     */
     fun finish() {
         if (finished) return
         finished = true
@@ -90,7 +86,6 @@ class ZipPartWriter(output: OutputStream, private val zip64: Boolean) : Closeabl
 
         if (zip64) {
             val recordStart = position
-            // Zip64 end of central directory record.
             u32(0x06064b50)
             u64(44)
             u16(45)
@@ -101,12 +96,10 @@ class ZipPartWriter(output: OutputStream, private val zip64: Boolean) : Closeabl
             u64(entries.size.toLong())
             u64(directorySize)
             u64(directoryStart)
-            // Its locator.
             u32(0x07064b50)
             u32(0)
             u64(recordStart)
             u32(1)
-            // The ordinary end record, with the fields that no longer fit marked as such.
             u32(0x06054b50)
             u16(0)
             u16(0)
@@ -136,16 +129,16 @@ class ZipPartWriter(output: OutputStream, private val zip64: Boolean) : Closeabl
             out.close()
         }
     }
-
-    // ---- an entry ----
+/**
+ * Writes the local file header. Size and checksum follow the data (flag bit 3), so they are zero here, and with zip64
+ * the sizes are marked as being in the extra field.
+ */
 
     private fun begin(name: String, modifiedMs: Long): Entry {
         val nameBytes = name.toByteArray(Charsets.UTF_8)
         val (dosDate, dosTime) = dos(modifiedMs)
         val entry = Entry(nameBytes, position, dosTime, dosDate)
         entries.add(entry)
-        // Local file header. The sizes and checksum follow the data (flag bit 3), so they are
-        // zero here; with zip64 the sizes are marked as being in the extra field.
         u32(0x04034b50)
         u16(if (zip64) 45 else 20)
         u16(FLAGS)
@@ -171,7 +164,6 @@ class ZipPartWriter(output: OutputStream, private val zip64: Boolean) : Closeabl
         entry.crc = crc
         entry.size = size
         entry.compressedSize = compressed
-        // Data descriptor.
         u32(0x08074b50)
         u32(crc)
         if (zip64) {
@@ -218,9 +210,7 @@ class ZipPartWriter(output: OutputStream, private val zip64: Boolean) : Closeabl
         }
     }
 
-    // ---- data ----
-
-    // Fills [buffer] from [input] as far as it will go; the number of bytes it got.
+    /** Fills [buffer] from [input] as far as it will go; the number of bytes it got. */
     private fun readChunk(input: InputStream, buffer: ByteArray): Int {
         var got = 0
         while (got < buffer.size) {
@@ -231,8 +221,10 @@ class ZipPartWriter(output: OutputStream, private val zip64: Boolean) : Closeabl
         return got
     }
 
-    // One block of "stored" deflate data: the data itself, with a five-byte header. Returns how
-    // many bytes it took.
+    /**
+     * One block of "stored" deflate data: the data itself, with a five-byte header. Returns how
+     * many bytes it took.
+     */
     private fun writeStoredBlock(data: ByteArray, length: Int, last: Boolean): Long {
         out.write(if (last) 1 else 0)
         out.write(length and 0xFF)
@@ -243,8 +235,6 @@ class ZipPartWriter(output: OutputStream, private val zip64: Boolean) : Closeabl
         position += 5 + length
         return 5L + length
     }
-
-    // ---- low level ----
 
     private fun raw(bytes: ByteArray, length: Int) {
         out.write(bytes, 0, length)
@@ -273,11 +263,11 @@ class ZipPartWriter(output: OutputStream, private val zip64: Boolean) : Closeabl
     }
 
     companion object {
-        // A stored deflate block holds at most this many bytes.
+        /** A stored deflate block holds at most this many bytes. */
         private const val BLOCK = 65535
         private const val METHOD_DEFLATE = 8
 
-        // Bit 3: sizes and checksum follow the data. Bit 11: the names are UTF-8.
+        /** Bit 3: sizes and checksum follow the data. Bit 11: the names are UTF-8. */
         private const val FLAGS = 0x0808
 
         /** A zip's date and time fields for [ms] (local time, 2-second steps, 1980 to 2107). */

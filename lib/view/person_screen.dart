@@ -11,8 +11,8 @@ import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/view/widget/person_menu.dart';
 import 'package:lost_and_found/view/widget/search_results.dart';
 
-/// One person: their face, name, and every photo they're in - the same tiles
-/// and viewers as search results and collections.
+/// One person: their face, name and every photo they are in. It uses the same tiles and viewers as search results
+/// and collections.
 class PersonScreen extends StatefulWidget {
   const PersonScreen({super.key, required this.person});
 
@@ -22,14 +22,20 @@ class PersonScreen extends StatefulWidget {
   State<PersonScreen> createState() => _PersonScreenState();
 }
 
+/// Registers itself as open after the first frame, because opening notifies listeners, which cannot happen
+/// mid-build. Until the person is loaded, the header shows what the screen was given. When the person is hidden or
+/// merged away from here there is nothing left to show, so the screen leaves. Together, Merge, Split, Review, Hide
+/// and Export are the buttons floating round the photo below, not hidden behind a tap. The Then and now card shows
+/// their first year and their latest side by side, when there are enough photos over enough time.
 class _PersonScreenState extends State<PersonScreen> {
   late final FacesController _faces = Get.find<FacesController>();
-  bool _pushed = false; // this page has registered itself as open
+
+  /// True once this page has registered itself as open.
+  bool _pushed = false;
 
   @override
   void initState() {
     super.initState();
-    // After the first frame: opening notifies listeners, which can't happen mid-build.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _pushed = true;
@@ -56,10 +62,8 @@ class _PersonScreenState extends State<PersonScreen> {
         final native = Get.find<NativeController>();
         final textTheme = Theme.of(context).textTheme;
 
-        // Not opened yet (first frame) - show the header from what we were given.
         final shown = person ?? widget.person;
 
-        // Hidden or merged away from here: nothing left to show, so leave.
         if (person == null && faces.photos.isEmpty && !faces.isLoadingPhotos && _opened) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
@@ -81,8 +85,6 @@ class _PersonScreenState extends State<PersonScreen> {
                           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: AppColors.ink),
                           onPressed: () => Navigator.of(context).pop(),
                         ),
-                        // No more "⋯" here - Together, Merge, Split, Review, Hide and Export are the
-                        // buttons floating round the photo below, not hidden behind a tap.
                       ],
                     ),
                   ),
@@ -121,7 +123,6 @@ class _PersonScreenState extends State<PersonScreen> {
                     ],
                   ),
                 ),
-                // Their first year and their latest, side by side (when there are enough photos over enough time).
                 SliverToBoxAdapter(child: ThenAndNowCard(person: shown)),
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),

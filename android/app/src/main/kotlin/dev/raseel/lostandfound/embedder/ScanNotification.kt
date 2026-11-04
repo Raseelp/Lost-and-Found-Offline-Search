@@ -19,19 +19,10 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * The progress notification of a scan, shared by indexing (ScanForegroundService) and the face scan on its own
- * (FaceScanWorker). It shows what is happening now:
- *
- * - Indexing: one bar in two parts, photos (teal) then videos (a lighter teal), each as long as its share of the
- *   scan, with the part being indexed named and counted ("Indexing photos · 7%", "844 / 9,876").
- * - Finding faces: the violet bar of the scan chip's faces, with a line saying what they are being found in;
- *   during indexing (a batch of photos just indexed), indexing waits underneath, dimmed.
- *
- * Faces are only shown while they are being found.
- *
- * On Android 16 and later it is instead the system's own progress notification, the same bar as segments with a
- * marker moving along it, and it asks to be promoted to a live update, which puts a small chip in the status
- * bar. (A notification with its own layout, like the one above, is never promoted.)
+ * The progress notification of a scan, shared by indexing ([ScanForegroundService]) and the face scan on its own
+ * ([FaceScanWorker]). Indexing is one bar in two parts, photos then videos, each as long as its share of the scan.
+ * Faces are a violet bar while they are found, with indexing dimmed under it. On Android 16 and later it is the
+ * system's progress notification, promoted to a live update, which a custom layout never is.
  */
 object ScanNotification {
 
@@ -48,15 +39,15 @@ object ScanNotification {
         val done get() = photosDone + videosDone
         val percent get() = if (total > 0) (done.toLong() * 100 / total).toInt() else 0
 
-        // Photos are indexed first: it is on the videos once the photos are all done.
+        /** Photos are indexed first, so the scan is on the videos once the photos are all done. */
         val onVideos get() = videos > 0 && photosDone >= photos
         val ready get() = total > 0
     }
 
     /**
-     * Finding faces: [done] of [total] photos, [title] for the folded line, [context] for the line under the bar
-     * and [header] next to the app's name. [waiting] when how far it is cannot be told yet. [speed] under the
-     * line, once it can be told.
+     * Finding faces: [done] of [total] photos, [title] for the folded line, [context] for the
+     * line under the bar and [header] next to the app's name. [waiting] is true when how far
+     * it is cannot be told yet. [speed] goes under the line, once it can be told.
      */
     data class Faces(
         val done: Int,
@@ -69,8 +60,9 @@ object ScanNotification {
     )
 
     /**
-     * How fast something is counting up, over the last [windowMs] (so it is steady, but follows a change in
-     * pace). [add] each new count with the time it was reached; a count lower than the last one is a new run.
+     * How fast something is counting up, over the last [windowMs], so it is steady but follows a change in pace.
+     * [add] takes each count with the time it was reached. A count lower than the last one means the counting started
+     * again.
      */
     class Rate(private val windowMs: Long = 10_000) {
         private val samples = ArrayDeque<Pair<Long, Int>>()
@@ -91,24 +83,22 @@ object ScanNotification {
 
     const val MAX = 1000
 
-    // Teal for photos, a lighter teal for videos and violet for faces, as the bars (lane_bar_*.xml); the app's green.
+    /** Teal for photos, a lighter teal for videos, violet for faces and the app's green, matching the bars in lane_bar_*.xml. */
     private const val PHOTOS = 0xFF1FA393.toInt()
     private const val VIDEOS = 0xFF8EDBD0.toInt()
     private const val FACES = 0xFF6C63B5.toInt()
     private const val APP = 0xFF165E59.toInt()
 
-    // The empty part of a bar, and of the videos' part (as the bars' tracks, lane_bar_faces.xml).
+    /** The empty part of a bar, and of the videos' part, matching the tracks in lane_bar_faces.xml. */
     private const val TRACK = 0x40888888
     private const val VIDEOS_TRACK = 0x2E8EDBD0
 
-    // Indexing waiting below the faces.
+    /** The alpha of indexing while it waits below the faces. */
     private const val DIMMED = 0.45f
 
-    // What Android 16 looks for in a notification's extras to promote it (what AndroidX's
-    // NotificationCompat.Builder.setRequestPromotedOngoing sets).
+    /** What Android 16 looks for in a notification's extras to promote it. AndroidX sets it in setRequestPromotedOngoing. */
     private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
 
-    // The words that do not depend on the numbers.
     private const val ON_THIS_PHONE = "Making them searchable, on this phone only"
 
     /** "11,376" in the phone's own way of writing numbers. */
@@ -117,7 +107,7 @@ object ScanNotification {
     /** "844 / 9,876". */
     fun fraction(done: Int, total: Int): String = "${count(done)} / ${count(total)}"
 
-    /** How long, in whole words to the minute: "1 h 20 min", "8 min" (never less than "1 min"). */
+    /** How long, to the minute, such as "1 h 20 min" or "8 min". It is never less than "1 min". */
     fun duration(ms: Long): String {
         val totalMinutes = ((ms + 59_999) / 60_000).coerceAtLeast(1)
         val h = totalMinutes / 60
@@ -130,14 +120,13 @@ object ScanNotification {
     }
 
     /**
-     * A speed in words: "6.2 photos a second", "12 photos a second", "1 video every 4 s". [one] and [many] name
-     * what is counted.
+     * A speed in words, such as "6.2 photos a second" or "1 video every 4 s". [one] and [many] name what is counted.
+     * From about one a second it uses "a second", so it never says "1 photo every 1 s".
      */
     fun speed(perSecond: Double?, one: String, many: String): String? {
         if (perSecond == null || perSecond <= 0.0) return null
         return when {
             perSecond >= 9.95 -> "${perSecond.roundToInt()} $many a second"
-            // From about one a second ("0.7 photos a second"), so it never says "1 photo every 1 s".
             perSecond >= 0.6 -> "${String.format(Locale.getDefault(), "%.1f", perSecond)} $many a second"
             else -> {
                 val seconds = (1 / perSecond).roundToInt()
@@ -150,7 +139,7 @@ object ScanNotification {
     fun progress(done: Int, total: Int): Int =
         if (total <= 0) 0 else (done.toLong() * MAX / total).toInt().coerceIn(0, MAX)
 
-    /** The folded line of indexing: "Indexing photos · 7%", "Indexing videos · 87%". */
+    /** The folded line of indexing, such as "Indexing photos" with the percent after it. */
     fun indexingTitle(indexing: Indexing): String = when {
         !indexing.ready -> "Getting ready to index"
         indexing.onVideos || indexing.photos == 0 -> "Indexing videos  ·  ${indexing.percent}%"
@@ -165,8 +154,8 @@ object ScanNotification {
     }
 
     /**
-     * The line under the bar while indexing, or null with both photos and videos (the two parts are named under
-     * the bar instead).
+     * The line under the bar while indexing. It is null with both photos and videos, because
+     * the two parts are named under the bar instead.
      */
     fun indexingContext(indexing: Indexing): String? = when {
         !indexing.ready -> "Looking for photos and videos"
@@ -175,8 +164,10 @@ object ScanNotification {
     }
 
     /**
-     * The notification for indexing (with [faces] while the faces of a batch are being found) or, with
-     * [indexing] null, for the face scan on its own.
+     * The notification for indexing, with [faces] while the faces of a batch are found, or for the face scan alone
+     * when [indexing] is null. Before Android 16 it uses folded and unfolded custom layouts sharing the bar from
+     * [splitBar]. The content title and text are set too, for screen readers and phones without custom layouts. It is
+     * public on the lock screen because it holds only counts and speed.
      */
     fun build(
         context: Context,
@@ -205,7 +196,6 @@ object ScanNotification {
             unfolded.setTextViewText(R.id.lane_context, faces.context)
             showSpeed(unfolded, faces.speed)
             if (indexing != null && indexing.ready) {
-                // Indexing waits for the faces: named below, dimmed, with no bar.
                 val videos = indexing.onVideos || indexing.photos == 0
                 unfolded.setViewVisibility(R.id.lane_next, View.VISIBLE)
                 unfolded.setImageViewResource(R.id.lane_next_dot, if (videos) R.drawable.lane_dot_videos else R.drawable.lane_dot_photos)
@@ -218,7 +208,6 @@ object ScanNotification {
             title = indexingTitle(ix)
             text = indexingContext(ix)
             header = ix.timeLeft?.let { "about $it left" }
-            // One picture of the bar for both layouts: it is drawn on every update.
             val bar = if (ix.ready) splitBar(app, ix) else null
             for (views in listOf(folded, unfolded)) showIndexing(views, ix, bar)
             folded.setTextViewText(R.id.lane_title, title)
@@ -226,7 +215,6 @@ object ScanNotification {
                 R.id.lane_title,
                 if (ix.ready && (ix.onVideos || ix.photos == 0)) "Videos" else if (ix.ready) "Photos" else title,
             )
-            // The two parts named underneath (photos on the left, videos on the right), only when there are both.
             if (ix.photos > 0 && ix.videos > 0) {
                 unfolded.setViewVisibility(R.id.lane_legend, View.VISIBLE)
                 unfolded.setTextViewText(R.id.lane_legend_photos, "${count(ix.photos)} ${if (ix.photos == 1) "photo" else "photos"}")
@@ -243,7 +231,6 @@ object ScanNotification {
         }
 
         return NotificationCompat.Builder(app, channelId)
-            // Also what is read out, and what a phone that does not show custom layouts shows.
             .setContentTitle(title)
             .setContentText(text ?: indexing?.let { indexingCount(it) })
             .setSubText(header)
@@ -253,8 +240,6 @@ object ScanNotification {
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setColor(APP)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-            // Counts and speed only, nothing private: shown in full on a locked screen too (when the phone shows
-            // quiet notifications there at all).
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -264,13 +249,13 @@ object ScanNotification {
             .build()
     }
 
-    // How fast, the quiet line under the rest; none until it can be told.
+    /** Shows the quiet speed line under the rest, or hides it until [speed] is known. */
     private fun showSpeed(views: RemoteViews, speed: String?) {
         views.setTextViewText(R.id.lane_speed, speed ?: "")
         views.setViewVisibility(R.id.lane_speed, if (speed == null) View.GONE else View.VISIBLE)
     }
 
-    // The lane of finding faces, in either layout: violet dot, count and bar.
+    /** Shows the lane of finding faces, in either layout: the violet dot, the count and the bar. */
     private fun showFaces(views: RemoteViews, faces: Faces) {
         views.setImageViewResource(R.id.lane_dot, R.drawable.lane_dot_faces)
         views.setTextViewText(R.id.lane_count, if (faces.waiting) "" else fraction(faces.done, faces.total))
@@ -279,7 +264,7 @@ object ScanNotification {
         views.setProgressBar(R.id.lane_bar_faces, MAX, progress(faces.done, faces.total), faces.waiting)
     }
 
-    // The lane of indexing, in either layout: the dot of the part being indexed, its count, and the two-part bar.
+    /** Shows the lane of indexing, in either layout: the dot of the part being indexed, its count and the two-part [bar]. */
     private fun showIndexing(views: RemoteViews, ix: Indexing, bar: Bitmap?) {
         val videos = ix.ready && (ix.onVideos || ix.photos == 0)
         views.setImageViewResource(R.id.lane_dot, if (videos) R.drawable.lane_dot_videos else R.drawable.lane_dot_photos)
@@ -289,21 +274,19 @@ object ScanNotification {
             views.setViewVisibility(R.id.lane_split, View.VISIBLE)
             views.setImageViewBitmap(R.id.lane_split, bar)
         } else {
-            // Nothing counted yet: no bar, only the line saying so.
             views.setViewVisibility(R.id.lane_split, View.GONE)
         }
     }
 
     /**
-     * Indexing's bar as a picture: photos then videos, each part as long as its share of the scan with a small
-     * gap between, each filled as far as it has got. Drawn about as wide as the notification shows it (it is
-     * stretched to fit, so the parts keep their proportions exactly; only the rounded ends may stretch a little).
-     * A layout cannot be told such proportions from here, hence the picture.
+     * Indexing's bar as a picture: photos then videos, each part as long as its share of the scan, with a small gap,
+     * filled as far as it has got. A layout cannot be given such proportions, so the picture is drawn about as wide as
+     * the notification shows it and stretched to fit. Each part is at least a dot wide, so a sliver of progress still
+     * shows.
      */
     fun splitBar(context: Context, ix: Indexing): Bitmap {
         val metrics = context.resources.displayMetrics
         val dp = metrics.density
-        // The screen less the shade's margins, the icon column and the padding round the content.
         val width = (metrics.widthPixels - 112 * dp).toInt().coerceAtLeast((160 * dp).toInt())
         val height = (6 * dp).toInt().coerceAtLeast(2)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -318,14 +301,12 @@ object ScanNotification {
             val filled = (right - left) * fraction.coerceIn(0f, 1f)
             if (filled <= 0f) return
             paint.color = fill
-            // Never thinner than round: a sliver of progress still shows as a dot.
             canvas.drawRoundRect(RectF(left, 0f, left + filled.coerceAtLeast(height.toFloat()), height.toFloat()), radius, radius, paint)
         }
 
         val both = ix.photos > 0 && ix.videos > 0
         val gap = if (both) 3 * dp else 0f
         val usable = width - gap
-        // Each part at least a dot wide, however few it holds.
         val photosWidth = when {
             ix.photos == 0 -> 0f
             ix.videos == 0 -> usable
@@ -336,6 +317,7 @@ object ScanNotification {
         return bitmap
     }
 
+    /** The Android 16 version of [build], using the system's progress style. */
     @RequiresApi(36)
     private fun buildLive(
         app: Context,
@@ -361,7 +343,6 @@ object ScanNotification {
             chip = "Faces"
         } else {
             val ix = indexing ?: Indexing(0, 0, 0, 0, null)
-            // The bar is the whole scan, its parts as long as the photos and the videos.
             val segments = buildList {
                 if (ix.photos > 0) add(Notification.ProgressStyle.Segment(ix.photos).setColor(PHOTOS))
                 if (ix.videos > 0) add(Notification.ProgressStyle.Segment(ix.videos).setColor(VIDEOS))

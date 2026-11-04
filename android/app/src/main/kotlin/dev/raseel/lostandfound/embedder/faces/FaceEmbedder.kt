@@ -8,15 +8,9 @@ import java.nio.FloatBuffer
 import kotlin.math.sqrt
 
 /**
- * Turns an aligned face into an identity vector, using whichever embedder model
- * [FaceModelStore] currently selects. Nothing here is specific to one network:
- * the input size, normalisation and channel order come from its spec, and the
- * vector length is whatever the model outputs. Vectors are scaled to length 1,
- * so a plain dot product between two is their cosine similarity.
- *
- * Swapping the model at runtime is picked up automatically on the next call
- * (see [modelId]); vectors from different models are not comparable, so
- * anything stored must be tagged with the id it came from.
+ * Turns an aligned face into an identity vector with the embedder model [FaceModelStore] selects. Vectors have length
+ * 1, so a dot product is their cosine similarity. A model swap is picked up on the next call (see [modelId]), and
+ * vectors from different models are not comparable, so stored ones must be tagged with their model id.
  */
 class FaceEmbedder(private val store: FaceModelStore) : AutoCloseable {
 
@@ -37,9 +31,8 @@ class FaceEmbedder(private val store: FaceModelStore) : AutoCloseable {
     fun isAvailable() = store.selected(FaceModelKind.EMBEDDER) != null
 
     /**
-     * Embeds several aligned faces, a few per model run - one run over a batch
-     * is noticeably faster per face than separate runs. A model that only
-     * accepts one face at a time is detected on first use and handled one by one.
+     * Embeds several aligned faces, a few per model run. One run over a batch is noticeably faster per face than
+     * separate runs. A model that only accepts one face at a time is detected on first use and handled one by one.
      */
     fun embedBatch(aligned: List<Bitmap>): List<FloatArray> = synchronized(lock) {
         if (aligned.isEmpty()) return@synchronized emptyList<FloatArray>()
@@ -114,7 +107,6 @@ class FaceEmbedder(private val store: FaceModelStore) : AutoCloseable {
         val plane = size * size
         aligned.getPixels(pixels, 0, size, 0, 0, size, size)
         val data = input!!.array()
-        // Channel planes in the order the model wants (RGB, or BGR).
         val first = if (spec.rgb) 16 else 0
         val last = if (spec.rgb) 0 else 16
         for (i in 0 until plane) {
@@ -139,7 +131,7 @@ class FaceEmbedder(private val store: FaceModelStore) : AutoCloseable {
         }
     }
 
-    // Reloads when the selected model changed since the last call.
+    /** Reloads when the selected model changed since the last call. */
     private fun ensureLoaded(): FaceModelSpec {
         val model = store.selected(FaceModelKind.EMBEDDER)
             ?: throw IllegalStateException("No face recognition model installed")
@@ -170,8 +162,7 @@ class FaceEmbedder(private val store: FaceModelStore) : AutoCloseable {
     }
 
     companion object {
-        // Faces per model run: big enough to amortise the cost, small enough to
-        // keep memory modest.
+        /** Faces per model run: big enough to amortise the cost, small enough to keep memory modest. */
         private const val MAX_BATCH = 8
     }
 }

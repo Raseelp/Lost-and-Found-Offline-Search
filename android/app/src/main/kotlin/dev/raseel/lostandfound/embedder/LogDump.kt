@@ -5,13 +5,15 @@ import android.os.Build
 import java.util.concurrent.TimeUnit
 
 /**
- * The app's recent log as one piece of text, for "Copy logs" in Settings > Diagnostics. Android lets an app read
- * only its own log lines, which is what a bug report needs: the app's own messages and, after a crash, why.
+ * The app's recent log as one piece of text, for "Copy logs" in Settings, Diagnostics.
+ *
+ * Android lets an app read only its own log lines, which is what a bug report needs: the
+ * app's own messages and, after a crash, why.
  */
 object LogDump {
     private const val MAX_LINES = 4000
 
-    // Well under the 1 MB the clipboard can carry, even if every character takes three bytes.
+    /** Well under the 1 MB the clipboard can carry, even if every character takes three bytes. */
     private const val MAX_CHARS = 200_000
     private const val WAIT_SECONDS = 8L
 
@@ -30,10 +32,14 @@ object LogDump {
             "Phone: ${Build.MANUFACTURER} ${Build.MODEL}\n"
     }
 
-    // Oldest first. Only the newest MAX_LINES are kept as they are read, so a long log is not held whole.
+    /**
+     * The newest [MAX_LINES] log lines, oldest first.
+     *
+     * Older lines are dropped as the log is read, so a long log is not held whole. A watchdog ends the reader after
+     * [WAIT_SECONDS] in case `logcat -d` does not end by itself, so a tap cannot leave it waiting for good.
+     */
     private fun lines(): List<String> {
         val process = ProcessBuilder("logcat", "-d", "-v", "threadtime").redirectErrorStream(true).start()
-        // `logcat -d` ends by itself; if it ever does not, this ends it, so a tap cannot leave the reader waiting for good.
         val watchdog = Thread {
             try {
                 Thread.sleep(TimeUnit.SECONDS.toMillis(WAIT_SECONDS))

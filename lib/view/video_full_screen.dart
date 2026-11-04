@@ -50,11 +50,9 @@ class _VideoViewScreenState extends State<VideoViewScreen>
 
   String? _initError;
 
-  // ---- who is in the paused frame ----
-  //
-  // While the video plays nothing is drawn. Pause it (or scrub and let go) and, once it has
-  // been still a moment, the frame on screen is looked at: every face that matches a known
-  // person gets the same tappable outline as in a photo. Nothing is stored by this.
+  /// The token of the looks at the paused frame. While the video plays nothing is drawn. Pause it, or scrub and let
+  /// go, and once it has been still a moment the frame on screen is looked at: every face that matches a known person
+  /// gets the same tappable outline as in a photo. Nothing is stored by this.
   final int _token = DateTime.now().microsecondsSinceEpoch;
   int _request = 0;
   int? _pendingToken;
@@ -69,43 +67,43 @@ class _VideoViewScreenState extends State<VideoViewScreen>
   bool _wasPlaying = true;
   final TransformationController _still = TransformationController();
 
-  // A person picked in the strip: once their moment is on screen, their head is highlighted.
+  /// A person picked in the strip: once their moment is on screen, their head is highlighted.
   int? _autoSelect;
 
-  // The moment the outlines were drawn at straight from what the scan stored (no new look), and
-  // a counter that only changes when the outlines are for a new moment (so adding people to the
-  // same moment doesn't restart the outline animations).
+  /// The moment the outlines were drawn at straight from what the scan stored, without a fresh look, and a counter
+  /// that only changes when the outlines are for a different moment, so adding people to the same moment does not
+  /// restart the outline animations.
   int? _instantMs;
   int _layerKey = 0;
 
-  // The transition from the strip to the head: while the video jumps to the moment, the
-  // person's face flies from the strip to where their head is, and the outline draws when it
-  // lands - by then the new picture is on screen, so the outline never appears on an old frame.
+  /// The transition from the strip to the head: while the video jumps to the moment, the person's face flies from the
+  /// strip to where their head is, and the outline draws when it lands, by which time the target picture is on screen,
+  /// so the outline never appears on an earlier frame.
   late final AnimationController _flightCtrl = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 700),
   );
   FaceFlight? _flight;
+  /// The look shared by the flight and the outline that takes over.
   RingEntry?
-  _ringEntry; // the look shared by the flight and the outline that takes over
+  _ringEntry;
   int _jumpId = 0;
   final GlobalKey _videoBox = GlobalKey();
 
-  // ---- the people found in this video ----
   List<VideoPerson> _people = const [];
   int? _focusPerson;
-  bool _peopleOpen = false; // the panel opened from the People button
+  /// The panel opened from the People button.
+  bool _peopleOpen = false;
 
-  // ---- "Similar to this": the strip opened once a frame has been picked ----
   bool _similarOpen = false;
+  /// The frame the strip, and "search with this" below it, is for.
   int?
-  _similarFrameMs; // the frame the strip (and "search with this" below it) is for
+  _similarFrameMs;
 
-  // ---- scanning the whole video (when the user asks) while it plays ----
-  // 'needs' (not scanned yet), 'done', 'unavailable' (not indexed / models not ready), or
-  // null while it is being looked up.
+  /// 'needs' (not scanned yet), 'done', 'unavailable' (not indexed / models not ready), or
+  /// null while it is being looked up.
   String? _scanState;
-  // How loose the next scan is (0 standard, 1 looser, 2 loosest) and what the last one kept.
+  /// How loose the next scan is (0 standard, 1 looser, 2 loosest) and what the last one kept.
   int _scanLevel = 0;
   int? _lastFaces;
   final int _scanToken = DateTime.now().microsecondsSinceEpoch + 7;
@@ -149,6 +147,8 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     });
   }
 
+  /// Disposes the player, the timers and the controllers. The search box is unfocused after the frame, because coming
+  /// back to the results it would otherwise get its focus and the keyboard back.
   @override
   void dispose() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -162,7 +162,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     _cancelPending();
     _still.dispose();
     _controller.dispose();
-    // Coming back to the results, the search box was getting its focus (and keyboard) back.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (Get.isRegistered<NativeController>()) {
         Get.find<NativeController>().searchFocusNode.unfocus();
@@ -171,6 +170,8 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     super.dispose();
   }
 
+  /// Looks up whether this video was scanned and at what level. A scan that is already running, from the background
+  /// scan or an earlier visit, shows the same glow and progress, and the people are picked up when it finishes.
   Future<void> _loadScanState() async {
     try {
       final info = await NativeServices().videoScanState(widget.videoUri);
@@ -181,8 +182,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
           _lastFaces = info.lastFaces;
         });
       }
-      // Being scanned right now (by the background scan, or a visit to this video before): show
-      // the same glow and progress, and pick the people up when it finishes.
       final running = await NativeServices().photoScanStatus(
         'video:${widget.videoUri}',
       );
@@ -192,8 +191,8 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     }
   }
 
-  // A short message over the video: a title, a line of what to do next and - after a scan - the
-  // faces that were found. (Not the system snackbar.)
+  /// A short message over the video: a title, a line of what to do next and, after a scan, the faces that were found.
+  /// Not the system snackbar.
   _ToastData? _toast;
   Timer? _toastTimer;
 
@@ -210,13 +209,13 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     });
   }
 
-  // Bumped to make the People button draw the eye (see PeopleChipButton).
+  /// Bumped to make the People button draw the eye (see PeopleChipButton).
   int _peoplePulse = 0;
   bool _peopleLoadedOnce = false;
 
-  // The button on top: find the people in this video. The video keeps playing and every
-  // control keeps working meanwhile; a quiet glow and live progress say what is happening.
-  // Tapping it again scans again (and replaces what the first scan found).
+  /// The button on top: find the people in this video. The video keeps playing and every
+  /// control keeps working meanwhile; a quiet glow and live progress say what is happening.
+  /// Tapping it again scans again (and replaces what the first scan found).
   void _onScanButton() {
     if (_scanningVideo) {
       _say(
@@ -225,7 +224,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
       );
       return;
     }
-    // Scanned or not, tapping scans (again): a second look replaces the first.
     if (_scanState == 'needs' || _scanState == 'done') {
       _explainLevel();
       _startScan();
@@ -237,8 +235,8 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     }
   }
 
-  // Tells what this scan will do differently: after a look that found nothing, each tap is a
-  // little less strict - and this video remembers the level it needed.
+  /// Tells what this scan will do differently: after a look that found nothing, each tap is a little less strict, and
+  /// this video remembers the level it needed.
   void _explainLevel() {
     if (_scanLevel <= 0) return;
     if (_lastFaces == 0) {
@@ -296,6 +294,8 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     });
   }
 
+  /// Scans the whole video and then shows its people. The People button is in the controls, so they are made to show
+  /// and the button is pointed at.
   Future<void> _startScan() async {
     if (_scanningVideo) return;
     setState(() {
@@ -332,7 +332,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     await _loadScanState();
     if (!mounted) return;
     if (result.scanned) {
-      // Its people are ready now: show them.
       await _loadPeople();
       if (!mounted) return;
       if (result.faces == 0) {
@@ -349,9 +348,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
               'No one showed up often enough. Tap the scan button to look again.',
         );
       } else {
-        // The number of people the People button shows - not the count of faces kept (one person has several).
         final n = _people.length;
-        // The button is in the controls: make sure they are showing, and point at it.
         setState(() {
           _showControls = true;
           _peoplePulse++;
@@ -383,12 +380,14 @@ class _VideoViewScreenState extends State<VideoViewScreen>
         }
       });
     } catch (_) {
-      // No strip - the video plays as ever.
+      // The video plays as ever without the strip.
     }
   }
 
-  // Playback changed: leaving the paused state clears what was found; pausing (or moving
-  // while paused) starts waiting for stillness.
+  /// Playback changed: leaving the paused state clears what was found, and pausing, or moving while paused, starts
+  /// waiting for stillness. Outlines that came straight from the scan are left alone, and a jump from the panel does
+  /// its own look. A look at the moment just left may still be on its way, so it is dropped before its answer is drawn
+  /// on the next moment.
   void _onPlayback() {
     if (!_initialized || _pickingFrame) return;
     final v = _controller.value;
@@ -403,7 +402,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
       return;
     }
     final pos = v.position.inMilliseconds;
-    // Sitting on the moment whose outlines came straight from the scan: leave them be.
     final instant = _instantMs;
     if (instant != null) {
       if ((pos - instant).abs() < 600) {
@@ -414,7 +412,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
       _instantMs = null;
     }
     if (_jumpBusy) {
-      // A jump from the panel is doing its own look; don't start another.
       _watchedPos = pos;
       _wasPlaying = false;
       return;
@@ -424,14 +421,11 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     if (_wasPlaying || moved) {
       _wasPlaying = false;
       _stillTimer?.cancel();
-      // A look at the moment we just left may still be on its way: its answer would be drawn on
-      // this one. Drop it.
       _request++;
       _slowTimer?.cancel();
       _poll?.cancel();
       _cancelPending();
       _looking = false;
-      // Faces from another moment don't belong on this one.
       _faces = const [];
       _selectedFace = null;
       _stillTimer = Timer(
@@ -466,8 +460,8 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     }
   }
 
-  // [merge]: a quiet second look at a moment whose outlines are already up (from the scan): it
-  // only adds people the scan hadn't stored, without a glow or restarting anything.
+  /// [merge]: a quiet second look at a moment whose outlines are already up from the scan. It only adds people the
+  /// scan had not stored, without a glow or restarting anything. A slow look gets a quiet glow and progress text.
   Future<void> _lookAt(int pos, {bool merge = false}) async {
     _stillTimer = null;
     if (!mounted || _controller.value.isPlaying || _pickingFrame) return;
@@ -476,7 +470,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     final token = _token + id;
     _pendingToken = token;
 
-    // Quick answers need no fanfare; a slower one gets the quiet glow and progress text.
     _slowTimer?.cancel();
     _poll?.cancel();
     if (!merge) {
@@ -512,7 +505,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
         token: token,
       );
     } catch (_) {
-      // Nothing to tap - the video is still fully usable.
+      // The video is still fully usable without anything to tap.
     }
     _slowTimer?.cancel();
     _poll?.cancel();
@@ -523,11 +516,10 @@ class _VideoViewScreenState extends State<VideoViewScreen>
       final have = _faces.map((f) => f.person.id).toSet();
       final extras = found.where((f) => !have.contains(f.person.id)).toList();
       if (extras.isNotEmpty) setState(() => _faces = [..._faces, ...extras]);
-      _loadPeople(); // whoever was named there joins the video's list of people
+      _loadPeople();
       return;
     }
 
-    // Arrived here from the strip: point at that person's head.
     final want = _autoSelect;
     _autoSelect = null;
     setState(() {
@@ -539,7 +531,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
           : found.where((f) => f.person.id == want).firstOrNull;
       _looking = false;
     });
-    // Whoever was named in this frame joins the video's list of people (the scan may have missed them).
     _loadPeople();
   }
 
@@ -547,19 +538,19 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => PersonScreen(person: person)));
-    // They may have been renamed, merged or hidden there.
     if (mounted) _loadPeople();
   }
 
+  /// Whether a jump from the panel is under way. The ordinary look at a paused frame waits for it.
   bool _jumpBusy =
-      false; // a jump from the panel is under way (the ordinary look at a paused frame waits)
+      false;
 
-  // A face in the panel: jump to where they appear (and on again to their next moment) and point at
-  // them. Where the scan stored their position it is used at once; where it didn't (an older scan,
-  // or a moment only noted) the frame itself is looked at - so it always ends with them pointed out,
-  // or says why it couldn't.
+  /// A face in the panel: jump to where they appear, and on to their next moment each time, and point at them. Where
+  /// the scan stored their position it is used at once, otherwise the frame itself is looked at, so it ends with them
+  /// pointed out or says why it could not. Their face flies to the head, hovers until the target picture is really on
+  /// screen however long the video takes, and then becomes the outline. A quiet look afterwards finds anyone else in
+  /// the picture. Whatever goes wrong, the video stays where it was asked to be.
   Future<void> _jumpToPerson(VideoPerson p, Rect fromOnScreen) async {
-    // Prefer the moments that have a stored position to point at.
     final moments = p.storedTimes.isNotEmpty ? p.storedTimes : p.times;
     if (moments.isEmpty) return;
     final pos = _controller.value.position.inMilliseconds;
@@ -574,7 +565,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     }
     if (_peopleOpen) setState(() => _peopleOpen = false);
 
-    // Already paused right there with the faces found: just point at them.
     if (!_controller.value.isPlaying &&
         _faces.isNotEmpty &&
         (target - pos).abs() < 250) {
@@ -596,7 +586,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     final jump = ++_jumpId;
     _jumpBusy = true;
     _autoSelect = null;
-    // Whatever was being looked for at another moment is off.
     _stillTimer?.cancel();
     _stillTimer = null;
     _slowTimer?.cancel();
@@ -607,7 +596,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     final seeking = _controller.seekTo(Duration(milliseconds: target));
 
     try {
-      // 1. Who is where at that moment: from the scan if it stored their position...
       var faces = const <PhotoFace>[];
       PhotoFace? want;
       var fromScan = false;
@@ -627,7 +615,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
       } catch (_) {}
       if (!mounted || jump != _jumpId) return;
 
-      // ...or by looking at the frame itself once it is on screen.
       if (!fromScan) {
         await seeking;
         await _waitForFrame(target, jump);
@@ -646,12 +633,10 @@ class _VideoViewScreenState extends State<VideoViewScreen>
         if (!mounted || jump != _jumpId) return;
         setState(() => _looking = false);
         want = faces.where((f) => f.person.id == p.person.id).firstOrNull;
-        // That look was stored (see the native side): next time this moment has a position to use.
         _loadPeople();
       }
 
       if (want == null) {
-        // Not found in the picture: show whoever was, and say so instead of doing nothing.
         setState(() {
           _faces = faces;
           _layerKey++;
@@ -666,7 +651,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
         return;
       }
 
-      // 2. Their face flies to the head and becomes the outline.
       Future<void>? flying;
       final box = _videoBox.currentContext?.findRenderObject() as RenderBox?;
       final spot = (box != null && box.hasSize)
@@ -685,8 +669,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
             entry: entry,
           );
         });
-        // It travels to just short of landing, then hovers until the new picture is really on
-        // screen (however long the video takes to get there) before the hand-over.
         _flightCtrl.value = 0;
         flying = _flightCtrl
             .animateTo(
@@ -709,7 +691,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
         return;
       }
 
-      // 3. The outline takes over.
       _request++;
       _cancelPending();
       setState(() {
@@ -719,13 +700,11 @@ class _VideoViewScreenState extends State<VideoViewScreen>
         _instantMs = target;
         _selectedFace = want;
       });
-      // A quiet look afterwards for anyone else in the picture that wasn't stored.
       Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted && _instantMs == target && !_controller.value.isPlaying) {
           _lookAt(target, merge: true);
         }
       });
-      // The outline is drawing in now; the circle-turned-band melts into it.
       if (_flight != null) {
         await _flightCtrl
             .animateTo(
@@ -738,14 +717,13 @@ class _VideoViewScreenState extends State<VideoViewScreen>
         if (mounted && jump == _jumpId) setState(() => _flight = null);
       }
     } catch (_) {
-      // Whatever went wrong, the video is where it was asked to be and the ordinary look still works.
     } finally {
       if (jump == _jumpId) _jumpBusy = false;
     }
   }
 
-  // Until the picture at the new moment has really reached the screen: the position says so a
-  // little before the frame does, so this waits for both.
+  /// Waits until the picture at the target moment has reached the screen. The position says so a little before the
+  /// frame does, so this waits for both.
   Future<void> _waitForFrame(int target, int jump) async {
     for (var i = 0; i < 30; i++) {
       if (!mounted || jump != _jumpId) return;
@@ -758,9 +736,9 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     await Future.delayed(const Duration(milliseconds: 140));
   }
 
+  /// Shows or hides the controls. They stay while a frame is being picked, because hiding the scrubber then would
+  /// strand the user with a hint about something they cannot see.
   void _toggleControls() {
-    // Hiding the scrubber mid-pick would strand the user with a hint about
-    // something they can no longer see.
     if (_pickingFrame) return;
     setState(() {
       _showControls = !_showControls;
@@ -768,10 +746,8 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     });
   }
 
-  // "Search with this" for video: unlike a photo there's no single image to
-  // use, so this pauses and turns the playback bar into a proper scrubber -
-  // the user picks whichever moment they want, then confirms. See
-  // _showSimilarForFrame.
+  /// Search with this for video: there is no single image to use, so this pauses and turns the playback bar into a
+  /// scrubber where the user picks a moment and then confirms. See _showSimilarForFrame.
   void _enterFramePicking(NativeController nativeController) {
     nativeController.hideMetadata();
     _controller.pause();
@@ -790,9 +766,8 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     setState(() => _pickingFrame = false);
   }
 
-  // The frame is picked: rather than jumping straight to a full results screen, show the
-  // "similar to this" strip for it - _confirmFrameSearch (the strip's own "search with this"
-  // button) is still there for whoever wants the full results.
+  /// The frame is picked: shows the strip of similar items for it instead of jumping to the full results. The strip's
+  /// own search button, _confirmFrameSearch, is still there for the full results.
   void _showSimilarForFrame(NativeController nativeController) {
     final positionMs = _controller.value.position.inMilliseconds;
     setState(() {
@@ -808,13 +783,11 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     nativeController.clearSimilar();
   }
 
+  /// Goes back to the home screen on the Search tab, because the video may have been opened from inside a collection,
+  /// and searches with the frame. The search is not awaited, because the results grid shows its own loading state.
   void _confirmFrameSearch(NativeController nativeController) {
     final positionMs =
         _similarFrameMs ?? _controller.value.position.inMilliseconds;
-    // All the way back to the home screen (this may have been opened from
-    // inside a collection, not straight from the results), on the Search
-    // tab, then search - not awaited, the results grid shows its own
-    // loading state.
     Navigator.of(context).popUntil((route) => route.isFirst);
     nativeController.searchWithVideoFrame(
       uri: widget.videoUri,
@@ -822,12 +795,14 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     );
   }
 
-  // How long the strip takes to fade away, here and in build()'s AnimatedSwitcher - shared so
-  // the two always agree, since _openSimilarItem below times the navigation off this same value.
+  /// How long the strip takes to fade away, here and in build()'s AnimatedSwitcher. It is shared so the two agree,
+  /// since _openSimilarItem times the navigation off this value.
   static const _similarCloseDuration = Duration(milliseconds: 200);
 
-  // A tile in the "similar to this" strip: SimilarItemsBar only wires a tile's tap up once its
-  // thumbnail has actually arrived, but bytes stays nullable here to match its callback type.
+  /// A tile in the "similar to this" strip: SimilarItemsBar only wires a tile's tap up once its thumbnail has arrived,
+  /// but bytes stays nullable here to match its callback type. The strip is closed first, not left open behind the
+  /// next screen, because the shared cache on the controller can end up holding another screen's results by the time
+  /// this one is visible again.
   void _openSimilarItem(Map<String, dynamic> item, Uint8List? bytes) {
     if (bytes == null) return;
     final itemUri = item['path'] as String;
@@ -859,10 +834,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     }
 
     if (_similarOpen) {
-      // Closed first, not left open behind the new screen - see the same note in
-      // image_full_screen.dart's _openSimilarItem for why that matters (the shared cache on
-      // the controller can end up holding another screen's results by the time this one's
-      // visible again).
       setState(() => _similarOpen = false);
       Future.delayed(_similarCloseDuration, () {
         if (mounted) push();
@@ -878,13 +849,15 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     return '$minutes:$seconds';
   }
 
+  /// Builds the viewer. The player itself lives in this State's own setState calls, and only the chrome is wrapped in
+  /// a reactive builder. The paused frame's people sit beneath the controls, so a head under the seek bar or a button
+  /// never takes a tap meant for it, while the people panel sits above the outlines so a head underneath never takes
+  /// its taps. The strip of similar items uses an AnimatedSwitcher so that closing fades it out instead of cutting it
+  /// off. Messages sit above the controls when they show and low on the screen when not.
   @override
   Widget build(BuildContext context) {
     final ready = _initialized && _initError == null;
 
-    // Only wraps the chrome in a reactive builder - the player itself
-    // (_controller, _initialized, _showControls) still lives entirely in
-    // this State's own setState calls, untouched, just like before.
     return GetBuilder<NativeController>(
       builder: (nativeController) => AnnotatedRegion<SystemUiOverlayStyle>(
         value: kMediaOverlayStyle,
@@ -961,9 +934,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                         ),
                       ),
 
-                    // The paused frame's people, over exactly the picture. Beneath the controls, so a head that
-                    // lies under the seek bar or a button never takes a tap meant for it; everywhere else a
-                    // tap on a head is theirs, and any other tap falls through to the video.
                     if (ready &&
                         _faces.isNotEmpty &&
                         !_controller.value.isPlaying &&
@@ -994,7 +964,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            // The top scrim: only a picture, never in the way of a tap.
                             if (ready)
                               IgnorePointer(
                                 child: DecoratedBox(
@@ -1032,7 +1001,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                                         ),
                                         Row(
                                           children: [
-                                            // Find the people in this whole video (videos only).
                                             if (_scanState != null &&
                                                 _scanState !=
                                                     'unavailable') ...[
@@ -1115,7 +1083,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
 
                                 if (_pickingFrame) const _FramePickHint(),
 
-                                // If this video is one of the moments, it says so.
                                 if (!_pickingFrame)
                                   IgnorePointer(
                                     child: MomentCaption(
@@ -1173,12 +1140,10 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                         ),
                       ),
 
-                    // The quiet "looking" glow and what it is doing.
                     if (ready)
                       Positioned.fill(
                         child: PhotoScanGlow(
                           visible: _scanningVideo || _looking,
-                          // The whole-video scan is the bigger thing: it speaks first.
                           message: _scanningVideo
                               ? _videoMessage
                               : _scanMessage,
@@ -1186,8 +1151,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                         ),
                       ),
 
-                    // The people in this video (from the button): above the picture's outlines, so its taps
-                    // are never taken by a head underneath.
                     if (ready &&
                         _people.isNotEmpty &&
                         _peopleOpen &&
@@ -1203,11 +1166,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                         ),
                       ),
 
-                    // "Similar to this frame": shown once a frame has been picked, above the
-                    // controls bar the same way the people panel is. AnimatedSwitcher rather than
-                    // gating the whole Positioned on _similarOpen: closing (by hand, or
-                    // automatically before _openSimilarItem navigates away) fades it out instead
-                    // of cutting it off dead.
                     if (ready && _showControls)
                       Positioned(
                         left: AppSpacing.base,
@@ -1236,7 +1194,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                         ),
                       ),
 
-                    // Their face, flying from the panel to their head while the video jumps there.
                     if (_flight != null)
                       Positioned.fill(
                         child: IgnorePointer(
@@ -1250,7 +1207,6 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                         ),
                       ),
 
-                    // Messages: above the controls when they are showing, low on the screen when not.
                     Positioned(
                       left: AppSpacing.base,
                       right: AppSpacing.base,
@@ -1318,9 +1274,8 @@ class _VideoViewScreenState extends State<VideoViewScreen>
   }
 }
 
-// Tells the user what the mode they just entered is for - without it, a
-// paused video and a slightly different bar wouldn't say anything about
-// searching.
+/// Tells the user what the mode they just entered is for, because a paused video and a slightly different bar say
+/// nothing about searching.
 class _FramePickHint extends StatelessWidget {
   const _FramePickHint();
 
@@ -1357,10 +1312,10 @@ class _FramePickHint extends StatelessWidget {
   }
 }
 
-// The playback bar while picking a frame: a real Slider with a big thumb
-// (unlike the thin, thumbless bar normally shown), so it reads as
-// draggable at a glance, seeking live so the frame on screen is the frame
-// that gets searched.
+/// The playback bar while picking a frame: a real Slider with a big thumb
+/// (unlike the thin, thumbless bar normally shown), so it reads as
+/// draggable at a glance, seeking live so the frame on screen is the frame
+/// that gets searched.
 class _FramePickBar extends StatefulWidget {
   const _FramePickBar({
     required this.controller,
@@ -1379,9 +1334,9 @@ class _FramePickBar extends StatefulWidget {
 }
 
 class _FramePickBarState extends State<_FramePickBar> {
-  // Seeking on every drag event floods the player with requests it can't
-  // keep up with (the picture lags behind the thumb); this lets one through
-  // every ~90ms while dragging and always lands exactly on release.
+  /// Seeking on every drag event floods the player with requests it can't
+  /// keep up with (the picture lags behind the thumb); this lets one through
+  /// every ~90ms while dragging and always lands exactly on release.
   DateTime _lastSeek = DateTime.fromMillisecondsSinceEpoch(0);
 
   void _seek(double v, {bool force = false}) {
@@ -1524,8 +1479,6 @@ class _VideoMetadataContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Absent unless this was actually opened from a text search
-          // result - same guard as the image viewer.
           if (matchExplanation.isNotEmpty) ...[
             const InfoGroupLabel('Why this matched'),
             const SizedBox(height: AppSpacing.sm),
@@ -1585,10 +1538,8 @@ class _VideoMetadataContent extends StatelessWidget {
   }
 }
 
-// A small preview of the exact frame CLIP matched, not just the words that
-// matched it - the same information the search grid's thumbnail already
-// used (see search_results.dart), just surfaced here too so "why this
-// matched" reads as concretely as the image viewer's does.
+/// A small preview of the exact frame CLIP matched, not just the words that matched it, as in the search grid's
+/// thumbnail (see search_results.dart), so that "why this matched" reads as concretely as in the image viewer.
 class _MatchedFrameRow extends StatelessWidget {
   const _MatchedFrameRow({required this.bytes, required this.label});
 
@@ -1628,8 +1579,8 @@ class _ToastData {
   final List<int> faces;
 }
 
-/// A message over the video: a bold title, a quieter line under it, and - for a scan result - the
-/// faces that were found, overlapping at the left. Near-black, no coloured edge or icon.
+/// A message over the video: a bold title, a quieter line under it and, for a scan result, the faces that were found,
+/// overlapping at the left. Near-black, with no coloured edge or icon.
 class _ToastCard extends StatelessWidget {
   const _ToastCard({super.key, required this.data});
 
@@ -1714,9 +1665,9 @@ class _ToastCard extends StatelessWidget {
   }
 }
 
-/// The bottom bar: one calm rounded surface holding play / pause, the seek bar with the times under
-/// it, and - when there are people in the video - the People button. Same near-black surface and
-/// hairline edge as the rest of the viewer's floating pieces; no gradient wash over the picture.
+/// The bottom bar: one calm rounded surface holding play and pause, the seek bar with the times under it and, when
+/// there are people in the video, the People button. Same near-black surface and hairline edge as the rest of the
+/// viewer's floating pieces, with no gradient wash over the picture.
 class _VideoControlsBar extends StatelessWidget {
   const _VideoControlsBar({
     required this.controller,
@@ -1830,8 +1781,9 @@ class _VideoScrubberState extends State<_VideoScrubber> {
 
   double _fractionAt(double dx, double width) => (dx / width).clamp(0.0, 1.0);
 
+  /// Seeks to [fraction] of the video. Seeking on every drag event floods the player, so one every 70 ms is plenty and
+  /// the last one always lands.
   void _seek(double fraction, {bool force = false}) {
-    // Seeking on every drag event floods the player; one every ~70 ms is plenty, and the last one always lands.
     final now = DateTime.now();
     if (!force &&
         now.difference(_lastSeek) < const Duration(milliseconds: 70)) {
@@ -1908,16 +1860,20 @@ class _ScrubberPainter extends CustomPainter {
     required this.durationMs,
   });
 
-  final double fraction; // 0..1
-  final double grow; // 0..1 while held
+  /// How far along the bar the video is, from 0 to 1.
+  final double fraction;
+  /// How far the thumb has grown while held, from 0 to 1.
+  final double grow;
   final List<int> markers;
   final int durationMs;
 
+  /// Paints the bar with 7 units of room for the thumb at both ends. Where the picked person appears is marked by
+  /// dots.
   @override
   void paint(Canvas canvas, Size size) {
     final y = size.height / 2;
     final trackHeight = 3.5 + 2.5 * grow;
-    final left = 7.0; // room for the thumb at both ends
+    final left = 7.0;
     final right = size.width - 7.0;
     final span = right - left;
     final x = left + span * fraction;
@@ -1944,7 +1900,6 @@ class _ScrubberPainter extends CustomPainter {
       Paint()..color = AppColors.onMedia,
     );
 
-    // Where the picked person appears.
     if (durationMs > 0) {
       for (final t in markers) {
         final mx = left + span * (t / durationMs).clamp(0.0, 1.0);
@@ -1961,7 +1916,6 @@ class _ScrubberPainter extends CustomPainter {
       }
     }
 
-    // The thumb.
     final thumb = 6.0 + 3.0 * grow;
     canvas.drawCircle(
       Offset(x, y),

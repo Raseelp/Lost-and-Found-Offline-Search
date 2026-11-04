@@ -19,6 +19,12 @@ import 'package:lost_and_found/view/widget/search_filter_sheet.dart';
 import 'package:lost_and_found/view/widget/search_results.dart';
 import 'package:lost_and_found/utils/app_toast.dart';
 
+/// The Search tab: the search bar, the story rings and the results.
+///
+/// It is one CustomScrollView and not a SingleChildScrollView with a Column, because the results grid must be a real
+/// sliver in the one scrollable to be virtualized (see [searchResultsSlivers]). Everything above it rides along as a
+/// plain boxed sliver. The rings are one bar that is large before a search, shrinks into a strip above the results and
+/// grows back when "Stories" is tapped.
 class SearchTab extends StatelessWidget {
   const SearchTab({super.key, required this.controller});
 
@@ -31,10 +37,6 @@ class SearchTab extends StatelessWidget {
         controller.searchResults.isNotEmpty ||
         controller.error.isNotEmpty;
 
-    // CustomScrollView, not SingleChildScrollView(child: Column(...)) -
-    // the results grid needs to be a real sliver participating in this
-    // one true scrollable to actually virtualize (see searchResultsSlivers'
-    // doc); everything above it just rides along as a plain boxed sliver.
     return CustomScrollView(
       slivers: [
         SliverPadding(
@@ -56,8 +58,6 @@ class SearchTab extends StatelessWidget {
             ),
           ),
         ),
-        // The rings are one bar that is large before a search and shrinks into a strip above the
-        // results (and grows back when "Stories" is tapped).
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
           sliver: SliverToBoxAdapter(
@@ -77,15 +77,11 @@ class SearchTab extends StatelessWidget {
   }
 }
 
-// The search bar has two input modes - typed text, or an attached photo for
-// a reverse-image search - and one explicit way to submit either. Picking a
-// photo only attaches it (shown as a chip, same idea as an attachment
-// preview above a chat message) - nothing runs until Search is pressed,
-// exactly like typing text doesn't search until then either.
-//
-// The text mode also recognises one named person inside it - typed plainly, or picked from an
-// "@" dropdown - see MentionTextEditingController. This widget owns the dropdown's overlay
-// (anchored to the pill itself via a LayerLink, so it tracks it regardless of scrolling).
+/// The search bar, with two input modes: typed text, or an attached photo for a reverse-image search.
+/// Picking a photo only attaches it, shown as a chip, and nothing runs until Search is pressed, just as with typed
+/// text. The text mode also recognises a named person, typed plainly or picked from an "@" dropdown (see
+/// [MentionTextEditingController]). This widget owns the dropdown overlay, anchored to the bar through a LayerLink so
+/// it follows the bar when the page scrolls.
 class _SearchPill extends StatefulWidget {
   const _SearchPill({required this.controller});
 
@@ -95,11 +91,11 @@ class _SearchPill extends StatefulWidget {
   State<_SearchPill> createState() => _SearchPillState();
 }
 
-// The gap between the bar's rounded ends and the switch / arrow button inside them (about what is
-// left above and below them, so they sit evenly in the ends).
+/// The gap between the rounded ends of the bar and the switch or arrow button inside them. It is about what is left
+/// above and below them, so they sit evenly in the ends.
 const double _endGap = 5;
 
-// The size of the switch and of the arrow button: the same, so both sit in the ends alike.
+/// The size of the switch and of the arrow button. It is the same for both, so both sit in the ends alike.
 const double _endButton = 38;
 
 class _SearchPillState extends State<_SearchPill> {
@@ -119,8 +115,9 @@ class _SearchPillState extends State<_SearchPill> {
     super.dispose();
   }
 
-  // The "@" list shows while a name is being typed - not in photo mode, where the text box is
-  // not there (a half-typed "@ra" is kept for when it is back).
+  /// Shows the "@" list while a name is being typed, and not in photo mode, where the text box is not there. A
+  /// half-typed "@ra" is kept for when the box is back. The list listens to the same controller itself and filters on
+  /// every keystroke, so an entry that is already inserted needs no rebuild.
   void _onTextChanged() {
     final c = widget.controller;
     final photoMode = c.searchPhotoMode || c.pickedSearchImageUri != null;
@@ -136,8 +133,6 @@ class _SearchPillState extends State<_SearchPill> {
       );
       Overlay.of(context).insert(_mentionEntry!);
     }
-    // No explicit rebuild of an already-inserted entry needed: _MentionDropdown listens to the
-    // same controller itself and refilters on every keystroke on its own.
   }
 
   void _removeMentionOverlay() {
@@ -151,9 +146,7 @@ class _SearchPillState extends State<_SearchPill> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final hasImage = controller.pickedSearchImageUri != null;
-    // A photo that is attached counts as photo mode.
     final photoMode = controller.searchPhotoMode || hasImage;
-    // A change of mode puts the "@" list away, or brings it back.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _onTextChanged();
     });
@@ -161,8 +154,6 @@ class _SearchPillState extends State<_SearchPill> {
     return CompositedTransformTarget(
       link: _mentionLink,
       child: Container(
-        // The two ends of the bar are its own round ends: the switch and the arrow button sit
-        // snug in them, the same gap on every side, instead of a wide margin at the sides.
         padding: const EdgeInsets.symmetric(
           horizontal: _endGap,
           vertical: AppSpacing.xxs,
@@ -183,10 +174,6 @@ class _SearchPillState extends State<_SearchPill> {
                   : Stack(
                       alignment: Alignment.centerLeft,
                       children: [
-                        // Behind the field, only visible through it while it's empty - a real
-                        // hintText can't crossfade between examples on its own, and one of those
-                        // examples is the whole point: showing "@name at the beach" is how someone
-                        // discovers this exists at all, without a tooltip or a dialog for it.
                         _RotatingHint(
                           controller: controller.searchTextController,
                         ),
@@ -219,8 +206,8 @@ class _SearchPillState extends State<_SearchPill> {
   }
 }
 
-// Two small round choices at the left of the bar: describe what you are after, or search with a
-// photo. The one in use is filled.
+/// Two small round choices at the left of the bar: describe what you are after, or search with a photo. The one in use
+/// is filled.
 class _ModeSwitch extends StatelessWidget {
   const _ModeSwitch({required this.photoMode, required this.onChanged});
 
@@ -293,8 +280,7 @@ class _ModeSwitch extends StatelessWidget {
   }
 }
 
-// In photo mode with no photo yet: the whole middle of the bar is the way to pick one, and
-// says what a photo does.
+/// In photo mode with no photo yet, the whole middle of the bar is the way to pick one, and it says what a photo does.
 class _PhotoPrompt extends StatelessWidget {
   const _PhotoPrompt({required this.onTap});
 
@@ -321,10 +307,12 @@ class _PhotoPrompt extends StatelessWidget {
   }
 }
 
-/// Cycles through a few example queries while the box is empty - the search bar's own quiet
-/// way of teaching what's possible, one of them being the "@name at the beach" syntax itself.
-/// No tooltip, no dialog, no badge to dismiss - just something true sitting where a hint
-/// normally would, that happens to change every few seconds.
+/// Cycles through a few example queries while the box is empty.
+///
+/// It teaches what the search can do without a tooltip or a dialog, and one of the examples is the "@name at the
+/// beach" syntax itself. It sits behind the field and shows through it while the field is empty. A real hintText cannot
+/// crossfade between examples on its own. The real field draws over it as soon as there is text, so it then only
+/// needs to stop claiming the space.
 class _RotatingHint extends StatefulWidget {
   const _RotatingHint({required this.controller});
 
@@ -361,9 +349,8 @@ class _RotatingHintState extends State<_RotatingHint> {
 
   void _onTextChanged() => _syncTimer();
 
-  // Only ticks while the hint is actually visible - without this, it kept cycling (and calling
-  // setState every 3s) for as long as the search tab existed, whether or not there was
-  // anything typed for it to matter to.
+  /// Runs the timer only while the hint is visible, so it does not call setState every 3 seconds for as long as the
+  /// search tab exists.
   void _syncTimer() {
     final shouldRun = widget.controller.text.isEmpty;
     if (shouldRun == (_timer != null)) return;
@@ -382,8 +369,6 @@ class _RotatingHintState extends State<_RotatingHint> {
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) {
-        // The real field draws right over this the moment there's anything typed - nothing
-        // needs to fade out for that, it just needs to not still be claiming this space.
         if (widget.controller.text.isNotEmpty) return const SizedBox.shrink();
         return IgnorePointer(
           child: AnimatedSwitcher(
@@ -479,9 +464,9 @@ class _AttachedImageChip extends StatelessWidget {
   }
 }
 
-// A live listener on the text field, not just a GetX rebuild - typing
-// doesn't call update(), so without this the button's enabled state would
-// only refresh whenever something unrelated happened to rebuild the screen.
+/// The button that submits the search. It listens to the text field itself and not only to GetX, because typing does
+/// not call update() and the enabled state would then refresh only when something unrelated rebuilds the screen. In
+/// photo mode it is the photo that counts, and not any text typed earlier.
 class _SearchSubmitButton extends StatelessWidget {
   const _SearchSubmitButton({required this.controller});
 
@@ -493,7 +478,6 @@ class _SearchSubmitButton extends StatelessWidget {
       listenable: controller.searchTextController,
       builder: (context, _) {
         final hasImage = controller.pickedSearchImageUri != null;
-        // In photo mode it is the photo that counts, not any text typed earlier.
         final enabled = (controller.searchPhotoMode || hasImage)
             ? hasImage
             : controller.searchTextController.text.trim().isNotEmpty;
@@ -524,6 +508,7 @@ class _SearchSubmitButton extends StatelessWidget {
   }
 }
 
+/// A note that indexing runs in the background. Tapping it opens the Library, where the progress is.
 class _BackgroundIndexingNote extends StatelessWidget {
   const _BackgroundIndexingNote({required this.controller});
 
@@ -531,7 +516,6 @@ class _BackgroundIndexingNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Tapping it opens the Library, where the progress is.
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.base),
       child: InkWell(
@@ -571,6 +555,8 @@ class _BackgroundIndexingNote extends StatelessWidget {
   }
 }
 
+/// What the tab shows before a search. With nothing indexed yet it shows example searches and the way to the Library
+/// (see [NothingIndexed]).
 class _SearchIdlePrompt extends StatelessWidget {
   const _SearchIdlePrompt({required this.controller});
 
@@ -578,7 +564,6 @@ class _SearchIdlePrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Nothing to search yet: example searches and what they would find, and the way to the Library (see NothingIndexed).
     if (controller.totalEmbeddings == 0) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: AppSpacing.xxl),
@@ -624,6 +609,8 @@ class _SearchIdlePrompt extends StatelessWidget {
   }
 }
 
+/// Saves the search as a collection. A mention such as "@Raseel" with no other words leaves the text query empty and
+/// is still a search that can be saved, described entirely by who is in it.
 class _SaveCollectionButton extends StatelessWidget {
   const _SaveCollectionButton({required this.controller});
 
@@ -633,9 +620,6 @@ class _SaveCollectionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final query = controller.lastTextQuery;
     final isImageSearch = controller.lastImageSeedUri != null;
-    // A pure "@Raseel" mention with no other words strips down to an empty
-    // lastTextQuery - still a real, saveable search, just one described
-    // entirely by who's in it rather than by any text.
     final hasTextSearch = (query != null && query.isNotEmpty) ||
         controller.lastMentionedPersonIds.isNotEmpty;
     if ((!hasTextSearch && !isImageSearch) ||
@@ -664,8 +648,8 @@ class _SaveCollectionButton extends StatelessWidget {
     );
   }
 
-  // An image search (a picked photo, "search with this image", a video frame)
-  // saves as a photo-seeded collection: whatever looks like that photo.
+  /// Saves an image search (a picked photo, "search with this image" or a video frame) as a photo-seeded collection of
+  /// whatever looks like that photo.
   void _saveImageSearch(BuildContext context) {
     final collections = Get.find<CollectionsController>();
 

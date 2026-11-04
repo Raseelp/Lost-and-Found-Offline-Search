@@ -1,15 +1,10 @@
 import 'dart:math' as math;
 
 /// The splash animation as plain maths: one clock, in milliseconds, and everything on screen is a function of it.
-/// Nothing here draws or touches Flutter, so it can be tested without a screen. The painter in splash_painter.dart
-/// reads these values.
-///
-/// The icon is drawn on its own 108 unit canvas, of which the middle 72 units (18 to 90) show. Sequence:
-/// - 0 to 300: the icon fades in, as the old look (the split is at the left edge), on a pale sky with drifting clouds and fine hill lines.
-/// - 300: it waits here, if it must, for the app to be ready (see [holdMs]).
-/// - 300 to 900: the slider sweeps across to the new look.
-/// - 900 to 2200: a big lens grows out of the tile and over its edge (the tile has faded away by 1100). Through it the app shows, first the top of
-///   the screen, then the middle; then the lens widens until it is the whole screen.
+/// Nothing here touches Flutter, so it can be tested without a screen. The painter in splash_painter.dart reads these
+/// values. The icon is drawn on a 108 unit canvas, of which the middle 72 units show. It fades in until 300, waits
+/// there if the app is not ready (see [holdMs]), and the slider reaches its place by 900. A lens then grows out of the
+/// tile and fills the screen at 2200.
 class SplashTimeline {
   const SplashTimeline._();
 
@@ -36,7 +31,7 @@ class SplashTimeline {
   /// is gone, and the colour stops drifting.
   static const double coverBakedMs = 1100;
 
-  /// The slider's resting place in the new icon, on the 108 unit canvas.
+  /// The slider's resting place in the icon, on the 108 unit canvas.
   static const double split = 60.8;
 
   /// Where the sweep starts (the left edge of the visible window).
@@ -120,7 +115,8 @@ class SplashFrame {
 
 /// A smooth path through the points [pts] (a Catmull-Rom curve, at least two of them), [s] from 0 at the first to 1
 /// at the last, at about an even speed along it however far apart the points are. The lens goes over the top of the
-/// screen and then the middle without stopping at either.
+/// screen and then the middle without stopping at either. The first and last points are doubled so that the curve
+/// starts and ends at them.
 Pt tripAt(double s, List<Pt> pts) {
   assert(pts.length >= 2);
   double gap(Pt p, Pt q) => math.sqrt(math.pow(q.x - p.x, 2) + math.pow(q.y - p.y, 2));
@@ -134,7 +130,6 @@ Pt tripAt(double s, List<Pt> pts) {
     k++;
   }
   final u = gaps[k] == 0 ? 0.0 : clamp01(left / gaps[k]);
-  // The first and last points are doubled, so the curve starts and ends where it should.
   final ext = [pts.first, ...pts, pts.last];
   double axis(double Function(Pt) v) {
     final p0 = v(ext[k]), p1 = v(ext[k + 1]), p2 = v(ext[k + 2]), p3 = v(ext[k + 3]);

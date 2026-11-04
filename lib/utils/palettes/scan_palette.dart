@@ -2,9 +2,9 @@ import 'package:flutter/painting.dart';
 
 /// The colours of the square scan picture on the Library tab: its patches, lifts and face matches.
 ///
-/// Named by hue and lightness (a higher number is darker; an `A` and a number is how opaque it is).
-/// Everything here belongs to a picture that is drawn in code, so it does not follow the theme in
-/// AppColors - which is for the screens themselves.
+/// Named by hue and lightness. A higher number is darker, and an `A` followed by a number gives how opaque it is.
+/// Everything here belongs to a picture that is drawn in code, so it does not follow the theme in [AppColors], which
+/// is for the screens themselves.
 class ScanPalette {
   ScanPalette._();
 

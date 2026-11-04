@@ -37,15 +37,10 @@ enum class NudgeVerdict { SEND, WAIT, STOP }
 class NudgeStep(val verdict: NudgeVerdict, val sent: Int, val nextDays: Int?)
 
 /**
- * The note that asks to finish indexing: for someone whose photos and videos are not all in the search index, so search,
- * people and memories only see part of the phone. It comes [GAP_DAYS] days after the app was last used, and again,
- * further off each time, if it goes unanswered; after [MAX_NUDGES] there are no more. (A library that is found finished
- * starts the count again.) It says one thing the person is missing, in turn: how much can be found, more of
- * someone they know, the photos of this day, or what search can see (see [words]). Quiet, but on the lock screen (which
- * shows only the title). Opens the Library tab; its "Index now" button opens it too and starts the scan.
- *
- * Not while a scan runs, not on a day another note (the daily memory, the stories) went out, and never in the night.
- * On or off in Settings.
+ * The note that asks to finish indexing, for someone whose photos and videos are not all in the search index. It comes
+ * [GAP_DAYS] days after the app was last used, and again, further off each time, while unanswered, up to [MAX_NUDGES].
+ * Each note names one thing the person is missing (see [words]). It opens the Library tab, and its "Index now" button
+ * also starts the scan. Never during a scan, on a day another note went out, or at night. On or off in Settings.
  */
 object IndexNudge {
     const val ACTION_INDEX_NOW = "dev.raseel.lostandfound.INDEX_NOW"
@@ -56,19 +51,17 @@ object IndexNudge {
     private const val ACCENT = 0xFF165E59.toInt()
     private const val DAY_MS = 86_400_000L
 
-    // Days from the app being used, or a note going out, to the next note, by how many have gone out.
+    /** Days from the app being used, or a note going out, to the next note, by how many have gone out. */
     private val GAP_DAYS = intArrayOf(3, 7, 14)
     const val MAX_NUDGES = 3
 
-    // A day with this few photos missing from the memories is not worth a note.
+    /** A day with this few photos missing from the memories is not worth a note. */
     private const val MIN_THIS_DAY = 3
 
     private val PHRASES = listOf(
         "a birthday cake with candles", "sunset at the beach", "a dog in the snow",
         "friends laughing at dinner", "fireworks at night", "a plate of pasta",
     )
-
-    // ---- the rules (no phone needed) ----
 
     /** Whether the note goes out now, waits a day, or is not sent (and no more are set). */
     fun verdict(share: IndexShare, scanning: Boolean, enabled: Boolean, sent: Int, noteToday: Boolean): NudgeVerdict = when {
@@ -136,8 +129,6 @@ object IndexNudge {
         return if (parts.isEmpty()) "${number(share.missing)} photos and videos" else parts.joinToString(" and ")
     }
 
-    // ---- on and off, and the record ----
-
     private fun prefs(context: Context) = context.applicationContext.getSharedPreferences("index_nudge", Context.MODE_PRIVATE)
 
     fun enabled(context: Context): Boolean = prefs(context).getBoolean("enabled", true)
@@ -149,8 +140,6 @@ object IndexNudge {
 
     /** Whether a note went out on [today] (a day number, see [MemoryDays.dayNumber]); the stories note skips such a day. */
     fun postedToday(context: Context, today: Int): Boolean = prefs(context).getInt("last_post_day", -1) == today
-
-    // ---- scheduling ----
 
     /**
      * Sets the note for [GAP_DAYS] after now, in place of any waiting. Called whenever the app is left or a scan ends,
@@ -179,7 +168,11 @@ object IndexNudge {
         NotificationManagerCompat.from(app).cancel(NOTIFICATION_ID)
     }
 
-    /** The note is due: shown, or put off a day, or dropped. Runs on a worker thread. */
+    /**
+     * The note is due: shown, put off a day, or dropped. Runs on a worker thread. Nothing is shown while the search
+     * model is not on the phone, or when the library cannot be measured because the photos cannot be read. The next
+     * note is set last, because it replaces the very work that is running.
+     */
     fun fire(context: Context) {
         val app = context.applicationContext
         if (!enabled(app)) return
@@ -187,10 +180,7 @@ object IndexNudge {
         val now = System.currentTimeMillis()
         val today = MemoryDays.dayNumber(now)
         val sent = p.getInt("sent", 0)
-        // The search model is not on the phone yet (the download is not finished): there is nothing to index with. The
-        // app sets the note again the next time it is left.
         if (!ScanEngineHolder.modelManager(app).areModelsReady()) return
-        // Cannot be measured (no access to the photos): nothing to say, and nothing more is set.
         val share = IndexGap.measure(app) ?: return
         val memories = MemoryPrefs(app)
         val noteToday = (memories.enabled && Slot.entries.any { memories.lastDay(it) == today }) ||
@@ -233,12 +223,10 @@ object IndexNudge {
         }
         if (!post(app, title, body, picture)) return
         p.edit().putInt("sent", step.sent).putInt("last_post_day", today).apply()
-        // Last of all: this replaces the very work that is running, which is fine once it has done what it came to do.
         step.nextDays?.let { schedule(app, now + it * DAY_MS) }
     }
 
-    // ---- the note ----
-
+    /** Posts the note. A locked screen shows the words only, with no numbers and no faces. Returns false when notifications are not allowed. */
     private fun post(app: Context, title: String, body: String, picture: Bitmap?): Boolean {
         if (!MemoryNotifier.allowed(app)) return false
         ensureChannel(app)
@@ -249,7 +237,6 @@ object IndexNudge {
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
             flags,
         )
-        // What a locked screen shows: the words only, no numbers and no faces.
         val publicVersion = NotificationCompat.Builder(app, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_memory)
             .setContentTitle("Finish indexing your photos")
@@ -289,7 +276,7 @@ object IndexNudge {
         }
     }
 
-    // Normal importance but no sound or buzz: the phones that keep quiet (low importance) notes off the lock screen show it.
+    /** A channel of normal importance but with no sound or buzz, because phones that keep quiet (low importance) notes off the lock screen would hide it. */
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT < 26) return
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -303,8 +290,7 @@ object IndexNudge {
         manager.createNotificationChannel(channel)
     }
 
-    // A ring filled to [percent], in the colours of the stories rings, with the number inside. Transparent, so it sits on
-    // whatever colour the note has.
+    /** A ring filled to [percent], in the colours of the stories rings, with the number inside. It is transparent, so it sits on whatever colour the note has. */
     private fun ring(percent: Int): Bitmap {
         val size = 132
         val stroke = 14f

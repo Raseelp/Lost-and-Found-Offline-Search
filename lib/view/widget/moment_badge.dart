@@ -75,6 +75,7 @@ class MomentTag extends StatelessWidget {
   }
 }
 
+/// Draws the ribbon with a hairline outline, so it still shows on a cream-coloured photo.
 class _RibbonPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -89,7 +90,6 @@ class _RibbonPainter extends CustomPainter {
       ..close();
     canvas.drawShadow(path, AppColors.shadow, 3, false);
     canvas.drawPath(path, Paint()..color = MomentPalette.paper);
-    // A hairline, so it still shows on a cream-coloured photo.
     canvas.drawPath(
       path,
       Paint()
@@ -164,8 +164,6 @@ class _LowerThird extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 360),
           child: Stack(
             children: [
-              // The shade: dark at the edge of the screen, fading out to the right, and fading
-              // out above and below too, so it has no edges.
               Positioned.fill(
                 child: ShaderMask(
                   blendMode: BlendMode.dstIn,
@@ -195,7 +193,6 @@ class _LowerThird extends StatelessWidget {
                 ),
               ),
               Padding(
-                // The right side is only shade: it carries the fade out to nothing.
                 padding: const EdgeInsets.fromLTRB(16, 20, 40, 20),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,

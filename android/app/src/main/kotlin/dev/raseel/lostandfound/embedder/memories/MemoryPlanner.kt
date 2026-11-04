@@ -47,8 +47,9 @@ class Plan(
 )
 
 /**
- * One picture of a notification: a whole photo, or - with a [box] (0..1 fractions of the photo) - the face
- * or faces framed head-and-shoulders. [label] is written on it (a year, a day).
+ * One picture of a notification: a whole photo, or the face or faces framed head and
+ * shoulders when there is a [box] (0..1 fractions of the photo). [label] is written on it,
+ * such as a year or a day.
  */
 class Pic(
     val uri: String,
@@ -62,9 +63,9 @@ class Pic(
 )
 
 /**
- * What a notification says, and its picture: [pics] when it has them (one framed, or several side by
- * side), else the [photo]. [subject] is who it is about (not again for a while); [milestone] is the person
- * and round number it told about (remembered once it is sent).
+ * What a notification says, and its picture: [pics] when it has them (one framed, or several
+ * side by side), else the [photo]. [subject] is who it is about, and not again for a while.
+ * [milestone] is the person and round number it told about, remembered once it is sent.
  */
 class Notice(
     val kind: MemoryKind,
@@ -81,16 +82,16 @@ class Notice(
 )
 
 /**
- * Works out what there is to remember for a date: [plan] looks the date up in every past year (one
- * range scan each, never more than a bounded list of candidates per year, so a library of a million
- * photos costs the same as one of a thousand), and [notices] turns that into the things a notification
- * could say today.
+ * Works out what there is to remember for a date. [plan] looks the date up in every past year with one range scan each
+ * and a bounded list of candidates per year, so a library of a million photos costs the same as one of a thousand.
+ * [notices] turns that into the things a notification could say today.
  */
 class MemoryPlanner(private val dates: LibraryDates, private val faces: FaceStore) {
 
     /**
-     * [exclude]: photos not to show (shown lately). With [withWeek], also looks at the week round the
-     * date, but only when the date itself has nothing.
+     * The plan for a date. [exclude] holds photos not to show because they were shown lately.
+     * With [withWeek] it also looks at the week round the date, but only when the date itself
+     * has nothing.
      */
     fun plan(
         now: Long,
@@ -140,13 +141,18 @@ class MemoryPlanner(private val dates: LibraryDates, private val faces: FaceStor
         )
     }
 
-    // The people timeline is a pass over every face: kept for a while (by the process, not by this planner,
-    // which is made afresh for every look), not worked out each time.
+    /**
+     * The people timeline.
+     *
+     * It is a pass over every face, so it is kept for a while instead of being worked out each
+     * time. The process keeps it, not this planner, which is made afresh for every look.
+     */
     fun timeline(now: Long): FaceStore.TimelineResult {
         cachedTimeline?.let { if (now - it.first in 0 until TIMELINE_KEEP_MS) return it.second }
         return faces.peopleTimeline(full = true).also { cachedTimeline = now to it }
     }
 
+    /** The pairs whose first photo together was on today's date in an earlier year. Both have to be named, because "two people" is not much of a celebration. */
     private fun anniversaries(now: Long, exclude: Set<Long>, tz: TimeZone): List<Anniversary> {
         val (year, month, day) = MemoryDays.ymd(now, tz)
         val tl = timeline(now)
@@ -163,7 +169,6 @@ class MemoryPlanner(private val dates: LibraryDates, private val faces: FaceStor
         val names = faces.namesOf(due.flatMap { listOf(it.third.first, it.third.second) })
         val out = ArrayList<Anniversary>()
         for ((c, y, pair) in due) {
-            // Both have to be named: "two people" is not much of a celebration.
             val a = names[pair.first] ?: continue
             val b = names[pair.second] ?: continue
             val g = tl.togetherFirst[c.personId]
@@ -191,16 +196,20 @@ class MemoryPlanner(private val dates: LibraryDates, private val faces: FaceStor
 }
 
 /**
- * The words of the daily memory, from a [Plan]: which kinds there is something good enough for, and what each says. No
- * database in it, so it is tested on its own. The tone is always warm: what you have, never what is missing.
+ * The words of the daily memory, from a [Plan]: which kinds there is something good enough
+ * for, and what each says. It has no database in it, so it is tested on its own. The tone is
+ * always warm: what you have, never what is missing.
  */
 object MemoryNotices {
     const val MIN_YEARS_ACROSS = 3
 
-    // A day with this many photos was an occasion.
+    /** A day with this many photos was an occasion. */
     const val BIG_DAY = 40
 
-    /** What a notification could be about today, by kind: the ones that have something good enough. */
+    /**
+     * What a notification could be about today, by kind: the ones that have something good enough. The picture of the
+     * same-day kind is the best photo of up to three of the years, side by side, each with its year.
+     */
     fun build(plan: Plan): Map<MemoryKind, Notice> {
         val out = LinkedHashMap<MemoryKind, Notice>()
         plan.anniversaries.maxByOrNull { it.yearsAgo }?.let { a ->
@@ -216,7 +225,7 @@ object MemoryNotices {
 
         val good = plan.exact.filter { it.qualifies }
         bestYear(good)?.let { y ->
-            val day = plan.year * 372 + plan.month * 31 + plan.day // anything that differs from day to day
+            val day = plan.year * 372 + plan.month * 31 + plan.day
             val crowd = (y.best?.names?.size ?: 0) >= 3
             val big = y.total >= BIG_DAY
             val title = when {
@@ -229,7 +238,6 @@ object MemoryNotices {
         }
         if (good.size >= MIN_YEARS_ACROSS) {
             val y = bestYear(good)!!
-            // The picture: the best photo of up to three of the years, side by side, each with its year.
             val strip = good.sortedByDescending { it.strength }.take(3).sortedBy { it.year }
                 .mapNotNull { yr -> yr.best?.let { Pic(it.uri, it.video, label = yr.year.toString()) } }
             out[MemoryKind.SAME_DAY] = Notice(
@@ -253,16 +261,15 @@ object MemoryNotices {
         return out
     }
 
-    // The year that stands for the date best; a tie goes to the longer ago (it has gone the longer unseen).
+    /** The year that stands for the date best. A tie goes to the longer ago, which has gone the longer unseen. */
     private fun bestYear(years: List<DayYear>): DayYear? =
         years.maxWithOrNull(compareBy<DayYear> { it.strength }.thenBy { it.yearsAgo })
 
-    // "Anna and Dev · May 3, 2022", or the date and how much there was.
+    /** "Anna and Dev, May 3, 2022", or the date and how much there was. Only people in the photo shown are named, not those in the year's other photos. */
     private fun describe(plan: Plan?, y: DayYear, withCount: Boolean = true): String {
         val date = y.best?.takenMs?.let { MemoryDays.ymd(it) }
             ?: Triple(y.year, plan?.month ?: 1, plan?.day ?: 1)
         val dateText = "${MemoryDays.label(date.second, date.third)}, ${date.first}"
-        // Who is in the photo shown - not in any of the year's other photos.
         val who = y.best?.names.orEmpty().take(3)
         return when {
             who.isNotEmpty() -> "${join(who)} · $dateText"

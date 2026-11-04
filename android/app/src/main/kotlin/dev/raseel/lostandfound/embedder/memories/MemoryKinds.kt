@@ -12,9 +12,9 @@ object Trips {
     }
 
     /**
-     * [perDay] is the photos taken on each day (by day number). A trip is [minDays] or more days in a
-     * row with at least [minPerDay] photos each and [minTotal] in all - one busy day is a party, a few
-     * quiet days in a row are not worth a notification.
+     * [perDay] is the photos taken on each day (by day number). A trip is [minDays] or more days in a row with at least
+     * [minPerDay] photos each and [minTotal] in all. One busy day is a party, and a few quiet days in a row are not worth a
+     * notification.
      */
     fun find(perDay: Map<Int, Int>, minDays: Int = 3, minPerDay: Int = 5, minTotal: Int = 24): List<Run> {
         val busy = perDay.filterValues { it >= minPerDay }.keys.sorted()

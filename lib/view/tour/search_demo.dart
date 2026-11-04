@@ -14,7 +14,7 @@ import 'package:lost_and_found/view/widget/timeline_preview.dart'
 
 /// The search, playing by itself on the sample photos: a query is typed into the bar and the photos move into
 /// the order of how well they match, the best one biggest; then the next query. The order is prepared ahead
-/// (see [kSampleQueries]); nothing is searched, and nothing here can be touched - it only shows.
+/// (see [kSampleQueries]); nothing is searched, and nothing here can be touched. It only shows.
 ///
 /// By default it goes through the queries one after another while its page is showing. With [autoplay] off it
 /// only runs the query asked for through [runRequests] (the page decides when).
@@ -54,16 +54,16 @@ class _TourSearchDemoState extends State<TourSearchDemo> {
   bool _typing = false;
   bool _matched = false;
 
-  // The "@" demo: the people list is open (narrowed by what follows the "@"), the name is being chosen,
-  // and the name has become a pick in the bar.
+  /// The "@" demo: the people list is open (narrowed by what follows the "@"), the name is being chosen, and the
+  /// name has become a pick in the bar.
   bool _menu = false;
   bool _choosing = false;
   int _pickLength = 0;
 
-  // The photos in the order they are shown.
+  /// The photos in the order they are shown.
   List<String> _order = [for (final p in kSamplePhotos) p.id];
 
-  // Which play is the current one: a play that is no longer it stops where it is.
+  /// Which play is the current one. A play that is not the current one any more stops where it is.
   int _generation = 0;
   int _next = 0;
 
@@ -119,6 +119,8 @@ class _TourSearchDemoState extends State<TourSearchDemo> {
     }
   }
 
+  /// Plays a query that starts with a person: "@" and the first letters of the name are typed while the list opens
+  /// and narrows, the name is picked, and the rest of the sentence is typed after the pick.
   Future<void> _playMention(SampleQuery query, int generation) async {
     final name = query.mention!.name;
     setState(() {
@@ -130,7 +132,6 @@ class _TourSearchDemoState extends State<TourSearchDemo> {
       _pickLength = 0;
     });
     await Future<void>.delayed(const Duration(milliseconds: 250));
-    // "@", then the first letters of the name: the list opens and narrows.
     for (var n = 0; n <= 2; n++) {
       if (_stale(generation)) return;
       setState(() {
@@ -150,7 +151,6 @@ class _TourSearchDemoState extends State<TourSearchDemo> {
       _choosing = false;
       _pickLength = pick.length;
     });
-    // The rest of the sentence, typed after the pick.
     await Future<void>.delayed(const Duration(milliseconds: 450));
     for (var n = pick.length + 1; n <= query.text.length; n++) {
       await Future<void>.delayed(_letter);
@@ -166,6 +166,7 @@ class _TourSearchDemoState extends State<TourSearchDemo> {
     });
   }
 
+  /// Types the query letter by letter, then shows the order a beat after the last letter, like pressing search.
   Future<void> _play(int index, int generation) async {
     final query = kSampleQueries[index];
     if (query.mention != null) return _playMention(query, generation);
@@ -182,7 +183,6 @@ class _TourSearchDemoState extends State<TourSearchDemo> {
       if (_stale(generation)) return;
       setState(() => _typed = query.text.substring(0, n));
     }
-    // A beat after the last letter, like pressing search.
     await Future<void>.delayed(const Duration(milliseconds: 300));
     if (_stale(generation)) return;
     setState(() {
@@ -192,10 +192,11 @@ class _TourSearchDemoState extends State<TourSearchDemo> {
     });
   }
 
+  /// One label for a screen reader instead of dozens of photos moving about. A video plays its four seconds over
+  /// and over, without sound, while it is on screen.
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    // One line for a screen reader instead of dozens of photos moving about.
     return Semantics(
       label:
           'Demo: a search is typed and the photos that match move to the front',
@@ -304,7 +305,6 @@ class _TourSearchDemoState extends State<TourSearchDemo> {
                   semanticLabel: photo.label,
                   gaplessPlayback: true,
                 ),
-                // A video plays its four seconds over and over, without sound, while it is on screen.
                 if (photo.video)
                   _VideoLoop(
                     asset: photo.videoAsset,
@@ -624,6 +624,8 @@ class _VideoLoopState extends State<_VideoLoop> {
     }
   }
 
+  /// Sets up the player for the clip. The tile may have gone while that was going on, and then nothing is shown.
+  /// With no player here, or a clip that is not playable, the still stays.
   Future<void> _start(int generation) async {
     final controller = VideoPlayerController.asset(
       widget.asset,
@@ -640,11 +642,9 @@ class _VideoLoopState extends State<_VideoLoop> {
       await controller.setVolume(0);
       await controller.setLooping(true);
       await controller.play();
-      // The tile may have gone while the player was being set up.
       if (!mounted || generation != _generation) return;
       setState(() => _ready = true);
     } catch (_) {
-      // No player here (or the clip is not playable): the still stays.
       if (identical(_controller, controller)) _controller = null;
       await controller.dispose();
     }

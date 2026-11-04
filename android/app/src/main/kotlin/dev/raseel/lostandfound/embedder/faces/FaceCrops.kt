@@ -12,13 +12,18 @@ import java.io.File
 import kotlin.math.max
 
 /**
- * Square face pictures for avatars and the review grid, cut from the photo on
- * demand and cached on disk (the cache can be cleared by the system; it just
- * gets remade).
+ * Square face pictures for avatars and the review grid, cut from the photo on demand and
+ * cached on disk. The system can clear the cache, and the pictures are then remade.
  */
 class FaceCrops(private val context: Context, private val store: FaceStore) {
 
     private val dir: File get() = File(context.cacheDir, "face_crops").also { it.mkdirs() }
+    /**
+     * The picture of a face, from the cache or cut from its photo.
+     *
+     * A face found in a video is not cut again, because a video frame cannot be cut out again
+     * cheaply. Its picture was kept when it was found.
+     */
 
     fun crop(faceId: Long, size: Int = DEFAULT_SIZE): ByteArray? {
         val cached = File(dir, "${faceId}_$size.jpg")
@@ -26,8 +31,6 @@ class FaceCrops(private val context: Context, private val store: FaceStore) {
 
         val location = store.faceLocation(faceId) ?: return null
 
-        // A face found in a video: its picture was kept when it was found (a video frame
-        // can't be cut out again cheaply).
         if (location.isVideo) {
             val kept = store.cropFile(faceId)
             return if (kept.exists()) kept.readBytes() else null
@@ -45,11 +48,9 @@ class FaceCrops(private val context: Context, private val store: FaceStore) {
     }
 
     /**
-     * The picture of a face from [photo] (box as 0..1 fractions of it): the face plus a little around it, as
-     * JPEG, [size] across. Square, or - with an [aspect] (width / height) other than 1 - as wide or tall as that:
-     * [margin] is then the room round the face on the shorter side. Where that area hangs over the photo's edge
-     * it is left plain; with [fill] the area moves (and if need be closes in) to stay inside the photo instead,
-     * so the picture is photo edge to edge. Does not recycle [photo].
+     * The picture of a face from [photo], with the box as 0..1 fractions of it, as JPEG, [size] across.
+     * It is square, or shaped by [aspect] (width over height), with [margin] of room round the face and the middle a
+     * little above it for hair and forehead, moved down by [lift]. With [fill] the area stays inside the photo.
      */
     fun render(
         photo: Bitmap, boxL: Float, boxT: Float, boxR: Float, boxB: Float, size: Int = DEFAULT_SIZE,
@@ -58,7 +59,6 @@ class FaceCrops(private val context: Context, private val store: FaceStore) {
         val w = photo.width.toFloat()
         val h = photo.height.toFloat()
         val cx = (boxL + boxR) / 2f * w
-        // A little above centre so hair and forehead are in frame ([lift] moves the middle down, as a part of the face's height).
         val cy = (boxT + boxB) / 2f * h + (boxB - boxT) * h * lift
         val base = max((boxR - boxL) * w, (boxB - boxT) * h) * margin
         var cropW = if (aspect >= 1f) base * aspect else base
@@ -70,8 +70,6 @@ class FaceCrops(private val context: Context, private val store: FaceStore) {
             left = a[0]; top = a[1]; cropW = a[2]; cropH = a[3]
         }
 
-        // The area around the face may hang over the photo's edge: draw
-        // only the part that exists, in the matching part of the output.
         val src = Rect(
             max(0f, left).toInt(), max(0f, top).toInt(),
             minOf(w, left + cropW).toInt(), minOf(h, top + cropH).toInt(),
@@ -94,9 +92,9 @@ class FaceCrops(private val context: Context, private val store: FaceStore) {
     }
 
     /**
-     * A head-and-shoulders picture of the person whose face is at the box (0..1 fractions) in the
-     * photo at [uri]: the same framing for every photo, so two of them side by side compare like
-     * for like. Kept on disk like the face pictures.
+     * A head-and-shoulders picture of the person whose face is at the box (0..1 fractions) in the photo at [uri]. It
+     * has the same framing for every photo, so two of them compare like for like. Kept on disk like the face pictures.
+     * With [fill] the decode asks for enough pixels for the area to close in.
      */
     fun portrait(
         uri: String, boxL: Float, boxT: Float, boxR: Float, boxB: Float, photoW: Int, photoH: Int, size: Int = PORTRAIT_SIZE,
@@ -109,7 +107,6 @@ class FaceCrops(private val context: Context, private val store: FaceStore) {
         val decodeSide = if (photoW <= 0 || photoH <= 0 || faceSide <= 0f) {
             FALLBACK_SIDE
         } else {
-            // Filled, the area may close in to the photo's own width or height: enough pixels for that too.
             val area = faceSide * margin * max(1f, aspect)
             val across = if (fill) minOf(area, photoW.toFloat(), photoH * aspect) else area
             (size * max(photoW, photoH) / across).toInt().coerceIn(MIN_SIDE, MAX_SIDE)
@@ -124,10 +121,10 @@ class FaceCrops(private val context: Context, private val store: FaceStore) {
         }
     }
 
-    // A face is usually a small part of the photo, so the whole photo is decoded
-    // only as large as needed for the crop to come out at [size]: a face a sixth of
-    // the way across needs a fraction of the pixels a full decode would make, and
-    // JPEG decoding at a quarter size is several times quicker.
+    /**
+     * How large to decode the photo so the crop comes out at [size]. A face is usually a small part of the photo, and
+     * decoding only as large as needed is much cheaper.
+     */
     private fun decodeSideFor(location: FaceLocation, size: Int): Int {
         if (location.photoW <= 0 || location.photoH <= 0) return FALLBACK_SIDE
         val cropRef = max(
@@ -143,14 +140,14 @@ class FaceCrops(private val context: Context, private val store: FaceStore) {
         const val DEFAULT_SIZE = 256
 
         /**
-         * The area [cropW] x [cropH] round ([cx], [cy]) kept inside a [w] x [h] photo: closer in (the same shape)
-         * if it is bigger than the photo, then moved inside. Left, top, width, height.
+         * The area [cropW] by [cropH] round ([cx], [cy]) kept inside a [w] by [h] photo: closer in, in the same shape,
+         * if it is bigger than the photo, and then moved inside. Returns left, top, width and height. Rounding can
+         * leave the area a hair bigger than the photo, so no room to move means none, not less.
          */
         fun fillArea(cx: Float, cy: Float, cropW: Float, cropH: Float, w: Float, h: Float): FloatArray {
             val fit = minOf(1f, w / cropW, h / cropH)
             val cw = cropW * fit
             val ch = cropH * fit
-            // (Rounding can leave the area a hair bigger than the photo: no room to move is then none, not less.)
             return floatArrayOf(
                 (cx - cw / 2f).coerceIn(0f, maxOf(0f, w - cw)), (cy - ch / 2f).coerceIn(0f, maxOf(0f, h - ch)), cw, ch,
             )
@@ -159,10 +156,13 @@ class FaceCrops(private val context: Context, private val store: FaceStore) {
         private const val FALLBACK_SIDE = 1600
         private const val MIN_SIDE = 640
         private const val MAX_SIDE = 2560
-        // Box side * this = crop side (the face plus some surroundings).
+
+        /** The crop side as a multiple of the box side: the face plus some surroundings. */
         private const val MARGIN = 1.7f
 
-        // The roomier picture of "then and now": the face is a third of its width, a little above the middle.
+        /**
+         * The roomier picture for the then and now view: the face is a third of its width, a little above the middle.
+         */
         const val PORTRAIT_SIZE = 640
         const val PORTRAIT_MARGIN = 3.1f
         const val PORTRAIT_LIFT = 0.55f

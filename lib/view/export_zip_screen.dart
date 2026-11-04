@@ -33,6 +33,10 @@ Future<void> openExportZip(
 
 /// Choose albums, see what the zip would be, choose how to split it, make it, watch it being
 /// made, and send it on.
+///
+/// The albums are set up before the first frame, so the screen never shows the last visit's. Back from the settings
+/// goes back to the albums and not out of the screen. The progress view stays also once the zip is made, until the
+/// show of it has played out.
 class ExportZipScreen extends StatefulWidget {
   const ExportZipScreen({super.key, this.select = const {}});
 
@@ -48,7 +52,6 @@ class _ExportZipScreenState extends State<ExportZipScreen> {
   @override
   void initState() {
     super.initState();
-    // The albums are set up before the first frame, so it never shows the last visit's.
     _export.prepare(select: widget.select);
     WidgetsBinding.instance.addPostFrameCallback((_) => _export.open());
   }
@@ -69,7 +72,6 @@ class _ExportZipScreenState extends State<ExportZipScreen> {
             final phase = c.status.phase;
             final Widget body;
             if (phase == 'idle') {
-              // Back from the settings goes back to the albums, not out of the screen.
               body = PopScope(
                 key: ValueKey('builder-${c.step}'),
                 canPop: c.step == 0,
@@ -81,7 +83,6 @@ class _ExportZipScreenState extends State<ExportZipScreen> {
             } else if (phase != 'failed' &&
                 phase != 'cancelled' &&
                 (c.status.running || c.playing)) {
-              // Also once the zip is made, until the show of it has played out.
               body = _ProgressView(key: const ValueKey('progress'), c: c);
             } else if (phase == 'done') {
               body = _DoneView(key: const ValueKey('done'), c: c);
@@ -126,9 +127,7 @@ class _ExportZipScreenState extends State<ExportZipScreen> {
   }
 }
 
-// ------------------------------------------------------------------------------ choosing
-
-// Whether nothing has been indexed (so there is nothing to export for that reason).
+/// Whether nothing has been indexed, so there is nothing to export.
 bool _nothingIndexed() =>
     !Get.isRegistered<NativeController>() ||
     Get.find<NativeController>().totalEmbeddings == 0;
@@ -243,7 +242,6 @@ class _BuilderView extends StatelessWidget {
                           letterSpacing: .5,
                         ),
                       );
-                      // Each heading carries the button that ticks everything under it.
                       final group = row == 'Collections' ? collections : people;
                       return Padding(
                         padding: const EdgeInsets.fromLTRB(
@@ -288,10 +286,8 @@ class _BuilderView extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------- the zip's settings (step 2)
-
-// Name, where it goes, how it is split and what is inside: a page of its own, after the albums
-// are chosen, so none of it can be missed before the zip is made.
+/// Name, where it goes, how it is split and what is inside. It is a page of its own after the albums are chosen, so
+/// none of it can be missed before the zip is made. Only a zip big enough to be split gets the splitting controls.
 class _SettingsView extends StatelessWidget {
   const _SettingsView({required this.c});
 
@@ -348,7 +344,6 @@ class _SettingsView extends StatelessWidget {
               const SizedBox(height: AppSpacing.base),
               _ZipFileCard(c: c),
               const SizedBox(height: AppSpacing.md),
-              // Only a zip big enough to be split gets the splitting controls.
               if (c.canSplit) ...[
                 _SplitCard(c: c),
                 const SizedBox(height: AppSpacing.md),
@@ -377,7 +372,7 @@ class _SettingsView extends StatelessWidget {
   }
 }
 
-// The search box, pinned above the list so it stays in reach while scrolling.
+/// The search box, pinned above the list so it stays in reach while scrolling.
 class _SearchHeader extends SliverPersistentHeaderDelegate {
   _SearchHeader({
     required this.query,
@@ -608,7 +603,7 @@ class _AlbumRow extends StatelessWidget {
   }
 }
 
-// A titled box on the parchment colour.
+/// A titled box on the parchment colour.
 class _Card extends StatelessWidget {
   const _Card({required this.title, required this.child});
 
@@ -636,8 +631,6 @@ class _Card extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------- the zip file: name etc.
-
 class _ZipFileCard extends StatefulWidget {
   const _ZipFileCard({required this.c});
 
@@ -664,7 +657,6 @@ class _ZipFileCardState extends State<_ZipFileCard> {
   Widget build(BuildContext context) {
     final c = widget.c;
     final textTheme = Theme.of(context).textTheme;
-    // The suggested name follows the albums ticked until the user types one.
     if (!_focus.hasFocus && _name.text != c.zipName) _name.text = c.zipName;
     return _Card(
       title: 'The zip',
@@ -782,8 +774,6 @@ class _ZipFileCardState extends State<_ZipFileCard> {
   }
 }
 
-// ------------------------------------------------------------------------------ splitting
-
 class _SplitCard extends StatefulWidget {
   const _SplitCard({required this.c});
 
@@ -794,20 +784,19 @@ class _SplitCard extends StatefulWidget {
 }
 
 class _SplitCardState extends State<_SplitCard> {
-  // Bigger zips choose from a few sizes (and "Custom" for the slider); smaller ones have only the
-  // slider.
+  /// Bigger zips choose from a few sizes, and "Custom" for the slider. Smaller ones have only the slider.
   bool _custom = false;
 
-  // Where the slider is, as a step from its left end; null until touched (then it follows the
-  // limit in force, which starts as no split: the right end).
+  /// Where the slider is, as a step from its left end. It is null until touched, and then it follows the limit in force,
+  /// which starts as no split at the right end.
   double? _step;
 
   String _label(int bytes) => bytes >= ExportController.gb
       ? '${bytes ~/ ExportController.gb} GB'
       : '${bytes ~/ ExportController.mb} MB';
 
-  // The slider goes from the smallest part worth making to the whole zip (at which it is not
-  // split). Its steps are round sizes.
+  /// The range of the slider: from the smallest part worth making to the whole zip, at which it is not split. Its steps
+  /// are round sizes.
   ({int min, int max, int unit, int steps}) _range(int total, bool onlySlider) {
     const mb = ExportController.mb;
     final min = onlySlider ? (total >= 200 * mb ? 50 * mb : 25 * mb) : 100 * mb;
@@ -843,7 +832,6 @@ class _SplitCardState extends State<_SplitCard> {
     final overFat = c.activeLimit == 0 && total > 4 * ExportController.gb;
     final noSplitAtEnd = range.max >= total;
 
-    // Where the slider sits: where it was put, else where the limit in force is.
     final step =
         (_step ??
                 (c.activeLimit == 0
@@ -984,8 +972,7 @@ class _SplitCardState extends State<_SplitCard> {
   }
 }
 
-// The zip files that will be made, as a plain list: their names and sizes, each with a bar of how
-// full it is.
+/// The zip files that will be made, as a plain list of their names and sizes, each with a bar of how full it is.
 class _FilesPreview extends StatelessWidget {
   const _FilesPreview({required this.c, required this.sizes});
 
@@ -1121,8 +1108,6 @@ class _Chip extends StatelessWidget {
   }
 }
 
-// --------------------------------------------------------------------- what is inside the zip
-
 class _InsideCard extends StatelessWidget {
   const _InsideCard({required this.c});
 
@@ -1203,15 +1188,13 @@ class _InsideCard extends StatelessWidget {
   }
 }
 
-// ------------------------------------------------------------------------ the bar under it all
-
 class _SummaryBar extends StatelessWidget {
   const _SummaryBar({required this.c, required this.settings});
 
   final ExportController c;
 
-  /// On the settings step the button makes the zip (and the notes about it show); on the first
-  /// it goes on to the settings.
+  /// On the settings step the button makes the zip and the notes about it show. On the first step it goes on to the
+  /// settings.
   final bool settings;
 
   @override
@@ -1371,8 +1354,6 @@ class _PrimaryButton extends StatelessWidget {
   }
 }
 
-// ------------------------------------------------------------------------------- being made
-
 class _ProgressView extends StatefulWidget {
   const _ProgressView({super.key, required this.c});
 
@@ -1384,12 +1365,12 @@ class _ProgressView extends StatefulWidget {
 
 class _ProgressViewState extends State<_ProgressView>
     with SingleTickerProviderStateMixin {
-  // The least time the whole show takes, from empty to full: a zip made almost at once still
-  // plays the folders filling, rather than flashing past.
+  /// The least time in seconds the whole show takes, from empty to full, so that a zip made almost at once still plays
+  /// the folders filling and does not flash past.
   static const double _minSeconds = 4.2;
 
-  // How far the show has got, 0..1. It follows the real progress but never faster than the
-  // pace above; when the real thing is slower, it keeps up with it.
+  /// How far the show has got, from 0 to 1. It follows the real progress but never faster than [_minSeconds] allows.
+  /// When the real progress is slower, the show keeps up with it.
   final ValueNotifier<double> _shown = ValueNotifier(0);
   late final Ticker _ticker = createTicker(_tick);
   Duration? _last;
@@ -1397,7 +1378,7 @@ class _ProgressViewState extends State<_ProgressView>
   double _holdFor = 0;
   bool _handedOver = false;
 
-  // Where each zip ends on the 0..1 line, to tell which zip it is on.
+  /// Where each zip ends on the line from 0 to 1, to tell which zip it is on.
   late final List<double> _partEnds = () {
     final sizes = widget.c.partSizes;
     final total = sizes.fold<int>(0, (a, b) => a + b);
@@ -1405,7 +1386,7 @@ class _ProgressViewState extends State<_ProgressView>
     return [for (final s in sizes) total == 0 ? 1.0 : (sum += s) / total];
   }();
 
-  // Recent (time, bytes done) readings, for how fast the real thing is going.
+  /// Recent readings of the time and the bytes done, for how fast the real thing is going.
   final List<(DateTime, int)> _readings = [];
 
   @override
@@ -1421,6 +1402,10 @@ class _ProgressViewState extends State<_ProgressView>
     super.dispose();
   }
 
+  /// Moves the show on by one frame. The show goes no faster than [_minSeconds] allows, easing in over the first half
+  /// second, and chases the real progress when that is slower. The last of a finished zip goes at the same pace and is
+  /// not slowed to a crawl. Once all of it is shown and the zip is made, it holds a moment with everything shut and
+  /// then hands over to the result.
   void _tick(Duration now) {
     final dt = _last == null
         ? 0.0
@@ -1435,18 +1420,14 @@ class _ProgressViewState extends State<_ProgressView>
 
     var v = _shown.value;
     if (real > v) {
-      // The fastest the show may go (eased in over the first half second), and how fast it
-      // follows the real progress when that is slower.
       final cap = dt / _minSeconds * (_elapsed / .5).clamp(0.0, 1.0);
       final chase = (real - v) * (1 - math.exp(-dt * 6));
       var step = math.min(cap, chase);
-      // The last of a finished one goes at the same pace, not slowed to a crawl.
       if (finished && real - v < .02) step = math.min(real - v, cap);
       v += step;
     }
     if (v != _shown.value) _shown.value = v;
 
-    // All of it shown, and the zip is made: a moment with everything shut, then the result.
     if (finished && v >= 1 && !_handedOver) {
       _holdFor += dt;
       if (_holdFor > .8) {
@@ -1628,7 +1609,7 @@ class _ProgressViewState extends State<_ProgressView>
   }
 }
 
-// One dot per zip: the ones done are filled, the one being made pulses a little.
+/// One dot per zip: the ones done are filled, and the one being made pulses a little.
 class _PartDots extends StatelessWidget {
   const _PartDots({required this.total, required this.current});
 
@@ -1665,8 +1646,8 @@ class _PartDots extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------------- finished
-
+/// What the screen shows when the zip is made. Files in Downloads have a media address, and anything else went to a
+/// folder the person chose.
 class _DoneView extends StatelessWidget {
   const _DoneView({super.key, required this.c});
 
@@ -1676,7 +1657,6 @@ class _DoneView extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = c.status;
     final textTheme = Theme.of(context).textTheme;
-    // Downloads files have a media address; anything else went to a folder the user chose.
     final inDownloads =
         s.results.isEmpty || s.results.first.uri.startsWith('content://media/');
     final saved = inDownloads
@@ -1784,7 +1764,7 @@ class _DoneView extends StatelessWidget {
   }
 }
 
-// Cancelled or failed.
+/// What the screen shows when the zip was cancelled or failed.
 class _MessageView extends StatelessWidget {
   const _MessageView({
     super.key,

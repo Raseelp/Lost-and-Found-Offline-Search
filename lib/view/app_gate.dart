@@ -10,12 +10,14 @@ import 'package:lost_and_found/view/tour/first_run_tour.dart';
 
 /// On a fresh install: the tour (which starts the download), then the app. Otherwise the download screen until
 /// every model is on the device, then the app.
+///
+/// While the splash animation plays the screens are not built, so that building them cannot make it stutter. The
+/// tour stays up until it is finished, also when the download behind it ends.
 class AppGate extends StatelessWidget {
   const AppGate({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // While the splash animation plays the screens are not built, so that building them cannot make it stutter.
     return ValueListenableBuilder<bool>(
       valueListenable: SplashGate.released,
       builder: (context, released, _) => released ? _screens() : const ColoredBox(color: AppColors.canvas),
@@ -35,13 +37,10 @@ class AppGate extends StatelessWidget {
             );
           }
 
-          // A fresh install is shown the tour first. It stays up until it is finished, also when
-          // the download behind it ends.
           if (tour.shouldShow(modelsReady: controller.modelsReady)) {
             return const FirstRunTour();
           }
 
-          // The search models are the only ones downloaded.
           if (!controller.modelsReady) {
             return const ModelDownloadScreen();
           }

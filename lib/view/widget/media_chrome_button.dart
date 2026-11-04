@@ -3,9 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/palettes/viewer_palette.dart';
 
-/// For the photo and video viewers, whose background is black: light
-/// status/navigation icons (the app-wide style has dark ones for the light
-/// theme), with the navigation bar painted black to match the viewers' background.
+/// For the photo and video viewers, whose background is black. It has light status and navigation icons (the
+/// app-wide style has dark ones for the light theme), and the navigation bar is painted black to match.
 const SystemUiOverlayStyle kMediaOverlayStyle = SystemUiOverlayStyle(
   systemNavigationBarColor: AppColors.mediaBackdrop,
   systemNavigationBarDividerColor: AppColors.mediaBackdrop,
@@ -15,12 +14,10 @@ const SystemUiOverlayStyle kMediaOverlayStyle = SystemUiOverlayStyle(
   statusBarIconBrightness: Brightness.light,
 );
 
-// Floating chrome over a photo or video, in the same language as the face-tapping
-// effects in the viewer: a soft dark disc (no blur) edged by a thin ring in the app's
-// flowing colours - faint at rest, brighter when the thing it controls is on ([active]).
-// Standard regardless of the app's light theme underneath (the media, not the app
-// chrome, is what's on screen), so this stays outside the app's light-surface token
-// language on purpose. Shared by the image and video viewers.
+/// A round button floating over a photo or video, in the style of the face-tapping effects in the viewer. It is a
+/// soft dark disc without blur, edged by a thin ring in the app's flowing colours, faint at rest and brighter when
+/// the thing it controls is on ([active]). It does not follow the app's light theme, because the media is what is on
+/// screen. The image and video viewers share it.
 class MediaChromeButton extends StatelessWidget {
   const MediaChromeButton({
     super.key,
@@ -32,10 +29,9 @@ class MediaChromeButton extends StatelessWidget {
 
   final IconData icon;
   final VoidCallback onTap;
-  // Long-press label (and what a screen reader says) - these are bare icons
-  // next to each other, so which is which isn't obvious at a glance.
+  /// The long-press label and what a screen reader says. The buttons are bare icons next to each other.
   final String? tooltip;
-  // The control's thing is switched on (e.g. the details sheet is open).
+  /// Whether the thing the button controls is switched on, such as the details sheet being open.
   final bool active;
 
   @override
@@ -57,8 +53,8 @@ class MediaChromeButton extends StatelessWidget {
   }
 }
 
-// The colours of the ring: the app's teal (lightened to read on a photo) through
-// blue, violet, pink and gold, and back.
+/// The colours of the ring: the app's teal (lightened to read on a photo), then blue, violet, pink and gold, and
+/// back to teal.
 const List<Color> _rimColors = [
   AppColors.mediaAccent,
   ViewerPalette.sky250,

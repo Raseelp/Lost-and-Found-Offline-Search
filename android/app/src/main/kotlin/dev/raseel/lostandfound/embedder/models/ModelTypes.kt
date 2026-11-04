@@ -1,6 +1,6 @@
 package dev.raseel.lostandfound.embedder.models
 
-/** Thrown by EmbeddingEngine when a search/scan is attempted before models are ready. */
+/** Thrown by [EmbeddingEngine] when a search or scan is attempted before the models are ready. */
 class ModelsNotReadyException(message: String) : Exception(message)
 
 data class ModelDownloadProgress(

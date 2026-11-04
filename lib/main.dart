@@ -8,12 +8,11 @@ import 'package:lost_and_found/utils/model_licenses.dart';
 import 'package:lost_and_found/view/app_gate.dart';
 import 'package:lost_and_found/view/splash/splash_overlay.dart';
 
-// System bars for the app's light screens: draw behind them (edge-to-edge, so
-// SafeArea does the insetting) but paint the navigation bar - the gesture
-// pill / 3-button strip - in the app's own background colour, so it reads as
-// part of the screen. Fully transparent isn't reliable: some OEM skins paint
-// opaque black in 3-button navigation whatever colour is asked for, so the
-// colour is set explicitly instead. Dark icons for the light background.
+/// System bars for the app's light screens.
+///
+/// The app draws behind them and paints the navigation bar in the canvas colour, so it reads as part of the screen.
+/// The colour is set explicitly because some OEM skins paint the bar opaque black in 3-button navigation when it is
+/// transparent. The icons are dark.
 const SystemUiOverlayStyle kAppOverlayStyle = SystemUiOverlayStyle(
   systemNavigationBarColor: AppColors.canvas,
   systemNavigationBarDividerColor: AppColors.canvas,
@@ -23,9 +22,9 @@ const SystemUiOverlayStyle kAppOverlayStyle = SystemUiOverlayStyle(
   statusBarIconBrightness: Brightness.dark,
 );
 
+/// Starts the app. The fonts are in assets/fonts, so the app never fetches them from the internet.
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // The fonts are in assets/fonts: the app never goes to the internet for them.
   GoogleFonts.config.allowRuntimeFetching = false;
   registerModelLicenses();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -33,6 +32,12 @@ void main() {
   runApp(const LostAndFoundApp());
 }
 
+/// The app root.
+/// Every text role is pinned to weight 400, 600 or 700, because Material's default text theme uses 500, a weight this
+/// app never uses. Every screen gets [kAppOverlayStyle] as a fallback, because Flutter re-applies a style only while a
+/// region is on screen, and the light icons of the black photo and video viewers would otherwise stay after closing
+/// them. The viewers wrap themselves in an inner region, which wins there. The splash animation is laid over the
+/// navigator, so the app is built under it when it clears.
 class LostAndFoundApp extends StatelessWidget {
   const LostAndFoundApp({super.key});
 
@@ -49,9 +54,6 @@ class LostAndFoundApp extends StatelessWidget {
           error: AppColors.danger,
         );
 
-    // Material's default text theme reaches for weight 500 on titles and
-    // labels - the one weight this app never uses. Every role below is
-    // pinned to 400 (body), 600 (labels/emphasis), or 700 (headlines).
     final baseText = GoogleFonts.spaceGroteskTextTheme();
     final textTheme = baseText
         .copyWith(
@@ -100,11 +102,6 @@ class LostAndFoundApp extends StatelessWidget {
         .apply(bodyColor: AppColors.ink, displayColor: AppColors.ink);
 
     return GetMaterialApp(
-      // The fallback style for every screen: Flutter only re-applies a style
-      // while a region is on screen, so without this the black photo/video
-      // viewers' light-icon style would stay stuck after closing them. The
-      // viewers wrap themselves in their own (inner) region, which wins there.
-      // The splash animation is laid over the navigator, so the app is already built under it when it clears.
       builder: (context, child) => SplashHost(
         child: AnnotatedRegion<SystemUiOverlayStyle>(
           value: kAppOverlayStyle,

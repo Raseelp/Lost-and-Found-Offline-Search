@@ -32,10 +32,12 @@ Future<void> showMomentsSheet(
   );
 }
 
-// The line of the sheet's timeline: where it is across, and how far the content starts from the edge.
+/// Where the timeline's line sits across the sheet, and how far the content starts from the edge.
 const double _railX = 9;
 const double _railGutter = 30;
 
+/// The sheet's content. The moments are grouped by year, oldest first, because a story reads from the start. The
+/// most important moment of each year is starred.
 class _MomentsSheet extends StatefulWidget {
   const _MomentsSheet({
     required this.layoutFor,
@@ -61,13 +63,11 @@ class _MomentsSheetState extends State<_MomentsSheet> {
     final textTheme = Theme.of(context).textTheme;
     final story = widget.layoutFor(_everyone).story();
 
-    // By year, oldest first: a story reads from the start.
     final years = <int, List<StoryEntry>>{};
     for (final e in story) {
       years.putIfAbsent(e.month ~/ 12, () => []).add(e);
     }
     final order = years.keys.toList()..sort();
-    // The most important of each year is starred.
     final starred = <StoryEntry>{
       for (final list in years.values)
         (list.toList()..sort((a, b) => b.importance.compareTo(a.importance)))
@@ -160,7 +160,6 @@ class _MomentsSheetState extends State<_MomentsSheet> {
             if (order.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: AppSpacing.xl),
-                // A timeline of its own: a line down the side, a dot for each year and each moment.
                 child: Stack(
                   children: [
                     Positioned(
@@ -300,6 +299,7 @@ class _YearHeader extends StatelessWidget {
   }
 }
 
+/// One moment on the timeline, with a dot on the line that is gold when it is the one that matters most of its year.
 class _StoryRow extends StatelessWidget {
   const _StoryRow({
     required this.entry,
@@ -318,7 +318,6 @@ class _StoryRow extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // Its dot on the line: gold for the one that matters most of its year.
         Positioned(
           left: _railX - _railGutter - 5,
           top: 22,
@@ -356,7 +355,6 @@ class _StoryRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Their faces, overlapping a little.
               SizedBox(
                 width: 36.0 + (faces.length - 1) * 22,
                 height: 36,
@@ -424,8 +422,8 @@ class _StoryRow extends StatelessWidget {
     );
   }
 
-  // "Anna and Dev: first photo together" for a pair, the line itself for one person or a group
-  // (which already says who).
+  /// The line with the names in front for a pair or a single named person, such as "Anna and Dev  ·  first photo
+  /// together". A group's line already says who, so it is used as it is.
   static String _names(List<Person> people, String line) {
     if (people.length == 2 &&
         line == 'First photo together' &&

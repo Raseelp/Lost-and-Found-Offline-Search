@@ -9,18 +9,12 @@ import java.util.concurrent.Callable
 import java.util.concurrent.ExecutorCompletionService
 import java.util.concurrent.Executors
 
-// A single classified document found under a picked SAF folder tree -
-// carries everything ImageSource/VideoSource need, already resolved from
-// the same cursor row that found it (see listOneDirectory). Deliberately
-// not DocumentFile: DocumentFile.listFiles() only fetches each child's id
-// up front, so every later access to .isDirectory/.name/.type/.length/
-// .lastModified is its own separate query to the document provider - for
-// a folder with hundreds of files that's hundreds of extra IPC round
-// trips just to classify them, on top of whatever it takes to list them
-// in the first place. Querying DocumentsContract directly with a full
-// projection gets every attribute for every child of a directory in ONE
-// query, and this type carries that data along so nothing downstream
-// re-queries it either.
+/**
+ * A document found under a picked SAF folder tree, resolved from the cursor row that found it (see
+ * [SafUtils.listOneDirectory]).
+ * It is not a DocumentFile on purpose. DocumentFile.listFiles() fetches only the child ids, so each later read of a
+ * name or length is its own query to the provider.
+ */
 data class SafDocument(
     val uri: Uri,
     val name: String,
@@ -33,10 +27,7 @@ object SafUtils {
 
     private const val TAG = "SafUtils"
 
-    // I/O-bound (waiting on the document provider, not on CPU), so a
-    // decent thread count is worth it for a folder with many sibling
-    // subdirectories - still conservative enough not to flood a provider
-    // that serializes requests anyway.
+    /** The directory listing waits on the document provider, not the CPU, so many threads help. */
     private const val TRAVERSE_THREAD_COUNT = 12
 
     private val PROJECTION = arrayOf(
@@ -77,27 +68,12 @@ object SafUtils {
             lower.endsWith(".png") || lower.endsWith(".webp")
     }
 
-    // Driven by completion order, not level by level: the root is
-    // submitted, and every time ANY submitted directory finishes, its
-    // files are reported (onFileFound fires per match, right away) and
-    // its subdirectories are immediately submitted too - so the pool
-    // stays continuously full of in-flight queries across the whole tree,
-    // and progress advances the moment each one lands instead of only
-    // once an entire depth's worth of them all finish together (which is
-    // what caused progress to look stalled, then jump - a directory whose
-    // level happens to contain hundreds of siblings would previously hold
-    // every one of them back until the last straggler finished).
-    //
-    // take() below is only ever called from this one orchestrating
-    // thread, never from inside a pool worker - so no worker thread is
-    // ever blocked waiting on another worker thread's result, which is
-    // what would risk a thread-pool deadlock with a fixed-size pool (a
-    // naive "recurse and submit more work from inside a pool thread"
-    // version of this can starve itself that way on a deep tree).
-    // onFileFound is likewise only ever called from this same single
-    // thread, since it closes over mutable state (a counter, a last-emit
-    // timestamp) on the caller's side that isn't set up to be touched
-    // from multiple threads at once.
+    /**
+     * Lists the matching documents under [treeUri], reporting each one through [onFileFound] as soon as its directory
+     * has been read.
+     * Work is driven by completion order, not level by level, which made progress stall and then jump. Only this
+     * calling thread waits, because a worker waiting on another could deadlock the pool.
+     */
     private fun traverse(
         context: Context,
         treeUri: Uri,
@@ -136,9 +112,6 @@ object SafUtils {
                 val (files, subdirIds) = try {
                     future.get()
                 } catch (e: Exception) {
-                    // One directory failing to list (revoked access, a
-                    // transient provider error) shouldn't take the rest
-                    // of the tree down with it.
                     Log.w(TAG, "traverse: a directory failed to list: ${e.message}")
                     continue
                 }
@@ -162,11 +135,11 @@ object SafUtils {
         return results
     }
 
-    // One retry before giving up on a directory - a transient provider
-    // hiccup (a momentary timeout, a busy binder queue under concurrent
-    // load) shouldn't cost an entire subtree of files just because the
-    // first attempt happened to fail. Only a genuine, repeated failure
-    // (permission actually revoked, directory actually gone) gives up.
+    /**
+     * Lists one directory and tries once more if the first query fails. A momentary provider error, such as a timeout or
+     * a busy binder queue, should not cost a whole subtree. A repeated failure, such as revoked access or a removed
+     * directory, gives up with an empty result.
+     */
     private fun listOneDirectory(
         context: Context,
         treeUri: Uri,
@@ -188,10 +161,10 @@ object SafUtils {
         return emptyList<SafDocument>() to emptyList()
     }
 
-    // Null (not an empty pair) specifically means "the query itself
-    // failed" - lets listOneDirectory tell that apart from "the query
-    // succeeded and this directory is genuinely empty", which must never
-    // trigger a retry.
+    /**
+     * Returns the files and subdirectory ids of one directory. Null means the query failed, which is different from an
+     * empty directory. [listOneDirectory] retries only on null.
+     */
     private fun queryOneDirectory(
         context: Context,
         treeUri: Uri,

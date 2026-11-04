@@ -8,10 +8,9 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/view/widget/media_tray.dart';
 
-/// The small button in the video's controls: a face and how many people are in the video.
-/// Tapping it opens the [VideoPeoplePanel]. When [pulse] changes (a scan just finished, or
-/// someone new turned up) it draws the eye to itself - the button grows a touch and two soft
-/// rings spread out from it - so nobody misses that the people are there.
+/// The small button in the video's controls: a face and how many people are in the video. Tapping it opens the
+/// [VideoPeoplePanel]. When [pulse] changes (a scan just finished, or someone new turned up) it draws the eye: the
+/// button grows a touch and two soft rings spread out from it, so nobody misses that the people are there.
 class PeopleChipButton extends StatefulWidget {
   const PeopleChipButton({super.key, required this.count, required this.open, required this.onTap, this.pulse = 0});
 
@@ -46,7 +45,6 @@ class _PeopleChipButtonState extends State<PeopleChipButton> with SingleTickerPr
       animation: _c,
       builder: (context, child) {
         final v = _c.value;
-        // A soft swell at the start, then it settles.
         final swell = v < 0.3 ? math.sin(math.pi * (v / 0.3)) : 0.0;
         return Stack(
           clipBehavior: Clip.none,
@@ -93,7 +91,7 @@ class _PeopleChipButtonState extends State<PeopleChipButton> with SingleTickerPr
   }
 }
 
-// Two rings, one after the other, spreading out from the button's edge and fading.
+/// Two rings, one after the other, spreading out from the button's edge and fading.
 class _PulsePainter extends CustomPainter {
   _PulsePainter(this.v);
 

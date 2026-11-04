@@ -31,11 +31,11 @@ class GridVideoSlot {
 
   String uri;
 
-  /// Null when the tile must not play now: gone, covered by another screen, on a tab that is not showing, or with
+  /// Null when the tile must not play: gone, covered by another screen, on a tab that is not showing, or with
   /// animations turned off.
   final GridVideoSpot? Function() probe;
 
-  /// Starts / stops telling the controller when the tile's list moves (only the one that is playing needs it).
+  /// Starts or stops telling the controller when the tile's list moves. Only the one that is playing needs it.
   final void Function(bool on) watchScroll;
 }
 
@@ -47,13 +47,10 @@ class GridVideoPlay {
   final VideoPlayerController controller;
 }
 
-/// Plays a short, silent preview of the videos in the grids, like Google Photos does: the first video in view plays
-/// (up to [cap]), then the next one in view, and a video that scrolls away stops. A grid that scrolls to a stop
-/// starts the first video it shows.
-///
-/// Players are scarce, so there is one: made when a video is picked and disposed as soon as it ends, scrolls away,
-/// or anything else (the app leaving, a scan, battery saver, the switch in Settings) says no. When the phone can run
-/// several video decoders, the next video is made ready beforehand so there is no gap between them.
+/// Plays a short, silent preview of the videos in the grids: the first video in view plays (up to [cap]), then the
+/// next one in view, and a video that scrolls away stops. Players are scarce, so there is one, disposed as soon as its
+/// video ends, scrolls away, or anything else (the app leaving, a scan, battery saver, the switch in Settings) says
+/// no. When the phone can run several video decoders, the next video is made ready beforehand.
 class GridVideoController extends GetxController with WidgetsBindingObserver {
   /// A preview is never longer than this.
   static const Duration cap = Duration(seconds: 15);
@@ -78,7 +75,7 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
 
   final List<GridVideoSlot> _slots = [];
 
-  // The tiles that have played to the end and are still in view: they do not play again until they have left it.
+  /// The tiles that have played to the end and are still in view. They do not play again until they have left it.
   final Set<GridVideoSlot> _played = {};
   final Set<String> _failed = {};
 
@@ -86,17 +83,17 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
   VideoPlayerController? _controller;
   Timer? _capTimer;
 
-  // The next video, made ready while the active one plays (only on phones with decoders to spare).
+  /// The next video, made ready while the active one plays. Only phones with decoders to spare do this.
   GridVideoSlot? _next;
   VideoPlayerController? _nextController;
   GridVideoSlot? _preparing;
 
-  // Counts starts: an answer that comes back after something newer began is thrown away.
+  /// Counts starts. An answer that comes back after something newer began is thrown away.
   int _gen = 0;
   int _nextGen = 0;
 
-  // How many players exist right now, from being made until they are released. However fast the list is
-  // scrolled, no more than [_maxLive] are ever alive (one that is slow to start or to release still counts).
+  /// How many players exist, from being made until they are released. However fast the list is scrolled, no more
+  /// than [_maxLive] are ever alive. One that is slow to start or to release still counts.
   int _live = 0;
   static const int _maxLive = 3;
 
@@ -149,6 +146,8 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     }
   }
 
+  /// Asks the native side about power saving and the number of decoders. It is asked again after a failure only
+  /// after a while, not at every tick.
   Future<void> _refreshEnv() async {
     if (_envBusy) return;
     _envBusy = true;
@@ -160,22 +159,21 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('grid video: videoEnv failed: $e');
     } finally {
-      // Also after a failure: it is asked again in a while, not at every tick.
       _envAt = DateTime.now();
       _envBusy = false;
     }
   }
 
+  /// Stops everything when the app leaves the screen, so nothing keeps decoding. On return, videos that failed
+  /// (the phone was busy, say) get another chance.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _foreground = true;
-      // A video that failed (the phone was busy, say) gets another chance now.
       _failed.clear();
       unawaited(_refreshEnv());
       _syncTick();
     } else {
-      // Not on screen (or about to be): nothing keeps decoding.
       _foreground = false;
       _stopAll();
       _syncTick();
@@ -186,8 +184,6 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
   void didHaveMemoryPressure() {
     _dropNext();
   }
-
-  // ---- the tiles ----
 
   void register(GridVideoSlot slot) {
     if (_slots.contains(slot)) return;
@@ -203,7 +199,7 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     _syncTick();
   }
 
-  /// The tile is showing another video now.
+  /// The tile shows another video.
   void uriChanged(GridVideoSlot slot) {
     _played.remove(slot);
     if (identical(_active, slot)) _stopActive();
@@ -229,7 +225,8 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     if (active != null && !_stillGood(active)) _stopActive();
   }
 
-  // The tick runs only while there are tiles and the app is showing (a few measurements every third of a second).
+  /// The tick runs only while there are tiles and the app is showing. It makes a few measurements every third of a
+  /// second.
   void _syncTick() {
     final want = _slots.isNotEmpty && _foreground;
     if (want && _tick == null) {
@@ -239,8 +236,6 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
       _tick = null;
     }
   }
-
-  // ---- deciding ----
 
   bool get _allowed {
     if (!enabled || !_foreground || _powerSave) return false;
@@ -286,7 +281,7 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  // A tile that is out of sight can play again when it comes back.
+  /// Lets a tile that is out of sight play again when it comes back.
   void _forgetOutOfView() {
     if (_played.isEmpty) return;
     _played.removeWhere((slot) {
@@ -296,7 +291,8 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     });
   }
 
-  // The tiles that may start now, the first in reading order first.
+  /// The tiles that may start, the first in reading order first, or those after [after] when it is given. Rows are
+  /// told apart with a little room, so tiles of one row keep left-to-right order.
   List<GridVideoSlot> _candidates({GridVideoSlot? after}) {
     final found = <(GridVideoSlot, GridVideoSpot)>[];
     for (final slot in _slots) {
@@ -311,7 +307,6 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
       }
       found.add((slot, spot));
     }
-    // Rows are told apart with a little room, so tiles of one row keep left-to-right order.
     found.sort((a, b) {
       final rowA = (a.$2.top / 8).round(), rowB = (b.$2.top / 8).round();
       return rowA != rowB
@@ -320,7 +315,6 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     });
     var list = [for (final f in found) f.$1];
     if (after != null) {
-      // What follows the one that plays: those that come after it in the reading order.
       final spot = after.probe();
       if (spot != null) {
         list = [
@@ -337,10 +331,11 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     return rowS != rowO ? rowS > rowO : s.left > of.left;
   }
 
+  /// Starts the first candidate, using the video made ready beforehand when it is that one. When there is nothing
+  /// to play (covered, scrolled, all played) no player is kept ready either.
   void _pickAndStart() {
     final list = _candidates();
     if (list.isEmpty) {
-      // Nothing to play (covered, scrolled, all played): no player is kept ready either.
       if (_next != null || _preparing != null) {
         _dropNext();
       }
@@ -354,17 +349,18 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  // ---- playing ----
-
+  /// Makes a player and counts it as alive. It is silent and mixes with other audio, so it does not take the sound
+  /// away from what the person is listening to.
   VideoPlayerController _make(String uri) {
     _live++;
     return VideoPlayerController.contentUri(
       Uri.parse(uri),
-      // Silent, so it must not take the sound away from what the person is listening to.
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
     );
   }
 
+  /// Starts the preview of [slot]. When something goes wrong after the player has become the active one, it is
+  /// stopped the usual way.
   Future<void> _start(GridVideoSlot slot) async {
     final gen = ++_gen;
     _active = slot;
@@ -386,7 +382,6 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
       debugPrint('grid video: could not play ${slot.uri}: $e');
       _failed.add(slot.uri);
       if (identical(_controller, controller)) {
-        // It had become the active one when something went wrong: let it go the usual way.
         _stopActive();
       } else {
         unawaited(_safeDispose(controller));
@@ -395,7 +390,10 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  // [controller] is ready (initialised, silent): it is the active one now.
+  /// Makes [controller], which is ready (initialised, silent), the active one.
+  ///
+  /// The video's own end or the cap ends the preview. The position is only reported every so often, so a timer also
+  /// ends it.
   void _begin(GridVideoSlot slot, VideoPlayerController controller, int gen) {
     _controller = controller;
     controller.addListener(_onValue);
@@ -408,19 +406,19 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     final duration = controller.value.duration;
     final limit = duration > Duration.zero && duration < cap ? duration : cap;
     _capTimer?.cancel();
-    // The video's own end (or the cap) ends the preview; the position is only reported every so often.
     _capTimer = Timer(limit + const Duration(milliseconds: 250), () {
       if (gen == _gen) _finish();
     });
     remaining.value =
         limit.inSeconds + (limit.inMilliseconds % 1000 > 0 ? 1 : 0);
     _limit = limit;
-    // The first thing the next video needs: its place in the line.
     _prepareNext();
   }
 
   Duration _limit = cap;
 
+  /// Follows the active player. The preview is shown once it has really started, and until then the thumbnail
+  /// stays, so nothing flashes black.
   void _onValue() {
     final c = _controller, slot = _active;
     if (c == null || slot == null) return;
@@ -430,7 +428,6 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
       _stopActive();
       return;
     }
-    // Shown once it has really started: until then the thumbnail stays, so nothing flashes black.
     if (playing.value == null &&
         v.isPlaying &&
         v.position >= const Duration(milliseconds: 80)) {
@@ -444,7 +441,7 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     if (v.isCompleted || left <= const Duration(milliseconds: 120)) _finish();
   }
 
-  // The preview has run its course: the next one starts.
+  /// The preview has run its course: the next one starts.
   void _finish() {
     final slot = _active;
     if (slot == null) return;
@@ -453,6 +450,8 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     if (_allowed) _pickAndStart();
   }
 
+  /// Stops and releases the active player. The notifiers change when no frame is being built. A tile that is going
+  /// away stops its own preview.
   void _stopActive() {
     _gen++;
     _capTimer?.cancel();
@@ -460,7 +459,6 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     final slot = _active, c = _controller;
     _active = null;
     _controller = null;
-    // Not while the tree is being built (a tile that is going away stops its own preview).
     _whenIdle(() {
       if (_controller == null) {
         playing.value = null;
@@ -474,7 +472,8 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  // Runs [change] now, or after the frame when one is being built (a notifier must not change in the middle of it).
+  /// Runs [change] at once, or after the frame when one is being built, because a notifier must not change in the
+  /// middle of it.
   void _whenIdle(void Function() change) {
     final phase = SchedulerBinding.instance.schedulerPhase;
     if (phase == SchedulerPhase.idle ||
@@ -485,9 +484,9 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  // The one way a player is let go.
+  /// The one way a player is let go. The pause is sent first, so it stops decoding even if the release takes a
+  /// moment.
   Future<void> _safeDispose(VideoPlayerController c) async {
-    // Sent first, so it stops decoding even if the release takes a moment.
     unawaited(c.pause().catchError((_) {}));
     try {
       await c.dispose();
@@ -503,10 +502,9 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     _dropNext();
   }
 
-  // ---- the next video ----
-
   bool get _canPrepare => _maxDecoders >= 4 && _allowed;
 
+  /// Makes the next candidate ready, only when there is room to spare. A player still being released counts.
   void _prepareNext() {
     final active = _active;
     if (!_canPrepare || active == null || _controller == null) {
@@ -521,7 +519,6 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
     }
     if (identical(want, _next) || identical(want, _preparing)) return;
     _dropNext();
-    // Only with room to spare: one still being released counts.
     if (_live < 2) {
       unawaited(_prepare(want));
     }

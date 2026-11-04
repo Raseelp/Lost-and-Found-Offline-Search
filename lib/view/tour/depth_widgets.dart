@@ -9,10 +9,12 @@ import 'package:lost_and_found/utils/palettes/tour_palette.dart';
 import 'package:lost_and_found/view/tour/tour_widgets.dart';
 import 'package:video_player/video_player.dart';
 
-/// The first screen's picture: the app's widgets (a video, "On this day", people, Then & now, a memory, search,
-/// privacy) floating at different depths. Far ones are small and soft, near ones large and sharp. They take
-/// turns: one at a time glides forward, grows sharp and moves in towards the middle while the one before it
-/// drifts back. Everything is one continuous motion, so nothing jumps. Plays while its page is showing.
+/// The first screen's picture: the app's widgets floating at different depths. They are a video, "On this day",
+/// people, Then and now, a memory, search and privacy.
+///
+/// Far ones are small and soft, near ones large and sharp. They take turns. One at a time glides forward, grows sharp
+/// and moves in towards the middle while the one before it drifts back. Everything is one continuous motion, so
+/// nothing jumps. It plays while its page is showing.
 class DepthWidgets extends StatefulWidget {
   const DepthWidgets({super.key, required this.active});
 
@@ -22,8 +24,8 @@ class DepthWidgets extends StatefulWidget {
   State<DepthWidgets> createState() => _DepthWidgetsState();
 }
 
-/// One floating widget: where it rests (as shares of the picture's width and height), how big it is at the
-/// reference size, and how near it is when it is not having its turn (0 far, 1 near).
+/// One floating widget. It holds where the widget rests as shares of the picture's width and height, how big it is
+/// at the reference size, and how near it is when it is not having its turn, from 0 far to 1 near.
 class _Spec {
   const _Spec(this.cx, this.cy, this.w, this.h, this.depth, this.build);
 
@@ -35,7 +37,7 @@ class _Spec {
 class _Turn {
   const _Turn(this.depth, this.focus, this.d, this.t);
 
-  /// 0 far, 1 near (a mix of its resting depth and how far forward it has come).
+  /// From 0 far to 1 near. A mix of its resting depth and how far forward it has come.
   final double depth;
 
   /// 0 when it is back, 1 at the middle of its turn.
@@ -50,15 +52,15 @@ class _Turn {
 
 class _DepthWidgetsState extends State<DepthWidgets>
     with SingleTickerProviderStateMixin {
-  // Each widget has a turn of this long; the loop is every widget once.
+  /// How long each widget's turn lasts. The loop is every widget once.
   static const Duration _turn = Duration(milliseconds: 2600);
 
-  // In the order of their turns, which jump from one side of the picture to the other so the one coming
-  // forward and the one going back are never next to each other.
-  // Kept by key because the widget around it changes (it is blurred only while it is far), which would
-  // otherwise throw its player away in the middle of its turn.
+  /// The video card is kept by key. The widget around it changes, because it is blurred only while it is far, and
+  /// that would otherwise throw its player away in the middle of its turn.
   final GlobalKey<_VideoCardState> _videoKey = GlobalKey();
 
+  /// The widgets in the order of their turns. The turns jump from one side of the picture to the other, so the one
+  /// coming forward and the one going back are never next to each other.
   late final List<_Spec> _specs = [
     _Spec(
       0.26,
@@ -82,7 +84,7 @@ class _DepthWidgetsState extends State<DepthWidgets>
     duration: _turn * _specs.length,
   );
 
-  // When the phone asks for no animations the picture stands still (and nothing keeps ticking).
+  /// True when the phone asks for no animations. The picture then stands still and nothing keeps ticking.
   bool _still = false;
 
   @override
@@ -135,9 +137,15 @@ class _DepthWidgetsState extends State<DepthWidgets>
     );
   }
 
-  // How much room to keep between two widgets, and from the edge, so shadows and softness are not cut.
+  /// How much room to keep between two widgets, and from the edge, so shadows and softness are not cut.
   static const double _gap = 8;
 
+  /// Lays out every widget for the loop position [t] from 0 to 1, with [k] as the scale against the reference size.
+  ///
+  /// The distance of a widget's turn from now, going round the loop, sets its focus. The focus is 1 at the middle of
+  /// its turn and eases to 0 a turn and a bit away on either side. A focused widget glides a little towards the
+  /// middle. Each widget also floats on a slow loop of its own, in whole numbers of cycles per loop so the end of the
+  /// loop meets its start. The one coming forward holds its ground and the others make room.
   Widget _stage(double w, double h, double k, double t) {
     final n = _specs.length;
     final phase = t * n;
@@ -147,25 +155,19 @@ class _DepthWidgetsState extends State<DepthWidgets>
     final moves = List<double>.filled(n, 1);
     for (var i = 0; i < n; i++) {
       final s = _specs[i];
-      // How far this widget's turn is from now, going round the loop.
       var d = (phase - i - 0.5) % n;
       if (d > n / 2) d -= n;
-      // 1 at the middle of its turn, easing to 0 a turn and a bit away either side.
       final focus = _smooth(1 - d.abs() / 1.25);
       final depth = s.depth + (1 - s.depth) * focus;
-      // Floating: a slow loop, a different one for each widget.
-      // Whole numbers of cycles per loop, so the end of the loop meets its start.
       final ax = 2 * math.pi * (t * 3 + i * 0.37);
       final ay = 2 * math.pi * (t * 2 + i * 0.53);
       final drift = Offset(math.sin(ax) * 4 * k, math.cos(ay) * 3 * k);
-      // A focused widget glides in a little towards the middle.
       final rest = Offset(s.cx * w, s.cy * h);
       final centre = Offset(w * 0.5, h * 0.5);
       final scale = (0.7 + 0.3 * depth) * k;
       turns[i] = _Turn(depth, focus, d, t);
       sizes[i] = Size(s.w * scale, s.h * scale);
       centres[i] = Offset.lerp(rest, centre, 0.25 * focus)! + drift;
-      // The one coming forward holds its ground; the others make room.
       moves[i] = 1.2 - depth;
     }
     _makeRoom(centres, sizes, moves, w, h, _gap * math.min(1.0, k));
@@ -182,9 +184,11 @@ class _DepthWidgetsState extends State<DepthWidgets>
     );
   }
 
-  /// Nudges the widgets apart so none ever overlaps another, which also means it does not matter which is
-  /// painted on top: a widget coming forward never slides over (or out from under) another. The push grows with
-  /// how far two are into each other, so it is as smooth as the motion itself. Also keeps all inside the picture.
+  /// Nudges the widgets apart so none overlaps another, so it does not matter which is painted on top, and keeps all
+  /// of them inside the picture.
+  /// The push is along the line between the two centres, stretched to their shapes, and grows with how far the nearer
+  /// edges are into each other, so it is as smooth as the motion itself. Pushing along the shallower axis would flip
+  /// direction, and jump, the moment two depths cross.
   static void _makeRoom(
     List<Offset> c,
     List<Size> sz,
@@ -202,9 +206,6 @@ class _DepthWidgetsState extends State<DepthWidgets>
           final oy = (sz[i].height + sz[j].height) / 2 + gap - dy.abs();
           if (ox <= 0 || oy <= 0) continue;
           final share = moves[i] / (moves[i] + moves[j]);
-          // Pushed along the line between the two centres (stretched to their shapes) by how far the nearer
-          // edges are into each other. Pushing along whichever axis is shallower would flip direction, and
-          // so jump, the moment the two depths cross.
           final u = Offset(
             dx / ((sz[i].width + sz[j].width) / 2),
             dy / ((sz[i].height + sz[j].height) / 2),
@@ -227,11 +228,12 @@ class _DepthWidgetsState extends State<DepthWidgets>
     }
   }
 
+  /// Puts widget [i] at [at] with [size]. The card is drawn once and then moved, scaled and blurred as a picture, so
+  /// its own paint does not run again every frame. The video and the divider change and repaint anyway. Shadow and
+  /// softness follow the depth.
   Widget _placed(int i, _Spec s, Offset at, Size size, _Turn turn) {
     final depth = turn.depth;
     final sigma = (1 - depth) * 1.2;
-    // The card is drawn once and moved, scaled and blurred as a picture: its own paint does not run again
-    // every frame (the video and the divider, which do change, are the exceptions and repaint anyway).
     Widget card = RepaintBoundary(
       child: SizedBox(
         width: s.w,
@@ -239,7 +241,6 @@ class _DepthWidgetsState extends State<DepthWidgets>
         child: FixedTextScale(child: Builder(builder: (c) => s.build(c, turn))),
       ),
     );
-    // Shadow and softness follow the depth.
     card = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -278,8 +279,6 @@ class _DepthWidgetsState extends State<DepthWidgets>
     );
   }
 }
-
-// --------------------------------------------------------------------------------------- the widgets
 
 class _Glass extends StatelessWidget {
   const _Glass({
@@ -363,8 +362,6 @@ class _SearchResultsCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // The search bar of the app, small: a white pill with a hairline edge, the search mark in a tinted circle and the
-          // round button.
           Container(
             height: 24,
             decoration: BoxDecoration(
@@ -717,9 +714,11 @@ class _PeopleCard extends StatelessWidget {
   }
 }
 
-/// Then and now: two photos of one person with a divider. Back in the crowd it is a plain split down the middle; as
-/// it comes forward the handle appears and the divider sweeps to one side, then the other, and settles again as
-/// it goes back. All of it follows the turn, so it never jumps.
+/// Then and now: two photos of one person with a divider. Back in the crowd it is a plain split down the middle. As
+/// it comes forward the handle appears and the divider sweeps to one side, then the other, and settles again as it
+/// goes back. All of it follows the turn, so it never jumps.
+///
+/// The divider is always sliding, a whole number of sweeps to the loop, so the end of the loop meets its start.
 class _ThenNowCard extends StatelessWidget {
   const _ThenNowCard({required this.turn});
 
@@ -727,7 +726,6 @@ class _ThenNowCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Always sliding, a whole number of sweeps to the loop so the end of it meets the start.
     final s = 0.5 + 0.3 * math.sin(turn.t * 2 * math.pi * 5);
     Widget tag(String label, Alignment at, double opacity) => Align(
       alignment: at + const Alignment(0, 0.82),
@@ -844,15 +842,15 @@ class _LeftOf extends CustomClipper<Rect> {
   bool shouldReclip(covariant _LeftOf old) => old.share != share;
 }
 
-/// A video. Until its first turn it is a still with a play mark. When that turn comes the play mark is tapped
-/// (it presses, a ring spreads), the clip starts and the bar under it begins to fill. From then on it keeps
-/// playing, in a loop, whether it is at the front or far back, for as long as the page is showing.
+/// A video. Until its first turn it is a still with a play mark. When that turn comes the play mark is tapped, which
+/// presses it and spreads a ring, the clip starts and the bar under it begins to fill. From then on it keeps playing
+/// in a loop, whether it is at the front or far back, for as long as the page is showing.
 class _VideoCard extends StatefulWidget {
   const _VideoCard({super.key, required this.turn, required this.awake});
 
   final _Turn turn;
 
-  /// Whether the page is showing (and motion is allowed): the clip only runs then.
+  /// Whether the page is showing and motion is allowed. The clip only runs then.
   final bool awake;
 
   @override
@@ -863,7 +861,7 @@ class _VideoCardState extends State<_VideoCard>
     with SingleTickerProviderStateMixin {
   static const String _asset = 'assets/tour/videos/v_football.mp4';
   static const Duration _tapTime = Duration(milliseconds: 560);
-  // When the press lands and the clip starts, a little before the end of the tap.
+  /// When the press lands and the clip starts, a little before the end of the tap.
   static const Duration _landAt = Duration(milliseconds: 330);
 
   late final AnimationController _tap = AnimationController(
@@ -878,11 +876,11 @@ class _VideoCardState extends State<_VideoCard>
   Timer? _landTimer;
   int _generation = 0;
 
-  // The clip could not be loaded on this phone: the still stays, and it is not tried again every frame.
+  /// True when the clip could not be loaded on this phone. The still stays, and it is not tried again every frame.
   bool _failed = false;
 
-  // The bar runs off the clock (the player only says where it is every half second, which would make the bar
-  // step); this is how far the clock is behind or ahead of the clip, corrected whenever the player reports.
+  /// How far the clock is behind or ahead of the clip. The bar runs off the clock, because the player only says where
+  /// it is every half second and the bar would step. The offset is corrected whenever the player reports.
   Duration _offset = Duration.zero;
 
   @override
@@ -908,6 +906,8 @@ class _VideoCardState extends State<_VideoCard>
     }
   }
 
+  /// Loads the clip, muted and looping. When there is no player here or the clip is not playable, the still stays and
+  /// the bar still fills.
   Future<void> _load(int generation) async {
     final controller = VideoPlayerController.asset(
       _asset,
@@ -929,7 +929,6 @@ class _VideoCardState extends State<_VideoCard>
       if (!mounted || generation != _generation) return;
       setState(() => _ready = true);
     } catch (_) {
-      // No player here (or the clip is not playable): the still stays and the bar still fills.
       _failed = true;
       if (identical(_video, controller)) _video = null;
       try {
@@ -938,13 +937,14 @@ class _VideoCardState extends State<_VideoCard>
     }
   }
 
+  /// Corrects the clock offset when the player's position is more than 120 milliseconds away from it. Across the loop
+  /// point the two can sit on either side of it, so the difference is taken the short way round.
   void _follow() {
     final v = _video?.value;
     if (v == null || !v.isPlaying || !_clock.isRunning) return;
     final length = v.duration.inMilliseconds;
     if (length <= 0) return;
     var diff = v.position.inMilliseconds - _here(length);
-    // Across the loop point the two can sit either side of it.
     if (diff > length / 2) diff -= length;
     if (diff < -length / 2) diff += length;
     if (diff.abs() > 120) _offset += Duration(milliseconds: diff);
@@ -965,8 +965,8 @@ class _VideoCardState extends State<_VideoCard>
     });
   }
 
-  // The page went away: stop, give the player back (a phone only has a few video decoders, and the other pages
-  // want them), and be a still again for when it comes back.
+  /// Called when the page went away. Stops, gives the player back and becomes a still again for when the page comes
+  /// back. A phone only has a few video decoders and the other pages want them.
   void _sleep() {
     _generation++;
     _pressed = false;
@@ -994,6 +994,7 @@ class _VideoCardState extends State<_VideoCard>
     super.dispose();
   }
 
+  /// The still lies over the clip until the press lands.
   @override
   Widget build(BuildContext context) {
     final f = widget.turn.focus;
@@ -1001,7 +1002,6 @@ class _VideoCardState extends State<_VideoCard>
         ? _video!.value.duration.inMilliseconds.clamp(1, 1 << 30)
         : 4000;
     final progress = _landed ? _here(length) / length : 0.0;
-    // The still lies over the clip until the press lands.
     final showStill = !(_ready && _landed);
     return Container(
       padding: const EdgeInsets.all(4),

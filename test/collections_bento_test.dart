@@ -5,13 +5,10 @@ void main() {
   const s = BentoShape.square, t = BentoShape.tall;
 
   test('the biggest slots go to the items with the most in them', () {
-    // Slot 1 is the big one: item 2 (the most) goes there.
     expect(bentoAssignment(const [s, t, s], [5, 1, 9]), [0, 2, 1]);
   });
 
   test('leading items take the first slots, whatever their size or count', () {
-    // Items 0 and 1 are leading: they fill slots 0 and 1 (the one with more first), and the
-    // big slot 1 goes to leading item 1, not to item 2 with the most.
     expect(bentoAssignment(const [s, t, s, s], [2, 3, 50, 9], leading: 2), [1, 0, 2, 3]);
   });
 

@@ -29,6 +29,8 @@ abstract class StoriesStore {
 class SqliteStoriesStore implements StoriesStore {
   Database? _db;
 
+  /// Opens the database once. Upgrading to version 2 adds the meta table, and the column `eligible` when a build from
+  /// before that column existed lacks it.
   Future<Database> _open() async {
     final existing = _db;
     if (existing != null) return existing;
@@ -37,7 +39,6 @@ class SqliteStoriesStore implements StoriesStore {
       path,
       version: 2,
       onUpgrade: (db, oldVersion, newVersion) async {
-        // Version 1 had no saved batch; a build from before the column "eligible" may lack it too.
         await db.execute('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)');
         final columns = await db.rawQuery('PRAGMA table_info(rings)');
         if (!columns.any((c) => c['name'] == 'eligible')) {

@@ -6,17 +6,10 @@ import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/utils/palettes/viewer_palette.dart';
 
-/// The shared shell for a floating panel over the photo/video viewer - the people strip and the
-/// "similar to this" strip both live in one of these, so they read as one family of trays rather
-/// than two one-off cards.
-///
-/// Deliberately not a flat dark slab with a coloured ring round
-/// it - that particular combination is everywhere, and it reads exactly as cheap as it is. This
-/// is real frosted glass instead: [BackdropFilter] actually blurs the picture behind it, so the
-/// surface has depth rather than being a flat tinted rectangle; a thin line of light sits along
-/// just the top edge, the way glass catches light from above, rather than a neon outline running
-/// the whole way round; and the accent only shows once, as a brief warm catch of light while the
-/// tray opens, gone within a second rather than left glowing for as long as the panel is up.
+/// The shared shell for a floating panel over the photo and video viewer. The people strip and the "similar to this"
+/// strip both live in one, so they read as one family of trays. It is frosted glass: [BackdropFilter] blurs the
+/// picture behind it, a thin line of light sits along the top edge, and the accent shows once as a brief warm catch of
+/// light while the tray opens.
 class MediaTray extends StatefulWidget {
   const MediaTray({super.key, required this.child, this.accent = AppColors.mediaAccent});
 
@@ -31,7 +24,7 @@ class _MediaTrayState extends State<MediaTray> with SingleTickerProviderStateMix
   late final AnimationController _open =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..forward();
 
-  // Rises fast, then fades all the way out - a catch of light, not a standing glow.
+  /// Rises fast, then fades all the way out: a catch of light, not a standing glow.
   double _glow(double t) {
     if (t < 0.25) return Curves.easeOut.transform(t / 0.25);
     return 1.0 - Curves.easeIn.transform(((t - 0.25) / 0.75).clamp(0.0, 1.0));
@@ -68,7 +61,6 @@ class _MediaTrayState extends State<MediaTray> with SingleTickerProviderStateMix
             ),
             child: Stack(
               children: [
-                // The light catching the top edge - a line, not a ring.
                 const Positioned(
                   left: 18,
                   right: 18,
@@ -82,7 +74,6 @@ class _MediaTrayState extends State<MediaTray> with SingleTickerProviderStateMix
                     ),
                   ),
                 ),
-                // The one moment the accent shows at all.
                 Positioned.fill(
                   child: AnimatedBuilder(
                     animation: _open,

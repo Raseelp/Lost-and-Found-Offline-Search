@@ -15,9 +15,9 @@ import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/utils/app_toast.dart';
 
 /// Opens the stories at ring [index] of [rings]. [origin] is where the ring was on screen: the
-/// story grows out of it, and closes back into it.
+/// story grows out of it, and closes back into it. A second tap while the first story is opening does nothing, so a
+/// second story is not opened on top of it.
 void openStories(BuildContext context, List<StoryRing> rings, int index, {Offset? origin, double originRadius = 30}) {
-  // A second tap while the first story is opening must not open a second one on top of it.
   if (_opening != null) return;
   final route = StoryRoute(rings: rings, initial: index, origin: origin, originRadius: originRadius);
   _opening = route;
@@ -28,14 +28,16 @@ StoryRoute? _opening;
 
 /// Hands [builder] the rings to show, kept up to date as people, collections and what has been
 /// seen change, and how many more are still on their way: [loading] rings that are not there yet
-/// (people and collections are found one after the other, and the first time that takes a moment).
+/// (people and collections are found one after the other, and the first time that takes a moment). Collections are
+/// scored once after the library is indexed and have no rings until then. With nothing indexed there will be no rings,
+/// so nothing is waited for and no grey rings come and go.
 class _RingsBuilder extends StatelessWidget {
   const _RingsBuilder({required this.builder});
 
   final Widget Function(BuildContext context, List<StoryRing> rings, int loading) builder;
 
-  /// How many rings are drawn as placeholders while there are none, and while the collections
-  /// are still being scored for the first time.
+  /// How many rings are drawn as placeholders while there are none, and how many while the collections are still being
+  /// scored for the first time.
   static const int _placeholders = 5;
   static const int _placeholdersMore = 2;
 
@@ -48,9 +50,7 @@ class _RingsBuilder extends StatelessWidget {
         builder: (collections) => GetBuilder<StoriesController>(
           builder: (stories) {
             final rings = stories.ringsFor(faces.people, collections);
-            // Collections are scored once after the library is indexed; until then they have no rings.
             final scoring = native.totalEmbeddings > 0 && !collections.hasScored;
-            // With nothing indexed there will be no rings, so nothing is waited for (no grey rings that come and go).
             final waiting = native.totalEmbeddings > 0;
             var loading = 0;
             if (waiting &&
@@ -67,17 +67,11 @@ class _RingsBuilder extends StatelessWidget {
   }
 }
 
-/// The rings of the Search tab: one per person or collection, a lit ring while there is something
-/// not seen and a grey one after. A refresh button by the title asks for new stories at once, and a long press on a
-/// ring sets it aside for a while.
-///
-/// It is one bar in two sizes. Before a search it is large, with names and a title. Once there are
-/// results ([compact]) the same rings shrink in place into a thin strip above them, the names and
-/// title fold away, and a "Stories" button slides in at the left to go back; going back is the
-/// same movement the other way.
-///
-/// While the first rings are still being found, grey rings with a coloured arc running round them
-/// stand where they will be, the arcs a little behind one another so a wave goes along the row.
+/// The rings of the Search tab: one per person or collection, lit while there is something not seen and grey after. A
+/// refresh button by the title asks for new stories, but only once every ring has been seen. A long press on a ring
+/// sets it aside for a while. It is one bar in two sizes: large before a search, with names and a title, and once
+/// there are results ([compact]) the same rings shrink in place into a thin strip, and a Stories button slides in at
+/// the left to go back. While the first rings are found, grey rings with a running arc stand in their places.
 class StoryRingsBar extends StatelessWidget {
   const StoryRingsBar({super.key, required this.controller, required this.compact});
 
@@ -103,16 +97,14 @@ class StoryRingsBar extends StatelessWidget {
     );
   }
 
-  // [t]: 0 large (before a search), 1 compact (above results).
+  /// Builds the bar at [t], which is 0 when it is large (before a search) and 1 when it is compact (above the results).
   Widget _bar(BuildContext context, List<StoryRing> rings, int loading, double t) {
     final textTheme = Theme.of(context).textTheme;
     final stories = Get.find<StoriesController>();
     final size = _large + (_small - _large) * t;
-    // Room for a name under a ring at the system text size.
     final labelRoom = 20 * MediaQuery.textScalerOf(context).scale(1);
     final labelFold = 1 - t;
     final labelOpacity = (1 - t * 1.8).clamp(0.0, 1.0);
-    // Every ring has been opened (nothing lit is left), so there is something to ask for.
     final allSeen = loading == 0 && rings.isNotEmpty && rings.every(stories.isSeen);
 
     Widget label(Widget child) => ClipRect(
@@ -152,8 +144,6 @@ class StoryRingsBar extends StatelessWidget {
                             style: textTheme.labelSmall?.copyWith(color: AppColors.ink48, letterSpacing: 0.5),
                           ),
                         ),
-                        // A new set of stories now. Only once every story has been seen: before that there is
-                        // nothing to refresh, and it was tapped out of curiosity.
                         IgnorePointer(
                           ignoring: compact || !allSeen,
                           child: AnimatedSwitcher(
@@ -191,7 +181,6 @@ class StoryRingsBar extends StatelessWidget {
             height: size + (AppSpacing.xs + labelRoom) * labelFold,
             child: Row(
               children: [
-                // The way back to the large rings, sliding in at the left once there are results.
                 IgnorePointer(
                   ignoring: !compact,
                   child: ClipRect(
@@ -221,7 +210,6 @@ class StoryRingsBar extends StatelessWidget {
                                       Text(
                                         'Stories',
                                         maxLines: 1,
-                                        // A tiny label in a fixed-size button: it grows with the system text size, but not past 1.2x.
                                         textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.2),
                                         style: textTheme.labelSmall?.copyWith(
                                           color: AppColors.primary,
@@ -255,7 +243,6 @@ class StoryRingsBar extends StatelessWidget {
                     itemBuilder: (context, i) {
                       final itemWidth = size + AppSpacing.sm * labelFold;
 
-                      // A ring that is still on its way: grey, with an arc running round it.
                       if (i >= rings.length) {
                         return AnimatedSwitcher(
                           duration: const Duration(milliseconds: 300),
@@ -413,7 +400,7 @@ class _RefreshButton extends StatelessWidget {
   }
 }
 
-// What a long press on a ring offers: setting it aside for a while.
+/// Offers what a long press on a ring does: setting it aside for a while.
 Future<void> _ringMenu(BuildContext context, StoriesController stories, StoryRing ring) {
   return showModalBottomSheet<void>(
     context: context,
@@ -463,8 +450,8 @@ class StoryAvatar extends StatelessWidget {
   }
 }
 
-// A collection's cover in its ring. Nothing loads it beforehand, so this asks for its own (small) cover, and the
-// ring runs until it is there.
+/// A collection's cover in its ring. Nothing loads it beforehand, so this asks for its own small cover, and the ring
+/// runs until it is there.
 class _CollectionAvatar extends StatefulWidget {
   const _CollectionAvatar({required this.ring, required this.size, required this.lit, required this.forceSpin});
 
@@ -477,7 +464,7 @@ class _CollectionAvatar extends StatefulWidget {
 }
 
 class _CollectionAvatarState extends State<_CollectionAvatar> {
-  // The cover could not be had (it has none, or it cannot be read): the icon stays and the ring stops.
+  /// The cover could not be had, because it has none or cannot be read: the icon stays and the ring stops.
   bool _gaveUp = false;
 
   @override
@@ -506,8 +493,8 @@ class _CollectionAvatarState extends State<_CollectionAvatar> {
                   bytes,
                   fit: BoxFit.cover,
                   gaplessPlayback: true,
-                  // Fixed, not the ring's size: the ring changes size while it shrinks and grows, and a new
-                  // decode size each frame would decode it again each frame.
+                  // Fixed, not the ring's size, which changes while it animates: a changing decode size would decode
+                  // the cover again each frame.
                   cacheWidth: 210,
                   excludeFromSemantics: true,
                 ),
@@ -519,7 +506,8 @@ class _CollectionAvatarState extends State<_CollectionAvatar> {
 
 /// The ring and the picture inside it. [spinning]: a coloured arc with a fading tail runs round it
 /// (the colours of the lit ring, head in gold) instead of the still ring; [phase] sets where in the
-/// turn it starts (0 to 1), so several can follow one another.
+/// turn it starts (0 to 1), so several can follow one another. With motion off the arc stays where it is. The arc is a
+/// layer of its own, so while it runs the picture inside is not drawn again.
 class _RingFrame extends StatefulWidget {
   const _RingFrame({
     required this.size,
@@ -550,7 +538,6 @@ class _RingFrameState extends State<_RingFrame> with SingleTickerProviderStateMi
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // With motion off the arc stays where it is.
     if (widget.spinning) loopUnlessCalm(context, _spin);
   }
 
@@ -583,7 +570,6 @@ class _RingFrameState extends State<_RingFrame> with SingleTickerProviderStateMi
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // The arc is a layer of its own: while it runs, the picture inside is not drawn again.
           Positioned.fill(
             child: RepaintBoundary(
               child: CustomPaint(
@@ -627,7 +613,6 @@ class _RingPainter extends CustomPainter {
 
     final turning = spin;
     if (turning != null) {
-      // A faint track, and over it an arc with a tail that fades behind and a bright head in front.
       canvas.drawCircle(centre, radius, paint..color = AppColors.hairline);
       paint
         ..strokeCap = StrokeCap.round

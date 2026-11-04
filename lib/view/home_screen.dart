@@ -30,29 +30,26 @@ import 'package:lost_and_found/view/widget/library_tab.dart';
 import 'package:lost_and_found/view/widget/search_tab.dart';
 import 'package:lost_and_found/utils/app_toast.dart';
 
-// NativeController.homeTab values.
+/// The values of NativeController.homeTab.
 const int _tabSearch = 0;
 const int _tabCollections = 1;
 const int _tabLibrary = 2;
 const int _tabFaces = 3;
 
-// Proportions measured off Google Photos' floating bar on a ~411dp-wide
-// phone: a 58dp fully-rounded pill, a 42dp selected chip inset 8dp inside
-// it, a round search button the same 58dp tall, and the bar sitting ~20dp
-// above the system navigation with wide side margins.
+/// The proportions of the bar, measured off Google Photos' floating bar on a phone about 411 dp wide. It is a 58 dp
+/// pill with fully rounded ends, with a 42 dp selected chip inset 8 dp inside it. The round search button is the
+/// same 58 dp tall.
 const double _barHeight = kFloatingBarHeight;
 const double _barInset = 8;
 const double _chipHeight = _barHeight - 2 * _barInset;
 
-// The bar while several people are ticked: two rows (who is chosen, then the two buttons).
+/// The height of the bar while several people are ticked: two rows, who is chosen and then the two buttons.
 const double _tallBarHeight = 106;
 
-/// The app's four front-page destinations behind one floating bar: Library,
-/// Collections and Faces as tabs in a pill, and Search as its own round
-/// button beside it - which still switches the body like a tab does, it just
-/// isn't part of the pill. Indexing lives entirely in the Library tab (that's
-/// where it's triggered from); a small pulsing dot on that tab signals it's
-/// active even while you're looking at something else.
+/// The app's four front-page destinations behind one floating bar: Library, Collections and Faces as tabs in a pill,
+/// and Search as its own round button beside it. Search switches the body like a tab does, but it is not part of the
+/// pill. Indexing lives entirely in the Library tab, where it is triggered from. A small pulsing dot on that tab
+/// shows it is active even while you are looking at something else.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -61,20 +58,19 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  // True while the user is scrolling down a list: the bar shrinks and settles
-  // lower (see _FloatingNavBar). Scrolling back up, or reaching the top,
-  // restores it.
+  /// True while the user is scrolling down a list: the bar shrinks and settles lower (see _FloatingNavBar).
+  /// Scrolling back up, or reaching the top, restores it.
   bool _shrunk = false;
 
   final MemoriesController _memories = Get.find<MemoriesController>();
 
-  // The round bolt button's state, to close its actions with the back button.
+  /// The round bolt button's state, to close its actions with the back button.
   final GlobalKey<ActionFabState> _fabKey = GlobalKey<ActionFabState>();
 
+  /// Marking the home screen ready lets a tapped "daily memory" notification open its memory.
   @override
   void initState() {
     super.initState();
-    // A tapped "daily memory" notification opens its memory once the home screen is up.
     _memories.homeReady = true;
     FloatingBarPresence.shown = true;
     WidgetsBinding.instance.addObserver(this);
@@ -98,44 +94,39 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) _checkOpenTab();
   }
 
-  // Shows home tab [i]: what a tap on the bar does ([tapped]), and what the scan's notification does to show
-  // the Library tab.
+  /// Shows home tab [i]. [tapped] is true for a tap on the bar and false when a notification shows the Library tab.
+  ///
+  /// A newly shown tab is at rest, so the bar is full size. Choosing people belongs to the People tab and choosing
+  /// collections to the Collections tab, so leaving either ends it. Opening Faces refreshes it, as looking never
+  /// starts a scan. Search opens without the keyboard, which comes up when the box is tapped, so the suggestions and
+  /// results under it are not covered straight away.
   void _showTab(NativeController controller, int i, {bool tapped = true}) {
     if (i != controller.homeTab) {
       if (tapped) HapticFeedback.selectionClick();
-      // A newly shown tab is at rest, so the bar is full size.
       _shrunk = false;
     }
     controller.setHomeTab(i);
-    // Choosing people belongs to the People tab: leaving it ends that.
     if (i != _tabFaces && Get.isRegistered<FacesController>()) {
       final faces = Get.find<FacesController>();
       if (faces.selecting) faces.stopSelecting();
     }
-    // Likewise choosing collections belongs to the Collections tab.
     if (i != _tabCollections && Get.isRegistered<CollectionsController>()) {
       final collections = Get.find<CollectionsController>();
       if (collections.selecting) collections.stopSelecting();
     }
-    // Opening Faces: refresh. (Looking never starts a scan.)
     if (i == _tabFaces) {
       Get.find<FacesController>().refreshAll();
     }
-    // Search opens without the keyboard: it comes up when the box is tapped, so
-    // the suggestions and results under it are not covered straight away.
     if (i != _tabSearch) {
-      // Leaving the search tab - the box can still hold focus from an earlier visit (IndexedStack keeps
-      // every tab's tree alive, and Flutter's focus history is app-wide, not scoped to whichever tab is
-      // actually showing). Left alone, that stale focus can resurface later with no relation to what's now
-      // open - popping back from a pushed detail screen (a collection, a person) that has no text field of
-      // its own restores focus to whatever last held it, which otherwise pops the keyboard back up over a
-      // completely different tab.
+      // The IndexedStack keeps the search box alive, and a stale focus on it would come back when a pushed screen
+      // pops, putting the keyboard up over a different tab.
       controller.searchFocusNode.unfocus();
     }
   }
 
-  // A tap on a notification that belongs to a tab shows that tab, closing whatever was open on top of it: the scan's
-  // notification the Library tab, where the scan is; the stories note the Search tab, where the rings are.
+  /// A tap on a notification that belongs to a tab shows that tab, closing whatever was open on top of it. The scan's
+  /// notification shows the Library tab, where the scan is, and the stories note shows the Search tab, where the rings
+  /// are. "Index now" on the note that asks to finish indexing also starts the scan at once, over the whole phone.
   Future<void> _checkOpenTab() async {
     try {
       final tab = await NativeServices().takeOpenTab();
@@ -143,8 +134,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       Get.until((route) => route.isFirst);
       final native = Get.find<NativeController>();
       _showTab(native, tab == _tabLibrary ? _tabLibrary : _tabSearch, tapped: false);
-      // "Index now" on the note that asks to finish indexing: the Library is shown (above), and the scan starts at
-      // once, over the whole phone.
       if (await NativeServices().takeIndexNow() && mounted) {
         native.setScanWholePhone(true);
         await startIndexing(context, native);
@@ -158,8 +147,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (_shrunk != value) setState(() => _shrunk = value);
   }
 
-  // What the bolt button offers on the page showing: the actions that used to sit under the description
-  // at the top of the Collections and People tabs. None on the other tabs, and none while choosing.
+  /// What the bolt button offers on the page showing, which is the actions for the Collections and People tabs. There
+  /// are none on the other tabs, and none while choosing. While a catch-up scan runs the People tab shows its
+  /// progress instead of the update action. Choosing people, or seeing them over the years, needs at least two.
   List<FabAction> _fabActions(
     NativeController native,
     FacesController faces,
@@ -185,10 +175,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (faces.selecting) return const [];
       final status = faces.status;
       final noModel = !status.ready || status.error == 'no_model';
-      // While a catch-up scan runs the tab shows its progress instead of this action.
       final catchingUp =
           faces.syncing && !status.userPaused && status.error == null;
-      // Choosing people, or seeing them over the years, needs at least two.
       final several = faces.people.length >= 2;
       return [
         if (several)
@@ -216,15 +204,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return const [];
   }
 
-  // Runs the face scan over whatever was missed (its progress shows on the tab), or says everything is
-  // already covered.
+  /// Runs the face scan over whatever was missed, with its progress on the tab, or says everything is already covered.
   Future<void> _updatePeople(FacesController faces) async {
     final started = await faces.syncFaces();
     if (!started) AppToast.show('People are up to date.');
   }
 
+  /// Shrinks the bar while a tab's list scrolls down. Only the tabs' own vertical lists count, not the horizontal chip
+  /// rows.
   bool _onScroll(ScrollNotification n) {
-    // Only the tabs' own vertical lists - not the horizontal chip rows.
     if (n.metrics.axis != Axis.vertical || n.depth != 0) return false;
 
     if (n is UserScrollNotification) {
@@ -240,24 +228,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return false;
   }
 
+  /// Builds the tabs and the floating bar over them. Back from another tab returns to Search, where the app opens, and
+  /// back on Search leaves as usual. If the bolt button's actions are open, or people or collections are being chosen,
+  /// back first closes or cancels that. The tabs run the full height and scroll under the bar, and each ends with
+  /// [floatingBarClearance] so the last item can be brought clear of it. The bar hides while typing, because it would
+  /// ride up on the keyboard. It stays mounted so it can animate both ways, and while hidden it cannot be tapped or
+  /// read out.
   @override
   Widget build(BuildContext context) {
     return GetBuilder<NativeController>(
       builder: (controller) {
         final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
-        // Back from another tab returns to Search (where the app opens)
-        // instead of leaving the app; back on Search leaves as usual.
         return PopScope(
           canPop: controller.homeTab == _tabSearch,
           onPopInvokedWithResult: (didPop, _) {
             if (didPop) return;
-            // The bolt button's actions are open: back puts them away first.
             if (_fabKey.currentState?.isOpen == true) {
               _fabKey.currentState!.close();
               return;
             }
-            // Choosing people: back first cancels that, and stays on the tab.
             if (Get.isRegistered<FacesController>()) {
               final faces = Get.find<FacesController>();
               if (faces.selecting) {
@@ -276,10 +266,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           },
           child: Scaffold(
             backgroundColor: AppColors.canvas,
-            // bottom: false + a Stack: the tabs run the full height and scroll
-            // *under* the floating bar (each ends with floatingBarClearance so the
-            // last item can still be brought clear of it), instead of being cut
-            // off in a strip above it.
             body: SafeArea(
               bottom: false,
               child: Stack(
@@ -309,17 +295,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                     ],
                   ),
-                  // Out of the way while typing - it would otherwise ride up on
-                  // top of the keyboard. Stays mounted so it can animate both
-                  // ways; while hidden it can't be tapped or read out.
                   Positioned(
                     left: 0,
                     right: 0,
                     bottom: 0,
                     child: _KeyboardHide(
                       hidden: keyboardOpen,
-                      // Rebuilds with the People tab's "choose people" state: while that is
-                      // on, the bar turns into the button that goes on to the photos.
                       child: GetBuilder<FacesController>(
                         builder: (faces) => GetBuilder<CollectionsController>(
                           builder: (collections) => _FloatingNavBar(
@@ -412,7 +393,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                     ),
                   ),
-                  // The round bolt button above the search button, and the actions it fans out.
                   Positioned.fill(
                     child: GetBuilder<FacesController>(
                       builder: (faces) => GetBuilder<CollectionsController>(
@@ -436,10 +416,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 }
 
-// Tucks the bar away when the keyboard opens: it sinks and shrinks a little
-// while fading, quickly and with an ease-in so it's gone before the keyboard
-// is; coming back, it rises and settles with a small spring overshoot so it
-// lands softly rather than just appearing.
+/// Tucks the bar away when the keyboard opens. It sinks and shrinks a little while fading, quickly and with an ease-in
+/// so it is gone before the keyboard is. Coming back, it rises and settles with a small spring overshoot so it lands
+/// softly rather than just appearing. The opacity gets its own plain curve, because it cannot overshoot the range 0
+/// to 1.
 class _KeyboardHide extends StatelessWidget {
   const _KeyboardHide({required this.hidden, required this.child});
 
@@ -464,7 +444,6 @@ class _KeyboardHide extends StatelessWidget {
             curve: curve,
             scale: hidden ? 0.9 : 1,
             alignment: Alignment.bottomCenter,
-            // Opacity can't overshoot 0..1, so it gets its own plain curve.
             child: AnimatedOpacity(
               duration: Duration(milliseconds: hidden ? 160 : 260),
               curve: hidden ? Curves.easeIn : Curves.easeOut,
@@ -540,14 +519,8 @@ const _navTabs = [
   ),
 ];
 
-// A pill holding the three tabs - only the selected one shows its icon and
-// sits in a teal chip, the others are just a label - with Search as its own
-// round button next to it. Search selects the body the same way a tab does,
-// so while it's active the pill has nothing selected and the button takes
-// over the highlight. Tonal like the rest of the app (parchment on canvas,
-// primary for "on"), not a dark slab.
-/// One thing the bar can do with what is ticked: its icon, its words (they can depend on how
-/// many are ticked) and what it does.
+/// One thing the bar can do with what is ticked: its icon, its words, which can depend on how many are ticked, and
+/// what it does.
 class _BarAction {
   const _BarAction({
     required this.icon,
@@ -560,8 +533,8 @@ class _BarAction {
   final VoidCallback onTap;
 }
 
-/// While choosing people (People tab) or collections (Collections tab): how many are ticked
-/// and what the bar can do with them. One action fills the bar; two share it, side by side.
+/// While choosing people (People tab) or collections (Collections tab): how many are ticked and what the bar can do
+/// with them. One action fills the bar and two share it, side by side.
 class _BarSelection {
   const _BarSelection({
     required this.chosen,
@@ -579,16 +552,20 @@ class _BarSelection {
   final String emptyLabel;
   final List<_BarAction> actions;
 
-  /// The faces of the people ticked (shown stacked in the tall bar).
+  /// The faces of the people ticked, shown stacked in the tall bar.
   final List<int> faceIds;
 
   /// "3 people chosen" and the like, for the tall bar.
   final String Function(int chosen)? summaryFor;
 
-  /// Two actions, once something is ticked: the bar grows to two rows so neither is cramped.
+  /// True with two actions once something is ticked. The bar then grows to two rows so neither is cramped.
   bool get tall => chosen > 0 && actions.length > 1;
 }
 
+/// A pill holding the three tabs, with Search as its own round button next to it. Only the selected tab shows its icon
+/// and sits in a teal chip, and the others are just a label. Search selects the body the same way a tab does, so
+/// while it is active the pill has nothing selected and the button takes over the highlight. It is tonal like the
+/// rest of the app, with parchment on canvas and the primary colour for "on".
 class _FloatingNavBar extends StatelessWidget {
   const _FloatingNavBar({
     required this.index,
@@ -603,14 +580,17 @@ class _FloatingNavBar extends StatelessWidget {
   final bool showActivityDot;
   final bool shrunk;
 
-  // Non-null while choosing people: the bar becomes the "find photos" button.
+  /// Not null while choosing people or collections, when the bar turns into the buttons that go on from the choice.
   final _BarSelection? selection;
 
+  /// Margins are kept modest so the pill has room for the selected tab's icon and label at full size. Scrolling down
+  /// shrinks the bar toward its bottom edge so it recedes from the content, and scrolling up restores it. Scale and
+  /// slide are transforms, so nothing relayouts mid-scroll. The pill is translucent frosted glass and turns into the
+  /// teal button while choosing. The widgets around the tabs stay the same and only numbers change, so they keep their
+  /// state and the touch on them. The Search button stays mounted, folded to zero width while choosing, and is clipped
+  /// only at its right edge so it can squeeze and lean without being cut.
   @override
   Widget build(BuildContext context) {
-    // Margins are kept modest so the pill has room for the selected tab's icon
-    // and label at full size - the text never has to shrink to fit. Only on a
-    // very narrow screen do the tabs tighten their padding.
     final width = MediaQuery.of(context).size.width;
     final margin = width >= 400 ? 20.0 : 16.0;
     final compact = width < 380;
@@ -618,10 +598,6 @@ class _FloatingNavBar extends StatelessWidget {
     final choosing = selection != null;
     final ready = choosing && selection.chosen > 0;
 
-    // Scrolling down shrinks the whole bar toward its bottom edge and lets it
-    // settle lower into the gap beneath it, so it recedes from the content;
-    // scrolling back up restores it. Scale and slide are transforms, so
-    // nothing relayouts mid-scroll.
     return AnimatedSlide(
       duration: const Duration(milliseconds: 340),
       curve: Curves.easeOutCubic,
@@ -632,7 +608,6 @@ class _FloatingNavBar extends StatelessWidget {
         scale: shrunk ? 0.93 : 1,
         alignment: Alignment.bottomCenter,
         child: Padding(
-          // Bottom includes the system inset now that the body runs behind it.
           padding: EdgeInsets.fromLTRB(
             margin,
             AppSpacing.sm,
@@ -642,23 +617,17 @@ class _FloatingNavBar extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                // Its colours, eased between plain, out of the way (shrunk) and the teal button it turns into.
                 child: TweenAnimationBuilder<Offset>(
                   tween: Tween<Offset>(end: Offset(ready ? 1 : 0, shrunk ? 1 : 0)),
                   duration: const Duration(milliseconds: 340),
                   curve: Curves.easeOutCubic,
                   builder: (context, look, content) =>
-                      // Given way to the finger on the tabs (see _barPull and _BarShape). Always the same
-                      // widgets around the tabs (only the numbers change), so they keep their state and the
-                      // touch on them; only the outline is redrawn.
                       ValueListenableBuilder<(double, double)>(
                         valueListenable: _barPull,
                         builder: (context, pull, content) {
                           final shape = _BarShape(pull.$1, pull.$2);
                           return ClipPath(
                             clipper: _BarClip(shape),
-                            // Translucent frosted glass: content scrolls visibly behind
-                            // it, a touch more see-through while it's out of the way.
                             child: BackdropFilter(
                               filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
                               child: CustomPaint(
@@ -678,8 +647,6 @@ class _FloatingNavBar extends StatelessWidget {
                         },
                         child: content,
                       ),
-                  // The same pill either way: only its colour and contents change, so it
-                  // reads as the bar itself turning into the button (and back).
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 340),
                     curve: Curves.easeOutCubic,
@@ -711,14 +678,10 @@ class _FloatingNavBar extends StatelessWidget {
                   ),
                 ),
               ),
-              // The round Search button slides away while choosing (the pill grows into
-              // the space), and comes back after. Kept mounted, just folded to zero width.
               TweenAnimationBuilder<double>(
                 tween: Tween<double>(end: choosing ? 0 : 1),
                 duration: const Duration(milliseconds: 340),
                 curve: Curves.easeOutCubic,
-                // Clipped only at its right edge while folding away, never above or below, so the button can
-                // squeeze, lean and be nudged without being cut.
                 builder: (context, t, child) => ClipRect(
                   clipper: _FoldClip(t),
                   child: Align(
@@ -732,7 +695,6 @@ class _FloatingNavBar extends StatelessWidget {
                   child: Row(
                     children: [
                       const SizedBox(width: AppSpacing.sm),
-                      // Nudged along when the bar is pulled hard toward it, so the two never overlap.
                       ValueListenableBuilder<(double, double)>(
                         valueListenable: _barPull,
                         builder: (context, pull, button) => Transform.translate(
@@ -769,9 +731,9 @@ class _FoldClip extends CustomClipper<Rect> {
   bool shouldReclip(_FoldClip old) => old.open != open;
 }
 
-// What the pill shows while choosing people or collections: a close button on the left, and
-// the action(s) across the rest - the words "Choose ..." until something is ticked, then the
-// buttons. Two actions share the width with a thin line between them.
+/// What the pill shows while choosing people or collections: a close button on the left, and the action or actions
+/// across the rest. These are the words "Choose ..." until something is ticked, then the buttons. Two actions share
+/// the width with a thin line between them.
 class _SelectionContent extends StatelessWidget {
   const _SelectionContent({super.key, required this.selection});
 
@@ -795,8 +757,9 @@ class _SelectionContent extends StatelessWidget {
   }
 }
 
-// Option E: who is chosen on the first row (their faces, how many, and the close button), and
-// the two actions side by side on the second - the right-hand one, the main one, in white.
+/// Who is chosen on the first row, with their faces, how many and the close button, and the two actions side by side
+/// on the second. The right-hand one is the main one and is in white. It is laid out at its full height right away
+/// and clipped by the bar while the bar grows.
 class _TallSelection extends StatelessWidget {
   const _TallSelection({super.key, required this.selection});
 
@@ -815,7 +778,6 @@ class _TallSelection extends StatelessWidget {
         selection.summaryFor?.call(selection.chosen) ??
         '${selection.chosen} chosen';
 
-    // Laid out at its full height right away and clipped by the bar while the bar grows.
     return OverflowBox(
       alignment: Alignment.topCenter,
       minHeight: 0,
@@ -993,7 +955,9 @@ class _TallActionButton extends StatelessWidget {
   }
 }
 
-// Nothing ticked yet, or a single action: ✕ on the left and the words or the button across.
+/// Nothing ticked yet, or a single action: the close button on the left and the words or the button across. One
+/// action, or none yet, leaves a gap the width of the close button on the right, so the words are centred in the
+/// pill. Two actions use the whole width.
 class _SingleRowSelection extends StatelessWidget {
   const _SingleRowSelection({super.key, required this.selection});
 
@@ -1098,8 +1062,6 @@ class _SingleRowSelection extends StatelessWidget {
                   ),
           ),
         ),
-        // One action (or none yet): same width as the close button, so the words are centred
-        // in the pill. Two actions use the whole width.
         SizedBox(
           width: ready && actions.length > 1 ? AppSpacing.xs : _chipHeight,
         ),
@@ -1108,12 +1070,12 @@ class _SingleRowSelection extends StatelessWidget {
   }
 }
 
-// The three tabs, tapped or dragged across. One teal chip marks the selected tab and does all the moving, on
-// springs: pressing a tab lifts it there at once (it pops up a little), dragging pulls it along under the
-// finger (it stretches with the speed and leans toward the finger), with a light tick on each tab it reaches.
-// The screen only changes when the finger lets go, on the tab under it; the chip then settles onto that tab
-// and follows it as it widens for its icon. Pulled up or down, the chip stands taller and leans after the
-// finger, the same either way. Pressing harder (on screens that tell) lifts it higher.
+/// The three tabs, tapped or dragged across. One teal chip marks the selected tab and does all the moving, on
+/// springs. Pressing a tab lifts the chip there at once, with a small pop up. Dragging pulls it along under the
+/// finger, stretching with the speed and leaning toward the finger, with a light tick on each tab it reaches. The
+/// screen only changes when the finger lets go, on the tab under it. The chip then settles onto that tab and follows
+/// it as it widens for its icon. Pulled up or down, the chip stands taller and leans after the finger, the same
+/// either way. Pressing harder, on screens that tell, lifts it higher.
 class _TabPill extends StatefulWidget {
   const _TabPill({
     super.key,
@@ -1141,11 +1103,12 @@ class _Spring {
   double x = 0;
   double v = 0;
 
-  // [stiff] scales the stiffness for this step (a firmer pull while settling than while following a finger).
+  /// Moves toward [target] over [dt] seconds. [stiff] scales the stiffness for this step, for a firmer pull while
+  /// settling than while following a finger. The time is split into small fixed steps, so a slow frame does not make
+  /// it jump or blow up.
   void step(double target, double dt, {double stiff = 1}) {
     final k = stiffness * stiff;
     final damping = 2 * math.sqrt(k) * ratio;
-    // Small fixed steps, so a slow frame doesn't make it jump or blow up.
     for (var left = dt; left > 0; left -= 1 / 240) {
       final h = math.min(left, 1 / 240);
       v += (k * (target - x) - damping * v) * h;
@@ -1161,14 +1124,13 @@ class _Spring {
   bool restsAt(double target) => (x - target).abs() < 0.05 && v.abs() < 0.05;
 }
 
-/// How the finger on the tab pill pulls on the bar under it: toward an end (-1 left to 1 right) and up or
-/// down (-1 up to 1 down), eased and on springs. The bar stretches that way (see _BarShape); a plain tap leaves
-/// it alone.
+/// How the finger on the tab pill pulls on the bar under it: toward an end (-1 left to 1 right) and up or down (-1 up
+/// to 1 down), eased and on springs. The bar stretches that way (see _BarShape), and a plain tap leaves it alone.
 final _barPull = ValueNotifier<(double, double)>((0, 0));
 
 /// The bar's outline as the finger pulls on it, the way Liquid Glass bars give: always a whole capsule, grown
 /// toward the pull (the near edge goes most of the way, the far one follows a little) and a touch thinner the
-/// other way, as if keeping its volume. The tabs inside don't stretch. At rest, the plain pill.
+/// other way, as if keeping its volume. The tabs inside do not stretch. At rest, it is the plain pill.
 class _BarShape {
   const _BarShape(this.side, this.lift);
 
@@ -1211,9 +1173,9 @@ class _BarPainter extends CustomPainter {
   final Color fill;
   final Color border;
 
+  /// Paints the fill and a border that sits just inside the outline, as a box's border does.
   @override
   void paint(Canvas canvas, Size size) {
-    // The border sits just inside the outline, as a box's border does.
     final path = shape.path(size);
     canvas.drawPath(path, Paint()..color = fill);
     canvas.save();
@@ -1248,36 +1210,37 @@ class _TabPillState extends State<_TabPill> with SingleTickerProviderStateMixin 
   Duration _last = Duration.zero;
   int _still = 0;
 
-  // The chip: its centre and width, how far it is lifted (pressed), how far stretched by speed, and how much it
-  // shows (none while Search is the screen showing and nothing is pressed).
+  /// The springs of the chip: its centre and width, how far it is lifted (pressed), how far stretched by speed, and
+  /// how much it shows. It shows nothing while Search is the screen showing and nothing is pressed.
   final _centre = _Spring(700, 0.82);
   final _width = _Spring(700, 0.82);
   final _lift = _Spring(520, 0.55);
   final _stretch = _Spring(380, 1);
   final _shown = _Spring(500, 1);
-  // Up and down: how far the finger pulls the chip off the row (-1 up to 1 down, eased), wobbling back when let go.
+  /// Up and down: how far the finger pulls the chip off the row (-1 up to 1 down, eased), wobbling back when let go.
   final _pull = _Spring(420, 0.42);
-  // The bar under it, pulled along when the finger goes hard past its ends or well up or down (see _barPull).
+  /// The springs of the bar under the chip, pulled along when the finger goes hard past its ends or well up or down
+  /// (see [_barPull]).
   final _barX = _Spring(300, 0.45);
   final _barY = _Spring(300, 0.45);
   bool _placed = false;
 
-  // Each tab's place in the row, from the last layout.
+  /// Each tab's place in the row, from the last layout.
   List<Rect> _rects = const [];
 
-  // The finger, while one is down on the pill.
+  /// The finger, while one is down on the pill.
   int? _pointer;
   double _x = 0;
   double _y = 0;
   int _over = 0;
-  // Pressing harder than at first (on screens that report it), 0 to 1: the chip lifts higher.
+  /// Pressing harder than at first, on screens that report it, from 0 to 1. The chip lifts higher.
   double _press = 0;
   double _press0 = 0;
   double _speed = 0;
   Duration? _lastMove;
 
-  // The tab let go on, from then until the screen has changed to it (a frame or so): the chip heads there
-  // straight away instead of back to the tab still marked.
+  /// The tab let go on, from then until the screen has changed to it, a frame or so. The chip heads there straight
+  /// away instead of back to the tab still marked.
   int? _going;
 
   int get _selected => _going ?? _navTabs.indexWhere((t) => t.value == widget.index);
@@ -1288,20 +1251,20 @@ class _TabPillState extends State<_TabPill> with SingleTickerProviderStateMixin 
     _wake();
   }
 
+  /// The tabs resize as the selected one gains its icon, and the chip follows them.
   @override
   void didUpdateWidget(covariant _TabPill old) {
     super.didUpdateWidget(old);
-    // The tabs resize as the selected one gains its icon: the chip follows them.
     if (old.index != widget.index || old.compact != widget.compact) {
       _going = null;
       _wake();
     }
   }
 
+  /// Lets go of the bar too, after this frame, because listeners cannot rebuild while the tree is being taken down.
   @override
   void dispose() {
     _ticker.dispose();
-    // Let go of the bar too (after this frame: listeners can't rebuild while the tree is being taken down).
     if (_barPull.value.$1 != 0 || _barPull.value.$2 != 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _barPull.value = (0, 0));
     }
@@ -1328,7 +1291,7 @@ class _TabPillState extends State<_TabPill> with SingleTickerProviderStateMixin 
     return rects;
   }
 
-  // The nearest tab, so the gaps between them and the ends still count.
+  /// The nearest tab, so the gaps between the tabs and the ends still count.
   int _tabAt(double x) {
     var best = 0;
     for (var i = 1; i < _rects.length; i++) {
@@ -1352,7 +1315,6 @@ class _TabPillState extends State<_TabPill> with SingleTickerProviderStateMixin 
     late double width;
     if (pressed) {
       final under = rects[_over];
-      // Leans from the tab toward the finger rather than sitting under it, so the tab's words stay on the chip.
       centre = under.center.dx + (_x - under.center.dx) * 0.25;
       width = under.width;
     } else if (selected >= 0) {
@@ -1363,24 +1325,18 @@ class _TabPillState extends State<_TabPill> with SingleTickerProviderStateMixin 
       width = _width.x;
     }
     final shown = pressed || selected >= 0 ? 1.0 : 0.0;
-    // Coming from nowhere (first frame, or Search was showing): appear in place rather than fly in.
     if (!_placed || _shown.x < 0.05) {
       _centre.jump(centre);
       _width.jump(width);
       if (!_placed) _shown.jump(shown);
       _placed = true;
     }
-    // The finger's speed fades when it stops moving.
     if (_lastMove != null && elapsed - _lastMove! > const Duration(milliseconds: 60)) _speed *= math.exp(-dt * 12);
 
-    // With motion off (the phone's "Remove animations") the chip still follows the finger and marks the tab, but
-    // goes straight to where it belongs: no springing, stretching, wobbling, or pulling the bar.
     final still = calm(context);
     final lift = pressed ? 1.0 + 0.6 * _press : 0.0;
     final stretch = pressed && !still ? (_speed.abs() / 2400).clamp(0.0, 0.22) : 0.0;
-    // Eased, so it gives more at first and less the further the finger goes, like pulling something elastic.
     final pull = pressed && !still ? _tanh((_y - rects.first.center.dy) / 48) : 0.0;
-    // Let go, it settles firmly onto the tab (and keeps up as the tab widens for its icon).
     final stiff = pressed ? 1.0 : 1.8;
     if (still) {
       _centre.jump(centre);
@@ -1397,8 +1353,6 @@ class _TabPillState extends State<_TabPill> with SingleTickerProviderStateMixin 
       _shown.step(shown, dt);
       _pull.step(pull, dt);
     }
-    // The bar gives way only to a push: toward an end (from just inside it, more past it, a little more with a
-    // quick swipe), or up or down, following more slowly than the chip, so a tap leaves it be.
     final past = !pressed
         ? 0.0
         : _x < rects.first.left + 20
@@ -1426,8 +1380,6 @@ class _TabPillState extends State<_TabPill> with SingleTickerProviderStateMixin 
         _pull.restsAt(pull) &&
         _barX.restsAt(barX) &&
         _barY.restsAt(barY);
-    // Runs on a little after coming to rest, while the tabs finish resizing, then stops until needed, exactly
-    // at rest (so the bar under it is left untouched).
     _still = resting && !pressed ? _still + 1 : 0;
     if (_still > 20) {
       for (final (spring, to) in [
@@ -1474,13 +1426,14 @@ class _TabPillState extends State<_TabPill> with SingleTickerProviderStateMixin 
     _wake();
   }
 
+  /// Tells the screen about the tab let go on, even when it is the tab already showing, so that opening Faces again
+  /// refreshes it.
   void _up(PointerUpEvent e) {
     if (e.pointer != _pointer) return;
     _pointer = null;
     _wake();
     final value = _navTabs[_over].value;
     if (value != widget.index) _going = _over;
-    // Told even for the tab already showing, as a tap always was (opening Faces again refreshes it).
     widget.onChanged(value);
   }
 
@@ -1490,24 +1443,24 @@ class _TabPillState extends State<_TabPill> with SingleTickerProviderStateMixin 
     _wake();
   }
 
+  /// Draws the chip from the springs. Lifted, it grows. Stretched by speed, it gets wider and flatter. Pulled up or
+  /// down, it stands taller and slimmer and leans that way, kept inside the row so it never presses into the bar's
+  /// rounded ends. The tabs' words are drawn twice, dark, and light clipped to the chip, so they turn light exactly
+  /// where the chip covers them. The light copy has the chip's own colour under it so the dark copy does not show
+  /// through.
   @override
   Widget build(BuildContext context) {
-    // The chip, built from the springs: lifted it grows and stands up a little; stretched (by speed) it gets
-    // wider and flatter, like something soft pulled along.
     final lift = _lift.x;
     final stretch = _stretch.x;
     final shown = _shown.x.clamp(0.0, 1.0);
-    // Pulled up or down it stands taller and slimmer, and leans that way, as far as the bar has room for.
     final pull = _pull.x;
     final chipWidth = _width.x * (1 + 0.1 * lift + stretch) * (1 - 0.1 * pull.abs());
     final chipHeight = math.min(
       _chipHeight * (1 + 0.1 * lift - 0.35 * stretch) * (1 + 0.18 * pull.abs()),
-      // Room is left above and below it, so it never presses flat against the bar's edge.
       _chipHeight + 2 * (_barInset - 3),
     );
     final chip = _placed && _rects.isNotEmpty
         ? Rect.fromCenter(
-            // Kept inside the row, grown or not, so it never presses into the bar's rounded ends.
             center: Offset(
               _centre.x.clamp(
                 _rects.first.left + chipWidth / 2,
@@ -1523,8 +1476,6 @@ class _TabPillState extends State<_TabPill> with SingleTickerProviderStateMixin 
           )
         : null;
 
-    // The tabs' words twice: dark, and light clipped to the chip, so they turn light exactly where the chip
-    // covers them (half on it, half off, as it slides). The light copy only draws.
     Widget tabs({required bool light}) => Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1580,7 +1531,6 @@ class _TabPillState extends State<_TabPill> with SingleTickerProviderStateMixin 
                     child: ClipPath(
                       clipper: _ChipClip(chip),
                       child: ColoredBox(
-                        // Under the light words, the chip's own colour, so the dark copy doesn't show through.
                         color: AppColors.primary,
                         child: tabs(light: true),
                       ),
@@ -1608,8 +1558,8 @@ class _ChipClip extends CustomClipper<Path> {
   bool shouldReclip(_ChipClip old) => old.chip != chip;
 }
 
-// One tab's words (and its icon while selected). The teal chip behind it is drawn by the pill, which also
-// takes the touches; [onTap] is for screen readers.
+/// One tab's words, and its icon while selected. The teal chip behind it is drawn by the pill, which also takes the
+/// touches, so [onTap] is for screen readers.
 class _NavItem extends StatelessWidget {
   const _NavItem({
     super.key,
@@ -1627,15 +1577,16 @@ class _NavItem extends StatelessWidget {
   final bool showDot;
   final VoidCallback onTap;
 
-  // The copy drawn on the chip: light words.
+  /// True for the copy drawn on the chip, which has light words.
   final bool light;
 
+  /// Sized by its own content and not a [Flexible], because three of those split the pill into equal thirds, which is
+  /// smaller than the selected tab needs, with its icon and "Collections", and would clip the label. The pill has
+  /// room for all three at natural width.
+  /// The icon opens out beside the words, which never move off or get cut, and the tab widens as it does. There is no
+  /// FittedBox: label and icon are always the same size, because the pill has the room.
   @override
   Widget build(BuildContext context) {
-    // Sized by its own content, not Flexible: three Flexibles split the pill
-    // into equal thirds, which is smaller than the selected tab needs (icon +
-    // "Collections") and clipped its label. The pill has room for all three
-    // at natural width.
     return Semantics(
       button: true,
       selected: selected,
@@ -1648,9 +1599,6 @@ class _NavItem extends StatelessWidget {
         padding: EdgeInsets.symmetric(
           horizontal: selected ? 12 : (compact ? 10 : 14),
         ),
-        // The icon opens out (and folds away) beside the words, which never move off or get cut: the tab
-        // widens as it does. No FittedBox: the label and icon are always the same size, selected or not - the
-        // pill has the room, so nothing scales down to fit.
         child: TweenAnimationBuilder<double>(
           tween: Tween<double>(end: selected ? 1 : 0),
           duration: const Duration(milliseconds: 240),
@@ -1658,7 +1606,6 @@ class _NavItem extends StatelessWidget {
           builder: (context, open, label) => Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // The whole icon, small and growing in a slot that widens with it (never a sliver of it).
               if (open > 0)
                 SizedBox(
                   width: 25 * open,
@@ -1711,10 +1658,9 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-// Search as its own round button. Inactive it's a plain tonal circle; when
-// Search is the screen showing, it comes alive - fills teal, the magnifier
-// gives a little tilt-and-bounce, and a ring ripples out once from it - so
-// it reads as a switched-on control rather than a shortcut.
+/// Search as its own round button. Inactive it is a plain tonal circle. When Search is the screen showing, it fills
+/// teal, the magnifier tilts and bounces, and a ring ripples out once, so it reads as a switched-on control rather
+/// than a shortcut.
 class _SearchButton extends StatefulWidget {
   const _SearchButton({
     required this.active,
@@ -1737,8 +1683,8 @@ class _SearchButtonState extends State<_SearchButton>
     duration: const Duration(milliseconds: 700),
   );
 
-  // Held, it gives under the finger (squeezes in, and leans and stretches toward the finger); let go, it
-  // springs back past its size and settles, so even a quick tap shows a little bounce.
+  /// Held, it gives under the finger (squeezes in, and leans and stretches toward the finger); let go, it
+  /// springs back past its size and settles, so even a quick tap shows a little bounce.
   late final Ticker _ticker = createTicker(_tick);
   Duration _last = Duration.zero;
   final _press = _Spring(650, 0.4);
@@ -1754,11 +1700,9 @@ class _SearchButtonState extends State<_SearchButton>
     _last = elapsed;
     final held = _pointer != null;
     final press = held ? 1.0 : 0.0;
-    // From the button's centre: eased, so it leans a little and no further however far the finger goes.
     final leanX = held ? _tanh((_finger.dx - _barHeight / 2) / 40) : 0.0;
     final leanY = held ? _tanh((_finger.dy - _barHeight / 2) / 40) : 0.0;
     if (calm(context)) {
-      // Motion off: pressed in while held, back as it was when let go, with no lean or bounce.
       _press.jump(press);
       _leanX.jump(0);
       _leanY.jump(0);
@@ -1780,11 +1724,11 @@ class _SearchButtonState extends State<_SearchButton>
     }
   }
 
+  /// A quick tap is over before the spring gets far, so the press gets a push to start it and the bounce always shows.
   void _down(PointerDownEvent e) {
     if (_pointer != null) return;
     _pointer = e.pointer;
     _finger = e.localPosition;
-    // A quick tap is over before the spring gets far: a push to start it, so the bounce always shows.
     _press.v += 6;
     _wake();
   }
@@ -1801,11 +1745,11 @@ class _SearchButtonState extends State<_SearchButton>
     _wake();
   }
 
+  /// Already on when the app opens, because it launches on Search, so it is shown settled rather than playing the
+  /// ripple on every launch.
   @override
   void initState() {
     super.initState();
-    // Already on when the app opens (it launches on Search) - show it
-    // settled rather than playing the ripple on every launch.
     if (widget.active) _burst.value = 1;
   }
 
@@ -1826,6 +1770,9 @@ class _SearchButtonState extends State<_SearchButton>
     super.dispose();
   }
 
+  /// While the bolt button's liquid runs into this button it draws this circle itself (see ActionFab). The circle,
+  /// frost, border and icon fade out meanwhile and back in when it lets go, and the press is held still so the two
+  /// stay lined up. The tilt overshoots and settles.
   @override
   Widget build(BuildContext context) {
     return Semantics(
@@ -1840,23 +1787,17 @@ class _SearchButtonState extends State<_SearchButton>
         child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
-        // While the bolt button's liquid runs into this button it draws this circle itself (see ActionFab).
         child: ValueListenableBuilder<double>(
           valueListenable: ActionFab.ownsSearch,
           builder: (context, level, _) => AnimatedBuilder(
           animation: _burst,
           builder: (context, _) {
-            // Fades out (circle, frost, border and icon alike) while the bolt button's liquid draws the
-            // circle instead, and back in when it has let go.
             final fade = 1 - level;
             final t = _burst.value;
-            // Overshoots and settles: a tilt that swings past and back.
             final tilt = widget.active
                 ? math.sin(t * math.pi * 2) * 0.35 * (1 - t)
                 : 0.0;
             final pop = widget.active ? 1 + 0.18 * math.sin(t * math.pi) : 1.0;
-            // Pressed in (and out past its size as it springs back), stretched toward the finger. Held still
-            // while the bolt button's liquid draws it, so the two stay lined up.
             final give = 1 - 0.12 * _press.x * fade;
             final lx = _leanX.x * fade;
             final ly = _leanY.x * fade;
@@ -1944,8 +1885,8 @@ class _SearchButtonState extends State<_SearchButton>
   }
 }
 
-// A quiet pulse rather than a static badge - it needs to read as "something
-// ongoing", not "something needs your attention".
+/// A quiet pulse rather than a static badge. It reads as something ongoing, not something that needs your attention.
+/// With motion off it stays lit.
 class _ActivityDot extends StatefulWidget {
   const _ActivityDot({required this.color});
 
@@ -1971,7 +1912,6 @@ class _ActivityDotState extends State<_ActivityDot>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // With motion off it stays lit instead of pulsing.
     if (calm(context)) {
       _controller
         ..stop()

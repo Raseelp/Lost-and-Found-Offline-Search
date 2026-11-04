@@ -6,9 +6,8 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/widget/permission_prompt.dart';
 import 'package:lost_and_found/utils/app_toast.dart';
 
-// Shared by both viewers - the action list itself differs (wallpaper/
-// clipboard only make sense for a still image), everything else about the
-// sheet is identical.
+/// Shared by both viewers. The action list differs (wallpaper and clipboard only make sense for a still image), and
+/// everything else about the sheet is identical.
 void showMediaActionsSheet(
   BuildContext context, {
   required String uri,
@@ -38,9 +37,8 @@ class _MediaActionsSheet extends StatelessWidget {
   final String uri;
   final bool isVideo;
   final NativeController controller;
-  // The screen behind the sheet, not the sheet's own builder context - the
-  // sheet is popped before its action finishes, so its own context is gone
-  // by the time there's a result to report.
+  /// The screen behind the sheet, not the sheet's own builder context. The sheet is popped before its action finishes,
+  /// so its own context is gone by the time there is a result to report.
   final BuildContext feedbackContext;
 
   void _showFeedback(String message) => AppToast.show(message);

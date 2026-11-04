@@ -8,9 +8,9 @@ import 'package:lost_and_found/view/tour/tour_person_tile.dart';
 import 'package:lost_and_found/view/tour/tour_screen.dart';
 import 'package:lost_and_found/view/tour/tour_widgets.dart';
 
-/// Page 3: more than search. People (as the People tab shows them), what happens when a photo is opened and a face
-/// tapped, and "Then and now", on sample data. It plays by itself and
-/// nothing on it can be touched.
+/// Page 3 of the tour: more than search. It shows People as the People tab shows them, what happens when a photo is
+/// opened and a face tapped, and "Then and now", all on sample data. It plays by itself and nothing on it can be
+/// touched.
 class PeoplePage extends StatelessWidget {
   const PeoplePage({super.key, required this.scope});
 
@@ -65,8 +65,6 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-// ----------------------------------------------------------------------------------- people
-
 /// Three people as the People tab shows them (stacks of their faces with the name and number of photos), and a
 /// fourth tile for everyone else.
 class _PeopleStacks extends StatelessWidget {
@@ -74,10 +72,10 @@ class _PeopleStacks extends StatelessWidget {
 
   final bool active;
 
+  /// Messi has two clear faces, so the third card behind is blank, as in the app.
   static const _people = [
     ('Maya', 248, ['maya', 'maya_2', 'maya_3'], -3.0),
     ('Sam', 131, ['sam', 'sam_2', 'sam_3'], 3.0),
-    // Two clear faces so far: the third card behind is blank, as in the app.
     ('Messi', 7, ['messi', 'messi_2'], -2.2),
   ];
 
@@ -98,7 +96,6 @@ class _PeopleStacks extends StatelessWidget {
               active: active,
             ),
           ),
-        // The rest of the people the app has found: more than fit in the row.
         Expanded(
           child: TourPersonTile(
             name: 'More',
@@ -116,9 +113,8 @@ class _PeopleStacks extends StatelessWidget {
   }
 }
 
-// -------------------------------------------------------------------------------- then and now
-
-/// The same person in two photos, years apart, with the divider sweeping back and forth by itself.
+/// The same person in two photos, years apart, with the divider sweeping back and forth by itself between 0.2 and 0.8
+/// of the width.
 class _ThenNowCard extends StatefulWidget {
   const _ThenNowCard({required this.active});
 
@@ -135,7 +131,7 @@ class _ThenNowCardState extends State<_ThenNowCard>
     duration: const Duration(milliseconds: 3200),
   );
 
-  // With animations turned off on the phone the divider rests in the middle.
+  /// True when animations are turned off on the phone. The divider then rests in the middle.
   bool _still = false;
 
   @override
@@ -189,7 +185,6 @@ class _ThenNowCardState extends State<_ThenNowCard>
                   AnimatedBuilder(
                     animation: _sweep,
                     builder: (context, _) {
-                      // The divider travels between 0.2 and 0.8 of the width.
                       final s =
                           0.2 + 0.6 * Curves.easeInOut.transform(_sweep.value);
                       return Stack(

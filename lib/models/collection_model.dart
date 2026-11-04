@@ -2,10 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
-// A named, live, on-device smart search - see collections_plan.md. The
-// display name and the query are independent: search "dog", call it
-// "Mittu". Only the definition is stored; membership is re-evaluated from
-// the embedding index every time, so new scans show up automatically.
+/// A named, live, on-device smart search.
+///
+/// The name and the query are independent: search "dog", call it "Mittu". Only the definition is stored. Members are
+/// worked out from the embedding index every time, so new scans show up on their own.
 class SmartCollection {
   const SmartCollection({
     required this.id,
@@ -28,57 +28,51 @@ class SmartCollection {
   static const String kindText = 'text';
   static const String kindPhotos = 'photos';
 
-  /// Standard deviations above a query's library-wide mean score an item
-  /// must reach to count as a member - see EmbeddingEngine's "Collections"
-  /// section. Per-collection tunable.
+  /// Standard deviations above a query's library-wide mean score that an item must reach to count as a member.
+  /// It can be set for each collection.
   static const double defaultSensitivity = 3.0;
 
   final String id;
   final String name;
-  /// Shown on a card that has no cover photo yet - built-ins each have one,
-  /// a collection you made uses the generic bookmark. Identity otherwise
-  /// comes from the cover photo itself, like Google Photos.
+  /// Shown on a card that has no cover photo yet. Built-ins each have one, and a collection you made uses the generic
+  /// bookmark.
   final IconData icon;
 
-  /// One or more phrasings of the same idea, embedded separately and
-  /// averaged - noticeably more accurate than a single phrase. A
-  /// user-created collection has exactly one (what they typed).
+  /// Phrasings of the same idea, embedded separately and averaged, which is more accurate than a single phrase. A
+  /// collection you made has exactly one.
   final List<String> prompts;
 
-  /// Short phrase used to explain a match ("why this matched") when a
-  /// result is opened from this collection. Defaults to the first prompt.
+  /// Short phrase used to explain a match ("why this matched") when a result is opened from this collection.
+  /// Defaults to the first prompt.
   final String? explainQuery;
 
-  /// 'both' | 'images' | 'videos'
+  /// One of 'both', 'images' or 'videos'.
   final String contentMode;
   final double sensitivity;
   final bool isBuiltIn;
   final int createdAt;
 
-  /// 'text' (a phrase) or 'photos' (found by looking like a photo you saved
-  /// a search from). A photo collection stores that photo's embedding
-  /// itself - it keeps working if the original file is later deleted.
+  /// One of 'text' (a phrase) or 'photos' (found by looking like a photo you saved a search from). A photo collection
+  /// stores that photo's embedding itself, so it keeps working if the original file is deleted.
   final String kind;
   final List<double>? seedEmbedding;
   final String? seedUri;
   final int? seedTimestampMs;
 
-  /// The search model that made [seedEmbedding] (see CollectionsController.modelVersion). A vector from another
-  /// model cannot be compared with the library's, so a photo collection whose seed was made by another one has the
-  /// photo embedded again (null: made before this was recorded, by the OpenAI CLIP model the app used then).
+  /// The search model that made [seedEmbedding], see CollectionsController.modelVersion. A vector from another model
+  /// cannot be compared with the library's, so a photo collection whose seed came from another model has the photo
+  /// embedded again. Null means it was made before this was recorded, by the OpenAI CLIP model the app used then.
   final String? seedModel;
 
-  /// Recognised-person ids mentioned when this collection was made (e.g.
-  /// "@Raseel at the beach") - narrows membership to photos/videos with all
-  /// of them in it, same "together" rule the search box's own @-mention
-  /// uses. Empty for a collection with no person filter at all.
+  /// Ids of the recognised people mentioned when this collection was made, such as "@Raseel at the beach".
+  /// Membership narrows to photos and videos with all of them in it, the same "together" rule as the search box's
+  /// @-mention. Empty when there is no person filter.
   final List<int> personIds;
 
   bool get isPhotos => kind == kindPhotos;
 
-  /// Built-ins that are things you keep rather than moments you look back on (papers, screens,
-  /// tickets, notes, forwards). The Collections tab puts them after the rest and never features
-  /// them on the big card.
+  /// Built-ins that are things you keep rather than moments you look back on: papers, screens, tickets, notes and
+  /// forwards. The Collections tab puts them after the rest and never features them on the big card.
   static const Set<String> everydayIds = {
     'builtin_documents',
     'builtin_screenshots',
@@ -95,16 +89,16 @@ class SmartCollection {
   /// changes, so a stale one is never reused.
   String get embeddingSignature => prompts.join('|');
 
+  /// [explainQuery] is only needed when [prompts] is given but the short phrase should stay, as when restoring a
+  /// built-in's own override. [seedEmbedding] and [seedModel] are set when a photo collection's photo has been
+  /// embedded again by the current search model.
   SmartCollection copyWith({
     String? name,
     List<String>? prompts,
     String? contentMode,
     double? sensitivity,
-    // Only needed when [prompts] is given but the short phrase should stay
-    // (restoring a built-in's own override).
     String? explainQuery,
     List<int>? personIds,
-    // A photo collection whose photo has been embedded again by the current search model.
     List<double>? seedEmbedding,
     String? seedModel,
   }) {
@@ -176,8 +170,7 @@ class SmartCollection {
   }
 }
 
-/// What the last scoring pass found for one collection - count plus a few
-/// cover items for its card.
+/// What the last scoring pass found for one collection: the count and a few cover items for its card.
 class CollectionStats {
   const CollectionStats({required this.count, required this.covers});
 
@@ -205,8 +198,8 @@ class CollectionCover {
   }
 }
 
-/// What a collection that is still being made would hold (see CollectionsController.previewCollection): how many
-/// items, the best few, and the people in them with how many of the items each is in, most first.
+/// What a collection that is still being made would hold, see CollectionsController.previewCollection. It has how
+/// many items, the best few, and the people in them with how many of the items each is in, most first.
 class CollectionPreview {
   const CollectionPreview({required this.count, required this.items, required this.people});
 

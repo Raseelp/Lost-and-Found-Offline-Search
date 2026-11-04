@@ -50,16 +50,15 @@ class ScanNotificationTest {
         assertNull(ScanNotification.speed(null, "photo", "photos"))
     }
 
+    /** The rate slows down as samples leave the window, and a count lower than the last one resets it. */
     @Test
     fun rateIsOverTheLastFewSecondsAndStartsOverOnANewRun() {
         val rate = ScanNotification.Rate(windowMs = 10_000)
         assertNull(rate.add(0, 0))
         assertNull(rate.add(500, 5))
         assertEquals(10.0, rate.add(2_000, 20)!!, 0.001)
-        // Slower now: the old samples drop out of the window.
         rate.add(12_000, 40)
         assertEquals(2.0, rate.add(22_000, 60)!!, 0.001)
-        // A lower count is a new batch.
         assertNull(rate.add(23_000, 3))
     }
 

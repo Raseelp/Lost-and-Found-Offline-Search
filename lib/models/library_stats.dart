@@ -1,12 +1,11 @@
-/// Everything the Library tab's stat tiles show - one round trip
-/// (NativeServices.getLibraryStats) instead of separate calls per number.
+/// Everything the Library tab's stat tiles show, read in one round trip by [NativeServices.getLibraryStats].
 class LibraryStats {
   final int totalEmbeddings;
   final int images;
   final int videos;
   final int sizeBytes;
 
-  /// The search model that made an index the app had to drop because it now uses another one (0: none was).
+  /// The search model whose index was dropped because the app uses another model, or 0 when none was dropped.
   final int modelResetFrom;
 
   const LibraryStats({

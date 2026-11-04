@@ -19,14 +19,12 @@ enum AppPermission {
   storage,
 }
 
-/// Asks for [what] the one way every part of the app does. Returns whether it is allowed now.
+/// Asks for [what] the one way every part of the app does. Returns whether it is allowed.
 ///
-/// Allowed already: true at once. Android has stopped asking (it was turned down twice, or "Don't ask again"): no
-/// system prompt can show, so a dialog says what is off and how to turn it on in App info, and opens App info. Turned
-/// down in the system prompt just now: a short message says what it is needed for, so nothing closes without a word.
-///
-/// [only] narrows [AppPermission.media] to photos or videos; [purpose] finishes "... so Lost & Found can't ..." in the
-/// dialog and the message (for notifications, which several things use).
+/// When Android has stopped asking, a dialog says what is off and opens App info. When it was turned down in the
+/// system prompt, a short message says what it is needed for. [only] narrows [AppPermission.media] to photos or
+/// videos, and [purpose] finishes "... so Lost & Found can't ...". Storage only matters before Android 10, and an
+/// unknown version (0) is let through, because asking on a newer phone is always refused and would stop every save.
 Future<bool> askPermission(
   AppPermission what, {
   List<Permission>? only,
@@ -34,8 +32,6 @@ Future<bool> askPermission(
 }) async {
   if (!Platform.isAndroid) return true;
   final sdk = await NativeServices().androidSdk();
-  // Storage only matters before Android 10; from then on saving a copy needs no permission. An unknown version (0) is
-  // let through too: asking for storage on a newer phone is always refused, which would stop every save.
   if (what == AppPermission.storage && (sdk == 0 || sdk >= 29)) return true;
   final permissions = only ?? _permissionsFor(what);
   if (permissions.isEmpty) return true;
@@ -52,7 +48,7 @@ Future<bool> askPermission(
   return false;
 }
 
-// "Limited" (a few chosen photos) is allowed: the app indexes what it may see.
+/// Limited access (a few chosen photos) counts as allowed, because the app indexes what it may see.
 bool _allowed(PermissionStatus s) => s.isGranted || s.isLimited;
 
 List<Permission> _permissionsFor(AppPermission what) => switch (what) {
@@ -61,7 +57,7 @@ List<Permission> _permissionsFor(AppPermission what) => switch (what) {
   AppPermission.storage => [Permission.storage],
 };
 
-// What it is needed for, by default.
+/// [purpose] when given, else the usual purpose of [what].
 String _purposeOf(AppPermission what, String? purpose) =>
     purpose ??
     switch (what) {

@@ -22,9 +22,10 @@ class ExportItem {
   final int size;
 }
 
-/// A collection, a person, or the "On this day" memories that can go in a zip. Its items and sizes are looked up once it is
-/// ticked (a collection's members and a person's photos are asked for in full, not just the
-/// first screenful).
+/// A collection, a person, or the "On this day" memories that can go in a zip.
+///
+/// Its items and sizes are looked up once it is ticked. A collection's members and a person's photos are asked for in
+/// full, not just the first screenful.
 class ExportAlbum {
   ExportAlbum({
     required this.key,
@@ -53,7 +54,7 @@ class ExportAlbum {
   bool loaded = false;
   bool loading = false;
 
-  // Kept up to date by [items], so a screen full of albums does not count them again each frame.
+  /// Kept up to date by the setter of [items], so a screen full of albums does not count them again each frame.
   int images = 0, videos = 0, unreadable = 0, bytes = 0;
 
   List<ExportItem> get items => _items;
@@ -80,8 +81,8 @@ class ExportAlbum {
   }
 }
 
-/// One folder of the zip (an album's Images or its Videos), as the progress screen shows it
-/// filling: what it holds, and the part of the whole run it takes up on screen.
+/// One folder of the zip (an album's Images or its Videos), as the progress screen shows it filling. It holds what the
+/// folder contains and the part of the whole run it takes up on screen.
 class ZipFolderPlan {
   ZipFolderPlan({
     required this.albumKey,
@@ -99,7 +100,7 @@ class ZipFolderPlan {
   int get count => items.length;
   late final int bytes = items.fold(0, (sum, i) => sum + i.size);
 
-  /// Where this folder starts and ends on the run's 0..1 line. Not exactly by size: a small
+  /// Where this folder starts and ends on the run's line from 0 to 1. It is not exactly by size, because a small
   /// folder still gets time on screen (see [ExportController.folders]).
   double start = 0, end = 0;
 
@@ -112,13 +113,13 @@ class ZipFolderPlan {
   }();
 }
 
-/// Picks albums, estimates what a zip of them would be, and makes it (the work itself is done
-/// natively as background work; this asks how it is getting on).
+/// Picks albums, estimates what a zip of them would be, and makes it. The work itself is done natively as background
+/// work, and this asks how it is getting on.
 class ExportController extends GetxController {
   static const int mb = 1024 * 1024;
   static const int gb = 1024 * mb;
 
-  /// How big one zip file may be, for the presets of the splitting control. 0: one file.
+  /// How big one zip file may be, for the presets of the splitting control. 0 means one file.
   static const List<int> presets = [0, 4 * gb, 2 * gb, 1 * gb, 512 * mb];
 
   /// A zip smaller than this is not worth splitting: the splitting controls are not shown.
@@ -144,7 +145,7 @@ class ExportController extends GetxController {
   bool includeList = true;
   int partLimit = 0;
 
-  /// A folder the user chose to save in; null means Downloads (in a folder called Lost & Found).
+  /// A folder the user chose to save in. Null means Downloads, in a folder called Lost & Found.
   String? folderUri;
   String? folderLabel;
   int freeBytes = -1;
@@ -152,17 +153,17 @@ class ExportController extends GetxController {
 
   ZipExportStatus status = ZipExportStatus.fromMap(const {});
 
-  // The id of the last export whose end the user has seen and dismissed.
+  /// The id of the last export whose end the user has seen and dismissed.
   int _seenId = -1;
   bool starting = false;
   Timer? _poll;
 
-  /// Where the zip that was made last was saved: the name of the folder the user chose, or null
-  /// for Downloads. Kept apart from [folderUri], which is chosen afresh each time the screen opens.
+  /// Where the zip that was made last was saved: the name of the folder the user chose, or null for Downloads. Kept
+  /// apart from [folderUri], which is chosen afresh each time the screen opens.
   String? savedLabel;
 
-  /// While the progress screen is playing (it plays out its whole course, even for a zip that
-  /// was made almost at once, before it moves on to the result).
+  /// True while the progress screen is playing. It plays out its whole course, even for a zip that was made almost at
+  /// once, before it moves on to the result.
   bool playing = false;
 
   /// The folders of the zip being made, in the order they are filled, and their thumbnails.
@@ -170,10 +171,8 @@ class ExportController extends GetxController {
   final Map<String, Uint8List> thumbs = {};
   bool _loading = false;
 
-  // The screen has gone: albums still being looked up are given up on.
+  /// True once the screen has gone. Albums still being looked up are given up on.
   bool _closed = false;
-
-  // ---- albums ----
 
   static String _defaultName() {
     final now = DateTime.now();
@@ -181,20 +180,19 @@ class ExportController extends GetxController {
     return 'Lost & Found export ${now.year}-${two(now.month)}-${two(now.day)}';
   }
 
-  // An export that is going on, or that ended while the app was away and has not been seen yet,
-  // is what the screen shows; an old one that was seen is forgotten.
+  /// The screen shows an export that is going on, or that ended while the app was away and has not been seen yet. An
+  /// old one that was seen is forgotten. One that is still going is played, and one that ended while the screen was
+  /// away is not played again, its result is shown.
   void _forgetSeen() {
     if (!status.running && (status.phase == 'idle' || status.id == _seenId)) {
       status = ZipExportStatus.fromMap(const {});
     }
-    // One that is still going is played; one that ended while the screen was away is not
-    // played again, its result is shown.
     playing = status.running;
   }
 
-  /// Lists what can be exported, with [select] (keys) ticked to begin with. Called as the
-  /// screen is made, so its first frame already shows this time's albums and not the last
-  /// time's; [open] then asks about the rest.
+  /// Lists what can be exported, with the keys in [select] ticked to begin with. It is called as the screen is made,
+  /// so its first frame already shows this time's albums and not the last time's. [open] then asks about the rest.
+  /// Only what is really listed can be ticked, so an empty collection is not.
   void prepare({Set<String> select = const {}}) {
     _forgetSeen();
 
@@ -236,7 +234,6 @@ class ExportController extends GetxController {
               person: p,
             ),
     ];
-    // Only what is really listed can be ticked (an empty collection, say, is not).
     final listed = {for (final a in allAlbums) a.key};
     selected
       ..clear()
@@ -272,8 +269,8 @@ class ExportController extends GetxController {
     unawaited(_pump());
   }
 
-  /// The screen has gone: stops looking albums up. An end that was on screen has been seen, and
-  /// is not shown again next time.
+  /// Called when the screen has gone. Stops looking albums up. An end that was on screen has been seen and is not
+  /// shown again next time.
   void closeScreen() {
     _closed = true;
     if (!status.running && !playing && status.phase != 'idle') {
@@ -281,7 +278,7 @@ class ExportController extends GetxController {
     }
   }
 
-  /// Key of the album of [collection] / [person], for [open]'s [select].
+  /// The keys of albums, for the [select] argument of [prepare]. This one is the key of the "On this day" memories.
   static const String memoryKey = 'm:today';
   static String collectionKey(String id) => 'c:$id';
   static String personKey(int id) => 'p:$id';
@@ -303,13 +300,12 @@ class ExportController extends GetxController {
       if (_matches(a)) a,
   ];
 
-  /// Every album of [shown] (the collections, or the people, that the search lets through) is
-  /// ticked.
+  /// Whether every album of [shown], the collections or the people that the search lets through, is ticked.
   bool allChosen(List<ExportAlbum> shown) =>
       shown.isNotEmpty && shown.every((a) => selected.contains(a.key));
 
-  /// Ticks all of [shown], or, when they all are ticked already, unticks them. Albums that the
-  /// search hides are left as they were.
+  /// Ticks all of [shown], or unticks them when they all are ticked already. Albums that the search hides are left as
+  /// they were.
   void toggleAll(List<ExportAlbum> shown) {
     if (shown.isEmpty) return;
     if (allChosen(shown)) {
@@ -326,10 +322,10 @@ class ExportController extends GetxController {
     unawaited(_pump());
   }
 
+  /// Sets the search text. What is listed by it is looked up first.
   void setQuery(String value) {
     query = value;
     update();
-    // What is now listed is looked up first.
     unawaited(_pump());
   }
 
@@ -370,8 +366,8 @@ class ExportController extends GetxController {
   /// Whether the zip is big enough to be split at all.
   bool get canSplit => !loadingAny && totalBytes >= splitMin;
 
-  /// The presets that make sense for this zip: the ones smaller than the zip itself (a part
-  /// size the whole zip already fits in would change nothing).
+  /// The presets that make sense for this zip: the ones smaller than the zip itself. A part size the whole zip already
+  /// fits in would change nothing.
   List<int> get applicablePresets => [
     for (final p in presets)
       if (p > 0 && p < totalBytes) p,
@@ -381,12 +377,10 @@ class ExportController extends GetxController {
   int get activeLimit =>
       canSplit && partLimit > 0 && partLimit < totalBytes ? partLimit : 0;
 
-  // ---- looking the albums up ----
-
   bool get loadingAny => selectedAlbums.any((a) => a.loading || !a.loaded);
 
-  // Every album gets looked up in the background, so its size shows without being ticked:
-  // the ticked ones first, then the ones the search lists, then the rest in order.
+  /// The next album to look up. Every album gets looked up in the background, so its size shows without being ticked.
+  /// The ticked ones come first, then the ones the search lists, then the rest in order.
   ExportAlbum? _nextToLoad() {
     ExportAlbum? best;
     var bestRank = 3;
@@ -417,10 +411,11 @@ class ExportController extends GetxController {
     }
   }
 
-  // Looking albums up changes the numbers many times a second; the screen is told at most this
-  // often, so a big library does not make it rebuild over and over.
+  /// Set while an update is waiting.
   Timer? _soon;
 
+  /// Tells the screen at most every 150 milliseconds. Looking albums up changes the numbers many times a second, and
+  /// a big library would make the screen rebuild over and over.
   void _updateSoon() {
     _soon ??= Timer(const Duration(milliseconds: 150), () {
       _soon = null;
@@ -428,6 +423,11 @@ class ExportController extends GetxController {
     });
   }
 
+  /// Looks up the items of [album] and their sizes, 300 at a time so the numbers tick up as the sizes come in.
+  ///
+  /// A memories album takes every photo and video of the date in each year shown, not only the few the screen picks.
+  /// Each photo counts once, and a video that is several moments is one video. When the screen has gone the album is
+  /// given up on and looked up again next time.
   Future<void> _loadAlbum(ExportAlbum album) async {
     album.loading = true;
     _updateSoon();
@@ -436,7 +436,6 @@ class ExportController extends GetxController {
       if (album.person != null) {
         raw = await NativeServices().personPhotos(album.person!.id);
       } else if (album.memory != null) {
-        // Every photo and video of the date in each year shown (not only the few the screen picks).
         final today = album.memory!;
         raw = [];
         for (final year in today.years) {
@@ -455,7 +454,6 @@ class ExportController extends GetxController {
           album.collection!,
         );
       }
-      // Each photo once (a video that is several moments is one video).
       final seen = <String>{};
       final entries = <({String uri, bool isVideo})>[];
       for (final item in raw) {
@@ -482,12 +480,10 @@ class ExportController extends GetxController {
             ),
           );
         }
-        // The numbers tick up as the sizes come in.
         album.items = List.of(items);
         _updateSoon();
       }
       if (_closed) {
-        // Given up on: looked up again next time.
         album.items = const [];
       } else {
         album.items = items;
@@ -503,18 +499,16 @@ class ExportController extends GetxController {
     }
   }
 
-  // ---- the estimate ----
-
   int get totalImages => selectedAlbums.fold(0, (sum, a) => sum + a.images);
   int get totalVideos => selectedAlbums.fold(0, (sum, a) => sum + a.videos);
   int get totalFiles => totalImages + totalVideos;
   int get unreadable => selectedAlbums.fold(0, (sum, a) => sum + a.unreadable);
 
-  /// Bytes of the files going in (a photo in two chosen albums is in the zip twice).
+  /// Bytes of the files going in. A photo in two chosen albums is in the zip twice.
   int get totalBytes => selectedAlbums.fold(0, (sum, a) => sum + a.bytes);
 
-  // What is worked out from every file of the chosen albums is kept until the albums, what is
-  // in them, or the part size change: a screen rebuilds often, a big library takes a while.
+  /// What is worked out from every file of the chosen albums is kept until the albums, what is in them, or the part
+  /// size change. A screen rebuilds often and a big library takes a while.
   List<List<ExportItem>> _memoLists = const [];
   int _memoLimit = -1;
   List<int> _memoParts = const [];
@@ -571,8 +565,8 @@ class ExportController extends GetxController {
     _memoRepeatedFiles = files;
   }
 
-  /// How the files would be cut into zips of at most [activeLimit] bytes: the size of each (the
-  /// same way the native side cuts them: album by album, images before videos, no file split).
+  /// The size of each zip the files would be cut into, with at most [activeLimit] bytes each. It cuts the same way the
+  /// native side does, album by album with images before videos, and never splits a file.
   List<int> get partSizes {
     _derive();
     return _memoParts;
@@ -602,7 +596,7 @@ class ExportController extends GetxController {
     return sizes;
   }
 
-  /// The names the zip files will have (the same way the native side names them).
+  /// The names the zip files will have, made the same way the native side names them.
   List<String> zipFileNames(int count) {
     var base = (zipName.trim().isEmpty ? _defaultName() : zipName.trim())
         .replaceAll(RegExp(r'[\\/:*?"<>|\u0000-\u001f]'), '_')
@@ -618,8 +612,6 @@ class ExportController extends GetxController {
   bool get tooBigForDownloads =>
       folderUri == null && freeBytes >= 0 && totalBytes > freeBytes * 0.98;
 
-  // ---- where it goes ----
-
   Future<void> pickFolder() async {
     final uri = await NativeServices().pickExportFolder();
     if (uri == null) return;
@@ -634,7 +626,7 @@ class ExportController extends GetxController {
     update();
   }
 
-  // The last part of a tree uri's path, as a name for the folder.
+  /// The last part of a tree uri's path, as a name for the folder.
   static String _labelOf(String uri) {
     try {
       final decoded = Uri.decodeComponent(uri);
@@ -651,8 +643,6 @@ class ExportController extends GetxController {
     }
   }
 
-  // ---- making it ----
-
   bool get needsFolder => folderUri == null && !downloadsAvailable;
 
   bool get canStart =>
@@ -663,6 +653,8 @@ class ExportController extends GetxController {
       totalFiles > 0 &&
       !needsFolder;
 
+  /// Starts the export. When it could not be started and nothing is going on to show, the status says so, rather than
+  /// leaving the button doing nothing.
   Future<void> start() async {
     if (!canStart) return;
     starting = true;
@@ -708,7 +700,6 @@ class ExportController extends GetxController {
     }
     await refreshStatus();
     if (!started && !status.running) {
-      // Nothing is going on to show: say so, rather than leaving the button doing nothing.
       status = ZipExportStatus.fromMap(const {
         'id': -2,
         'phase': 'failed',
@@ -718,16 +709,16 @@ class ExportController extends GetxController {
     }
   }
 
-  /// The progress screen has played out: on to the result.
+  /// Called when the progress screen has played out. The result follows.
   void finishPlayback() {
     if (!playing) return;
     playing = false;
     update();
   }
 
-  // The folders in the order the zip is filled (album by album, images then videos), each with
-  // a share of the 0..1 line: mostly by size and by number of files, but never less than 3%, so
-  // a small folder is still seen filling when the whole thing is over in a moment.
+  /// The folders in the order the zip is filled, album by album with images then videos. Each gets a share of the line
+  /// from 0 to 1, mostly by size and by number of files but never less than 3 percent, so a small folder is still seen
+  /// filling when the whole thing is over in a moment.
   List<ZipFolderPlan> _planFolders() {
     final plans = <ZipFolderPlan>[];
     for (final album in selectedAlbums) {
@@ -765,7 +756,8 @@ class ExportController extends GetxController {
     return plans;
   }
 
-  // A few real thumbnails of each folder's files, ready for the progress screen.
+  /// Loads a few real thumbnails of each folder's files, ready for the progress screen. A missing thumbnail is just a
+  /// plain tile.
   Future<void> _prefetchThumbs() async {
     final wanted = [for (final folder in folders) ...folder.sample];
     var next = 0;
@@ -780,7 +772,7 @@ class ExportController extends GetxController {
             size: 160,
           );
         } catch (_) {
-          // A missing thumbnail is just a plain tile.
+          // The thumbnail is optional.
         }
       }
     }
@@ -793,7 +785,7 @@ class ExportController extends GetxController {
     await refreshStatus();
   }
 
-  /// Back to choosing albums after an export has ended.
+  /// Goes back to choosing albums after an export has ended.
   void another() {
     _seenId = status.id;
     status = ZipExportStatus.fromMap(const {});
@@ -807,15 +799,15 @@ class ExportController extends GetxController {
     update();
   }
 
+  /// Reads the status of the export from the native side. An end the user has already dismissed does not come back.
   Future<void> refreshStatus() async {
     try {
       final fresh = await NativeServices().zipExportStatus();
-      // An end the user has already dismissed does not come back.
       status = !fresh.running && fresh.id == _seenId
           ? ZipExportStatus.fromMap(const {})
           : fresh;
     } catch (_) {
-      // Keeps what it knew.
+      // The status stays as it was.
     }
     if (status.running) _watch();
     update();

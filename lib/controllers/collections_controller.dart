@@ -13,19 +13,15 @@ import 'package:lost_and_found/models/default_collections.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/tokanizer/clip_tokenizer.dart';
 
-// Owns everything about collections (see collections_plan.md): the list the
-// Collections tab and the Search tab's chip row show, each one's count/cover
-// from the last scoring pass, and the one collection currently open.
-//
-// Every collection - built-in or the user's own - can be edited, hidden or
-// deleted. Built-ins live in code, so for them those are stored as small
-// overrides (see IndexedFolderDbHelper's collections section): "deleted"
-// just means off the list until restored from Settings.
+/// Owns the collections: the list the Collections tab and the Search tab chip row show, each one's count
+/// and cover from the last scoring pass, and the open collection.
+///
+/// Every collection can be edited, hidden or deleted. Built-ins live in code, so for them these are stored as
+/// small overrides (see the collections section of [IndexedFolderDbHelper]). Deleting a built-in only takes it
+/// off the list until Settings restores it.
 class CollectionsController extends GetxController {
-  // Cached query embeddings are only valid for the model that produced
-  // them - bump this if the search model is ever swapped (or how a text or a
-  // photo is prepared for it changes). A photo collection's own seed vector
-  // is checked against it too.
+  /// Version of the search model that the cached query embeddings and photo seed vectors belong to.
+  /// Change it when the search model changes, or when a text or a photo is prepared for it differently.
   static const modelVersion = 'mobileclip-s0-apple-2024-v1';
   static const _modelVersion = modelVersion;
   static const _embeddingsKey = 'collection_embeddings';
@@ -35,8 +31,7 @@ class CollectionsController extends GetxController {
   static const int _stateHidden = 1;
   static const int _stateDeleted = 2;
 
-  // A freshly saved collection's card shows its "finding matches" animation
-  // for at least this long, so a quick sync doesn't flash past unseen.
+  /// The least time a saved collection's card shows its matching animation, so a quick sync does not flash past.
   static const _minSyncDisplay = Duration(milliseconds: 1100);
 
   final _db = IndexedFolderDbHelper.instance;
@@ -52,18 +47,17 @@ class CollectionsController extends GetxController {
   List<SmartCollection> hiddenCollections = [];
   int deletedBuiltInCount = 0;
 
-  /// True if any built-in has been edited, hidden or deleted - i.e. there's
-  /// something for "Restore default collections" to undo.
+  /// True if any built-in was edited, hidden or deleted, so that Restore default collections has something to undo.
   bool get hasCustomizedBuiltIns =>
       _edited.isNotEmpty ||
       deletedBuiltInCount > 0 ||
       _builtIns.any((c) => _stateOf(c.id) == _stateHidden);
 
   final Map<String, CollectionStats> stats = {};
-  // Card covers, keyed by CollectionCover.cacheKey.
+  /// Card covers by [CollectionCover.cacheKey].
   final Map<String, Uint8List> coverBytes = {};
-  // How large (long side, px) each of them was loaded: a tile asks for the size it needs, and a cover that was
-  // loaded smaller (for a small tile, or a chip) is loaded again bigger for a big tile.
+  /// The long side in px that each cover in [coverBytes] was loaded at. A cover loaded smaller is loaded again
+  /// for a bigger tile.
   final Map<String, int> _coverSize = {};
   final Map<String, Future<Uint8List?>> _coverLoads = {};
   bool isScoring = false;
@@ -71,26 +65,23 @@ class CollectionsController extends GetxController {
   bool _refreshAgain = false;
   bool get hasScored => _statsLoadedOnce;
 
-  // Collections being (re)computed right now - their cards show the
-  // "finding matches" animation.
+  /// Ids of the collections being computed, whose cards show the matching animation.
   final Set<String> syncing = {};
 
-  // Progress of the one-time (or resync) work of embedding every collection's
-  // prompts - the slow part of the first scoring pass. 0 total means nothing
-  // needed embedding, just the (fast) scoring itself.
+  /// Progress of embedding every collection's prompts, the slow part of the first scoring pass.
+  /// [setupTotal] is 0 when nothing needed embedding.
   int setupDone = 0;
   int setupTotal = 0;
 
-  // query embeddings: id -> {sig, emb}
+  /// Query embeddings by collection id. Each entry holds the signature (sig) and the vector (emb).
   final Map<String, Map<String, dynamic>> _embeddingCache = {};
 
-  // The collection currently open.
   SmartCollection? active;
   List<Map<String, dynamic>> members = [];
   final Map<String, Uint8List> memberThumbs = {};
   bool isLoadingMembers = false;
-  // Members are known but their thumbnails are still arriving - tiles show a
-  // loading placeholder instead of an error icon until this clears.
+  /// True while the members are known but their thumbnails are still arriving, so tiles show a placeholder
+  /// rather than an error icon.
   bool isLoadingThumbs = false;
   int _openToken = 0;
 
@@ -106,11 +97,8 @@ class CollectionsController extends GetxController {
 
   bool isEdited(String id) => _edited.contains(id);
 
-  // ---- Cover ----
-
-  // A collection's cover isn't always its single best match: it rotates
-  // through its top few, changing once a day (staggered per collection so
-  // they don't all flip together). Stable within a day, fresh on return.
+  /// The cover shown for a collection. It rotates through the top few matches once a day, offset per collection so
+  /// that they do not all change together.
   CollectionCover? selectedCover(String id) {
     final covers = statsFor(id).covers;
     if (covers.isEmpty) return null;
@@ -138,7 +126,7 @@ class CollectionsController extends GetxController {
   /// Whether any photo on the stack came in with the latest scan.
   bool hasNewCover(String id, bool Function(String uri) isNew) => stackCovers(id).any((c) => isNew(c.uri));
 
-  // Built-ins with no matches are tucked away at the end of the tab; this opens that group.
+  /// Whether the built-ins with no matches, tucked away at the end of the tab, are shown.
   bool showEmpty = false;
 
   void toggleShowEmpty() {
@@ -146,8 +134,7 @@ class CollectionsController extends GetxController {
     update();
   }
 
-  // Larger pictures for the featured card at the top of the Collections tab, by the cover's
-  // cache key (a collection's cover changes with the day and with the index).
+  /// Larger pictures for the featured card, by the cover's cache key. A cover changes with the day and with the index.
   final Map<String, Uint8List> _heroBytes = {};
 
   Uint8List? heroBytesFor(String id) {
@@ -155,10 +142,9 @@ class CollectionsController extends GetxController {
     return cover == null ? null : (_heroBytes[cover.cacheKey] ?? coverBytes[cover.cacheKey]);
   }
 
-  /// The collections that take turns on the featured card: those with something in them and a
-  /// cover (known from the scores, not from the picture having arrived, so the set does not
-  /// shuffle while pictures come in), the ones that just got new photos first, then others. A different order each day
-  /// (the same all day, so it does not jump about on every visit).
+  /// The collections that take turns on the featured card. They have something in them and a cover, known from the
+  /// scores and not from the picture having arrived, so the set does not shuffle while pictures come in. Those with
+  /// new photos come first. The order differs each day and is the same all day.
   List<SmartCollection> heroCandidates({required bool Function(String uri) isNew, int max = 5}) {
     final pool = [
       for (final c in visible)
@@ -210,8 +196,7 @@ class CollectionsController extends GetxController {
     }
   }
 
-  // Pictures arrive one by one (dozens of them): the tab is told about them a few times a
-  // second, not once per picture.
+  /// Pictures arrive one by one, so the tab is told about them a few times a second and not once per picture.
   Timer? _notifyTimer;
 
   void _updateSoon() {
@@ -226,8 +211,6 @@ class CollectionsController extends GetxController {
     _notifyTimer?.cancel();
     super.onClose();
   }
-
-  // ---- Loading ----
 
   Future<void> load() async {
     await _reload(refresh: false);
@@ -246,6 +229,9 @@ class CollectionsController extends GetxController {
     if (refresh) unawaited(refreshStats());
   }
 
+  /// Builds the built-ins and the user's collections from the stored rows. A built-in whose row keeps its prompts
+  /// (a rename or a sensitivity change) keeps its short [SmartCollection.explainQuery], so that the explanation of a
+  /// match and the edit sheet do not change to the first long prompt.
   void _applyRows(List<Map<String, Object?>> rows) {
     final rowsById = {for (final r in rows) r['id'] as String: r};
     _state.clear();
@@ -269,15 +255,11 @@ class CollectionsController extends GetxController {
           _state[d.id] = r == null ? _stateVisible : (r['hidden'] as int? ?? _stateVisible);
           if (r == null) return d;
           final prompts = (jsonDecode(r['prompts'] as String? ?? '[]') as List).cast<String>();
-          if (prompts.isEmpty) return d; // just a hidden/deleted marker
+          if (prompts.isEmpty) return d;
           _edited.add(d.id);
           return d.copyWith(
             name: r['name'] as String?,
             prompts: prompts,
-            // A rename or sensitivity tweak stores the ensemble unchanged - keep
-            // its short phrase ("pet") instead of falling back to the first
-            // long prompt, which would change what "why this matched" and the
-            // edit sheet show.
             explainQuery: listEquals(prompts, d.prompts) ? d.explainQuery : null,
             contentMode: r['contentMode'] as String?,
             sensitivity: (r['sensitivity'] as num?)?.toDouble(),
@@ -288,7 +270,6 @@ class CollectionsController extends GetxController {
 
   void _rebuildLists() {
     final builtIns = _builtIns.where((c) => _stateOf(c.id) == _stateVisible).toList();
-    // Once counts are known, ones with something in them come first.
     builtIns.sort((a, b) => statsFor(b.id).count.compareTo(statsFor(a.id).count));
     visible = [..._user.where((c) => _stateOf(c.id) == _stateVisible), ...builtIns];
     hiddenCollections = [
@@ -297,8 +278,6 @@ class CollectionsController extends GetxController {
     ];
     deletedBuiltInCount = _builtIns.where((c) => _stateOf(c.id) == _stateDeleted).length;
   }
-
-  // ---- Query embeddings ----
 
   Future<void> _loadEmbeddingCache() async {
     try {
@@ -340,12 +319,11 @@ class CollectionsController extends GetxController {
     return norm == 0 ? v : [for (final x in v) x / norm];
   }
 
-  // Each prompt embedded on its own, normalized, then averaged and
-  // normalized again - averaging several phrasings of the same idea is
-  // noticeably more robust than any single one.
+  /// The embedding of a collection. Each prompt is embedded and normalized on its own, then the vectors are averaged
+  /// and normalized again, because several phrasings of the same idea are more robust than one.
+  ///
+  /// A photo collection returns its own seed vector when the current search model made it.
   Future<List<double>> _embeddingFor(SmartCollection c) async {
-    // A photo-seeded collection carries its own embedding - nothing to encode - as long as the current search
-    // model made it.
     if (c.seedEmbedding != null && c.seedModel == _modelVersion) return c.seedEmbedding!;
     if (c.isPhotos) return _seedAgain(c);
 
@@ -361,7 +339,7 @@ class CollectionsController extends GetxController {
     return result;
   }
 
-  // The prompts' vectors averaged (null when none could be made).
+  /// The prompts' vectors averaged, or null when none could be made.
   Future<List<double>?> _embedPrompts(List<String> prompts) async {
     final tokenizer = await ClipTokenizer.load();
     List<double>? sum;
@@ -373,15 +351,16 @@ class CollectionsController extends GetxController {
     return sum == null ? null : _normalized(sum);
   }
 
-  // ---- Preview (the new-collection sheet) ----
-
-  // The vectors of the words and photos previewed lately, so editing one phrase, or switching photos and videos,
-  // does not run the model again for the rest.
+  /// The vectors of the words and photos previewed lately, so that editing one phrase or switching between photos
+  /// and videos does not run the model again for the rest.
   final Map<String, List<double>> _previewVectors = {};
 
   /// What a collection made of these words (or, with [seedUri], of looking like that photo or video frame) would
-  /// hold now, found the same way a saved collection's members are: how many items, the best few, and the people
-  /// in them. Null when it cannot be worked out (nothing indexed, the search model not ready).
+  /// hold, found the same way a saved collection's members are: how many items, the best few, and the people in
+  /// them. Null when it cannot be worked out (nothing indexed, the search model not ready).
+  ///
+  /// With only people and no words it scores against the generic prompt, as [createCollection] does. When no
+  /// embedding comes out the model is not ready, so nothing is kept and it is tried again next time.
   Future<CollectionPreview?> previewCollection({
     List<String> prompts = const [],
     String? seedUri,
@@ -395,14 +374,12 @@ class CollectionsController extends GetxController {
         for (final p in prompts)
           if (p.trim().isNotEmpty) p.trim(),
       ];
-      // Only people, no words: what a collection made of them scores against (see createCollection).
       if (seedUri == null && words.isEmpty) words.add('a photo');
       final key = seedUri != null ? 'photo|$seedUri@$seedTimestampMs' : 'words|${words.join('|')}';
       final embedding = _previewVectors[key] ??
           (seedUri != null
               ? _normalized(await NativeServices().encodeImage(uri: seedUri, timestampMs: seedTimestampMs))
               : await _embedPrompts(words) ?? const <double>[]);
-      // Nothing came out (the model not ready, say): not kept, so it is tried again next time.
       if (embedding.isEmpty) return null;
       _previewVectors[key] = embedding;
       if (_previewVectors.length > 40) _previewVectors.remove(_previewVectors.keys.first);
@@ -417,7 +394,6 @@ class CollectionsController extends GetxController {
       final scored = await NativeServices().scoreCollections([spec]);
       final count = scored.isEmpty ? 0 : (scored.first['count'] as num? ?? 0).toInt();
       if (count == 0) return const CollectionPreview(count: 0, items: [], people: []);
-      // The best few to show, and enough of the rest to tell who is in them.
       final members = await NativeServices().collectionMembers(spec, limit: 400);
       final items = [for (final m in members.take(shown)) CollectionCover.fromMap(m)];
       List<({int personId, int count})> people = const [];
@@ -436,9 +412,9 @@ class CollectionsController extends GetxController {
     }
   }
 
-  // A photo collection saved with the previous search model: its photo is embedded again with the current one and
-  // kept (so this happens once). If the photo can no longer be read there is nothing to do but leave the collection
-  // empty - the old vector means nothing to the new model.
+  /// Embeds the photo of a photo collection again with the current search model and keeps the result, so this happens
+  /// once. It throws when the photo cannot be read. The collection is then left empty, because the stored vector means
+  /// nothing to the current model.
   Future<List<double>> _seedAgain(SmartCollection c) async {
     final uri = c.seedUri;
     if (uri == null) throw StateError('Collection ${c.id} has no photo to embed again');
@@ -460,9 +436,8 @@ class CollectionsController extends GetxController {
     if (c.personIds.isNotEmpty) 'personIds': c.personIds,
   };
 
-  // Throws away every cached query embedding and score and redoes them from
-  // scratch - Settings' "Resync collections", for checking that the heavy
-  // first-run path is fine and for recovering from anything odd.
+  /// Throws away every cached query embedding and score and computes them again. Used by Resync collections in
+  /// Settings.
   Future<void> resyncAll() async {
     if (isScoring) return;
     _embeddingCache.clear();
@@ -475,22 +450,17 @@ class CollectionsController extends GetxController {
     await refreshStats();
   }
 
-  // ---- Counts and covers ----
-
-  // Cheap enough to call whenever the index changes (after a scan, on first
-  // open) - one native pass scores every visible collection at once.
+  /// Scores every visible collection in one native pass. Cheap enough to call whenever the index changes.
+  ///
+  /// A call made during a pass runs again once that pass is done, so a change is not dropped. When nothing is indexed
+  /// the kept counts and covers are cleared, because they belong to an index that is gone.
   Future<void> refreshStats() async {
     if (isScoring) {
-      // Something changed mid-pass (a scan finished while one was
-      // running) - go again once this one's done rather than drop it.
       _refreshAgain = true;
       return;
     }
     final native = Get.find<NativeController>();
     if (native.totalEmbeddings == 0) {
-      // Nothing is indexed (it was just cleared, say): the counts and covers kept
-      // from before belong to an index that is gone, and would show collections
-      // full of photos that open onto nothing.
       stats.clear();
       coverBytes.clear();
       _coverSize.clear();
@@ -530,7 +500,7 @@ class CollectionsController extends GetxController {
       _statsLoadedOnce = true;
       _rebuildLists();
     } on ModelsNotReadyError {
-      // Nothing to score against yet - the tab just shows empty cards.
+      // No models yet, so the tab shows empty cards.
     } catch (e) {
       debugPrint('Collection scoring failed: $e');
     } finally {
@@ -551,9 +521,8 @@ class CollectionsController extends GetxController {
         .toList(),
   );
 
-  // Just this one collection - what a freshly saved or edited collection
-  // uses so its card can animate on its own instead of waiting on a full
-  // pass over all of them.
+  /// Scores just [c], so that a saved or edited collection's card can animate without waiting for a pass over all
+  /// of them.
   Future<void> _syncOne(SmartCollection c) async {
     final started = DateTime.now();
     syncing.add(c.id);
@@ -583,8 +552,8 @@ class CollectionsController extends GetxController {
   @visibleForTesting
   Future<void> loadCoversNow() => _loadCovers();
 
-  // One pass at a time: a scan finishing while pictures are still arriving asks for another
-  // pass afterwards instead of loading the same pictures twice at once.
+  /// Set while a cover pass runs. A scan that finishes meanwhile asks for another pass afterwards, so the same
+  /// pictures are not loaded twice at once.
   bool _coversRunning = false;
   bool _coversAgain = false;
 
@@ -604,19 +573,18 @@ class CollectionsController extends GetxController {
     }
   }
 
+  /// Loads the pictures that are shown without a tile asking for them, which is the featured card. The tiles of the
+  /// tab and the story rings of the Search tab load their own cover as they come on screen. The last pictures do not
+  /// wait for the notify timer.
   Future<void> _loadCoversPass() async {
-    // Only what is shown without a tile asking for it: the featured card (first, as it is at the top of the
-    // Collections tab). The tiles of the tab, and the story rings of the Search tab, load their own cover as
-    // they come on screen.
     unawaited(_loadHeroImages());
-    // The last pictures are not left waiting for the timer.
     _notifyTimer?.cancel();
     _notifyTimer = null;
     update();
   }
 
-  /// The cover of collection [id] with its long side at least [size] px: the one in memory when it was loaded
-  /// that large already, else loaded now (null when the collection has no cover, or it cannot be read). A tile
+  /// The cover of collection [id] with its long side at least [size] px: the one in memory when it was loaded that
+  /// large already, else loaded at that size (null when the collection has no cover, or it cannot be read). A tile
   /// asks for the size that fits it, so a big tile of the mosaic is not given a small picture.
   Future<Uint8List?> loadCover(String id, int size) {
     final cover = selectedCover(id);
@@ -627,10 +595,11 @@ class CollectionsController extends GetxController {
     return _coverLoads[key] ??= _fetchCover(cover, size).whenComplete(() => _coverLoads.remove(key));
   }
 
+  /// Loads a cover and keeps it, unless a bigger request for the same cover finished first. Returns null when the
+  /// picture is missing, which leaves the tile with its icon.
   Future<Uint8List?> _fetchCover(CollectionCover cover, int size) async {
     try {
       final bytes = await _loadThumb(cover.uri, cover.isVideo, cover.timestampMs, size: size);
-      // Another, bigger request may have finished first: the bigger one stays.
       if ((_coverSize[cover.cacheKey] ?? 0) < size) {
         coverBytes[cover.cacheKey] = bytes;
         _coverSize[cover.cacheKey] = size;
@@ -638,14 +607,13 @@ class CollectionsController extends GetxController {
       }
       return coverBytes[cover.cacheKey] ?? bytes;
     } catch (_) {
-      // A missing picture just leaves that tile with its icon.
       return null;
     }
   }
 
+  /// Loads a thumbnail sized for tiles and cards, not for full screen. A video's is a bit larger because it is also
+  /// the poster in the viewer for a moment.
   Future<Uint8List> _loadThumb(String uri, bool isVideo, int timestampMs, {int? size}) {
-    // Small, not full-screen sized: these only back tiles and cards (a video's
-    // is also its poster in the viewer for a moment, hence a bit larger).
     return NativeServices().loadThumbnail(
       uri: uri,
       isVideo: isVideo,
@@ -654,14 +622,11 @@ class CollectionsController extends GetxController {
     );
   }
 
-  // ---- Create / edit ----
-
-  /// Turns the search that's currently showing into a collection. A
-  /// personIds override lets the caller pass the search's own mentioned
-  /// people explicitly (search_tab.dart snapshots them onto the controller
-  /// right when the search runs, since searchTextController may have since
-  /// been edited for a *different*, not-yet-run search by the time this is
-  /// called) - falls back to whatever's on the controller now otherwise.
+  /// Turns the search that is showing into a collection. [personIds] lets the caller pass the people mentioned in
+  /// the search itself, because search_tab.dart takes them when the search runs and the text field may by then hold
+  /// a different search. Without it the people on the controller are used.
+  ///
+  /// A search of only a person mention is still saved. Null when there is neither text nor a person.
   Future<SmartCollection?> saveSearchAsCollection({
     required String name,
     List<int>? personIds,
@@ -669,9 +634,6 @@ class CollectionsController extends GetxController {
     final native = Get.find<NativeController>();
     final query = native.lastTextQuery;
     final ids = personIds ?? native.lastMentionedPersonIds;
-    // A pure "@Raseel" mention with no other words is still a real,
-    // saveable search - only bail out if there's neither text nor anyone
-    // mentioned at all.
     if ((query == null || query.trim().isEmpty) && ids.isEmpty) return null;
     return createCollection(
       name: name,
@@ -681,8 +643,8 @@ class CollectionsController extends GetxController {
     );
   }
 
-  /// Turns the image search that's currently showing (a picked photo, a
-  /// photo from the viewer, or a video frame) into a photo-seeded collection.
+  /// Turns the image search that is showing (a picked photo, a photo from the viewer, or a video frame) into a
+  /// photo-seeded collection.
   Future<SmartCollection?> saveImageSearchAsCollection({required String name}) async {
     final native = Get.find<NativeController>();
     final uri = native.lastImageSeedUri;
@@ -728,8 +690,12 @@ class CollectionsController extends GetxController {
     return _addAndSync(collection);
   }
 
-  // The card appears at once (marked as syncing, so it plays its "finding
-  // matches" animation) and the database write and scoring happen behind it.
+  /// Adds a collection made of [query] and shows its card at once, marked as syncing. The database write and the
+  /// scoring happen behind it.
+  ///
+  /// An empty [query] (only people) embeds the generic prompt 'a photo', because the model needs something to score
+  /// against. The person filter, applied natively (see [_specFor]), does the narrowing. [morePrompts] are other
+  /// phrasings that are averaged in, which is steadier than one phrase alone.
   Future<SmartCollection> createCollection({
     required String name,
     required String query,
@@ -738,17 +704,11 @@ class CollectionsController extends GetxController {
     List<String> morePrompts = const [],
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    // A pure "@Raseel" collection has no real topic to embed - CLIP needs
-    // *something* to score against, so this falls back to a generic prompt
-    // rather than embedding an empty string. The person filter (applied
-    // natively - see _specFor) still does the actual narrowing; this just
-    // keeps the z-score step from operating on a meaningless embedding.
     final effectiveQuery = query.trim().isEmpty ? 'a photo' : query.trim();
     return _addAndSync(
       SmartCollection(
         id: 'user_$now',
         name: name.trim().isEmpty ? query : name.trim(),
-        // Other ways of saying the same thing are averaged in: steadier than one phrase alone.
         prompts: [
           effectiveQuery,
           for (final p in morePrompts)
@@ -773,6 +733,8 @@ class CollectionsController extends GetxController {
     return collection;
   }
 
+  /// Saves [updated]. A rename changes nothing about what matches, so the work and the matching animation are
+  /// redone only when the query, content filter, sensitivity or people changed.
   Future<void> updateCollection(SmartCollection updated) async {
     final before = [..._user, ..._builtIns].firstWhereOrNull((c) => c.id == updated.id);
     await _db.upsertCollection(updated, hiddenState: _stateOf(updated.id));
@@ -780,9 +742,6 @@ class CollectionsController extends GetxController {
     final fresh = [..._user, ..._builtIns].firstWhereOrNull((c) => c.id == updated.id);
     if (fresh == null) return;
 
-    // A rename changes nothing about what matches - only redo the work (and
-    // replay the card's "finding matches" animation) when the query, content
-    // filter or sensitivity actually changed.
     final matchesChanged = before == null ||
         before.embeddingSignature != fresh.embeddingSignature ||
         before.contentMode != fresh.contentMode ||
@@ -800,9 +759,8 @@ class CollectionsController extends GetxController {
     if (matchesChanged) unawaited(_syncOne(fresh));
   }
 
+  /// Hides collection [id]. When it is open it is closed first, so the screen does not sit on something that is gone.
   Future<void> hideCollection(String id) {
-    // Hidden from inside its own screen: leave it (the screen pops when there
-    // is no active collection) rather than sit on something that's gone.
     if (active?.id == id) closeCollection();
     return _setState(id, _stateHidden);
   }
@@ -814,8 +772,8 @@ class CollectionsController extends GetxController {
     await _reload();
   }
 
-  // A collection you made is deleted for real. A built-in can't be (it ships
-  // with the app), so it's just taken off the list until Settings restores it.
+  /// Deletes a collection you made for real. A built-in ships with the app, so it is only taken off the list until
+  /// Settings restores it.
   Future<void> deleteCollection(String id) async {
     final isBuiltIn = _builtIns.any((c) => c.id == id);
     if (active?.id == id) closeCollection();
@@ -830,14 +788,14 @@ class CollectionsController extends GetxController {
     }
   }
 
-  /// Undoes edits to one built-in (keeps nothing else about it).
+  /// Undoes the edits to one built-in.
   Future<void> resetBuiltIn(String id) async {
     await _db.deleteCollection(id);
     await _reload();
   }
 
-  /// Every built-in back to how it ships - Settings' "Restore default
-  /// collections". Collections you made are untouched.
+  /// Puts every built-in back as it ships. Used by Restore default collections in Settings. Collections you made are
+  /// untouched.
   Future<void> restoreDefaults() async {
     await _db.resetBuiltIns();
     await _reload();
@@ -848,8 +806,6 @@ class CollectionsController extends GetxController {
     await _db.setCollectionState(id, state, isBuiltIn: isBuiltIn);
     await _reload(refresh: false);
   }
-
-  // ---- Choosing several (for exporting) ----
 
   bool selecting = false;
   final Set<String> selectedIds = {};
@@ -896,8 +852,10 @@ class CollectionsController extends GetxController {
     }
   }
 
-  // ---- Opening one ----
-
+  /// Opens [collection] and loads its members. Thumbnails fill in progressively and the grid shows a placeholder until
+  /// each arrives, so the screen does not wait for up to 200 decodes. Ones seen before come from the in-memory cache.
+  /// The rest load four at a time in list order, so the top of the grid fills first. Items from the latest scan come
+  /// first. A later call makes an earlier one stop loading.
   Future<void> openCollection(SmartCollection collection) async {
     final token = ++_openToken;
     active = collection;
@@ -915,7 +873,7 @@ class CollectionsController extends GetxController {
       if (token != _openToken) return;
       members = found;
     } on ModelsNotReadyError {
-      // Left empty - the screen says there's nothing here yet.
+      // No models yet, so the screen shows nothing.
     } catch (e) {
       debugPrint('Failed to load collection members: $e');
     }
@@ -924,18 +882,13 @@ class CollectionsController extends GetxController {
     isLoadingThumbs = members.isNotEmpty;
     update();
 
-    // Thumbnails fill in progressively (the grid shows a loading placeholder
-    // until each arrives) rather than the screen waiting on up to 200 decodes.
-    // Ones seen before come straight from the in-memory cache; the rest load
-    // a few at a time, in list order, so the top of the grid fills first.
     var sinceUpdate = 0;
     final pending = <Map<String, dynamic>>[];
-    // What the latest scan indexed (tagged New) shows first in the grid, so it loads first too.
     for (final item in Get.find<NativeController>().newFirst(members)) {
       final key = memberKey(item);
       final cached = _thumbCache.remove(key);
       if (cached != null) {
-        _thumbCache[key] = cached; // refresh recency
+        _thumbCache[key] = cached;
         memberThumbs[key] = cached;
       } else {
         pending.add(item);
@@ -972,8 +925,8 @@ class CollectionsController extends GetxController {
     }
   }
 
-  // Recently shown thumbnails (small JPEGs), so re-opening a collection - or
-  // scrolling back through one - doesn't decode them all again.
+  /// Recently shown thumbnails (small JPEGs), so that opening a collection again or scrolling back through one does
+  /// not decode them all again.
   final Map<String, Uint8List> _thumbCache = {};
   static const int _thumbCacheLimit = 500;
 

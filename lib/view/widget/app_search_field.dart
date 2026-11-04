@@ -32,7 +32,8 @@ class AppSearchBox {
 
 /// A search box that filters as you type (no search button: the list under it just narrows). It
 /// has the Search tab's size and look. A tap anywhere outside it puts the keyboard away, which
-/// Android does not do by itself.
+/// Android does not do by itself. The clear button counts as part of the field for that, so clearing keeps the
+/// keyboard.
 class AppSearchField extends StatelessWidget {
   const AppSearchField({
     super.key,
@@ -88,7 +89,6 @@ class AppSearchField extends StatelessWidget {
               if (value.text.isEmpty) {
                 return trailingWhenEmpty ?? const SizedBox.shrink();
               }
-              // Counts as part of the field for "tap outside", so clearing keeps the keyboard.
               return TextFieldTapRegion(
                 child: Material(
                   color: AppColors.transparent,

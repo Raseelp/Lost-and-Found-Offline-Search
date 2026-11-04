@@ -1,5 +1,4 @@
-// CLIP's byte -> unicode mapping, ported from the original Python.
-
+/// CLIP's mapping from bytes to unicode characters, ported from the original Python.
 class ByteEncoder {
   static final Map<int, String> byteToUnicode = _buildByteToUnicode();
   static final Map<String, int> unicodeToByte = byteToUnicode.map(

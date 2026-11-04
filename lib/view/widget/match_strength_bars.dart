@@ -3,18 +3,11 @@ import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 
-// Shared by the image and video viewers' "Why this matched" section: one
-// row per word, each with its own bar. The raw dot-product scores
-// loadMatchExplanation returns aren't meaningful as an absolute percentage
-// (a single CLIP similarity score doesn't carry that kind of precision), so
-// bars are scaled relative to the strongest word here (that one always
-// reads as a full bar) rather than plotted on some absolute 0-100 scale -
-// honest about ranking/relative pull, not about an exact number.
-//
-// Rows stagger in one after another (strongest first) rather than all at
-// once - built to be mounted fresh each time its containing sheet opens
-// (see DraggableMetadataSheet), so this "graph filling in" plays every time,
-// not just once on the app's very first build.
+/// The Why this matched section of the image and video viewers: one row per word, each with its own bar. The raw
+/// dot-product scores from loadMatchExplanation do not mean an absolute percentage, so the bars are scaled to the
+/// strongest word, which always reads as a full bar, and show the ranking and not an exact number. The rows fill in
+/// one after another, strongest first. It is meant to be mounted fresh each time its sheet opens (see
+/// [DraggableMetadataSheet]), so the filling plays every time.
 class MatchStrengthBars extends StatelessWidget {
   const MatchStrengthBars({super.key, required this.entries});
 

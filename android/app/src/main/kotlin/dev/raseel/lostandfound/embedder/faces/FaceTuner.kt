@@ -35,26 +35,16 @@ data class RunConfig(
 }
 
 /**
- * Finds the fastest way to run the face models on this particular phone, once,
- * and remembers it. Phones differ a lot (a few fast cores plus many slow ones is
- * common, and slow cores can hold back a job split evenly across all of them), so
- * instead of guessing, a short benchmark times the real models under several
- * settings - thread counts, pinning to the fast cores, alternative backends - and
- * keeps the winner. Results are stored per model, so swapping a model retunes.
- *
- * A backend that crashes the process while being tried is remembered and never
- * tried again (see the "trying" marker).
+ * Finds the fastest way to run the face models on this phone, once, and remembers it. A short benchmark times the real
+ * models under several settings, because slow cores can hold back a job split evenly across all cores. A backend that
+ * crashes the process while tried is remembered through the "trying" marker and never tried again.
  */
 object FaceTuner {
 
     private const val TAG = "FaceTuner"
     private const val PREFS = "face_tuning"
 
-    // Bump to make every phone retune after this logic changes.
-    // 3: back to trying the alternative backends on the recognition model only (version 2 also
-    // tried XNNPACK on the detector, which crashed the app; the retune clears what it left).
-    // 4: XNNPACK sessions no longer also start an ONNX Runtime thread pool of the same size, so what was
-    // measured for them before is out of date.
+    /** Raise it to make every phone retune after this logic changes. */
     private const val VERSION = 4
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -68,7 +58,7 @@ object FaceTuner {
     fun configFor(context: Context, spec: FaceModelSpec): RunConfig =
         RunConfig.decode(saved(context, "cfg_", spec.id)) ?: RunConfig(defaultThreads(spec.kind))
 
-    // Also finds what earlier builds saved under the unpacked copy's name (".bundled_...").
+    /** Also finds what earlier builds saved under the unpacked copy's name, which starts with ".bundled_". */
     private fun saved(context: Context, prefix: String, id: String): String? {
         val p = prefs(context)
         return p.getString("$prefix$id", null) ?: p.getString("$prefix.bundled_$id", null)
@@ -101,13 +91,14 @@ object FaceTuner {
     }
 
     /**
-     * Runs the benchmark (tens of seconds, blocking). Nothing is saved if
-     * [shouldStop] interrupts it, so it simply runs again next time.
+     * Runs the benchmark, which blocks for tens of seconds.
+     *
+     * Nothing is saved if [shouldStop] interrupts it. A candidate being tried when the process died is unsafe and is
+     * not tried again. If every candidate failed, it settles for the defaults instead of retrying on every launch.
      */
     fun tune(context: Context, store: FaceModelStore, shouldStop: () -> Boolean) {
         val p = prefs(context)
 
-        // A candidate that was being tried when the process died is unsafe here.
         p.getString("trying", null)?.let { crashed ->
             Log.w(TAG, "a previous test of $crashed never finished - not trying it again")
             p.edit().putStringSet("bad", (p.getStringSet("bad", emptySet()) ?: emptySet()) + crashed).remove("trying").commit()
@@ -118,9 +109,6 @@ object FaceTuner {
         for (kind in listOf(FaceModelKind.EMBEDDER, FaceModelKind.DETECTOR)) {
             val model = store.selected(kind) ?: continue
             if (shouldStop()) return
-            // Interrupted: save nothing, so it runs again next time. If every
-            // candidate simply failed, settle for the defaults instead of
-            // retrying on every launch.
             val best = tuneModel(context, store, model, bad, shouldStop)
                 ?: if (shouldStop()) return else RunConfig(defaultThreads(kind)) to 0f
             chosen[model.spec.id] = best
@@ -135,6 +123,11 @@ object FaceTuner {
         editor.putInt("version", VERSION).commit()
     }
 
+    /**
+     * Times the candidate settings for [model] and returns the fastest with its milliseconds per unit, or null if none
+     * worked or [shouldStop] interrupted it. Alternative backends are tried on the recognition model only, because
+     * XNNPACK on the detector aborts the whole app with an uncatchable SIGABRT on at least one real phone.
+     */
     private fun tuneModel(
         context: Context,
         store: FaceModelStore,
@@ -152,7 +145,6 @@ object FaceTuner {
         var reference: FloatArray? = null
         val results = ArrayList<Pair<RunConfig, Float>>()
 
-        // Time one candidate; null if it failed, was unsafe, or gave wrong answers.
         fun attempt(config: RunConfig): Float? {
             val key = "${model.spec.id}:${config.encode()}"
             if (key in bad) return null
@@ -173,20 +165,14 @@ object FaceTuner {
             return outcome?.msPerUnit
         }
 
-        // Stage 1: how many threads on the plain CPU backend.
         val threadOptions = listOf(2, 3, 4).filter { it <= maxOf(2, cpus - 1) }
         for (t in threadOptions) attempt(RunConfig(t))
         if (shouldStop()) return null
         val bestCpu = results.minByOrNull { it.second }?.first ?: return null
 
-        // Stage 2: pinned to the fast cores (if we can tell which they are), and
-        // the alternative backends for the recognition model.
         if (big.size in 2..4) {
             attempt(RunConfig(big.size, big.drop(1).joinToString(";")))
         }
-        // Only the recognition model: XNNPACK on the detector aborts the whole app while the
-        // session is being created on at least one real phone (SIGABRT inside ONNX Runtime -
-        // it cannot be caught, and each try costs a crash), so it is never tried there.
         if (isEmbedder) {
             attempt(RunConfig(bestCpu.threads, provider = "xnnpack"))
             attempt(RunConfig(bestCpu.threads, provider = "nnapi"))
@@ -198,6 +184,12 @@ object FaceTuner {
 
     private class Outcome(val msPerUnit: Float, val output: FloatArray)
 
+    /**
+     * Times one setting on random input, or null if it is rejected.
+     *
+     * The first run pays one-off setup costs, so it is not measured. The setting is dropped if that run is far slower
+     * than the best so far. A backend must match the plain CPU answers within [MIN_SIMILARITY].
+     */
     private fun benchmark(
         store: FaceModelStore,
         model: LocatedFaceModel,
@@ -228,8 +220,6 @@ object FaceTuner {
                 }
             }
 
-            // The first run pays one-off setup costs, so it isn't the measurement -
-            // but if even that is far slower than the best so far, stop wasting time.
             val (warmNs, warmOut) = runOnce()
             val warmMs = warmNs / 1_000_000f / units
             if (reference != null && cosine(warmOut, reference) < MIN_SIMILARITY) {
@@ -290,6 +280,6 @@ object FaceTuner {
     private const val TIMED_RUNS = 2
     private const val OUTPUT_SAMPLE = 4096
 
-    // A backend must reproduce the plain CPU answers this closely to be used.
+    /** The least cosine similarity to the plain CPU answers that a backend must reach to be used. */
     private const val MIN_SIMILARITY = 0.98f
 }

@@ -93,7 +93,6 @@ class MemoryTile extends StatelessWidget {
               fill: AppColors.parchment,
               alignment: const Alignment(0, -0.25),
             ),
-            // Plays a silent preview when it is the video the grid is playing (the time left is in the corner).
             if (photo.isVideo) GridVideoLayer(uri: photo.uri),
             if (photo.isVideo)
               const Positioned(

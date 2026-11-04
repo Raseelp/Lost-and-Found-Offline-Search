@@ -16,9 +16,9 @@ class EmbeddingStoreHeaderTest {
         return bytes.toByteArray()
     }
 
+    /** A header with version 2 and 512 numbers per vector has no model id, because the first record follows. */
     @Test
     fun aFileOfTheOldVersionWasMadeByTheFirstModel() {
-        // magic, version 2, 512 numbers per vector: and no model id (the first record follows).
         assertEquals(1, EmbeddingStore.modelOfHeader(header(magic, 2, 512)))
         assertEquals(1, EmbeddingStore.modelOfHeader(header(magic, 2, 512, 7, 7)))
     }
@@ -29,18 +29,18 @@ class EmbeddingStoreHeaderTest {
         assertEquals(9, EmbeddingStore.modelOfHeader(header(magic, 3, 512, 9)))
     }
 
+    /** The current model differs from the one the earlier files were made by, which is what makes such an index be dropped. */
     @Test
     fun theCurrentModelIsNotTheOneOfTheOldFiles() {
-        // What makes an index from before the switch be dropped.
         assert(EmbeddingStore.MODEL_ID != EmbeddingStore.modelOfHeader(header(magic, 2, 512)))
     }
 
+    /** A header of version 3 cut short before the model id has no model. */
     @Test
     fun somethingThatIsNotAnIndexHasNoModel() {
         assertNull(EmbeddingStore.modelOfHeader(header(123, 3, 512, 2)))
         assertNull(EmbeddingStore.modelOfHeader(ByteArray(0)))
         assertNull(EmbeddingStore.modelOfHeader(header(magic, 3)))
-        // A new-version file cut short before the model id.
         assertNull(EmbeddingStore.modelOfHeader(header(magic, 3, 512)))
     }
 }

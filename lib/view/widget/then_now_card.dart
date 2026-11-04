@@ -262,11 +262,12 @@ class _PortraitImageState extends State<PortraitImage> {
     _load();
   }
 
+  /// Makes the picture again when the side changes. The old picture stays until the new one is made, so picking a
+  /// thumbnail causes no grey flash.
   @override
   void didUpdateWidget(covariant PortraitImage old) {
     super.didUpdateWidget(old);
     if (old.side.cropKey != widget.side.cropKey) {
-      // The old picture stays until the new one is made (no grey flash when a thumbnail is picked).
       _load();
     }
   }

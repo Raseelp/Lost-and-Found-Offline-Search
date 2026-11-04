@@ -15,32 +15,30 @@ class EmbeddingStore(private val context: Context) {
     private val storeFile: File =
         File(context.filesDir, "embeddings.bin")
 
-    // Cache of the last readAll(); cleared on every write.
+    /** Cache of the last readAll(); cleared on every write. */
     @Volatile
     private var cachedRecords: List<EmbeddingRecord>? = null
 
-    // Guards every read and write below. Search can now run at the same
-    // time as a scan (its own thread - see MainActivity), and a search's
-    // readAll() racing a scan's appendBatch() on the same underlying file
-    // is exactly the kind of thing that corrupts data without ever
-    // throwing. A single lock keeps this simple and obviously correct;
-    // reads and writes are already fast, so there's no real cost to not
-    // letting two reads run truly in parallel.
+    /**
+     * Guards every read and write below. Search runs on its own thread (see MainActivity) at the same time as a scan,
+     * and a search's readAll() racing a scan's appendBatch() on the same file could corrupt data without throwing. One
+     * lock is simple and enough, because reads and writes are fast.
+     */
     private val lock = Any()
 
     companion object {
         private const val TAG = "EmbeddingStore"
-        private const val MAGIC = 0x454D4244  // "EMBD"
-        private const val VERSION = 3          // bumped: the header now says which model made the vectors
+        private const val MAGIC = 0x454D4244
+        private const val VERSION = 3
         private const val EMBEDDING_DIM = 512
         private const val HEADER_BYTES = 16L
 
-        // Which model made the vectors in a file. Vectors of different models cannot be compared, so a file
-        // made by another model is dropped (see dropIfOtherModel). Raise it whenever the search model, or how a
-        // photo is prepared for it, changes.
-        //   1: OpenAI CLIP ViT-B/32 (every file up to version 2 - those have no id in the header)
-        //   2: Apple MobileCLIP-S2, 2024 weights, image tower fp16 (gave NaN on a real phone: never shipped to anyone)
-        //   3: Apple MobileCLIP-S0, 2024 weights (image tower fp32, text tower int8), 256 px
+        /**
+         * Which model made the vectors in a file. Vectors of different models cannot be compared, so a file made by
+         * another model is dropped (see [dropIfOtherModel]). Raise it whenever the search model, or how a photo is
+         * prepared for it, changes. Ids 1 (OpenAI CLIP ViT-B/32, also every file before version 3) and 2
+         * (MobileCLIP-S2) are taken.
+         */
         const val MODEL_ID = 3
         private const val OLD_FILES_MODEL_ID = 1
         private const val KEY_RESET_FROM = "model_reset_from"
@@ -54,7 +52,7 @@ class EmbeddingStore(private val context: Context) {
             return try {
                 if (input.readInt() != MAGIC) return null
                 val version = input.readInt()
-                input.readInt() // the vector size
+                input.readInt()
                 if (version >= 3) input.readInt() else OLD_FILES_MODEL_ID
             } catch (_: EOFException) {
                 null
@@ -82,9 +80,12 @@ class EmbeddingStore(private val context: Context) {
         cachedRecords = null
     }
 
-    // An index made by another model is of no use to this one and is not worth keeping a copy of (unlike a damaged
-    // file, which readAll() sets aside): it is removed and the library has to be scanned again. People and their
-    // faces are kept elsewhere and are not touched. What it was made by is remembered, so the app can say why.
+    /**
+     * An index made by another model is no use to this one and not worth a copy (unlike a damaged file, which
+     * readAll() sets aside): it is removed and the library has to be scanned again. People and faces are kept
+     * elsewhere. The model is remembered so the app can say why. A file that is not an index at all is left to
+     * readAll().
+     */
     private fun dropIfOtherModel() {
         val madeBy = try {
             val header = ByteArray(minOf(HEADER_BYTES, storeFile.length()).toInt())
@@ -93,7 +94,6 @@ class EmbeddingStore(private val context: Context) {
         } catch (e: Exception) {
             null
         }
-        // Not readable as an index at all is for readAll() to deal with, as before.
         if (madeBy == null || madeBy == MODEL_ID) return
         Log.i(TAG, "the index was made by model $madeBy, this app uses $MODEL_ID: starting a new one")
         storeFile.delete()
@@ -102,7 +102,7 @@ class EmbeddingStore(private val context: Context) {
         bumpGeneration()
     }
 
-    /** The model that made the index which was dropped because the app now uses another one, or 0 if none was. */
+    /** The model that made the index which was dropped because the app uses another one, or 0 if none was. */
     fun modelResetFrom(): Int = prefs.getInt(KEY_RESET_FROM, 0)
 
     /** The person has been told; forget it. */
@@ -110,7 +110,7 @@ class EmbeddingStore(private val context: Context) {
         prefs.edit().remove(KEY_RESET_FROM).apply()
     }
 
-    // The new index has begun to fill: there is nothing left to tell the person to do.
+    /** The index has begun to fill again: there is nothing left to tell the person to do. */
     private fun noteScanned() {
         if (modelResetFrom() != 0) clearModelReset()
     }
@@ -172,9 +172,10 @@ class EmbeddingStore(private val context: Context) {
         }
     }
 
-    // Tolerates a truncated trailing record (process killed mid-append) by
-    // keeping everything before it, and a bad header by quarantining the
-    // file and starting fresh - either way, callers never crash on this.
+    /**
+     * Tolerates a truncated trailing record (process killed mid-append) by keeping everything before it, and a bad
+     * header by quarantining the file and starting fresh. Callers never crash on this.
+     */
     fun readAll(): List<EmbeddingRecord> = synchronized(lock) {
         cachedRecords?.let { return@synchronized it }
 
@@ -272,12 +273,16 @@ class EmbeddingStore(private val context: Context) {
     fun countForFolder(folderId: String): Int =
         readAll().count { it.folderId == folderId }
 
-    // A plain stat() call, not a read of the file's contents - cheap
-    // enough to call as often as the library stats need it.
+    /**
+     * The file's size from a plain stat(), not a read of its contents, so it is cheap enough to call as often as the
+     * library stats need.
+     */
     fun sizeBytes(): Long = try { storeFile.length() } catch (e: Exception) { 0L }
 
-    // Writes to a temp file and renames over the original so a crash
-    // mid-write can't leave embeddings.bin half-written.
+    /**
+     * Writes to a temp file and renames over the original so a crash mid-write cannot leave embeddings.bin
+     * half-written. Some filesystems refuse to rename over an existing file, so it falls back to delete then rename.
+     */
     fun deleteByFolderId(folderId: String) {
         synchronized(lock) {
             val remaining = readAll().filter { it.folderId != folderId }
@@ -297,8 +302,6 @@ class EmbeddingStore(private val context: Context) {
             }
 
             if (!tempFile.renameTo(storeFile)) {
-                // Some filesystems refuse to rename over an existing file -
-                // fall back to delete-then-rename.
                 storeFile.delete()
                 tempFile.renameTo(storeFile)
             }
@@ -307,8 +310,6 @@ class EmbeddingStore(private val context: Context) {
             bumpGeneration()
         }
     }
-
-    // ---- a light read of what is in the store (for the dates of everything indexed) ----
 
     private val prefs get() = context.getSharedPreferences("embedding_store", Context.MODE_PRIVATE)
 
@@ -323,11 +324,10 @@ class EmbeddingStore(private val context: Context) {
     }
 
     /**
-     * Goes through the records from byte [from] on (a record boundary this returned before, or 0) and
-     * gives each one's key and where to read it - never its embedding, which is skipped with a seek,
-     * so a whole library takes a moment and no memory. A video's frames are one entry each time, with
-     * [video] true. Returns the byte position after the last whole record (a half-written one at the end
-     * is left for next time), or -1 when [from] is not somewhere in this file (it has been rewritten).
+     * Calls [onRecord] with each record's key and where to read it, from byte [from] on (a record boundary this
+     * returned before, or 0). Embeddings are skipped with a seek, so a whole library takes a moment and no memory. A
+     * video's frames are one entry each time, with [video] true. Returns the position after the last whole record, or
+     * -1 when [from] is not in this file because it was rewritten.
      */
     fun scanMeta(from: Long, onRecord: (key: Long, uri: String, video: Boolean) -> Unit): Long = synchronized(lock) {
         try {

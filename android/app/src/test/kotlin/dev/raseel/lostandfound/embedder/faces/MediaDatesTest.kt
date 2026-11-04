@@ -26,9 +26,9 @@ class MediaDatesTest {
         assertEquals(ms(2019, 8, 12), found.ms)
     }
 
+    /** Dates in 1970, on 2000-01-01 and in the future are skipped, down to the next kind of date. */
     @Test
     fun aCameraWithNoClockIsNotBelieved() {
-        // 1970, 2000-01-01 and tomorrow-and-later are skipped, down to the next kind of date.
         val found = MediaDates.pick(
             taken = 0L, exif = ms(2000, 1, 1, 0), named = 0L,
             modified = ms(2021, 3, 4), added = 0L, now = now,
@@ -76,11 +76,11 @@ class MediaDatesTest {
         assertEquals(ms(2018, 12, 31), MediaDates.dateFromName("VID_20181231_235959.mp4"))
     }
 
+    /** Month 13 and day 32 do not make a date. */
     @Test
     fun numbersThatAreNotDatesAreLeftAlone() {
         assertEquals(0L, MediaDates.dateFromName("photo_1234567890123.jpg"))
         assertEquals(0L, MediaDates.dateFromName("12019081234.jpg"))
-        // Month 13 and day 32 are not a date.
         assertEquals(0L, MediaDates.dateFromName("IMG_20191332.jpg"))
         assertEquals(0L, MediaDates.dateFromName("holiday.jpg"))
         assertEquals(0L, MediaDates.dateFromName(null))

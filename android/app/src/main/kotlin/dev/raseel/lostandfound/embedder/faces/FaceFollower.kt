@@ -11,38 +11,35 @@ import dev.raseel.lostandfound.embedder.ScanForegroundService
 import dev.raseel.lostandfound.embedder.ScanHandoff
 
 /**
- * Finds faces in step with an indexing scan, in the same notification and without the
- * two ever competing for the CPU: the indexing scan hands over the photos it has
- * written (see ScanHandoff), and once enough have gathered (or enough time has passed)
- * it waits while their faces are found at full speed, then carries on. Nothing here runs on a thread of
- * its own - the work happens on the indexing scan's thread, inside its hand-over.
- *
- * When indexing ends (see [finish]) the normal face worker (FaceScanWorker) takes over
- * for what is left: the photos after the last batch, the refining pass and videos.
+ * Finds faces in step with an indexing scan, in the same notification and without the two competing for the CPU. The
+ * scan hands over the photos it has written. Once enough have gathered, or enough time has passed, indexing waits
+ * while their faces are found, then carries on, all on the indexing scan's thread. When indexing ends ([finish])
+ * FaceScanWorker takes over for the rest.
  */
 object FaceFollower {
 
     private const val TAG = "FaceFollower"
 
-    // When indexing waits for faces: once this many newly indexed photos have gathered,
-    // or this long has passed since the last time - whichever comes first. The same for
-    // every batch, the first included.
+    /**
+     * When indexing waits for faces: once this many indexed photos have gathered, or [BATCH_MS] have passed since the
+     * last time, whichever comes first. The same for every batch, the first included.
+     */
     const val BATCH_PHOTOS = 60
     const val BATCH_MS = 30_000L
 
     private val lock = Any()
     private val waiting = ArrayList<IndexedImage>()
 
-    // Guarded by [lock]: how many batches this scan has had so far, and when the last
-    // one ended (or, before the first, when this started).
+    /** Guarded by [lock]: how many batches this scan has had so far, and when the last one ended (or, before the first, when this started). */
     private var batches = 0
     private var lastBatchAt = 0L
     @Volatile private var session: FaceScanner.Session? = null
     @Volatile private var armed = false
 
-    // Only an indexing scan in progress can be followed. ScanWorker closes this the
-    // moment its scan ends so a late request (from the app, say) can't start another
-    // session, or cancel the face worker that is about to take over.
+    /**
+     * Only an indexing scan in progress can be followed. ScanWorker closes this the moment its scan ends, so a late
+     * request (from the app, say) cannot start another session or cancel the face worker that is about to take over.
+     */
     @Volatile private var open = false
 
     /** True while faces are being found in step with an indexing scan. */
@@ -66,9 +63,10 @@ object FaceFollower {
     }
 
     /**
-     * Starts finding faces in step with the indexing scan in progress, unless it already
-     * does, face search is stopped by the user, or no recognition model is installed.
-     * True if it is armed now.
+     * Starts finding faces in step with the indexing scan in progress, unless it already does, face search is stopped
+     * by the user, or no recognition model is installed. True when it is armed afterwards. A face worker still working
+     * through earlier leftovers is stopped, because it would hold the face scan. It is resumable and carries on once
+     * indexing ends.
      */
     fun start(context: Context): Boolean {
         synchronized(lock) {
@@ -88,8 +86,6 @@ object FaceFollower {
                 return false
             }
 
-            // A face worker still working through an earlier scan's leftovers would hold
-            // the face scan: stop it (it is resumable, and starts again once indexing ends).
             try {
                 WorkManager.getInstance(app).cancelUniqueWork(FaceScanWorker.UNIQUE_WORK_NAME)
             } catch (e: Exception) {
@@ -109,10 +105,12 @@ object FaceFollower {
         }
     }
 
-    // Runs on the indexing scan's thread, which waits for it to return.
+    /**
+     * Queues [photos] and, when a batch is due, finds their faces. Runs on the indexing scan's thread, which waits for
+     * it to return. When face search is stopped by the user, the photos are left for the pass after indexing, or for
+     * when they resume. The next interval counts from the end of a batch, not from when it began.
+     */
     private fun onIndexed(app: Context, photos: List<IndexedImage>, shouldStop: () -> Boolean) {
-        // Face search stopped by the user: these are left for the pass after indexing
-        // (or for when they resume).
         if (FaceSettings.paused(app)) {
             synchronized(lock) { waiting.clear() }
             return
@@ -149,7 +147,6 @@ object FaceFollower {
         } finally {
             FaceScanHub.running = false
             val endedAt = SystemClock.elapsedRealtime()
-            // The next interval counts from here, not from when this batch began.
             synchronized(lock) { lastBatchAt = endedAt }
             BenchLog.log(app) {
                 "face batch #$number done: faces took ${endedAt - startedAt}ms for ${batch.size} photos; " +

@@ -5,20 +5,10 @@ import java.util.Random
 import java.util.TimeZone
 
 /**
- * "Then and now" for one person: good photos of them from about the start of their time in the photos and
- * from about now.
- *
- * "About" is meant: not the first and last photo there is, but the best of the first couple of months and
- * of the latest couple (the window widens a step at a time - 2, 4, 8, 12 months - only if those months
- * have too little to choose from). Works only from clear faces in still photos with a trustworthy date
- * (the caller filters), and from a bounded list - one person's dated faces - so it costs the same however
- * big the library is. Lone photos far from the rest (most likely a wrong date) never count as the first or
- * last time, the same rule the people timeline uses.
- *
- * Each end has a few best photos that differ in kind - on their own, with one other person, in a small
- * group - because a person is more than the pictures of their face, and the comparison can mix them. Which
- * of them is shown first is random (the seed says how, so it can be the same all day). Each end also has
- * every photo from its months (see [every]), for choosing from on the Then and Now screen.
+ * Then and now for one person: good photos of them from about the start of their time in the photos and from about the
+ * latest. About is meant: the best of the first couple of months and of the latest couple, widening from 2 months up
+ * to 24 only if there is too little to choose from. Lone photos far from the rest (most likely a wrong date) never
+ * count as the first or last time. Each end also has every photo from its months (see [every]).
  */
 object ThenNow {
     /** Another clear face in the photo: who (a listed person) and where it is. */
@@ -52,7 +42,7 @@ object ThenNow {
                 else -> Kind.CROWD
             }
 
-        /** The box to frame: the person's own, or - with [withId] in the photo too - the two of them. */
+        /** The box to frame: the person's own, or the two of them when [withId] is in the photo too. */
         fun box(withId: Long?): FloatArray {
             val o = if (withId == null) null else others.firstOrNull { it.personId == withId }
             return if (o == null) floatArrayOf(boxL, boxT, boxR, boxB) else floatArrayOf(
@@ -78,7 +68,7 @@ object ThenNow {
         val allNow: List<Cand> = now,
     )
 
-    // The windows tried, in months from each end; the later ones only when the earlier have too little.
+    /** The windows tried, in months from each end. The later ones are used only when the earlier have too little. */
     private val WINDOWS = intArrayOf(2, 4, 8, 12, 18, 24)
     private const val MIN_SPAN_MONTHS = 6
     private const val MIN_PHOTOS = 4
@@ -95,11 +85,15 @@ object ThenNow {
         return cal.get(Calendar.YEAR) * 12 + cal.get(Calendar.MONTH)
     }
 
-    /** The photos to show, or null when there is not enough to compare (too little time between, too few photos). */
+    /**
+     * The photos to show, or null when there is not enough to compare (too little time between, too few photos).
+     * Photos are counted per month, a photo once however many faces it has. Both ends widen only while either has too
+     * little to choose from, and the two never meet. Enough means three different photos that can be told apart at
+     * each end. Which are shown first is random, the same for the same seed.
+     */
     fun choose(cands: List<Cand>, tz: TimeZone = TimeZone.getDefault(), perSide: Int = PER_SIDE, seed: Long = 0L): Result? {
         if (cands.size < MIN_PHOTOS) return null
 
-        // Photos per month (a photo counts once however many faces it has).
         val perMonth = java.util.TreeMap<Int, MutableSet<Long>>()
         val monthOfCand = HashMap<Cand, Int>(cands.size * 2)
         for (c in cands) {
@@ -117,8 +111,6 @@ object ThenNow {
         val span = last - first
         if (span < MIN_SPAN_MONTHS) return null
 
-        // About the start and about now: the first couple of months and the latest couple, widening only
-        // while either has too little to choose from. The two never meet.
         val reach = (span + 1) / 2
         var thenPool = emptyList<Cand>()
         var nowPool = emptyList<Cand>()
@@ -126,7 +118,6 @@ object ThenNow {
             val width = minOf(w, reach)
             thenPool = cands.filter { monthOfCand[it]!! in first..(first + width - 1) }
             nowPool = cands.filter { monthOfCand[it]!! in (last - width + 1)..last }
-            // Enough for three options at each end (three different photos that can be told apart).
             val enough = options(thenPool, perSide).size >= perSide && options(nowPool, perSide).size >= perSide
             if (enough || i == WINDOWS.lastIndex || width == reach) break
         }
@@ -135,7 +126,6 @@ object ThenNow {
         val now = options(nowPool, perSide)
         if (then.isEmpty() || now.isEmpty()) return null
 
-        // Which are shown first: random, the same for the same seed.
         val random = Random(seed)
         val startThen = random.nextInt(then.size)
         var startNow = random.nextInt(now.size)
@@ -148,9 +138,9 @@ object ThenNow {
     }
 
     /**
-     * Every photo in [pool], oldest first, for choosing from: each photo once, a burst (shots within a couple
-     * of minutes of each other) counted as its best shot, and no more than [max] - the best of them if there
-     * are more. The [keep] (the chosen options) are always among them.
+     * Every photo in [pool], oldest first, for choosing from: each photo once, a burst (shots within a couple of minutes
+     * of each other) counted as its best shot, and no more than [max], the best of them if there are more. The [keep]
+     * (the chosen options) are always among them.
      */
     fun every(pool: List<Cand>, keep: List<Cand>, max: Int = MAX_ALL): List<Cand> {
         val kept = ArrayList<Cand>(keep)
@@ -162,14 +152,14 @@ object ThenNow {
         return kept.sortedBy { it.takenMs }
     }
 
-    // How good a picture it is of the person, a crowd counting for less (two in the picture costs nothing).
+    /** How good a picture it is of the person, a crowd counting for less (two in the picture costs nothing). */
     private fun score(c: Cand): Float = c.rank / (1f + 0.3f * (c.faces - 2).coerceAtLeast(0))
 
     /**
-     * Up to [n] of [pool], all different photos, and as different in kind as there is: the best on their own,
-     * the best with one other person, the best in a small group, then the best of what is left. They are
-     * taken a fortnight or more from each other if the photos allow it; if that leaves fewer than [n], a few
-     * days apart, and then simply different photos - so there are three whenever there are three. Best first.
+     * Up to [n] of [pool], all different photos, and as different in kind as there is: the best on their own, the best
+     * with one other person, the best in a small group, then the best of what is left. They are taken a fortnight or
+     * more from each other if the photos allow it. If that leaves fewer than [n], a few days apart, and then simply
+     * different photos, so there are three whenever there are three. Best first.
      */
     fun options(pool: List<Cand>, n: Int): List<Cand> {
         val chosen = ArrayList<Cand>(n)

@@ -23,16 +23,12 @@ class StoryPlan {
   final String caption;
 }
 
-/// Chooses the pictures of one story from what a ring has not shown yet.
-///
-/// A story looks at the pool through one lens, and takes turns: the same ring never uses the same lens twice
-/// running (when another will do), so a person's story is about something different each time.
-///  - new: taken in the last month ("New this week" / "New this month")
-///  - throwback: taken around today's date in an earlier year ("2 years ago")
-///  - best: the best matches of a collection ("Some of the best")
-///  - forgotten: older than a year, or with no date ("From a while back")
-///  - mixed: whatever there is ("Picked for you")
-/// The pictures are spread over the lens's time and never two from the same minute or so.
+/// Chooses the pictures of one story from what a ring has not shown yet. A story looks at the pool through one lens,
+/// and the same ring never uses the same lens twice running when another will do.
+/// [lensNew] takes the last month ("New this week" or "New this month"), [lensThrowback] around today's date in an
+/// earlier year ("2 years ago"), [lensBest] the best matches of a collection ("Some of the best"), [lensForgotten]
+/// pictures older than a year or undated ("From a while back") and [lensMixed] whatever there is ("Picked for you").
+/// Pictures are spread over the lens's time, never two from the same minute or so.
 class StoryPlanner {
   static const int minFrames = 3;
   static const int maxFrames = 6;
@@ -45,8 +41,12 @@ class StoryPlanner {
   static const String lensForgotten = 'forgotten';
   static const String lensMixed = 'mixed';
 
-  /// [pool]: what has not been shown (in the order the source gave it: best first when [ranked]). [seed] makes the
-  /// choice the same however often it is asked and different for each ring and day. Null: not enough to make a story.
+  /// Plans a story, or returns null when there is not enough for one. [pool] is what has not been shown, best first
+  /// when [ranked]. [seed] makes the choice the same however often it is asked and different for each ring and day.
+  /// The throwback lens counts how far round the year a day is from today, so the end of December is near the start of
+  /// January. A specific lens is preferred to [lensMixed], and [lensNew] to the other specific ones. When the chosen
+  /// lens has pictures too close together to make a story, such as a burst, the whole pool is used, and then the whole
+  /// pool without the gap between pictures.
   static StoryPlan? plan({
     required List<StoryItem> pool,
     required DateTime now,
@@ -70,8 +70,6 @@ class StoryPlanner {
       captions[lensNew] = nowMs - newest <= 7 * _day ? 'New this week' : 'New this month';
     }
 
-    // Around today's date, in the year that has the most. (How far round the year a day is from today's counts, so
-    // the end of December is near the start of January.)
     final byYear = <int, List<StoryItem>>{};
     final today = DateTime(now.year, now.month, now.day);
     for (final i in pool) {
@@ -114,7 +112,6 @@ class StoryPlanner {
     lenses[lensMixed] = pool;
     captions[lensMixed] = 'Picked for you';
 
-    // The lens: not the one before when there is another; new things first; "mixed" only when nothing else fits.
     var options = lenses.keys.where((k) => k != lastLens).toList();
     if (options.isEmpty) options = lenses.keys.toList();
     final specific = options.where((k) => k != lensMixed).toList();
@@ -129,7 +126,6 @@ class StoryPlanner {
 
     var used = lens;
     var picks = _spread(lenses[lens]!, seed);
-    // Too close together to make a story (a burst of photos): the whole pool, then with the gap forgotten.
     if (picks.length < minFrames && lens != lensMixed) {
       used = lensMixed;
       picks = _spread(pool, seed);
@@ -139,8 +135,8 @@ class StoryPlanner {
     return StoryPlan(picks: picks, lens: used, caption: captions[used]!);
   }
 
-  // Between 4 and 6 pictures, one from each equal stretch of the lens's items in time order, never one within
-  // ten minutes of another, at most two videos and none of them side by side.
+  /// Chooses between 4 and 6 pictures, one from each equal stretch of the items in time order. None is within ten
+  /// minutes of another unless [burst] is false, at most two are videos, and no two videos are side by side.
   static List<StoryItem> _spread(List<StoryItem> items, int seed, {bool burst = true}) {
     final sorted = [...items]
       ..sort((a, b) {
@@ -181,8 +177,9 @@ class StoryPlanner {
     return false;
   }
 
-  // Not two videos in a row: one of the two is swapped with a picture that is not a video, the first swap that
-  // leaves no two side by side (with at most two videos among three or more pictures there always is one).
+  /// Makes sure no two videos are in a row, by swapping one of the two with a picture that is not a video. The
+  /// first swap that leaves no two side by side is used, and with at most two videos among three or more pictures
+  /// there always is one.
   static void _apartVideos(List<StoryItem> list) {
     if (!_videosTogether(list)) return;
     for (var mover = 0; mover < list.length; mover++) {
@@ -219,15 +216,11 @@ class RingPick {
   final bool lit;
 }
 
-/// Chooses which rings are in the row, and in what order.
-///
-///  - A ring is lit when it has a story that has not been opened, or when 24 hours have passed since its story was
-///    opened and it still has something it has not shown. Opening a story greys the ring for those 24 hours (the
-///    story can be played again).
-///  - A ring with nothing left to show rests for a few days; it stays in the row, grey, with its last story.
-///  - At most [maxRings] places. Lit rings take most of them, in the order of a score (what is new in it, how much
-///    it has left, how long since it was last seen, a little chance that changes each day) and with a mix of
-///    people and collections; up to three places keep the grey ones so the row is not only what is new.
+/// Chooses which rings are in the row, and in what order, in at most [maxRings] places. A ring is lit when it has a
+/// story that has not been opened, or 24 hours have passed since its story was opened and it still has something to
+/// show. A ring with nothing left to show rests for a few days, grey, with its last story.
+/// Lit rings take most places, ordered by a score (what is new in it, how much it has left, how long since it was
+/// seen, and a little daily chance) with a mix of people and collections. Up to three places keep the grey rings.
 class StoryRowPicker {
   static const int maxRings = 8;
   static const int maxPeople = 5;
@@ -299,7 +292,8 @@ class StoryRowPicker {
     return [for (final f in chosen) RingPick(f, true), for (final f in greys.take(room)) RingPick(f, false)];
   }
 
-  // People and collections in a mix, never more than the caps unless there is nothing else, best first.
+  /// People and collections in a mix, best first, never more than the caps unless there is nothing else. The kinds
+  /// are alternated, each keeping its own order, starting with whichever leads.
   static List<RingFacts> _balanced(List<RingFacts> sorted, int slots) {
     final people = <RingFacts>[], collections = <RingFacts>[], rest = <RingFacts>[];
     for (final f in sorted) {
@@ -317,7 +311,6 @@ class StoryRowPicker {
       if (chosen.length >= slots) break;
       chosen.add(f);
     }
-    // Alternate the kinds, each keeping its own order, starting with whichever leads.
     final p = [
           for (final f in chosen)
             if (f.isPerson) f,
@@ -344,13 +337,10 @@ class StoryRowPicker {
   }
 }
 
-/// The rings of the row, kept together as one batch.
-///
-/// The row is not a window that slides over everything there is: a batch of up to eight rings is chosen, and those
-/// stay in the row (the ones that were opened go grey and move behind the ones that have not) until the batch has been
-/// used up. A ring opened in the batch stays grey for the rest of it. When every ring of the batch has been opened,
-/// and a day has gone by since the last was, the next batch is chosen (other rings are preferred, so it is not the same
-/// rings again). A refresh by hand starts the next batch at once. A batch nobody finishes stays as it is.
+/// The rings of the row, kept together as one batch of up to eight. The row does not slide over everything there is:
+/// the batch stays until it has been used up, the opened rings going grey behind the ones that have not been. When
+/// every ring has been opened and a day has gone by since the last, the next batch is chosen, preferring other rings.
+/// A refresh by hand starts the next batch at once. A batch nobody finishes stays as it is.
 class StoryBatch {
   const StoryBatch({this.keys = const [], this.lit = const {}, this.at = 0});
 
@@ -375,7 +365,8 @@ class StoryBatch {
   /// This batch, or a new one: when this is empty, when none of its rings is left, when every ring in it was opened and a
   /// day has gone by since the last, or when [force] says so (a refresh by hand). Not while [ready] is false (people and
   /// collections are still being found at the start of the app: a batch made from some of them would keep the others out,
-  /// and an empty list of them would end the batch there is).
+  /// and an empty list of them would end the batch there is). When nothing new would be lit, this batch stays,
+  /// rather than being chosen again every time it is asked.
   StoryBatch next(List<RingFacts> all, int now, int seed, {bool force = false, bool ready = true}) {
     if (!ready) return this;
     final byKey = {for (final f in all) f.key: f};
@@ -397,7 +388,6 @@ class StoryBatch {
       for (final p in picks)
         if (p.lit) p.facts.key,
     };
-    // Nothing new to light up: what is there stays, rather than being chosen again every time it is asked.
     if (!force && present.isNotEmpty && newLit.isEmpty && !anyLit) return this;
     return StoryBatch(keys: [for (final p in picks) p.facts.key], lit: newLit, at: now);
   }

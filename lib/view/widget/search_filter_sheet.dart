@@ -12,13 +12,11 @@ void showSearchFilterSheet(BuildContext context, NativeController controller) {
   );
 }
 
-// Draft state, not live - every control here edits a local copy only.
-// Applying (and possibly re-searching) on every tap would fire a search
-// mid "trying out a few options", and there's no good way to signal
-// "something changed" without either popping the sheet on each change
-// (jarring) or leaving it open with no feedback (the user can't tell if
-// anything happened). One clear commit point - the button at the bottom -
-// solves both at once.
+/// Every control here edits a local draft, not the live settings.
+///
+/// Applying, and possibly searching again, on every tap would fire a search while the person is still trying a few
+/// options. There is no good way to signal a change without either popping the sheet on each change or leaving it
+/// open with no feedback. One clear commit point, the button at the bottom, solves both.
 class _SearchFilterSheet extends StatefulWidget {
   const _SearchFilterSheet({required this.controller});
 
@@ -28,6 +26,9 @@ class _SearchFilterSheet extends StatefulWidget {
   State<_SearchFilterSheet> createState() => _SearchFilterSheetState();
 }
 
+/// The button offers to search only when there is a query on screen, typed text or an attached image. That is the
+/// condition runSearch guards on. Otherwise a tap on search would do nothing, so the button only offers to save the
+/// settings. It reads the current state, not whether a search was run earlier.
 class _SearchFilterSheetState extends State<_SearchFilterSheet> {
   late ContentMode _contentMode;
   late double _limit;
@@ -43,12 +44,6 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
 
-    // Whether there's an actual query sitting on screen right now (typed
-    // text, or an attached image) - the same condition runSearch() itself
-    // guards on. If neither is true, tapping "search" would do nothing,
-    // so the button only offers to save the settings instead. This is a
-    // read of current state, not a history flag - it doesn't matter
-    // whether a search was run earlier, only whether one could run now.
     final hasQuery =
         controller.pickedSearchImageUri != null ||
         controller.searchTextController.text.trim().isNotEmpty;

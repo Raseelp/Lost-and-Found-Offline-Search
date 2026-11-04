@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:lost_and_found/models/collection_model.dart';
 
-// Built-ins live in code, not the database - the DB only holds which of
-// them a user has hidden - so improving a prompt list in an app update
-// reaches everyone without overwriting anything they've changed.
-//
-// Each has several phrasings averaged together (see SmartCollection.prompts).
-// `sensitivity` is the per-collection z-score cutoff; these are starting
-// points to tune against a real library: broad, unmistakable subjects
-// (beach, pets) can run a little stricter, vaguer moods a little looser.
+/// The built-in smart collections.
+///
+/// They live in code and the database only holds which of them a person has hidden, so a better prompt list in an app
+/// update reaches everyone without overwriting anything they changed. Each has several phrasings that are averaged
+/// together (see [SmartCollection.prompts]). The sensitivity is the z-score cutoff of that collection, and the values are starting points to tune
+/// against a real library.
 const List<SmartCollection> defaultCollections = [
   SmartCollection(
     id: 'builtin_pets',

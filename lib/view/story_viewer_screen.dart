@@ -22,12 +22,12 @@ import 'package:lost_and_found/view/widget/media_chrome_button.dart';
 import 'package:lost_and_found/view/widget/story_rings.dart';
 import 'package:video_player/video_player.dart';
 
-// Whether a video in a story is silent. It starts silent, and what the person chooses stays for the rest of the session.
+/// Whether a video in a story is silent. It starts silent, and what the person chooses stays for the rest of the session.
 final ValueNotifier<bool> _storiesMuted = ValueNotifier(true);
 
 /// The route that opens the stories: a round window grows out of the ring that was tapped until it
-/// fills the screen, and shrinks back into it on closing. (After a drag-down the picture has already
-/// left the screen by itself, so there is nothing to shrink.)
+/// fills the screen, and shrinks back into it on closing. After a drag-down the picture has already
+/// left the screen by itself, so there is nothing to shrink.
 class StoryRoute extends PageRouteBuilder<void> {
   StoryRoute({required List<StoryRing> rings, required int initial, this.origin, this.originRadius = 30})
     : super(
@@ -44,6 +44,11 @@ class StoryRoute extends PageRouteBuilder<void> {
   /// Set when the viewer was dragged away: it is gone already, so closing shows nothing.
   bool dragged = false;
 
+  /// Grows the round window from [origin] to the corner of the screen that is furthest from it.
+  ///
+  /// The curve starts and ends gently, because a curve that is fast at the start makes the first frames jump. There is
+  /// no fade, since a fade over the whole screen is drawn in a layer of its own every frame, and the window itself is
+  /// the entrance. The page is its own layer, so growing the window only changes what is cut out of it.
   @override
   Widget buildTransitions(
     BuildContext context,
@@ -58,9 +63,7 @@ class StoryRoute extends PageRouteBuilder<void> {
         if (dragged && animation.status == AnimationStatus.reverse) return const SizedBox.shrink();
         final size = MediaQuery.sizeOf(context);
         final from = origin ?? size.center(Offset.zero);
-        // Starts gently and ends gently: a curve that is fast at the start made the first frames jump.
         final t = Curves.easeInOutCubic.transform(animation.value);
-        // Far enough to take in the corner that is furthest from the ring.
         final reach = [
           (from - Offset.zero).distance,
           (from - Offset(size.width, 0)).distance,
@@ -68,8 +71,6 @@ class StoryRoute extends PageRouteBuilder<void> {
           (from - Offset(size.width, size.height)).distance,
         ].reduce(math.max);
         final radius = originRadius + (reach - originRadius) * t;
-        // No fade (a fade over the whole screen is drawn in a layer of its own, every frame): the window itself is the
-        // entrance. The page is its own layer, so growing the window only changes what is cut out of it.
         return ClipPath(
           clipper: _CircleClipper(center: from, radius: radius),
           child: RepaintBoundary(child: child),
@@ -93,9 +94,10 @@ class _CircleClipper extends CustomClipper<Path> {
 }
 
 /// The stories, one ring after another. Each ring is a page; a story ends by turning to the next
-/// ring like the face of a cube, and a swipe sideways does the same. Inside a story: tap the right
-/// side for the next picture, the left for the one before, hold to pause. Pull down to close: the
-/// picture follows the finger.
+/// ring like the face of a cube, and a swipe sideways does the same. Inside a story, a tap on the right
+/// side goes to the next picture, a tap on the left to the one before, and holding pauses. Pulling down closes: the
+/// picture follows the finger, moves, shrinks a little and gets round corners, and the black behind it gives way to
+/// what is underneath.
 class StoryViewerScreen extends StatefulWidget {
   const StoryViewerScreen({super.key, required this.rings, required this.initial});
 
@@ -112,15 +114,15 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
   late final PageController _pages = PageController(initialPage: widget.initial);
   int _current = 0;
 
-  // What keeps the story on screen from running: swiping or turning between rings, being pulled
-  // down, or the app being out of sight.
+  /// The flags that keep the story on screen from running: swiping or turning between rings, being pulled down, or the
+  /// app being out of sight.
   bool _turning = false;
   bool _sliding = false;
   bool _dragging = false;
   bool _away = false;
 
-  // Where the picture has been pulled to (it follows the finger), and the animation that settles
-  // it back, or sends it off the screen.
+  /// Where the picture has been pulled to, which follows the finger, and the animation that settles it back or sends it
+  /// off the screen.
   final ValueNotifier<Offset> _offset = ValueNotifier(Offset.zero);
   late final AnimationController _settle = AnimationController(vsync: this);
   Offset _settleFrom = Offset.zero;
@@ -148,7 +150,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
     super.dispose();
   }
 
-  // Not running while the app is out of sight.
+  /// Stops the story running while the app is out of sight.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final away = state != AppLifecycleState.resumed;
@@ -173,7 +175,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
     _turnTo(_current - 1);
   }
 
-  // With motion off the next story is simply there.
+  /// Turns to [page]. With motion off the next story is simply there.
   void _turnTo(int page) {
     if (calm(context)) {
       _pages.jumpToPage(page);
@@ -182,8 +184,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
     }
   }
 
-  // While the pages turn by themselves a touch is ignored: touching a page that is turning would stop it
-  // half way and let it fall back to where it was.
+  /// Ignores touches while the pages turn by themselves, because touching a page that is turning would stop it half way
+  /// and let it fall back to where it was.
   void _turn(Future<void> turning) {
     setState(() => _sliding = true);
     turning.whenComplete(() {
@@ -201,8 +203,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
     return false;
   }
 
-  // A scroll can start or end while the pages are being laid out (the pages are told they cannot be dragged any
-  // more, say): then the change waits for the end of the frame.
+  /// Sets [_turning]. A scroll can start or end while the pages are being laid out, when the pages are told they cannot
+  /// be dragged any more, say. Then the change waits for the end of the frame.
   void _setTurning(bool value) {
     if (_turning == value) return;
     if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
@@ -214,12 +216,14 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
     }
   }
 
-  // Which way a touch is going is decided once, on its first few pixels: mostly down is a pull and the
-  // picture follows the finger; anything else belongs to the pages, so a sideways swipe turns to the next
-  // or the one before and never moves the picture, however much the finger drifts up or down on the way.
+  /// The pointer being followed. Which way a touch is going is decided once, on its first few pixels. Mostly down is a
+  /// pull and the picture follows the finger. Anything else belongs to the pages, so a sideways swipe turns to the next
+  /// ring or the one before and never moves the picture, however much the finger drifts up or down on the way.
   int? _pointer;
   Offset _travel = Offset.zero;
-  bool? _pulling; // null until decided
+
+  /// Whether the touch is a pull, and null until that is decided.
+  bool? _pulling;
   VelocityTracker _velocity = VelocityTracker.withKind(PointerDeviceKind.touch);
 
   void _pointerDown(PointerDownEvent e) {
@@ -257,12 +261,11 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
 
   void _pullStart(double dy) {
     _settle.stop();
-    // The pages are not to scroll under a pull.
     setState(() => _dragging = true);
     _offset.value = Offset(0, dy);
   }
 
-  // The picture goes with the finger. Pulling up is harder than pulling down, since only down closes.
+  /// Moves the picture with the finger. Pulling up is harder than pulling down, since only down closes.
   void _pull(double dy) {
     final up = dy < 0 && _offset.value.dy <= 0 ? dy * 0.35 : dy;
     _offset.value += Offset(0, up);
@@ -272,7 +275,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
     final height = MediaQuery.sizeOf(context).height;
     final away = _offset.value.dy > height * 0.16 || velocityY > 700;
     if (away) {
-      // Carries on out of the screen the way it was going.
       _runSettle(
         Offset(0, height),
         const Duration(milliseconds: 230),
@@ -306,8 +308,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
       });
   }
 
-  // The button at the bottom: the person's photos as a search (so they come up in the Search tab,
-  // with the stories one tap away), or the person's or collection's own page.
+  /// The button at the bottom. It shows the person's photos as a search, so they come up in the Search tab with the
+  /// stories one tap away, or opens the person's or collection's own page. A name that two people share is not
+  /// understood as either, so their own page is the way then.
   void _act(StoryRing ring) {
     final navigator = Navigator.of(context);
     final native = Get.find<NativeController>();
@@ -322,7 +325,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
     if ((person.name ?? '').trim().isNotEmpty) {
       native.setSearchPhotoMode(false);
       native.searchTextController.text = person.name!;
-      // A name that two people share is not understood as either: their own page is the way then.
       if (native.searchTextController.recognizedPeople.any((p) => p.id == person.id)) {
         navigator.pop();
         native.runSearch();
@@ -337,7 +339,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
 
-    // Its own layer: while the picture is pulled or the pages turn, the page is moved as it is, not drawn again.
     final pages = RepaintBoundary(
       child: IgnorePointer(
         ignoring: _sliding,
@@ -346,7 +347,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
           child: PageView.builder(
             controller: _pages,
             physics: _dragging ? const NeverScrollableScrollPhysics() : null,
-            // The next ring is built beside this one, so its first picture is ready when it turns in.
             allowImplicitScrolling: true,
             itemCount: widget.rings.length,
             onPageChanged: (i) => setState(() => _current = i),
@@ -371,8 +371,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
       ),
     );
 
-    // The picture follows the finger as it is pulled down: it moves, shrinks a little and gets
-    // round corners, and the black behind it gives way to what is underneath.
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: kMediaOverlayStyle,
       child: Material(
@@ -392,7 +390,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
                 fit: StackFit.expand,
                 children: [
                   ColoredBox(color: AppColors.mediaBackdrop.withValues(alpha: 1 - 0.9 * p)),
-                  // One transform (move and shrink together) over the page's own layer.
                   Transform(
                     alignment: Alignment.center,
                     transform:
@@ -415,6 +412,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
 
 /// One ring's page turned as the face of a cube: the page leaving swings away on its far edge while
 /// the one coming in swings round to meet it, and the one going dims as it turns from you.
+///
+/// Each page is its own layer, so while the picture is pulled or the pages turn the page is moved as it is and not
+/// drawn again. The next ring is built beside the one on screen, so its first picture is ready when it turns in.
 class _CubeFace extends StatelessWidget {
   const _CubeFace({required this.controller, required this.index, required this.initial, required this.child});
 
@@ -432,10 +432,9 @@ class _CubeFace extends StatelessWidget {
         final page = controller.hasClients && controller.position.haveDimensions
             ? (controller.page ?? initial.toDouble())
             : initial.toDouble();
-        // -1 one page to the left, 0 in front, 1 one page to the right.
         final delta = (index - page).clamp(-1.0, 1.0);
-        // The same widgets whether the page is in front or turning (when it is in front the transform is
-        // plain): a page that changed its place in the tree would be built again, and its story with it.
+        // The same widgets whether the page is in front or turning: a page that changed its place in the tree
+        // would be built again, and its story with it.
         return Transform(
           alignment: delta > 0 ? Alignment.centerLeft : Alignment.centerRight,
           transform: delta == 0
@@ -460,6 +459,10 @@ class _CubeFace extends StatelessWidget {
 }
 
 /// One ring's story: its pictures one after the other, the bars on top, who it is, and the button.
+///
+/// A dark shade at the top and bottom keeps the bars and the button readable on any picture. A screen reader goes
+/// through the pictures with custom actions, since the sides of the picture are not buttons for it. The ring of the
+/// avatar turns while the story is being found.
 class _StoryPage extends StatefulWidget {
   const _StoryPage({
     super.key,
@@ -490,8 +493,8 @@ class _StoryPage extends StatefulWidget {
 class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMixin {
   static const Duration _frameTime = Duration(seconds: 5);
 
-  // A video plays from the moment that was picked for it (or the start, if little would be left) for as long as
-  // it lasts, but not longer than this, and not shorter than the minimum.
+  /// A video plays from the moment that was picked for it, or from the start if little would be left, for as long as it
+  /// lasts, but not longer than [_videoCap] and not shorter than [_videoMin].
   static const Duration _videoCap = Duration(seconds: 15);
   static const Duration _videoMin = Duration(seconds: 2);
 
@@ -500,27 +503,27 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
 
   int _frame = 0;
 
-  // Null while the story's pictures are being found.
+  /// Null while the story's pictures are being found.
   List<StoryFrame>? _frames;
 
-  // How the story's pictures were chosen ("New this week"), when it says.
+  /// How the story's pictures were chosen ("New this week"), when it says.
   String? _caption;
   final Map<int, Uint8List> _bytes = {};
   final Set<int> _failed = {};
 
-  // What each picture looks like from far away (its colours and shape), and the ring's own face or cover, for the
-  // loading picture.
+  /// What each picture looks like from far away (its colours and shape), and the ring's own face or cover, for the
+  /// loading picture.
   final Map<int, _Look> _looks = {};
   _Look? _coverLook;
 
-  // The route that shows the page, while it is still opening.
+  /// The route that shows the page, while it is still opening.
   Animation<double>? _routeAnimation;
   AnimationStatusListener? _routeListener;
   bool _held = false;
   bool _gone = false;
 
-  // The player of the video on screen (only the ring on screen has one), whether it is ready, whether its
-  // picture has taken over from the still, and a count of starts so a player that arrives late is dropped.
+  /// The player of the video on screen (only the ring on screen has one), whether it is ready, whether its picture has
+  /// taken over from the still, and a count of starts so that a player that arrives late is dropped.
   VideoPlayerController? _video;
   bool _videoReady = false;
   bool _videoShown = false;
@@ -536,8 +539,8 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
   @override
   void initState() {
     super.initState();
-    // A clock, not a movement: it keeps its time with the phone's animations off (Flutter would otherwise run it
-    // 20 times faster, and each picture would be gone in a moment).
+    // A clock, not a movement: with the phone's animations off Flutter would run it 20 times faster otherwise,
+    // and each picture would be gone in a moment.
     _progress = AnimationController(vsync: this, duration: _frameTime, animationBehavior: AnimationBehavior.preserve)
       ..addStatusListener(_onProgress);
     _storiesMuted.addListener(_onMute);
@@ -564,13 +567,11 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
   void didUpdateWidget(covariant _StoryPage old) {
     super.didUpdateWidget(old);
     if (widget.active && !old.active) {
-      // Turned to: starts from its first picture.
       if (_frames != null) unawaited(_stories.markViewed(widget.ring));
       _frame = 0;
       _enterFrame();
     } else if (!widget.active && old.active) {
       _pause();
-      // Another ring is on screen: this one lets its player go (they are scarce).
       _releaseVideo();
     } else if (widget.playing != old.playing) {
       if (_canRun) {
@@ -581,8 +582,9 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
     }
   }
 
-  // The page is built while its route is still opening; what it asks of the phone (the pictures of a ring, their dates,
-  // the thumbnails) waits for the opening to end, so it does not take frames from it.
+  /// Completes when the route that shows the page has finished opening. The page is built while its route is still
+  /// opening, and what it asks of the phone (the pictures of a ring, their dates, the thumbnails) waits for the opening
+  /// to end, so it does not take frames from it.
   Future<void> _routeSettled() {
     final done = Completer<void>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -620,8 +622,10 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
     setState(() => _coverLook = look);
   }
 
-  // Rings are made ready one at a time: the one on screen first, the ones beside it after. Each asks the phone for
-  // everything a person or collection holds, and several at once would take a lot of frames from the story that is playing.
+  /// The queue that makes rings ready one at a time: the one on screen first, the ones beside it after. Each asks the
+  /// phone for everything a person or collection holds, and several at once would take a lot of frames from the story
+  /// that is playing. A ring that does not answer within 40 seconds is given up, so that it does not keep the rings
+  /// behind it from being made ready.
   static Future<void> _queue = Future<void>.value();
 
   Future<StoryEdition> _edition() async {
@@ -631,7 +635,6 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
     try {
       await before;
       if (_gone) return StoryEdition.empty;
-      // Not for ever: one ring that never answers must not keep the rings behind it from being made ready.
       return await _stories
           .loadEdition(widget.ring)
           .timeout(const Duration(seconds: 40), onTimeout: () => StoryEdition.empty);
@@ -643,6 +646,9 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
     }
   }
 
+  /// Makes the story ready once the route has opened. Opening a story is what greys its ring, so the ring is marked as
+  /// viewed only once the story exists. The first picture is fetched before anything else and the rest follow one
+  /// after another.
   Future<void> _load() async {
     await _routeSettled();
     if (_gone) return;
@@ -653,9 +659,7 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
       _frames = frames;
       _caption = edition.caption;
     });
-    // Its story is there: opening it is what greys the ring (once the story exists to be opened).
     if (widget.active) unawaited(_stories.markViewed(widget.ring));
-    // The first picture before anything else; the rest one after another behind it.
     for (var k = 0; k < frames.length; k++) {
       if (_gone) return;
       await _fetch(k);
@@ -677,7 +681,7 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
     if (k == _frame && widget.active) _enterFrame();
   }
 
-  // The picture shown now is there (or has failed): start its time, or move past it.
+  /// Starts the time of the picture shown once it is there, or moves past it if it has failed.
   void _enterFrame() {
     _progress
       ..stop()
@@ -696,14 +700,14 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
     }
   }
 
-  // Plays the video of the picture on screen over its still. Until it is ready the still is what is shown
-  // (it is the same moment), and if it cannot be played the still is shown for the usual time.
+  /// Plays the video of the picture on screen over its still. Until it is ready the still is what is shown, as it is
+  /// the same moment, and if the video cannot be played the still is shown for the usual time. The video mixes with
+  /// other audio, so it does not take the sound away from what the person is listening to.
   Future<void> _startVideo() async {
     final run = ++_videoRun;
     final frame = _frames![_frame];
     final player = VideoPlayerController.contentUri(
       Uri.parse(frame.uri),
-      // It must not take the sound away from what the person is listening to.
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
     );
     _video = player;
@@ -733,16 +737,16 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
     }
   }
 
+  /// Plays the video, and after a moment for its first picture to be there it takes over from the still.
   Future<void> _playVideo(VideoPlayerController player, int run) async {
     await player.play();
     if (_videoShown) return;
-    // A moment for its first picture to be there, then it takes over from the still.
     await Future<void>.delayed(const Duration(milliseconds: 150));
     if (!_gone && run == _videoRun) setState(() => _videoShown = true);
   }
 
-  // Lets the player go (a later start that finds the count changed lets go of its own). The picture of it is taken
-  // off the screen first and the player is released after that frame, never while something still draws it.
+  /// Lets the player go. A later start that finds the count changed lets go of its own. The picture of it is taken off
+  /// the screen first and the player is released after that frame, never while something still draws it.
   void _releaseVideo() {
     _videoRun++;
     final player = _video;
@@ -756,8 +760,8 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
     WidgetsBinding.instance.ensureVisualUpdate();
   }
 
+  /// Pauses the player first, so it stops playing even if letting go takes a moment, and then disposes of it.
   Future<void> _disposeVideo(VideoPlayerController player) async {
-    // Sent first, so it stops playing even if letting go takes a moment.
     unawaited(player.pause().catchError((_) {}));
     try {
       await player.dispose();
@@ -776,7 +780,6 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
     if (!_canRun || !_bytes.containsKey(_frame) || _progress.isCompleted) return;
     if (_isVideo) {
       final player = _video;
-      // Still starting: it starts the time itself when it is ready.
       if (player == null || !_videoReady) return;
       unawaited(_playVideo(player, _videoRun).catchError((_) {}));
     }
@@ -818,8 +821,8 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
     }
   }
 
-  // What the loading picture is made from: the colours of the last picture of this story that is there, else the ring's
-  // own face or cover.
+  /// What the loading picture is made from: the colours of the last picture of this story that is there, else the
+  /// ring's own face or cover.
   _Look? _loadingLook() {
     for (var k = _frame - 1; k >= 0; k--) {
       final look = _looks[k];
@@ -846,7 +849,6 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
         fit: StackFit.expand,
         children: [
           Semantics(
-            // A screen reader goes through the pictures with these (the sides of the picture are not buttons for it).
             customSemanticsActions: {
               CustomSemanticsAction(label: 'Next picture'): _next,
               CustomSemanticsAction(label: 'Previous picture'): _previous,
@@ -872,7 +874,6 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
               ),
             ),
           ),
-          // Shades so the bars and the button read on any picture.
           IgnorePointer(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -901,7 +902,6 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
                   padding: const EdgeInsets.fromLTRB(AppSpacing.base, AppSpacing.sm, AppSpacing.xs, 0),
                   child: Row(
                     children: [
-                      // The ring turns while the story is being found.
                       StoryAvatar(ring: ring, size: 40, lit: false, forceSpin: frames == null),
                       const SizedBox(width: AppSpacing.md),
                       Expanded(
@@ -984,6 +984,10 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
     );
   }
 
+  /// The picture on screen. It sits on the picture's own colours, top to bottom and a little from each side, so
+  /// whatever the picture does not cover looks like a continuation of it, with nothing stretched and nothing blocky. The
+  /// picture is a card with round corners that glows in its own colour. A video plays over its still once it has a
+  /// picture of its own.
   Widget _picture(StoryRing ring, List<StoryFrame>? frames) {
     final bytes = _bytes[_frame];
     final video = _isVideo ? _video : null;
@@ -1006,7 +1010,6 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
       filterQuality: FilterQuality.medium,
       excludeFromSemantics: true,
     );
-    // A video plays over its still once it has a picture of its own.
     final playing = (video != null && _videoReady)
         ? Positioned.fill(
             child: AnimatedOpacity(
@@ -1031,13 +1034,10 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Behind the picture: its own colours, top to bottom and a little from each side, so whatever the
-          // picture does not cover looks like a continuation of it (nothing is stretched, so nothing is blocky).
           _Ambient(look: look),
           if (look == null)
             Positioned.fill(child: still)
           else
-            // The picture is a card with round corners that glows in its own colour.
             Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -1066,8 +1066,8 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
 const double _cardRadius = 22;
 
 /// What a picture looks like from far away: its colours at the top, the middle, the bottom and the two sides (worked
-/// out from a picture of 3 by 3 pixels, so it is smooth however large it is drawn), and its shape. Used to paint
-/// the screen round the picture.
+/// out from a picture of 3 by 3 pixels, so it is smooth however large it is drawn), and its shape. It paints the
+/// screen round the picture.
 class _Look {
   const _Look({
     required this.top,
@@ -1135,7 +1135,7 @@ class _Look {
     }
   }
 
-  // The colour made darker and a little richer, so white writing on it can be read whatever the picture is.
+  /// The colour made darker and a little richer, so white writing on it can be read whatever the picture is.
   static Color _deepen(Color c) {
     final hsl = HSLColor.fromColor(c);
     return hsl
@@ -1191,8 +1191,9 @@ class _Ambient extends StatelessWidget {
 
 /// What is on screen while a picture is on its way: the colours of the last picture of the story (or of the face or
 /// cover of the ring), breathing a little darker and lighter, with a pale band of light sliding across. When the
-/// picture arrives it fades in over it. Only colours are drawn - no blurred picture, nothing to work out again and
-/// again while a window is opening.
+/// picture arrives it fades in over it. Only colours are drawn, with no blurred picture, so there is nothing to work
+/// out again and again while a window is opening. With motion off the colours alone show, still. Only the breathing and
+/// the band move, and they are a layer of their own.
 class _StoryLoading extends StatefulWidget {
   const _StoryLoading({this.look});
 
@@ -1214,7 +1215,6 @@ class _StoryLoadingState extends State<_StoryLoading> with SingleTickerProviderS
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // With motion off: the colours alone, still.
     if (calm(context)) {
       _run
         ..stop()
@@ -1236,7 +1236,6 @@ class _StoryLoadingState extends State<_StoryLoading> with SingleTickerProviderS
       fit: StackFit.expand,
       children: [
         _Ambient(look: widget.look),
-        // Only these move, and they are a layer of their own.
         RepaintBoundary(
           child: AnimatedBuilder(
             animation: _run,
@@ -1245,9 +1244,7 @@ class _StoryLoadingState extends State<_StoryLoading> with SingleTickerProviderS
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Breathes: a little darker, a little lighter.
                   ColoredBox(color: AppColors.scrim.withValues(alpha: 0.12 + 0.1 * math.sin(t * 2 * math.pi))),
-                  // The band of light, left to right.
                   DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -1291,7 +1288,7 @@ class _Message extends StatelessWidget {
   }
 }
 
-// One bar per picture: full for those shown, filling for the one on screen, empty for the rest.
+/// One bar per picture: full for those shown, filling for the one on screen, empty for the rest.
 class _Bars extends StatelessWidget {
   const _Bars({required this.count, required this.frame, required this.progress});
 

@@ -131,7 +131,7 @@ const _monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 
 String monthLabel(int month) => '${_monthNames[month % 12]} ${month ~/ 12}';
 
-/// The kinds of moment the timeline points out on a person's line - all of them good news.
+/// The kinds of moment the timeline points out on a person's line, all of them good news.
 enum MilestoneKind { firstTogether, comeback, lovelyRun }
 
 /// A moment worth a flag on someone's line. [short] fits a small chip, [long] a line of text.
@@ -162,10 +162,10 @@ class Milestone {
   final String short, long;
 }
 
-/// The moments in one person's months: their first photo with the person they are photographed with
-/// most, a return after a year or more away (when it carried on after), and - once they have
-/// been quiet for a year - a look back at the run they had. Single photos far from the rest, which
-/// are most likely a wrong date, never start or end anything.
+/// The moments in one person's months: their first photo with the person they are photographed with most, a return
+/// after a year or more away (when it carried on after), and a look back at the run they had once they have been
+/// quiet for a year. Single photos far from the rest, which are most likely a wrong date, never start or end
+/// anything.
 List<Milestone> milestonesFor({
   required List<int> offsets,
   required List<int> counts,
@@ -180,8 +180,7 @@ List<Milestone> milestonesFor({
   if (offsets.isEmpty || firstMonth == null || lastMonth == null) return out;
   final total = counts.fold<int>(0, (a, b) => a + b);
 
-  // A return: a year or more with nothing, then photos that carry on (not one stray).
-  final comebacks = <(int, int)>[]; // (months away, month it came back)
+  final comebacks = <(int, int)>[];
   var before = 0;
   for (var i = 0; i + 1 < offsets.length; i++) {
     before += counts[i];
@@ -206,7 +205,6 @@ List<Milestone> milestonesFor({
     );
   }
 
-  // A look back at a run that has gone quiet.
   if (total >= 6 && nowMonth - lastMonth >= 12) {
     final run = lastMonth - firstMonth + 1;
     final text = run >= 24
@@ -223,7 +221,6 @@ List<Milestone> milestonesFor({
     );
   }
 
-  // The first photo with the person they are photographed with most.
   if (companion != null && companion.count >= 3 && companion.firstMonth >= base && companion.firstMonth <= nowMonth) {
     out.add(
       Milestone(
@@ -241,9 +238,9 @@ List<Milestone> milestonesFor({
   return out;
 }
 
-/// The people whose moments are pointed out: the named ones, the best known first, up to [size] - the
-/// inner circle. When hardly anybody is named yet the most photographed stand in, so there is still
-/// something to find. With [everyone], all of them.
+/// The people whose moments are pointed out: the named ones, the best known first, up to [size], the inner circle.
+/// When hardly anybody is named yet the most photographed stand in, so there is still something to find. With
+/// [everyone], all of them.
 Set<int> momentCircle(List<Person> people, {required bool everyone, int size = 8}) {
   if (everyone) return {for (final p in people) p.id};
   int byPhotos(Person a, Person b) => b.photoCount.compareTo(a.photoCount);
@@ -320,14 +317,14 @@ class PhotoMoment {
   /// "Aug 2022".
   String get when => monthLabel(month);
 
-  /// The people who have a name, as "Anna, Dev and Mo" (null when none has).
+  /// The people who have a name, as "Anna, Dev and Mo" (null when none has). A group shot of four or more lists three
+  /// of them and "others", because the people kept for it are the best known.
   String? get names {
     final named = [
       for (final p in people)
         if (p.name != null) p.name!,
     ];
     if (named.isEmpty) return null;
-    // A group shot lists a few of them (the people kept for it are the best known).
     if (people.length >= 4) return '${named.take(3).join(', ')} and others';
     if (named.length == 1) return named.first;
     return '${named.take(named.length - 1).join(', ')} and ${named.last}';
@@ -381,8 +378,8 @@ class TimelineRowData {
   bool get single => firstMonth != null && firstMonth == lastMonth;
   int get maxCount => counts.isEmpty ? 0 : counts.reduce((a, b) => a > b ? a : b);
 
-  /// "Since 2019" while they are still around, "2018 - 2021" once they have gone quiet, the
-  /// month for someone who shows up in just one.
+  /// "Since 2019" while they are still around, the first and last year once they have gone quiet, and the month for
+  /// someone who shows up in just one.
   String rangeLabel(int nowMonth) {
     final first = firstMonth, last = lastMonth;
     if (first == null || last == null) return 'No dates yet';
@@ -437,8 +434,8 @@ class TimelineLayout {
       if (g.month == month) g,
   ];
 
-  /// The story: the moments of the people shown and of groups, year by year - the six that matter most
-  /// of each year (they are in the order they happened).
+  /// The story: the moments of the people shown and of groups, year by year. The six that matter most of each year
+  /// are kept, in the order they happened.
   List<StoryEntry> story() {
     final all = <StoryEntry>[];
     final pairs = <String>{};
@@ -545,10 +542,12 @@ class TimelineLayout {
   }
 
   /// Lays out [people] (in the order given) with the months in [data]. [now] is today.
+  ///
+  /// Months after today are left out, since they cannot be real. A single photo a long way from the rest is most
+  /// likely a wrong date, so it is drawn but left out of "since" and of the order.
   factory TimelineLayout.build(List<Person> people, TimelineData data, DateTime now, {bool everyone = false}) {
     final end = monthIndex(now);
 
-    // Every person's months, kept to those that can be real (not after today).
     final all = <int, int>{};
     for (final p in people) {
       final t = data.byPerson[p.id];
@@ -574,8 +573,6 @@ class TimelineLayout {
           counts.add(t.counts[i]);
         }
       }
-      // A single photo a long way from the rest is most likely a wrong date: it is drawn, but
-      // left out of "since" and of the order.
       var lo = 0, hi = offsets.length - 1;
       while (lo < hi && counts[lo] == 1 && offsets[lo + 1] - offsets[lo] > 18) {
         lo++;
@@ -618,8 +615,8 @@ class TimelineLayout {
     );
   }
 
-  // The axis begins where the library really begins: the first month that has company (at least
-  // ten photos in the two years from it), so one photo with a wrong date cannot stretch it.
+  /// The axis begins where the library really begins: the first month that has company, at least ten photos in the
+  /// two years from it, so one photo with a wrong date cannot stretch it.
   static int _axisStart(Map<int, int> all, int end) {
     if (all.isEmpty) return (end ~/ 12) * 12;
     final months = all.keys.toList()..sort();
@@ -697,8 +694,12 @@ IconData groupIcon(GroupKind kind) {
   }
 }
 
-// The moments of several people. Only people on the timeline count (known ones), so a group shot of
-// five faces that are not people yet is not a "whole gang".
+/// The moments of several people. Only people on the timeline count (known ones), so a group shot of five faces that
+/// are not people yet is not a "whole gang".
+///
+/// The whole gang is each year's shot with the most known people, four or more. A reunion is three or more known
+/// people together again after a year or more. New faces are three or more people who first appear in the same year,
+/// not counting the first year of the library, when everyone is new.
 List<GroupMoment> _buildGroupMoments(
   List<Person> people,
   List<TimelineRowData> rows,
@@ -719,7 +720,6 @@ List<GroupMoment> _buildGroupMoments(
     return months >= 24 ? '${(months / 12).round()} years' : '$months months';
   }
 
-  // The whole gang: each year's shot with the most known people (four or more).
   final bestOfYear = <int, GroupMedia>{};
   final bestCount = <int, int>{};
   for (final c in data.crowds) {
@@ -749,7 +749,6 @@ List<GroupMoment> _buildGroupMoments(
     );
   }
 
-  // Reunions: three or more known people together again after a year or more.
   for (final r in data.reunions) {
     final month = r.month;
     if (month < start || month > end) continue;
@@ -769,8 +768,6 @@ List<GroupMoment> _buildGroupMoments(
     );
   }
 
-  // New faces: three or more people who first appear in the same year (not the first year of the
-  // library, when everyone is new).
   final firstYear = start ~/ 12;
   final arrivals = <int, List<TimelineRowData>>{};
   for (final row in rows) {

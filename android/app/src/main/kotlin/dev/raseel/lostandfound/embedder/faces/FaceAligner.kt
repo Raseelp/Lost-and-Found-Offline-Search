@@ -6,17 +6,17 @@ import android.graphics.Matrix
 import android.graphics.Paint
 
 /**
- * Straightens a face for the recognition model: finds the rotate + scale +
- * shift that best lands the face's five landmarks on the standard ArcFace
- * positions, and redraws the face through it into a small square. Every
- * ArcFace-family model (ArcFace, AdaFace, MobileFaceNet, SFace...) expects
- * exactly this layout, so it's independent of which one is in use - only the
- * output size changes.
+ * Straightens a face for the recognition model. It finds the rotation, scale and shift that best land the face's five
+ * landmarks on the standard ArcFace positions, and redraws the face through it into a small square. Every
+ * ArcFace-family model (ArcFace, AdaFace, MobileFaceNet, SFace and others) expects exactly this layout, so it does
+ * not depend on which one is in use. Only the output size changes.
  */
 object FaceAligner {
 
-    // ArcFace's reference landmarks on a 112x112 face: left eye, right eye,
-    // nose tip, left mouth corner, right mouth corner (left = smaller x).
+    /**
+     * ArcFace's reference landmarks on a 112x112 face: left eye, right eye, nose tip, left mouth corner and right mouth
+     * corner. Left means the smaller x.
+     */
     private val TEMPLATE_112 = floatArrayOf(
         38.2946f, 51.6963f,
         73.5318f, 51.5014f,
@@ -25,13 +25,14 @@ object FaceAligner {
         70.7299f, 92.2041f,
     )
 
-    /** [landmarks] is 10 numbers (x,y for each of the five points) in [src] pixels. */
+    /**
+     * Aligns the face in [src]. [landmarks] is 10 numbers (x and y of each of the five points) in [src] pixels. The
+     * transform is a least-squares similarity found with the points centred, with no shear and no flip.
+     */
     fun align(src: Bitmap, landmarks: FloatArray, size: Int): Bitmap {
         val k = size / 112f
         val dst = FloatArray(10) { TEMPLATE_112[it] * k }
 
-        // Least-squares similarity transform (no shear, no flip): with the
-        // points centred, x' = a*x - b*y + tx, y' = b*x + a*y + ty.
         var smx = 0f; var smy = 0f; var dmx = 0f; var dmy = 0f
         for (i in 0 until 5) {
             smx += landmarks[i * 2]; smy += landmarks[i * 2 + 1]

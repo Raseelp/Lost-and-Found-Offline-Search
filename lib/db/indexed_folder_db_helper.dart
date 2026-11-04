@@ -10,14 +10,15 @@ class IndexedFolderDbHelper {
   static final IndexedFolderDbHelper instance = IndexedFolderDbHelper._();
 
   static const _dbName = 'lostandfound.db';
-  // onUpgrade just drops and recreates this table - it's disposable UI
-  // bookkeeping, the actual embeddings live in the native store untouched.
+  /// An upgrade from before version 2 drops and recreates the folders table, which is disposable bookkeeping. The
+  /// embeddings live in the native store and are not touched.
   static const _dbVersion = 5;
 
-  // User-created collections, plus a bare row (hidden = 1) for a built-in
-  // the user has hidden - built-ins themselves live in code, see
-  // default_collections.dart. Unlike the folders table this is real user
-  // data, so it's created by an additive migration, never dropped.
+  /// The user's collections, and one bare row for each built-in collection the user has changed.
+  /// Built-ins live in code (see default_collections.dart) and have a row only once changed. Column `hidden` is 0 for
+  /// visible, 1 for hidden and 2 for deleted. A built-in cannot be deleted for real, so deleted means off the list
+  /// until it is restored from Settings. A non-empty `prompts` on a built-in means the user edited it. This is real
+  /// user data, so it is only migrated by adding columns and never dropped.
   static const collectionsTable = 'collections';
 
   static const id = 'id';
@@ -90,37 +91,26 @@ class IndexedFolderDbHelper {
     await _createCollectionsTable(db);
   }
 
+  /// Migrates from [oldVersion]. The collections table created at version 3 already has every column, so the column
+  /// additions only apply to a table that existed before. Rows added by those migrations keep working, as a null
+  /// `kind` reads as text and a null `personIds` reads as no person filter.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await db.execute('DROP TABLE IF EXISTS $table');
       await _createFoldersTable(db);
     }
     if (oldVersion < 3) {
-      // Freshly created, so it already has every column below - the two
-      // branches underneath only apply to a table that already existed.
       await _createCollectionsTable(db);
     } else {
       if (oldVersion < 4) {
-        // Photo-seeded collections - additive, existing rows keep working
-        // (a null kind reads as 'text').
         await db.execute("ALTER TABLE $collectionsTable ADD COLUMN kind TEXT");
         await db.execute("ALTER TABLE $collectionsTable ADD COLUMN seed TEXT");
       }
       if (oldVersion < 5) {
-        // Person-mention collections - additive, existing rows keep working
-        // (a null personIds reads as "no person filter").
         await db.execute("ALTER TABLE $collectionsTable ADD COLUMN personIds TEXT");
       }
     }
   }
-
-  // ---- Collections ----
-  //
-  // One table for both kinds. A user collection is a full row. A built-in
-  // has a row only once the user has changed something about it: `hidden`
-  // is 0 visible, 1 hidden, 2 deleted (a built-in can't truly be deleted -
-  // it lives in code - so deleted just means "off the list until restored
-  // from Settings"), and a non-empty `prompts` means the user edited it.
 
   Future<List<Map<String, Object?>>> getCollectionRows() async {
     final db = await database;
@@ -141,8 +131,8 @@ class IndexedFolderDbHelper {
     await db.delete(collectionsTable, where: 'id = ?', whereArgs: [collectionId]);
   }
 
-  /// Sets hidden (1) / deleted (2) / visible (0). A built-in with no row yet
-  /// gets a bare one (empty prompts = no edits, just the state).
+  /// Sets the `hidden` column of a collection to [state]: 0 visible, 1 hidden, 2 deleted. A built-in with no row yet
+  /// gets a bare one with empty prompts, which means no edits.
   Future<void> setCollectionState(String collectionId, int state, {required bool isBuiltIn}) async {
     final db = await database;
     final updated = await db.update(

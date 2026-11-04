@@ -30,7 +30,7 @@ class FaceRow(
 class StoredFace(
     val id: Long,
     val photoHash: Long,
-    // The photo or video the face is in (for a video's frames, the video's own key).
+    /** The photo or video the face is in (for a video's frames, the video's own key). */
     val mediaKey: Long,
     val embedding: FloatArray,
     val good: Boolean,
@@ -67,29 +67,25 @@ class FaceLocation(
     val boxB: Float,
     val good: Boolean,
     val personId: Long?,
-    // The photo's size at the scale face boxes were measured (0 if unknown).
+    /** The photo's size at the scale face boxes were measured (0 if unknown). */
     val photoW: Int,
     val photoH: Int,
-    // A face found in a video's frame: its picture is kept as a file, not cut from the video.
+    /** A face found in a video's frame: its picture is kept as a file, not cut from the video. */
     val isVideo: Boolean = false,
 )
 
 /**
- * All face data lives here, in its own database, owned by native code (the
- * scan writes thousands of rows; going through Flutter for that would be
- * slow). Flutter only ever reads summaries and asks for edits through the
- * method channel.
- *
- *  - photos: which photos have been searched for faces (so a scan resumes
- *    and never repeats work), keyed by the photo's content hash
- *  - faces:  every face found, with its identity vector and quality
- *  - people: the groups; a person is "pinned" once the user named or
- *    edited it, which stops automatic regrouping from touching it
+ * All face data lives in this database, owned by native code, because the scan writes thousands of rows and going
+ * through Flutter would be slow. Flutter reads summaries and asks for edits through the method channel.
+ * The photos table records which photos were searched, keyed by content hash. Faces hold the identity vector and
+ * quality. A person is pinned once the user named or edited it, which stops regrouping from touching it.
  */
 class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applicationContext, "faces.db", null, 10) {
 
-    // Small pictures of the faces found in videos (a video frame can't be cut out again
-    // cheaply, so the picture is kept when the face is found).
+    /**
+     * Small pictures of the faces found in videos (a video frame can't be cut out again
+     * cheaply, so the picture is kept when the face is found).
+     */
     private val cropsDir by lazy { File(context.applicationContext.filesDir, "face_crops") }
 
     fun cropFile(faceId: Long): File = File(cropsDir, "$faceId.jpg")
@@ -179,9 +175,11 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         createMediaDates(db)
     }
 
-    // People named in a video by looking at one of its frames (the video viewer's paused-frame
-    // check): nothing else is stored from that look, but "they are in this video, around here"
-    // is, so they join the video's list of people.
+    /**
+     * People named in a video by looking at one of its frames (the video viewer's paused-frame
+     * check): nothing else is stored from that look, but "they are in this video, around here"
+     * is, so they join the video's list of people.
+     */
     private fun createVideoSeen(db: SQLiteDatabase) {
         db.execSQL(
             """CREATE TABLE IF NOT EXISTS video_seen (
@@ -193,10 +191,12 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         )
     }
 
-    // When each photo or video was taken (see MediaDates), by the same key faces use for "the same
-    // photo or video" (media_key, else the photo hash). Kept per file, not per person, so people
-    // being merged, split or hidden never makes it wrong. [src] 0 means no date could be found
-    // (not asked for again).
+    /**
+     * When each photo or video was taken (see MediaDates), by the same key faces use for "the same
+     * photo or video" (media_key, else the photo hash). Kept per file, not per person, so people
+     * being merged, split or hidden never makes it wrong. [src] 0 means no date could be found
+     * (not asked for again).
+     */
     private fun createMediaDates(db: SQLiteDatabase) {
         db.execSQL(
             """CREATE TABLE IF NOT EXISTS media_dates (
@@ -205,11 +205,10 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
                 src INTEGER NOT NULL
             )"""
         )
-        // For "everything in this month".
         db.execSQL("CREATE INDEX IF NOT EXISTS media_dates_taken ON media_dates(taken_ms)")
     }
 
-    // Videos already gone through (their sampled frames live in `photos` with video_hash set).
+    /** Videos already gone through (their sampled frames live in `photos` with video_hash set). */
     private fun createVideos(db: SQLiteDatabase) {
         db.execSQL(
             """CREATE TABLE IF NOT EXISTS videos (
@@ -223,7 +222,7 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         )
     }
 
-    // What each merge you made moved, so it can be undone (see FaceClusterer.merge).
+    /** What each merge you made moved, so it can be undone (see FaceClusterer.merge). */
     private fun createMergeHistory(db: SQLiteDatabase) {
         db.execSQL(
             """CREATE TABLE IF NOT EXISTS merge_history (
@@ -241,8 +240,10 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         )
     }
 
-    // Pairs of people the user said are NOT the same person (a < b), so they are
-    // never suggested again and never merged automatically.
+    /**
+     * Pairs of people the user said are NOT the same person (a < b), so they are
+     * never suggested again and never merged automatically.
+     */
     private fun createRejections(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE IF NOT EXISTS merge_rejections (a INTEGER NOT NULL, b INTEGER NOT NULL, PRIMARY KEY (a, b))")
     }
@@ -250,11 +251,8 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) createRejections(db)
         if (oldVersion < 4) createMergeHistory(db)
-        // "Every face in this photo has been recognised" - so opening it needs no more work.
         if (oldVersion < 5) db.execSQL("ALTER TABLE photos ADD COLUMN complete INTEGER NOT NULL DEFAULT 0")
         if (oldVersion < 6) {
-            // Video frames: a photo row per sampled frame, and every face knows which photo
-            // or video it belongs to (for counting: a video is one item however many frames).
             db.execSQL("ALTER TABLE photos ADD COLUMN video_hash INTEGER")
             db.execSQL("ALTER TABLE photos ADD COLUMN ts_ms INTEGER NOT NULL DEFAULT 0")
             db.execSQL("ALTER TABLE faces ADD COLUMN media_key INTEGER")
@@ -262,20 +260,15 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
             db.execSQL("CREATE INDEX IF NOT EXISTS faces_media ON faces(media_key)")
             createVideos(db)
         }
-        // Whether a video's faces were found on the exact frame at each time (so their positions
-        // line up with the picture the player shows there). Older scans used the nearest keyframe.
         if (oldVersion == 6) db.execSQL("ALTER TABLE videos ADD COLUMN exact INTEGER NOT NULL DEFAULT 0")
         if (oldVersion < 8) createVideoSeen(db)
         if (oldVersion < 9) createMediaDates(db)
         if (oldVersion < 10) db.execSQL("CREATE INDEX IF NOT EXISTS media_dates_taken ON media_dates(taken_ms)")
         if (oldVersion < 3) {
-            // The face shown for a person, and how many faces they had when it was chosen.
             db.execSQL("ALTER TABLE people ADD COLUMN cover_face_id INTEGER")
             db.execSQL("ALTER TABLE people ADD COLUMN cover_count INTEGER NOT NULL DEFAULT 0")
         }
     }
-
-    // ---- meta ----
 
     fun getMeta(key: String): String? = readableDatabase.rawQuery(
         "SELECT value FROM meta WHERE key = ?", arrayOf(key)
@@ -284,8 +277,6 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
     fun setMeta(key: String, value: String) {
         writableDatabase.execSQL("INSERT OR REPLACE INTO meta(key, value) VALUES (?, ?)", arrayOf(key, value))
     }
-
-    // ---- photos and faces ----
 
     fun processedHashes(): HashSet<Long> {
         val out = HashSet<Long>()
@@ -311,7 +302,7 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         "SELECT 1 FROM photos WHERE uri = ? AND video_hash IS NULL", arrayOf(uri)
     ).use { it.moveToFirst() }
 
-    /** Records a searched photo with its faces; returns the new face ids in order. */
+    /** Records a searched photo with its faces. Returns the ids of the faces stored, in order. */
     fun insertPhoto(hash: Long, uri: String, width: Int, height: Int, faces: List<FaceRow>): List<Long> {
         val db = writableDatabase
         val ids = ArrayList<Long>(faces.size)
@@ -344,14 +335,14 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         return ids
     }
 
-    // ---- videos ----
-
     /** One sampled frame of a video with the faces kept from it. */
     class FrameFaces(val tsMs: Long, val width: Int, val height: Int, val faces: List<FaceRow>)
 
-    // A video's row says how it was gone through: exact 1 = a full scan on exact frames, 0 = a full
-    // scan on keyframes (older), 2 = only single frames were looked at by hand (the viewer's
-    // paused-frame check) - not a scan, so the video still counts as not scanned.
+    /**
+     * A video's row says how it was gone through: exact is 1 for a full scan on exact frames, 0 for a full scan on
+     * keyframes, and 2 when only single frames were looked at by hand (the viewer's paused-frame check), which is not
+     * a scan, so the video still counts as not scanned.
+     */
 
     /** Videos gone through completely. */
     fun processedVideoHashes(): HashSet<Long> {
@@ -376,10 +367,9 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
     ).use { it.moveToFirst() }
 
     /**
-     * Stores one frame the viewer looked at by hand, with the faces that were matched to people
-     * there - the same way a scan stores a frame, so what the person sees later (their moments,
-     * the instant outline) never depends on how the face was found. It does not make the video
-     * count as scanned. Returns the new face ids in order.
+     * Stores one frame the viewer looked at by hand, with the faces matched to people there, the same way a scan
+     * stores a frame, so what the person sees later (their moments, the instant outline) never depends on how the face
+     * was found. It does not make the video count as scanned. Returns the ids of the faces stored, in order.
      */
     fun storeLookedFrame(videoHash: Long, uri: String, tsMs: Long, width: Int, height: Int, faces: List<FaceRow>): List<Long> {
         val db = writableDatabase
@@ -418,7 +408,7 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         return ids
     }
 
-    /** A video that had only single frames looked at is now counted as fully scanned, keeping those frames. */
+    /** Counts a video that had only single frames looked at as fully scanned, keeping those frames. */
     fun markVideoScanned(hash: Long, uri: String) {
         val db = writableDatabase
         db.execSQL("INSERT OR IGNORE INTO videos(hash, uri, frames, faces, processed_at, exact) VALUES (?,?,0,0,?,1)", arrayOf(hash, uri, System.currentTimeMillis()))
@@ -444,8 +434,8 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         (videoHash * 1_000_003L) xor (tsMs * 0x2545F4914F6CDD1DL) xor 0x5851F42D4C957F2DL
 
     /**
-     * Stores a whole video at once (all its frames and faces, and the mark that it is done),
-     * so there is never a half-scanned video. Returns, per frame, the new face ids in order.
+     * Stores a whole video at once (all its frames and faces, and the mark that it is done), so there is never a
+     * half-scanned video. Returns, per frame, the ids of the faces stored, in order.
      */
     fun insertVideo(videoHash: Long, uri: String, frames: List<FrameFaces>): List<List<Long>> {
         val db = writableDatabase
@@ -491,7 +481,7 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         return all
     }
 
-    // Removes what an earlier (interrupted) scan of this video left, faces and pictures included.
+    /** Removes what an earlier (interrupted) scan of this video left, faces and pictures included. */
     private fun deleteVideoInside(db: SQLiteDatabase, videoHash: Long) {
         val ids = ArrayList<Long>()
         db.rawQuery(
@@ -507,9 +497,9 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
     }
 
     /**
-     * Forgets videos that are no longer in the search index; true if anything was removed.
-     * Same safety rule as [purgeMissing]: an empty [existing] while videos are already stored
-     * is treated as the index not being ready, not as every video having been deleted.
+     * Forgets videos that have left the search index; true if anything was removed. Same safety rule as
+     * [purgeMissing]: an empty [existing] while videos are stored is treated as the index not being ready, not as
+     * every video having been deleted.
      */
     fun purgeMissingVideos(existing: Set<Long>): Boolean {
         val db = writableDatabase
@@ -543,7 +533,7 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
             arrayOf(uri, tsMs.toString())
         ).use {
             while (it.moveToNext()) {
-                exact = it.getInt(8) != 0 // a scan on exact frames (1) or a frame looked at by hand (2)
+                exact = it.getInt(8) != 0
                 out += PhotoFace(
                     it.getLong(0), it.getLong(1), it.getFloat(2), it.getFloat(3), it.getFloat(4), it.getFloat(5),
                     it.getInt(6), it.getInt(7),
@@ -552,11 +542,12 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         }
         return exact to out
     }
+/** [tsMs] is used as given, so it matches the frame stored for that moment. */
 
     /** Notes that these people were seen around [tsMs] of a video (found by looking at that frame). */
     fun recordVideoSeen(uri: String, tsMs: Long, personIds: Collection<Long>) {
         if (personIds.isEmpty()) return
-        val rounded = tsMs // the exact moment: it matches the frame stored for it
+        val rounded = tsMs
         val db = writableDatabase
         db.beginTransaction()
         try {
@@ -592,10 +583,9 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
     }
 
     /**
-     * Forgets photos that are no longer in the search index, and people left empty.
-     * [existing] empty while faces are already stored is treated as the index not being ready
-     * yet (still loading, a permission hiccup, storage briefly unavailable) rather than "every
-     * photo was deleted" - it is never trusted to wipe everything in one go.
+     * Forgets photos that have left the search index, and people left empty. An empty [existing] while faces are
+     * stored is treated as the index not being ready (still loading, a permission problem, storage briefly
+     * unavailable), not as every photo having been deleted, so it never wipes everything in one go.
      */
     fun purgeMissing(existing: Set<Long>): Boolean {
         val db = writableDatabase
@@ -637,7 +627,6 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
             db.execSQL("DELETE FROM videos")
             db.execSQL("DELETE FROM video_seen")
             db.execSQL("DELETE FROM media_dates")
-            // Each video's remembered search level starts over with the rest.
             db.execSQL("DELETE FROM meta WHERE key LIKE 'video_relax_%' OR key LIKE 'video_fail_%'")
             db.execSQL("DELETE FROM people")
             db.setTransactionSuccessful()
@@ -649,8 +638,6 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         } catch (_: Exception) {
         }
     }
-
-    // ---- people ----
 
     fun createPerson(pinned: Boolean = false, name: String? = null): Long {
         val values = ContentValues().apply {
@@ -750,8 +737,6 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         }
     }
 
-    // ---- streaming faces for grouping ----
-
     /** Streams faces matching [where] (best rank first) without holding them all in memory. */
     fun forEachFace(where: String, block: (StoredFace) -> Unit) {
         readableDatabase.rawQuery(
@@ -795,8 +780,6 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
             db.endTransaction()
         }
     }
-
-    // ---- merge history (for undo) ----
 
     class MergeRecord(
         val id: Long,
@@ -842,7 +825,6 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
             put("created_at", System.currentTimeMillis())
         }
         val id = writableDatabase.insertOrThrow("merge_history", null, values)
-        // Only the recent ones are worth keeping.
         writableDatabase.execSQL(
             "DELETE FROM merge_history WHERE id NOT IN (SELECT id FROM merge_history ORDER BY id DESC LIMIT $MERGE_HISTORY_LIMIT)"
         )
@@ -878,9 +860,8 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
     }
 
     /**
-     * Brings back the person a merge removed: a new person with the old name, and
-     * the faces that were theirs and are still sitting in some person (a face you
-     * later took out by hand stays where you put it). Returns the new person's id.
+     * Brings back the person a merge removed, with the old name and the faces that were theirs and are still sitting
+     * in some person (a face taken out by hand stays where it was put). Returns the id of the person created.
      */
     fun restorePerson(record: MergeRecord): Long {
         val db = writableDatabase
@@ -904,8 +885,6 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         return newId
     }
 
-    // ---- "not the same person" answers ----
-
     fun rejectMerge(a: Long, b: Long) {
         writableDatabase.execSQL(
             "INSERT OR IGNORE INTO merge_rejections(a, b) VALUES (?, ?)",
@@ -922,13 +901,11 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         return out
     }
 
-    // ---- faces stored without a vector (recognised later, see FaceScanner) ----
-    //
-    // A face found but not yet recognised has an empty vector. It is kept so the
-    // photo counts as done and the face can be recognised in a later, lower
-    // priority pass - clustering only ever looks at faces that have a vector.
-
-    /** How many photos have faces still waiting to be recognised. */
+    /**
+     * How many photos have faces still waiting to be recognised. A face found but not yet recognised has an empty
+     * vector. It is kept so the photo counts as done and the face can be recognised in a later, lower priority pass,
+     * because clustering only looks at faces that have a vector.
+     */
     fun deferredPhotoCount(): Int = readableDatabase.rawQuery(
         "SELECT COUNT(DISTINCT f.photo_hash) FROM faces f JOIN photos ph ON ph.hash = f.photo_hash " +
             "WHERE length(f.embedding) = 0 AND ph.video_hash IS NULL", null
@@ -938,7 +915,8 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
 
     class DeferredFace(
         val id: Long,
-        val landmarks: FloatArray, // 0..1 fractions of the photo
+        /** The landmarks as 0..1 fractions of the photo. */
+        val landmarks: FloatArray,
         val sizePx: Int,
         val score: Float,
         val yaw: Float,
@@ -1012,8 +990,6 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         }
     }
 
-    // ---- what the UI reads ----
-
     fun stats(): Triple<Int, Int, Int> {
         val db = readableDatabase
         val photos = db.rawQuery("SELECT COUNT(*) FROM photos WHERE video_hash IS NULL", null).use { it.moveToFirst(); it.getInt(0) }
@@ -1025,6 +1001,7 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         ).use { it.moveToFirst(); it.getInt(0) }
         return Triple(photos, faces, people)
     }
+/** Lists the people. Covers are chosen after the read cursor is closed, because choosing a cover can write. */
 
     /**
      * People with at least [MIN_PHOTOS_TO_SHOW] photos (one-off faces are
@@ -1044,7 +1021,6 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
                ORDER BY COUNT(DISTINCT COALESCE(f.media_key, f.photo_hash)) DESC, p.id ASC""",
             arrayOf(if (hidden) "1" else "0")
         ).use { while (it.moveToNext()) rows += readCoverRow(it) }
-        // After the read cursor is closed: choosing a cover can write.
         return rows.map { it.toSummary() }
     }
 
@@ -1059,14 +1035,12 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         return row?.toSummary()
     }
 
-    // ---- the face shown for a person ----
-    //
-    // The best face when a person first appears; after that it changes only
-    // once a fair few new faces have been added (a sixth more, at least
-    // COVER_MIN_NEW), to the newest of their best few - so the picture follows
-    // the person's newer photos without flickering every time one arrives. Kept
-    // in the database, so it is the same everywhere and doesn't reshuffle on restart.
-
+    /**
+     * How a person's cover face is chosen. It is the best face when a person first appears. After that it changes only
+     * once a fair few faces have been added (a sixth more, and at least [COVER_MIN_NEW]), to the newest of their best
+     * few, so the picture follows the person's newer photos without flickering. Kept in the database, so it is the
+     * same everywhere and does not reshuffle on restart.
+     */
     private class CoverRow(
         val id: Long, val name: String?, val hidden: Boolean, val faceCount: Int, val photoCount: Int,
         val storedCover: Long?, val storedCount: Int, val coverValid: Boolean,
@@ -1087,7 +1061,7 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         )
     }
 
-    // Their two clearest faces other than the cover.
+    /** Their two clearest faces other than the cover. */
     private fun stackFaces(personId: Long, cover: Long): List<Long> {
         val out = ArrayList<Long>(2)
         readableDatabase.rawQuery(
@@ -1103,7 +1077,6 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         val due = row.faceCount - row.storedCount >= maxOf(COVER_MIN_NEW, row.faceCount / 6)
         if (stillTheirs && !due) return current!!
 
-        // Their best few faces, best first.
         val best = ArrayList<Long>()
         readableDatabase.rawQuery(
             "SELECT id FROM faces WHERE person_id = ? AND length(embedding) > 0 ORDER BY good DESC, rank DESC LIMIT $COVER_POOL",
@@ -1112,9 +1085,8 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         if (best.isEmpty()) return current ?: 0L
 
         val pick = if (!stillTheirs) {
-            best.first() // first time, or the old one is gone: the best
+            best.first()
         } else {
-            // A change: the newest of the best few, other than the one showing.
             best.filter { it != current }.maxOrNull() ?: current!!
         }
         writableDatabase.execSQL(
@@ -1151,11 +1123,13 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
             .map { (key, b) -> MediaItem(b.uri, key, b.isVideo, b.ts) }
     }
 
-    /** The people the app lists who are in these photos and videos (by uri), each with how many of them they are
-     *  clearly in, most first - what the new-collection sheet names under its preview. */
+    /**
+     * The people the app lists who are in these photos and videos (by uri), each with how many of them they are
+     * clearly in, most first. The new-collection sheet names them under its preview. The uris are queried in chunks,
+     * because SQLite takes at most 999 values in one statement.
+     */
     fun peopleIn(uris: Collection<String>): List<Pair<Long, Int>> {
         val counts = HashMap<Long, Int>()
-        // SQLite takes at most 999 values in one statement.
         for (chunk in uris.distinct().chunked(500)) {
             val marks = chunk.joinToString(",") { "?" }
             readableDatabase.rawQuery(
@@ -1171,19 +1145,21 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         return counts.entries.sortedByDescending { it.value }.map { it.key to it.value }
     }
 
-    // ---- when people appear (the People timeline) ----
-
-    // A face that can be spoken of as being someone ("X and Y together", a first photo of them): the person
-    // confirmed it, or it is clear AND not just a speck in the background (at least [MIN_FACE_FRACTION] of the
-    // photo across). A tiny face can pass for clear and be matched to the wrong person on a loose likeness; that
-    // would put someone in a photo they are not in. [f] is the faces table's alias.
+    /**
+     * A face that can be spoken of as being someone ("X and Y together", a first photo of them): the person
+     * confirmed it, or it is clear AND not just a speck in the background (at least [MIN_FACE_FRACTION] of the
+     * photo across). A tiny face can pass for clear and be matched to the wrong person on a loose likeness; that
+     * would put someone in a photo they are not in. [f] is the faces table's alias.
+     */
     private fun confident(f: String) =
         "($f.locked = 1 OR ($f.good = 1 AND (($f.box_r - $f.box_l) >= $MIN_FACE_FRACTION OR ($f.box_b - $f.box_t) >= $MIN_FACE_FRACTION)))"
 
-    // The people the app lists: not hidden, and in at least MIN_PHOTOS_TO_SHOW photos (one-off faces
-    // are mostly strangers in the background). The timeline counts only them, so a crowd of strangers
-    // is not a "whole gang" and a month is not "busy" because of people nobody knows. Needs the
-    // faces table as `f` and the people table as `p`.
+    /**
+     * The people the app lists: not hidden, and in at least MIN_PHOTOS_TO_SHOW photos (one-off faces
+     * are mostly strangers in the background). The timeline counts only them, so a crowd of strangers
+     * is not a "whole gang" and a month is not "busy" because of people nobody knows. Needs the
+     * faces table as `f` and the people table as `p`.
+     */
     private val listedPeople = """p.hidden = 0 AND f.person_id IN (
                SELECT person_id FROM faces WHERE person_id IS NOT NULL
                GROUP BY person_id HAVING COUNT(DISTINCT COALESCE(media_key, photo_hash)) >= $MIN_PHOTOS_TO_SHOW)"""
@@ -1201,11 +1177,14 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         ).use { while (it.moveToNext()) out += it.getLong(0) to it.getString(1) }
         return out
     }
+/**
+ * Progress of finding dates. It counts the same files [mediaMissingDates] looks at: those with a person in them and a
+ * photo row to find the file by.
+ */
 
     /** How many photos and videos have a person in them, and how many of those have no date looked up yet. */
     fun dateProgress(): Pair<Int, Int> {
         val db = readableDatabase
-        // The same files mediaMissingDates looks at: with a person in them and a photo row to find the file by.
         val total = db.rawQuery(
             """SELECT COUNT(DISTINCT COALESCE(f.media_key, f.photo_hash)) FROM faces f
                JOIN photos ph ON ph.hash = f.photo_hash WHERE f.person_id IS NOT NULL""", null
@@ -1265,13 +1244,18 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         val reunions: List<GroupMedia>,
     )
 
-    // The best picture of one photo or video (what to show for it).
+    /** The best picture of one photo or video (what to show for it). */
     private fun previewOf(key: Long): Triple<String, Boolean, Long>? =
         readableDatabase.rawQuery(
             """SELECT ph.uri, ph.video_hash IS NOT NULL, ph.ts_ms FROM faces f
                JOIN photos ph ON ph.hash = f.photo_hash WHERE f.media_key = ? ORDER BY f.rank DESC LIMIT 1""",
             arrayOf(key.toString())
         ).use { if (it.moveToFirst()) Triple(it.getString(0), it.getInt(1) == 1, it.getLong(2)) else null }
+/**
+ * Who is photographed with whom counts only what can be relied on: a clear face, or one the person confirmed, in a
+ * photo. A blurry or turned-away face may join someone on a looser match, and a video has people at different times,
+ * so neither can say these two were together.
+ */
 
     /**
      * Everyone listed (not hidden), with the months they appear in. With [full] false (dates are still
@@ -1286,10 +1270,6 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         }
 
         val byPerson = LinkedHashMap<Long, Acc>()
-        // Who is in each dated photo (for who they are photographed with, the whole gang, reunions).
-        // Only what can be relied on counts there: a clear face (or one the person confirmed) in a
-        // photo. A blurry or turned-away face may join someone on a looser match, and a video has
-        // people at different times, so neither can say "these two were together".
         val inMedia = HashMap<Long, Pair<Long, ArrayList<Long>>>()
         val cal = java.util.Calendar.getInstance()
         readableDatabase.rawQuery(
@@ -1349,8 +1329,6 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         }
         return TimelineResult(rows, together, togetherFirst, crowds, reunions)
     }
-
-    // ---- what the memories and "then and now" ask ----
 
     /** The dates already looked up for [keys] (photos and videos with a person in them), by key. */
     fun datesForKeys(keys: List<Long>): Map<Long, MediaDates.Found> {
@@ -1477,8 +1455,10 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
     }
 
     /**
-     * One person's clear faces in still photos with a date that can be believed, for "then and now" and
-     * the memories: one entry per face, with where it is in the picture and who else is clear in it.
+     * One person's clear faces in still photos with a date that can be believed, for then and now and the memories:
+     * one entry per face, with where it is in the picture and who else is clear in it. Every face that is clear or has
+     * been given to someone counts as being in the photo, so on their own is said only when nobody else is there. Only
+     * confident matches can be named as company.
      */
     fun personDatedFaces(personId: Long): List<ThenNowFace> {
         val rows = ArrayList<ThenNowFace>()
@@ -1499,20 +1479,16 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         }
         if (rows.isEmpty()) return rows
 
-        // Who else is clear in those photos: how many faces there are, and which of them are listed people.
         val listed = listedPersonIds()
         val company = HashMap<Long, ArrayList<Pair<Long?, FloatArray>>>()
         for (chunk in rows.map { it.key }.distinct().chunked(300)) {
             readableDatabase.rawQuery(
-                // Every face that is clear or has been given to someone counts as being in the photo (so "on their
-                // own" is only said when there is nobody else); only the confident ones can be named as company.
                 """SELECT f.media_key, f.person_id, f.box_l, f.box_t, f.box_r, f.box_b,
                           CASE WHEN ${confident("f")} THEN 1 ELSE 0 END
                    FROM faces f
                    WHERE (f.good = 1 OR f.locked = 1 OR f.person_id IS NOT NULL) AND f.media_key IN (${chunk.joinToString(",")})""", null
             ).use {
                 while (it.moveToNext()) {
-                    // Someone's face that is only a possible match is not company worth naming: left as nobody.
                     val who = if (it.isNull(1) || it.getInt(6) == 0) null else it.getLong(1)
                     company.getOrPut(it.getLong(0)) { ArrayList(3) } +=
                         who to floatArrayOf(it.getFloat(2), it.getFloat(3), it.getFloat(4), it.getFloat(5))
@@ -1585,7 +1561,6 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
                 val key = it.getLong(0)
                 val acc = byMedia.getOrPut(key) { Acc(it.getString(1), it.getInt(2) == 1, it.getLong(4)) }
                 val rank = it.getFloat(5)
-                // A face that is not clear counts for less, but it still shows who was there.
                 acc.ranks += if (it.getInt(6) == 1) rank else rank * 0.3f
                 if (rank > acc.bestRank) {
                     acc.bestRank = rank
@@ -1610,8 +1585,9 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
     }
 
     /**
-     * For each of [personIds], their clearest photo or video taken between [startMs] (included) and
-     * [endMs] - the month the timeline's playhead is on. People with nothing in it are left out.
+     * For each of [personIds], their clearest photo or video taken between [startMs] (included) and [endMs], the month
+     * the timeline's playhead is on. People with nothing in it are left out. A face that is not clear counts for less,
+     * so a photo where they are really there comes first.
      */
     fun personPhotosBetween(startMs: Long, endMs: Long, personIds: List<Long>): List<PreviewItem> {
         if (personIds.isEmpty()) return emptyList()
@@ -1638,7 +1614,6 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
                 while (it.moveToNext()) {
                     val person = it.getLong(0)
                     if (person !in wanted) continue
-                    // A face that is not clear counts for less, so a photo where they are really there comes first.
                     val rank = if (it.getInt(7) == 1 || it.getInt(8) == 1) it.getFloat(6) else it.getFloat(6) * 0.3f
                     if (rank > (bestRank[person] ?: -1f)) {
                         bestRank[person] = rank
@@ -1700,13 +1675,11 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         return MonthMedia(byMedia.size, picks.map { PreviewItem(0, it.key, it.uri, it.isVideo, it.tsMs, it.takenMs) })
     }
 
-    // ---- photos and videos with several people ----
-    //
-    // For every photo that has at least one of the chosen people: are they in it (any /
-    // all / all and nobody else)? Only clear faces count as "somebody else" - a tiny or
-    // blurry face in the background is not. A video's frames are judged in short windows:
-    // "together" means the chosen people all show up within a couple of seconds of each other.
-
+    /**
+     * For every photo with at least one of the chosen people: are they in it (any, all, or all and nobody else)? Only
+     * clear faces count as somebody else, not a tiny or blurry one in the background. A video's frames are judged in
+     * short windows, and together means the chosen people all show up within a couple of seconds of each other.
+     */
     class MediaHit(
         val uri: String,
         val key: Long,
@@ -1809,10 +1782,8 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
     }
 
     /**
-     * Which photos and videos match, for one way of combining [people]:
-     *  - "any":      at least one of them
-     *  - "together": all of them, with or without other people
-     *  - "only":     all of them and nobody else
+     * Which photos and videos match [people] for one way of combining them, [mode]: any is at least one of them,
+     * together is all of them with or without other people, and only is all of them and nobody else.
      */
     private fun matches(hit: MediaHit, mode: String): Boolean = when (mode) {
         MODE_ANY -> hit.any
@@ -1902,14 +1873,14 @@ class FaceStore(private val context: Context) : SQLiteOpenHelper(context.applica
         /** In a video, people "together" show up within this many ms of each other. */
         private const val VIDEO_TOGETHER_MS = 3000L
 
-        /** How many past merges are remembered (older ones can no longer be undone). */
+        /** How many past merges are remembered. Older ones cannot be undone. */
         private const val MERGE_HISTORY_LIMIT = 30
 
         const val MODE_ANY = "any"
         const val MODE_TOGETHER = "together"
         const val MODE_ONLY = "only"
 
-        /** At least this many new faces before a person's picture may change. */
+        /** At least this many added faces before a person's picture may change. */
         private const val COVER_MIN_NEW = 5
 
         /** The picture is one of a person's best this-many faces. */

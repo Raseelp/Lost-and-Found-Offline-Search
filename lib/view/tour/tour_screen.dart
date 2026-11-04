@@ -44,9 +44,8 @@ class TourPage {
 enum TourMode { firstRun, help }
 
 /// A tour: pages to swipe through, a download card that tucks into a small chip, a close button (when replayed from
-/// Help), and one button
-/// at the bottom whose words follow the page and the download. Built to take any list of pages, so a
-/// "What's new" for a later version can be another list.
+/// Help), and one button at the bottom whose words follow the page and the download. Built to take any list of
+/// pages, so a "What's new" for a later version can be another list.
 class TourScreen extends StatefulWidget {
   const TourScreen({
     super.key,
@@ -68,13 +67,13 @@ class TourScreen extends StatefulWidget {
 }
 
 class _TourScreenState extends State<TourScreen> {
-  // How long the download card stays open once the download is going, before it tucks into the chip.
+  /// How long the download card stays open once the download is going, before it tucks into the chip.
   static const Duration _cardTime = Duration(milliseconds: 4500);
 
   final PageController _controller = PageController();
   int _index = 0;
 
-  // Whether the download card is showing (else only the chip, if there is a download to show).
+  /// Whether the download card is showing (else only the chip, if there is a download to show).
   bool _cardOpen = false;
   Timer? _tuck;
   DateTime? _openedAt;
@@ -83,10 +82,10 @@ class _TourScreenState extends State<TourScreen> {
   bool get _help => widget.mode == TourMode.help;
   bool get _last => _index == widget.pages.length - 1;
 
+  /// The tour is made for a portrait phone, so it stays upright whichever way the phone is held.
   @override
   void initState() {
     super.initState();
-    // The tour is made for a portrait phone: it stays upright, whichever way the phone is held.
     SystemChrome.setPreferredOrientations(const [
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -104,9 +103,9 @@ class _TourScreenState extends State<TourScreen> {
     }
   }
 
+  /// The rest of the app turns with the phone again.
   @override
   void dispose() {
-    // The rest of the app turns with the phone, as it did before the tour.
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     widget.download.removeListener(_onDownload);
     _tuck?.cancel();
@@ -114,8 +113,8 @@ class _TourScreenState extends State<TourScreen> {
     super.dispose();
   }
 
-  // The card opens when the download starts, or when it needs the person (stopped); it tucks
-  // away a few seconds after a download starts, and for good once it has finished.
+  /// The card opens when the download starts, or when it needs the person (stopped or paused, so it stays down). It
+  /// tucks away a few seconds after a download starts, and for good once it has finished.
   void _onDownload() {
     final state = widget.download.state;
     final was = _phase;
@@ -132,7 +131,6 @@ class _TourScreenState extends State<TourScreen> {
         }
       case TourDownloadPhase.error:
       case TourDownloadPhase.paused:
-        // Both wait for the person, so the card stays down.
         _open();
       case TourDownloadPhase.done:
       case TourDownloadPhase.idle:
@@ -152,8 +150,8 @@ class _TourScreenState extends State<TourScreen> {
     if (mounted && _cardOpen) setState(() => _cardOpen = false);
   }
 
-  // The chip was tapped: the card comes back down, as it did when the download started (and tucks away again after
-  // a few seconds, unless it is waiting for the person).
+  /// The chip was tapped: the card comes back down, as it did when the download started, and tucks away again after
+  /// a few seconds, unless it is waiting for the person.
   void _reopenCard() {
     final waiting =
         widget.download.state.phase == TourDownloadPhase.paused ||
@@ -176,13 +174,13 @@ class _TourScreenState extends State<TourScreen> {
 
   void _next() => _goTo(_index + 1);
 
+  /// Handles the main button. The state is read when pressed, not when the button was built, because a second press
+  /// before the page has turned must not start the download again. The first button starts the download and the tour
+  /// together.
   void _onMainButton() {
-    // Read when pressed, not when the button was built: a second press before the page has turned must not
-    // start the download again.
     final state = widget.download.state;
     HapticFeedback.selectionClick();
     if (_index == 0) {
-      // The first button starts the download and the tour together.
       if (!state.running && !state.done) widget.download.start();
       _next();
       return;
@@ -202,17 +200,20 @@ class _TourScreenState extends State<TourScreen> {
     }
   }
 
+  /// Back goes to the page before, and from the first page it leaves (the app, or Help). The chip and the buttons
+  /// follow the download, which changes many times a second, so only these are rebuilt for it, never the pages, which
+  /// hold demos that animate by themselves. Moving on to another page is a sign it has been seen, so the card tucks
+  /// away unless it is asking for something. The first-run tour is gone through to its end because it sets the app
+  /// up, while the one replayed from Help can be closed at any time.
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     return PopScope(
-      // Back goes to the page before; from the first page it leaves (the app, or Help).
       canPop: _index == 0,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _goTo(_index - 1);
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
-        // The background is light: dark icons in the bars, and the bottom bar in its colour.
         value: const SystemUiOverlayStyle(
           statusBarColor: AppColors.transparent,
           statusBarIconBrightness: Brightness.dark,
@@ -227,8 +228,6 @@ class _TourScreenState extends State<TourScreen> {
             child: SafeArea(
               child: Column(
                 children: [
-                  // The chip and the buttons follow the download, which changes many times a second: only
-                  // these are rebuilt for it, never the pages (they hold demos that animate by themselves).
                   ListenableBuilder(
                     listenable: widget.download,
                     builder: (context, _) => BarTextScale(
@@ -241,8 +240,6 @@ class _TourScreenState extends State<TourScreen> {
                       itemCount: widget.pages.length,
                       onPageChanged: (i) {
                         setState(() => _index = i);
-                        // Moving on to another page is a sign it has been seen: the card tucks away (unless
-                        // it is asking for something).
                         final shown = _openedAt;
                         if (widget.download.state.running &&
                             shown != null &&
@@ -316,15 +313,12 @@ class _TourScreenState extends State<TourScreen> {
                       ? _DownloadChip(
                           key: const ValueKey('chip'),
                           state: state,
-                          // Done has nothing more to show.
                           onTap: state.done ? null : _reopenCard,
                         )
                       : const SizedBox(key: ValueKey('nochip')),
                 ),
               ),
             ),
-            // The first-run tour is gone through to its end (it sets the app up); the one replayed from Help
-            // can be closed at any time.
             if (_help)
               IconButton(
                 tooltip: 'Close',
@@ -480,6 +474,7 @@ class _DownloadChip extends StatelessWidget {
   /// Brings the card back down.
   final VoidCallback? onTap;
 
+  /// The tap reaches past the small chip, to the height of the bar it sits in.
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -546,7 +541,6 @@ class _DownloadChip extends StatelessWidget {
       ),
     );
     if (onTap == null) return chip;
-    // The tap reaches past the small chip, to the height of the bar it sits in.
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -576,6 +570,7 @@ class _DownloadCard extends StatelessWidget {
   final TourDownloadState state;
   final VoidCallback onMinimise;
 
+  /// Pausing is offered while bytes are coming (or being asked for), and resuming while it is paused.
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -614,7 +609,6 @@ class _DownloadCard extends StatelessWidget {
       default:
         lead = _Ring(value: state.fraction);
     }
-    // Pausing is offered while bytes are coming (or being asked for); resuming while it is paused.
     final canPause =
         state.phase == TourDownloadPhase.downloading ||
         state.phase == TourDownloadPhase.connecting;
@@ -698,7 +692,7 @@ class _DownloadCard extends StatelessWidget {
   }
 }
 
-/// A round button that pauses the download, or - when it is paused - carries on with it.
+/// A round button that pauses the download, or carries on with it when it is paused.
 class _PauseButton extends StatelessWidget {
   const _PauseButton({required this.paused, required this.onTap});
 

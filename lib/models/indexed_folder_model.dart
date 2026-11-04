@@ -1,11 +1,10 @@
-/// Stable identity for an indexed location: a folder's own SAF tree URI, or
-/// this sentinel for whole-device scans.
+/// The stable identity of an indexed location: a folder's own SAF tree URI, or this sentinel for whole-device scans.
 class IndexedFolderIdentity {
   static const device = '__device_scan__';
 }
 
-/// One file that just finished embedding - carried on live scan progress
-/// only, never persisted (see IndexedFolder.toMap).
+/// One file that has finished embedding. It is carried on live scan progress only and never persisted (see
+/// [IndexedFolder.toMap]).
 class RecentEmbeddedItem {
   final String uri;
   final bool isVideo;
@@ -37,23 +36,22 @@ class IndexedFolder {
   final int embedded;
   final int skipped;
 
-  /// Files that couldn't be embedded at all (see ScanProgress.failed) - live
-  /// scan progress only, never persisted (see toMap).
+  /// Files that could not be embedded at all (see ScanProgress.failed). Live scan progress only, never persisted.
   final int failed;
   final num elapsedMs;
 
-  /// [elapsedMs] without the time indexing spent waiting for faces to be found in a
-  /// batch it just indexed - what indexing's own speed is measured over.
+  /// [elapsedMs] without the time indexing spent waiting for faces to be found in a batch it had indexed. Indexing's
+  /// own speed is measured over this.
   final num activeMs;
   final String path;
   final int processed;
   final bool done;
 
-  /// Epoch millis of the last scan, used to sort the folders list.
+  /// Epoch millis of the last scan, for sorting the folders list.
   final int updatedAt;
 
-  /// Rolling window of recently-embedded files from live scan progress -
-  /// empty once loaded from the DB (see toMap, which doesn't persist it).
+  /// The files embedded most recently, from live scan progress. Empty when loaded from the database, as [toMap]
+  /// does not persist it.
   final List<RecentEmbeddedItem> recentItems;
 
   const IndexedFolder({

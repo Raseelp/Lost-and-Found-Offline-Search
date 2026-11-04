@@ -5,16 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/palettes/chip_palette.dart';
 
-// The processor the Library page shows, drawn from above on a 340 x 340 sheet: a green
-// substrate with rows of gold contact pads along its edges, a corner marker (pin 1) and
-// retention notches; the silicon die and a memory bank on it, joined to the board by fine bond
-// wires; and, over all of it while the chip is closed, the steel heat spreader (the "lid") with
-// its etching and the reflection of the room. The lid is drawn last, and can slide off to show
-// what is under it.
-//
-// Everything that does not change is drawn once into a picture and kept as an image, so a frame
-// only has to place a few images.
-
+/// The size of the square sheet the Library page's processor is drawn on, from above. The chip is a green substrate
+/// with gold contact pads along its edges, a pin 1 corner marker and retention notches, with the silicon die and a
+/// memory bank joined by bond wires. While the chip is closed the steel heat spreader (the lid) covers it, drawn last,
+/// and can slide off. Everything that does not change is drawn once into an image, so a frame only has to place a few
+/// images.
 const double chipSheet = 340;
 const Rect chipBoard = Rect.fromLTWH(22, 22, 296, 296);
 
@@ -22,10 +17,7 @@ const Rect chipBoard = Rect.fromLTWH(22, 22, 296, 296);
 /// leaves the board a margin for the bond wires and the parts round them.
 const double chipDieScale = .87;
 
-
 double _seg(double t, double a, double b) => ((t - a) / (b - a)).clamp(0.0, 1.0);
-
-// ------------------------------------------------------------------------- cached images
 
 class _Art {
   _Art(this.bounds, this.picture, this.image);
@@ -75,8 +67,8 @@ class _Art {
 
 final Map<String, _Art> _arts = {};
 
-// Pixels per sheet unit the pictures are made at: as many as the screen can show of the chip
-// (a phone with a dense screen gets a sharper chip), never fewer than 2 or more than 4.
+/// Pixels per sheet unit the pictures are made at: as many as the screen can show of the chip, so a phone with a
+/// dense screen gets a sharper chip, but never fewer than 2 or more than 4.
 double _artScale = 3;
 
 /// Tells the chip how dense the screen is, so its pictures are made sharp enough for it (and
@@ -91,8 +83,8 @@ void setChipArtScale(double devicePixelRatio) {
   _arts.clear();
 }
 
-// Forgets (and frees) the pictures whose key starts with [prefix] except [keep]: the ones for a
-// text or a core count that is no longer shown.
+/// Forgets and frees the pictures whose key starts with [prefix] except [keep], which are for a text or a core count
+/// that is not shown any more.
 void _evictOthers(String prefix, Set<String> keep) {
   final stale = [for (final key in _arts.keys) if (key.startsWith(prefix) && !keep.contains(key)) key];
   for (final key in stale) {
@@ -100,8 +92,9 @@ void _evictOthers(String prefix, Set<String> keep) {
   }
 }
 
-// [draw] paints in sheet coordinates; the result is rasterised once at [scale] pixels per unit
-// and drawn as an image from then on (as a picture, if the engine cannot make the image).
+/// Makes the picture for [key] once. [draw] paints in sheet coordinates, and the result is rasterised at [scale]
+/// pixels per unit and drawn as an image from then on. If the engine cannot make the image, the picture is drawn
+/// instead.
 _Art _art(String key, Rect bounds, void Function(Canvas canvas) draw, {double? scale}) {
   final pixels = scale ?? _artScale;
   return _arts.putIfAbsent(key, () {
@@ -126,8 +119,6 @@ _Art _art(String key, Rect bounds, void Function(Canvas canvas) draw, {double? s
   });
 }
 
-// -------------------------------------------------------------- bond wires and their pads
-
 /// The wires from the die (top) and the memory bank (bottom) to the board: 27 along the top,
 /// 27 along the bottom. The top ones are the CLIP indexing, the bottom ones the faces.
 const int chipWireCount = 27;
@@ -137,18 +128,17 @@ double _wireX(int i) => 67 + i * 8.0;
 double _dieX(double sheetX) => chipSheet / 2 + (sheetX - chipSheet / 2) / chipDieScale;
 double _dieY(double sheetY) => chipSheet / 2 + (sheetY - chipSheet / 2) / chipDieScale;
 
-// Where a wire starts on the die (top) or the bank (bottom), and where it ends on the board, in
-// sheet coordinates.
+/// Where a wire starts on the die (top) or the bank (bottom), and where it ends on the board, in sheet coordinates.
 const double _dieEdgeTop = 52.6;
 const double _dieEdgeBottom = 288.0;
 const double _fingerTop = 42.6;
 const double _fingerBottom = 298.6;
 
+/// The path of wire [i] of [bar]. A wire is never quite straight: it leaves the pad, arches and settles.
 Path _wirePath(int bar, int i) {
   final fan = (i - (chipWireCount - 1) / 2) * .3;
   final a = Offset(_wireX(i), bar == 0 ? _dieEdgeTop : _dieEdgeBottom);
   final b = Offset(_wireX(i) + fan, bar == 0 ? _fingerTop : _fingerBottom);
-  // A wire is never quite straight: it leaves the pad, arches and settles.
   final bow = 2.2 * math.sin(i * 1.9 + bar);
   final mid = Offset.lerp(a, b, .5)! + Offset(bow, 0);
   return Path()
@@ -183,7 +173,7 @@ Offset chipLanePoint(int bar, int i, double f) {
   return metric.getTangentForOffset(metric.length * f.clamp(0.0, 1.0))!.position;
 }
 
-// The wires with nothing on them: shadow, body and shine, all 27 of a row in one picture.
+/// The wires with nothing on them: shadow, body and shine, all 27 of a row in one picture.
 void _drawDullLanes(Canvas canvas, int bar) {
   final body = Paint()
     ..style = PaintingStyle.stroke
@@ -232,7 +222,6 @@ void paintChipLanes(
       ..strokeCap = StrokeCap.round
       ..strokeWidth = .9;
     final path = _wirePaths[bar][i];
-    // Brought up, it takes on its colour (over the dull wire, which has its shadow already).
     body.color = Color.lerp(ChipPalette.gray650, color, up * alpha)!;
     canvas.drawPath(path, body);
     shine.color = ChipPalette.white.withValues(alpha: (.14 + .46 * up) * (.4 + .6 * alpha));
@@ -240,11 +229,14 @@ void paintChipLanes(
   }
 }
 
-// -------------------------------------------------------------- substrate, die and memory
-
+/// Draws the board with its shadow on the page, a faint speckle for the weave, and edge light on the top and left
+/// with shade on the bottom and right. It has contact pads along the four edges, which are what a real chip plugs in
+/// by, and retention notches in the middle of the left and right edges. The bond fingers the wires end on are gold
+/// and lie along the top and bottom. What each row carries is printed above and below them while a scan runs (see
+/// scan_square.dart). A few capacitors sit at the ends of the rows, with vias in the board, and the alignment
+/// triangle is in the corner.
 void _drawBoard(Canvas canvas) {
   final board = RRect.fromRectAndRadius(chipBoard, const Radius.circular(12));
-  // The shadow it casts on the page.
   for (var k = 1; k <= 4; k++) {
     canvas.drawRRect(
       board.shift(Offset(0, 1.5 * k)),
@@ -261,7 +253,6 @@ void _drawBoard(Canvas canvas) {
   );
   canvas.save();
   canvas.clipRRect(board);
-  // The weave of the board, as a faint speckle.
   final rnd = math.Random(5);
   final speck = Paint();
   for (var i = 0; i < 260; i++) {
@@ -272,7 +263,6 @@ void _drawBoard(Canvas canvas) {
     speck.color = (rnd.nextBool() ? ChipPalette.white : ChipPalette.black).withValues(alpha: .05 + rnd.nextDouble() * .06);
     canvas.drawCircle(at, .5 + rnd.nextDouble() * .7, speck);
   }
-  // Edge light, top and left; shade, bottom and right.
   canvas.drawRRect(
     board.shift(const Offset(1.4, 1.4)),
     Paint()
@@ -295,7 +285,6 @@ void _drawBoard(Canvas canvas) {
       ..strokeWidth = 1.2
       ..color = ChipPalette.mint900,
   );
-  // The contact pads along the four edges (what a real chip plugs in by).
   const padFrom = 46.0, padTo = 294.0, padsPerSide = 18;
   const pitch = (padTo - padFrom) / (padsPerSide - 1);
   const near = 23.4, far = 313.4;
@@ -318,7 +307,6 @@ void _drawBoard(Canvas canvas) {
     contact(Rect.fromLTWH(at - 2.6, far, 5.2, 3.4));
     contact(Rect.fromLTWH(near, at - 2.6, 3.4, 5.2));
   }
-  // Retention notches in the middle of the left and right edges.
   canvas.save();
   canvas.clipRRect(board);
   for (final x in [chipBoard.left, chipBoard.right]) {
@@ -334,8 +322,6 @@ void _drawBoard(Canvas canvas) {
   }
   canvas.restore();
 
-  // The bond fingers the wires end on: gold lands along the top and bottom. (What each row
-  // carries is printed above and below them while a scan runs: see scan_square.dart.)
   for (var bar = 0; bar < 2; bar++) {
     for (var i = 0; i < chipWireCount; i++) {
       final fan = (i - (chipWireCount - 1) / 2) * .3;
@@ -344,7 +330,6 @@ void _drawBoard(Canvas canvas) {
       contact(Rect.fromLTWH(x - 3.2, y, 6.4, 3.8));
     }
   }
-  // A few capacitors at the ends of the rows, and vias in the board.
   final cap = Paint();
   void capacitors(double x, double y, int count) {
     canvas.drawRect(
@@ -371,7 +356,6 @@ void _drawBoard(Canvas canvas) {
     canvas.drawCircle(at, 1.6, via);
     canvas.drawCircle(at, .7, Paint()..color = ChipPalette.mint900a);
   }
-  // The alignment triangle in the corner.
   final marker = Path()
     ..moveTo(25.5, 25.5)
     ..lineTo(38, 25.5)
@@ -391,13 +375,11 @@ void _drawBoard(Canvas canvas) {
 void paintChipBoard(Canvas canvas) =>
     _art('board', const Rect.fromLTWH(0, 0, chipSheet, chipSheet), _drawBoard).paint(canvas);
 
-// ------------------------------------------------------------------------------ the die
-
-// Where the parts of the die are. It is laid out like a modern processor: two rows of identical
-// cores (the cores of the phone, [perRow] to a row), the shared cache between the rows, the data
-// fabric that joins the cores to the cache, and along the bottom the memory controller with its
-// interface to the memory (at the die's edge, where the memory is reached), the storage and USB
-// interfaces, the media engine, the clock generator and the power management.
+/// Where the parts of the die are. It is laid out like a modern processor: two rows of identical cores (the cores
+/// of the phone, [perRow] to a row), the shared cache between the rows, the data fabric that joins the cores to the
+/// cache, and along the bottom the memory controller with its interface to the memory (at the die's edge, where the
+/// memory is reached), the storage and USB interfaces, the media engine, the clock generator and the power
+/// management.
 class _DieLayout {
   _DieLayout(Rect a, this.perRow) {
     final gap = perRow == 4 ? 8.0 : 12.0;
@@ -445,10 +427,8 @@ List<Rect> chipDieBlocks(Rect area, int perRow) {
 /// index and how many there are.
 (int, int) chipDieWorkRange(int perRow) => (6, 3 * perRow);
 
-// ---- the textures of silicon: each kind of block has its own look under the microscope.
-
-// Memory (caches, tables): bit cells in a fine regular grid, cut into mats. Each mat has its
-// row decoder down the left and, under it, a row of sense amplifiers (wider than the cells).
+/// Memory (caches, tables): bit cells in a fine regular grid, cut into mats. Each mat has its row decoder down the
+/// left and, under it, a row of sense amplifiers, which are wider than the cells.
 void _sramTexture(Canvas c, Rect r, Color ink) {
   final cell = Paint()..color = ink;
   final periphery = Paint()..color = ink.withValues(alpha: ink.a * .75);
@@ -475,8 +455,8 @@ void _sramTexture(Canvas c, Rect r, Color ink) {
   }
 }
 
-// Control logic (decode, schedulers): rows of standard cells, each row a string of cells of
-// different widths, so it looks like placed-and-routed logic, not a pattern.
+/// Control logic (decode, schedulers): rows of standard cells, each row a string of cells of different widths, so
+/// it looks like placed and routed logic, not a pattern.
 void _logicTexture(Canvas c, Rect r, Color ink, int seed, {double pitch = 2.6, double rowH = 2, double fill = .85}) {
   final rnd = math.Random(seed);
   final paint = Paint();
@@ -494,8 +474,8 @@ void _logicTexture(Canvas c, Rect r, Color ink, int seed, {double pitch = 2.6, d
   }
 }
 
-// Datapaths (ALUs, the vector unit): unlike control logic these are laid out as bit slices, the
-// same column repeated once for every bit, with the wires of the buses running across them.
+/// Datapaths (ALUs, the vector unit). Unlike control logic these are laid out as bit slices, the same column
+/// repeated once for every bit, with the wires of the buses running across them.
 void _datapathTexture(Canvas c, Rect r, Color ink) {
   const rowAlpha = [.9, .5, 1.0, .65, .8, .45];
   final cell = Paint();
@@ -515,8 +495,8 @@ void _datapathTexture(Canvas c, Rect r, Color ink) {
   }
 }
 
-// Registers and queues (register files, reorder buffer, store buffer): multi-ported arrays,
-// bigger cells than a cache's with read and write wires between the rows.
+/// Registers and queues (register files, reorder buffer, store buffer): multi-ported arrays, with bigger cells than
+/// a cache's and read and write wires between the rows.
 void _registerTexture(Canvas c, Rect r, Color ink) {
   final cell = Paint()..color = ink.withValues(alpha: ink.a * 1.3);
   final wire = Paint()
@@ -530,9 +510,8 @@ void _registerTexture(Canvas c, Rect r, Color ink) {
   }
 }
 
-// The interface to the outside (memory, storage, USB): the same slice repeated once per lane
-// (a delay line on top and a column of drivers under it), because it is one macro placed again
-// and again.
+/// The interface to the outside (memory, storage, USB): the same slice repeated once per lane, a delay line on top
+/// and a column of drivers under it, because it is one macro placed again and again.
 void _phyTexture(Canvas c, Rect r, Color ink) {
   final lanes = math.max(1, (r.width / 13).floor());
   final laneW = r.width / lanes;
@@ -565,8 +544,8 @@ Path _octagon(Offset centre, double radius) {
   return path..close();
 }
 
-// The clock generator: an oscillator with a spiral inductor (turns of octagon), the capacitors
-// of its loop filter (an array of identical cells) and the divider logic.
+/// The clock generator: an oscillator with a spiral inductor (turns of octagon), the capacitors of its loop filter
+/// (an array of identical cells) and the divider logic.
 void _pllTexture(Canvas c, Rect r, Color ink, int seed) {
   final centre = Offset(r.left + r.height * .55, r.center.dy);
   final turn = Paint()
@@ -583,8 +562,8 @@ void _pllTexture(Canvas c, Rect r, Color ink, int seed) {
   _logicTexture(c, divider, ink, seed, pitch: 2.4, rowH: 1.7);
 }
 
-// The data fabric: bundles of parallel wires (the buses) with a router, a small block of
-// logic, at the foot of each column of cores.
+/// The data fabric: bundles of parallel wires (the buses) with a router, a small block of logic, at the foot of each
+/// column of cores.
 void _fabricTexture(Canvas c, Rect r, Color ink, int seed, List<double> routers) {
   final wire = Paint()
     ..strokeWidth = .45
@@ -598,9 +577,12 @@ void _fabricTexture(Canvas c, Rect r, Color ink, int seed, List<double> routers)
   }
 }
 
-// One layer of the die: its blocks and what is in them. Drawn dark, as the chip is; and once
-// more in white (with no backing) to be lit block by block as the chip works (see
-// [paintChipDieLit]).
+/// One layer of the die: its blocks and what is in them. It is drawn dark, as the chip is, and once more in white with
+/// no backing, to be lit block by block as the chip works (see [paintChipDieLit]). A core is laid out as in a real
+/// out-of-order core: front end on the left, then the execution core, the vector unit, and the load/store unit with
+/// the data cache, with the level-2 cache along one edge. Every core is the same macro placed again, the bottom row
+/// turned over and every other core mirrored, so their caches and buses meet. The shared cache, the fabric, the memory
+/// controller and the outside interfaces fill the rest.
 void _drawDieLayer(Canvas canvas, Rect area, int perRow, {required bool lit}) {
   final l = _DieLayout(area, perRow);
   final ink = ChipPalette.white.withValues(alpha: lit ? .8 : .11);
@@ -622,13 +604,6 @@ void _drawDieLayer(Canvas canvas, Rect area, int perRow, {required bool lit}) {
 
   void unit(Rect r) => canvas.drawRect(r, hair);
 
-  // A core, as in a real out-of-order core. The front end (instruction cache, the branch
-  // predictor's tables, fetch and decode) on the left; the execution core (register rename and
-  // reorder buffer, the schedulers, the integer registers and the ALUs) next to it; the vector
-  // unit (its scheduler, the datapath and its registers); the load/store unit with the data
-  // cache, the store buffer and the address translation; and the level-2 cache along one edge.
-  // Every core is the same macro placed again: the bottom row is turned over and every other
-  // core is mirrored, as real cores are, so their caches and buses meet.
   void core(Rect r, {required bool flipX, required bool flipY}) {
     canvas.save();
     if (flipX) {
@@ -650,14 +625,12 @@ void _drawDieLayer(Canvas canvas, Rect area, int perRow, {required bool lit}) {
       x += w + g;
     }
     final top = r.top + 2;
-    // Front end.
     final l1i = Rect.fromLTWH(xs[0], top, widths[0], 11);
     final bpu = Rect.fromLTWH(xs[0], top + 11.5, widths[0], 7);
     final decode = Rect.fromLTWH(xs[0], top + 19, widths[0], 16);
     _sramTexture(canvas, l1i, ink);
     _sramTexture(canvas, bpu, ink);
     _logicTexture(canvas, decode, ink, 31, pitch: 2.2, rowH: 1.5);
-    // Execution core.
     final rob = Rect.fromLTWH(xs[1], top, widths[1], 8.5);
     final sched = Rect.fromLTWH(xs[1], top + 9, widths[1], 7.5);
     final irf = Rect.fromLTWH(xs[1], top + 17, widths[1], 8);
@@ -666,14 +639,12 @@ void _drawDieLayer(Canvas canvas, Rect area, int perRow, {required bool lit}) {
     _logicTexture(canvas, sched, ink, 41, pitch: 2.2, rowH: 1.5);
     _registerTexture(canvas, irf, ink);
     _datapathTexture(canvas, alu, ink);
-    // Vector unit.
     final vsched = Rect.fromLTWH(xs[2], top, widths[2], 7);
     final vec = Rect.fromLTWH(xs[2], top + 7.5, widths[2], 17);
     final vrf = Rect.fromLTWH(xs[2], top + 25, widths[2], 10);
     _logicTexture(canvas, vsched, ink, 51, pitch: 2.1, rowH: 1.4);
     _datapathTexture(canvas, vec, ink);
     _registerTexture(canvas, vrf, ink);
-    // Load/store unit.
     final l1d = Rect.fromLTWH(xs[3], top, widths[3], 14);
     final lsu = Rect.fromLTWH(xs[3], top + 14.5, widths[3], 11);
     final tlb = Rect.fromLTWH(xs[3], top + 26, widths[3], 9);
@@ -683,7 +654,6 @@ void _drawDieLayer(Canvas canvas, Rect area, int perRow, {required bool lit}) {
     for (final u in [l1i, bpu, decode, rob, sched, irf, alu, vsched, vec, vrf, l1d, lsu, tlb]) {
       unit(u);
     }
-    // Level-2 cache.
     final l2 = Rect.fromLTWH(r.left + 2, r.bottom - 15, r.width - 4, 13);
     _sramTexture(canvas, l2, ink);
     unit(l2);
@@ -696,8 +666,6 @@ void _drawDieLayer(Canvas canvas, Rect area, int perRow, {required bool lit}) {
     core(l.cores[i], flipX: column.isOdd, flipY: i >= perRow);
   }
 
-  // The shared cache: a slice for each column of cores, memory above and below a strip of tags
-  // and control.
   for (final r in l.l3) {
     block(r, 3);
     final upper = Rect.fromLTWH(r.left + 2, r.top + 1.5, r.width - 4, 10);
@@ -708,15 +676,12 @@ void _drawDieLayer(Canvas canvas, Rect area, int perRow, {required bool lit}) {
     _sramTexture(canvas, lower, ink);
   }
 
-  // The fabric: the buses between the cores and the cache, with a router at each column.
   final routers = [for (final r in l.l3) r.center.dx];
   block(l.fabricTop, 1.5);
   _fabricTexture(canvas, l.fabricTop, ink, 81, routers);
   block(l.fabricBottom, 1.5);
   _fabricTexture(canvas, l.fabricBottom, ink, 81, routers);
 
-  // Memory controller: a buffer for reordered requests, the scheduler, the registers that hold
-  // the timings, and the error correction. Its interface under it, at the edge of the die.
   block(l.mc);
   final mcBuffer = Rect.fromLTWH(l.mc.left + 2, l.mc.top + 1.5, 26, l.mc.height - 3);
   final mcSched = Rect.fromLTWH(l.mc.left + 29.5, l.mc.top + 1.5, 36, l.mc.height - 3);
@@ -735,9 +700,6 @@ void _drawDieLayer(Canvas canvas, Rect area, int perRow, {required bool lit}) {
     canvas.drawCircle(Offset(l.phy.left + 9 + k * 8.2, l.phy.bottom - 3.8), 1.5, warm);
   }
 
-  // The outside interfaces: storage and USB (a controller above its lanes), the media engine
-  // (a datapath with the memory for its lines), the clock generator and the power management
-  // (a small controller beside the rows of power switches).
   block(l.io);
   _logicTexture(canvas, Rect.fromLTWH(l.io.left + 2, l.io.top + 1.5, l.io.width - 4, 8), ink, 101, pitch: 2.2, rowH: 1.5);
   _phyTexture(canvas, Rect.fromLTWH(l.io.left + 2, l.io.top + 11, l.io.width - 4, 12), ink);
@@ -758,7 +720,6 @@ void _drawDieLayer(Canvas canvas, Rect area, int perRow, {required bool lit}) {
   }
 
   if (!lit) {
-    // Routing channels between the columns of cores, and the clock spine across.
     final channel = Paint()
       ..strokeWidth = .5
       ..color = ChipPalette.white.withValues(alpha: .07);
@@ -773,9 +734,11 @@ void _drawDieLayer(Canvas canvas, Rect area, int perRow, {required bool lit}) {
   }
 }
 
+/// Draws the die: the seal round it, the sheen of silicon (thin metal layers split the light into soft bands of
+/// colour), a fine dot matrix as of the finest metal layer, its dark layer and the bond pads along its top edge,
+/// where the wires of the CLIP row start.
 void _drawDie(Canvas canvas, Rect area, int perRow) {
   final rim = RRect.fromRectAndRadius(area.inflate(3.4), const Radius.circular(18));
-  // The seal round the die.
   canvas.drawRRect(rim, Paint()..color = ChipPalette.slate900);
   canvas.drawRRect(
     rim.deflate(.5),
@@ -795,7 +758,6 @@ void _drawDie(Canvas canvas, Rect area, int perRow) {
   );
   canvas.save();
   canvas.clipRRect(die);
-  // The sheen of silicon: thin metal layers split the light into soft bands of colour.
   canvas.drawRect(
     area,
     Paint()
@@ -811,7 +773,6 @@ void _drawDie(Canvas canvas, Rect area, int perRow) {
         [0, .28, .52, .78, 1],
       ),
   );
-  // A fine dot matrix over everything, as of the finest metal layer.
   final dot = Paint()..color = ChipPalette.white.withValues(alpha: .07);
   for (var y = area.top + 3; y < area.bottom; y += 4) {
     for (var x = area.left + 3; x < area.right; x += 4) {
@@ -819,7 +780,6 @@ void _drawDie(Canvas canvas, Rect area, int perRow) {
     }
   }
   _drawDieLayer(canvas, area, perRow, lit: false);
-  // The bond pads along the top edge of the die, where the wires of the CLIP row start.
   final bondPad = Paint()..color = ChipPalette.slate200;
   for (var i = 0; i < chipWireCount; i++) {
     final x = _dieX(_wireX(i));
@@ -884,8 +844,6 @@ void paintChipDieLit(Canvas canvas, Rect area, int perRow, List<(Rect, double)> 
 }
 
 void _drawMemory(Canvas canvas, Rect strip) {
-  // The memory bank: a small module with its own board, memory chips and a row of gold
-  // contacts along the bottom edge (where the wires of the FACE row start).
   final bank = RRect.fromRectAndRadius(strip, const Radius.circular(16));
   canvas.drawRRect(
     bank,
@@ -897,8 +855,6 @@ void _drawMemory(Canvas canvas, Rect strip) {
   );
   canvas.save();
   canvas.clipRRect(bank);
-  // The chips of the bank, one under each place a picture lands (the same places the queue
-  // and the people tray use).
   final chip = Paint()..color = ChipPalette.sky950;
   for (var k = 0; k < 7; k++) {
     final r = Rect.fromLTWH(strip.left + 6 + k * 38, strip.top + 11, 34, 34);
@@ -929,8 +885,6 @@ void _drawMemory(Canvas canvas, Rect strip) {
 /// The memory bank along the bottom.
 void paintChipMemory(Canvas canvas, Rect strip) =>
     _art('memory', strip.inflate(4), (c) => _drawMemory(c, strip)).paint(canvas);
-
-// ---------------------------------------------------------------------------- the lid
 
 /// What is etched on the lid: a small line above, a big line, a line under, some more lines,
 /// and a hint.
@@ -968,7 +922,6 @@ Path _flangePath() {
 
 void _drawLidBase(Canvas canvas) {
   final flange = _flangePath();
-  // The flange: the lower, flat rim of the spreader.
   canvas.drawPath(
     flange,
     Paint()
@@ -988,7 +941,6 @@ void _drawLidBase(Canvas canvas) {
     canvas.drawCircle(at + const Offset(.6, .6), 1.8, Paint()..color = ChipPalette.white.withValues(alpha: .6));
     canvas.drawCircle(at, 1.8, Paint()..color = ChipPalette.slate450a);
   }
-  // The step up to the raised plate.
   final ramp = RRect.fromRectAndRadius(_plate.inflate(4), const Radius.circular(15));
   canvas.drawRRect(
     ramp,
@@ -998,7 +950,6 @@ void _drawLidBase(Canvas canvas) {
         ChipPalette.slate400,
       ]),
   );
-  // The plate: brushed steel.
   final plate = RRect.fromRectAndRadius(_plate, const Radius.circular(11));
   canvas.drawRRect(
     plate,
@@ -1027,7 +978,6 @@ void _drawLidBase(Canvas canvas) {
     brush.color = (i.isEven ? ChipPalette.white : ChipPalette.slate650).withValues(alpha: .05 + rnd.nextDouble() * .07);
     canvas.drawLine(Offset(x0, y), Offset(x1, y + (rnd.nextDouble() - .5) * .8), brush);
   }
-  // The bevel of the plate: light on the upper left, shade on the lower right.
   canvas.drawRRect(
     plate.shift(const Offset(1.4, 1.4)),
     Paint()
@@ -1058,7 +1008,7 @@ TextPainter _etchText(String text, double size, {double space = 1, FontWeight we
   return tp;
 }
 
-// One line of etching: a light edge under the dark line, as if cut into the metal.
+/// One line of etching: a light edge under the dark line, as if cut into the metal.
 void _etchLine(Canvas canvas, String text, double centreY, double size, {double space = 1, FontWeight weight = FontWeight.w700, double maxWidth = 200}) {
   final light = _etchText(text, size, space: space, weight: weight, color: ChipPalette.white.withValues(alpha: .85), maxWidth: maxWidth);
   final dark = _etchText(text, size, space: space, weight: weight, maxWidth: maxWidth);
@@ -1077,10 +1027,10 @@ void _drawLidText(Canvas canvas, ChipLidText text) {
   _etchLine(canvas, text.hint, 262, 7, space: 2.6);
 }
 
-// The room, as the steel sees it: a soft grey ceiling and walls with a window, a long strip
-// light, a lamp and a dark piece of furniture, all out of focus. Made once; the lid shows a
-// window on it that moves as the phone is tilted, in every direction, so the reflection slides
-// and turns across the plate like a real one.
+/// The room, as the steel sees it: a soft grey ceiling and walls with a window, a long strip
+/// light, a lamp and a dark piece of furniture, all out of focus. Made once; the lid shows a
+/// window on it that moves as the phone is tilted, in every direction, so the reflection slides
+/// and turns across the plate like a real one.
 const Rect _roomBounds = Rect.fromLTWH(0, 0, 560, 560);
 
 void _drawRoom(Canvas canvas) {
@@ -1105,15 +1055,11 @@ void _drawRoom(Canvas canvas) {
     canvas.restore();
   }
 
-  // The window, with its frame in the middle.
   shape(const Rect.fromLTWH(160, 170, 240, 190), -.5, ChipPalette.white, 12);
   shape(const Rect.fromLTWH(262, 170, 12, 200), -.5, ChipPalette.slate250a, 5);
   shape(const Rect.fromLTWH(150, 262, 250, 12), -.5, ChipPalette.slate250a, 5);
-  // A strip light across the ceiling.
   shape(const Rect.fromLTWH(380, 300, 60, 380), .75, ChipPalette.whiteA90, 11);
-  // A lamp.
   shape(const Rect.fromLTWH(70, 400, 52, 52), 0, ChipPalette.whiteA90, 14);
-  // Something dark.
   shape(const Rect.fromLTWH(420, 70, 150, 110), .3, ChipPalette.sky850, 10);
   shape(const Rect.fromLTWH(60, 90, 130, 80), -.2, ChipPalette.sky800, 12);
 }
@@ -1144,7 +1090,6 @@ void paintChipLid(
   canvas.scale(scale);
   canvas.translate(-170, -170);
 
-  // Its shadow on the board: tight when it sits, soft and further off as it lifts.
   final shadow = _art(
     'lid-shadow',
     _flange.inflate(34),
@@ -1163,7 +1108,6 @@ void paintChipLid(
 
   _art('lid-base', _flange.inflate(6), _drawLidBase).paint(canvas);
   final plate = _art('room', _roomBounds, _drawRoom, scale: 1);
-  // The reflection of the room on the plate (before the etching, which is cut into the metal).
   var shift = Offset(tilt.dx * 150, tilt.dy * 150);
   if (!tiltLive) {
     shift = Offset(math.sin(now * .27) * 70 + math.sin(now * .09) * 40, math.cos(now * .19) * 55);
@@ -1199,8 +1143,6 @@ void paintChipLid(
     doneArt.paint(canvas, Paint()..filterQuality = FilterQuality.medium..color = ChipPalette.white.withValues(alpha: doneAmt));
   }
 
-  // The bevel round the plate turns towards or away from the light as the phone is tilted: the
-  // edge that faces the window brightens, the one facing away darkens.
   final angleX = (tiltLive ? tilt.dx : shift.dx / 110) * .38;
   final angleY = (tiltLive ? tilt.dy : shift.dy / 110) * .38;
   final plateShape = RRect.fromRectAndRadius(_plate, const Radius.circular(11));

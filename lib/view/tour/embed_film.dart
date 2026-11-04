@@ -16,8 +16,6 @@ import 'package:lost_and_found/view/widget/scan_square.dart';
 import 'package:lost_and_found/view/widget/timeline_preview.dart'
     show bentoRects;
 
-// The app's primary teal, and the lighter teal the chip uses for its numbers.
-
 double _seg(double t, double a, double b) =>
     ((t - a) / (b - a)).clamp(0.0, 1.0);
 double _ease(double x) =>
@@ -28,29 +26,45 @@ double _lerp(double a, double b, double x) => a + (b - a) * x;
 /// When each thing happens, in seconds. The whole film is a function of this clock, so it can be run, paused or shown
 /// at any second.
 class _Time {
-  static const double tap = 1.0; // the finger presses the chip
-  static const double scan = 1.25; // and the scan starts
-  static const double firstPhoto = 2.75; // the first photo is read
-  static const double moreFeed =
-      6.4; // the chip is still reading as the camera pulls away
+  /// The finger presses the chip.
+  static const double tap = 1.0;
+
+  /// The scan starts.
+  static const double scan = 1.25;
+
+  /// The first photo is read.
+  static const double firstPhoto = 2.75;
+
+  /// The chip is still reading as the camera pulls away.
+  static const double moreFeed = 6.4;
+
   static const double pullStart = 6.6;
   static const double pullEnd = 10.2;
   static const double heroFadeStart = 8.4;
   static const double heroFadeEnd = 9.6;
   static const double heroGone = 9.8;
-  static const double waveStart =
-      7.4; // every photo is read, from the middle outwards
-  static const double barIn = 10.9; // while the last photos are still settling
+
+  /// Every photo is read, from the middle outwards.
+  static const double waveStart = 7.4;
+
+  /// The bar comes in while the last photos are still settling.
+  static const double barIn = 10.9;
+
   static const double fingerIn = 11.2;
   static const double tapBar = 11.8;
   static const double typeStart = 12.1;
   static const double typeLength = 1.0;
   static const double tapSend = 13.5;
-  static const double chipFly = 13.6; // the words leave the bar
-  static const double queryLands = 14.5; // and land among the photos
+  /// The words leave the bar.
+  static const double chipFly = 13.6;
+
+  /// The words land among the photos.
+  static const double queryLands = 14.5;
+
   static const double compareStart = 14.9;
-  static const double ringSeconds =
-      1.7; // for the ring to reach the farthest best match
+  /// How long the ring takes to reach the farthest best match.
+  static const double ringSeconds = 1.7;
+
   static const double othersFade = 17.1;
   static const double flightStart = 17.3;
   static const double bestLabel = 19.2;
@@ -190,7 +204,7 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
     'kayak',
     'cat',
   ];
-  // Where the best matches sit in the wall, as steps from the middle (the first is the photo the chip reads).
+  /// Where the best matches sit in the wall, as steps from the middle. The first is the photo the chip reads.
   static const List<(int, int)> _bestCells = [
     (0, 0),
     (3, 2),
@@ -200,7 +214,7 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
     (-5, -1),
     (2, 6),
   ];
-  // How far from the words each best match lies (as a part of the clear radius), and in which direction.
+  /// How far from the words each best match lies, as a part of the clear radius. [_bestAngle] gives the direction.
   static const List<double> _bestRadius = [
     0.30,
     0.46,
@@ -214,8 +228,8 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
   static const List<String> _firstFeed = ['dog_beach'];
   static const List<String> _moreFeed = ['tajmahal', 'sunset'];
 
-  // Where the other photos are heaped, by what is in them: the middle of each heap (steps over the map's width and
-  // height).
+  /// Where the other photos are heaped, by what is in them: the middle of each heap, as a part of the map's width and
+  /// height.
   static const List<(String, double, double)> _places = [
     ('sport', 0.20, 0.70),
     ('food', 0.50, 0.90),
@@ -264,7 +278,7 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
   bool _loading = false;
   bool _gone = false;
 
-  // The chip's state (the real chip is fed these by the film's clock).
+  /// The chip's state. The real chip is fed these by the film's clock.
   bool _heroOn = false;
   ScanChipMode _mode = ScanChipMode.idle;
   List<OrbitPhoto> _photos = const [];
@@ -375,6 +389,7 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
     if (mounted) setState(() {});
   }
 
+  /// Moves the film to [elapsed]. The chip has to be told something only at a few moments, and they are handled here.
   void _tick(Duration elapsed) {
     _lastElapsed = elapsed;
     final t = (elapsed - _origin).inMicroseconds / 1e6;
@@ -383,7 +398,6 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
       return;
     }
     _t.value = t;
-    // The few moments the chip itself has to be told something.
     if (_heroOn) {
       if (_mode == ScanChipMode.idle && t >= _Time.scan) {
         setState(() => _mode = ScanChipMode.scanning);
@@ -421,8 +435,11 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
       math.sqrt(-2 * math.log(r.nextDouble() + 1e-9)) *
       math.cos(2 * math.pi * r.nextDouble());
 
-  // The wall for this room: a grid of photos round the chip, most of them not matches, the best seven among them; and
-  // where each lies when the photos are placed by what is in them.
+  /// Makes the wall for this room: a grid of photos round the chip, most of them not matches, the best seven among
+  /// them; and where each lies when the photos are placed by what is in them. Only the photos that are in the picture
+  /// when the camera has pulled back are on the wall. The photos of a heap lie in two loose piles that overlap, where
+  /// they fell, and nothing but the best matches lies near the words. The photos lie over each other in no order,
+  /// but the best seven lie on top.
   void _build(Size size) {
     if (size == _size && _cells.isNotEmpty) return;
     _size = size;
@@ -468,7 +485,6 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
           centre.dx + cell.x * cam.scale,
           centre.dy + cell.y * cam.scale,
         );
-        // Only the photos that are in the picture when the camera has pulled back are on the wall.
         final ex = (wall.dx - centre.dx) / (geo.w * 0.62);
         final ey = (wall.dy - geo.endY) / (geo.h * 0.50);
         if (rank < 0 && math.sqrt(ex * ex + ey * ey) > 0.9) continue;
@@ -487,14 +503,12 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
         } else {
           final k = _places.indexWhere((p) => p.$1 == (_kind[id] ?? 'people'));
           cell.cluster = k;
-          // A heap: two loose piles that overlap, the photos lying where they fell.
           final r = rnds[k];
           final pile = r.nextBool() ? -1.0 : 1.0;
           var p =
               spots[k].at +
               Offset(pile * 0.04 * width, -pile * 0.012 * height) +
               Offset(_gauss(r) * 0.058 * width, _gauss(r) * 0.040 * height);
-          // Nothing but the best matches lies near the words.
           final away = p - geo.query;
           if (away.distance < geo.clear * 1.45) {
             p =
@@ -509,7 +523,6 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
         cells.add(cell);
       }
     }
-    // The photos lie over each other in no order, but the best seven lie on top.
     cells.sort((a, b) {
       final ra = a.rank >= 0 ? 1 : 0, rb = b.rank >= 0 ? 1 : 0;
       if (ra != rb) return ra - rb;
@@ -559,6 +572,9 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
     );
   }
 
+  /// The chip, moved and scaled by the camera. It is always wrapped in an [Opacity]. Switching to one only when the
+  /// fade begins replaces the chip's whole subtree (fresh state, built and started from scratch) in the middle of the
+  /// pull-back, which shows as a hitch. At full opacity it paints the child directly, with no layer.
   Widget _hero(_Geo geo) {
     final chip = SizedBox(
       key: ValueKey('hero$_epoch'),
@@ -599,9 +615,6 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
               ..translate(-geo.side / 2, -geo.side / 2),
             child: child,
           );
-          // Always wrapped: switching to an Opacity only once the fade begins replaced the chip's whole subtree (a new
-          // state, built and started from scratch) in the middle of the pull-back, which was the hitch there. At full
-          // opacity it paints the child directly, with no layer.
           return Opacity(opacity: alpha.clamp(0.0, 1.0), child: moved);
         },
       ),
@@ -737,8 +750,8 @@ class _FilmPainter extends CustomPainter {
     }
   }
 
-  // The surface the photos are sorted on: a cutting mat, with a faint grid of dots, a stronger dot every fifth, and the
-  // little marks of a ruler along its four edges.
+  /// The surface the photos are sorted on: a cutting mat, with a faint grid of dots, a stronger dot every fifth, and
+  /// the little marks of a ruler along its four edges.
   late final Rect _matRect = Rect.fromLTRB(
     8,
     _Geo.barTop + _Geo.barHeight + 12,
@@ -800,13 +813,14 @@ class _FilmPainter extends CustomPainter {
     return path;
   }
 
+  /// Draws the mat: a pale green-grey, a little darker at its edge, with a thin line round it, then the dots and the
+  /// ruler.
   void _mat(Canvas canvas, double t) {
     final a =
         _ease(_seg(t, _Time.pullStart + 1.6, _Time.pullEnd + 0.6)) *
         (1 - _ease(_seg(t, _Time.flightStart + 0.2, _Time.flightStart + 1.4)));
     if (a <= 0.01) return;
     final shape = RRect.fromRectAndRadius(_matRect, const Radius.circular(16));
-    // The mat: a pale green-grey, a little darker at its edge, with a thin line round it.
     canvas.drawRRect(
       shape,
       Paint()..color = TourPalette.mint.withValues(alpha: 0.2 * a),
@@ -844,7 +858,7 @@ class _FilmPainter extends CustomPainter {
     );
   }
 
-  // The ring of light that goes out from the chip over the wall as each photo is read.
+  /// The ring of light that goes out from the chip over the wall as each photo is read.
   void _sweep(Canvas canvas, double t, _Camera cam) {
     final r = (t - _Time.waveStart) * 260 * cam.scale;
     if (r < 2 || t > _Time.waveStart + 4.6) return;
@@ -875,7 +889,7 @@ class _FilmPainter extends CustomPainter {
     );
   }
 
-  // The thin lines from the words' place to the photos that are picked.
+  /// The thin lines from the words' place to the photos that are picked.
   void _leaders(Canvas canvas, double t) {
     if (t < _Time.compareStart) return;
     for (final cell in cells) {
@@ -895,8 +909,10 @@ class _FilmPainter extends CustomPainter {
     }
   }
 
-  // The photos of the wall; they sort themselves into heaps, each lying a little crooked with a thin white edge, like
-  // prints on a table.
+  /// The photos of the wall. They sort themselves into heaps, each lying a little crooked with a thin white edge, like
+  /// prints on a table. The wall fades out towards its edges, and the heaps do not. A best match is picked when the
+  /// ring reaches it and lifts out of its heap, then shows its score as a small tag outside the photo, away from the
+  /// words. It leaves its heap for good when its flight starts.
   void _photos(Canvas canvas, Size size, double t, _Camera cam) {
     final reveal = _ease(
       _seg(_seg(t, _Time.pullStart, _Time.pullEnd), 0.25, 0.75),
@@ -912,12 +928,10 @@ class _FilmPainter extends CustomPainter {
     final fill = Paint();
     for (final cell in cells) {
       final best = cell.rank >= 0;
-      // A best match leaves its heap when its flight starts.
       if (best && t >= cell.flightAt) continue;
       final collapse = _ease(_seg(t, cell.collapseAt, cell.collapseAt + 1.1));
       final wall = centre + Offset(cell.x * cam.scale, cell.y * cam.scale);
       var pos = Offset.lerp(wall, cell.spot, collapse)!;
-      // The wall fades out towards its edges; the heaps do not.
       final ex = (wall.dx - centre.dx) / (geo.w * 0.62);
       final ey = (wall.dy - geo.endY) / (geo.h * 0.50);
       final vignette = 1 - _ease(_seg(math.sqrt(ex * ex + ey * ey), 0.62, 1.0));
@@ -933,7 +947,6 @@ class _FilmPainter extends CustomPainter {
       var sz = _lerp(wallSize * (1 + 0.1 * read), cell.thumb, collapse);
       var angle = cell.tilt * collapse;
       var radius = _lerp(1.5, 3.5, collapse);
-      // A best match is picked when the ring reaches it: it lifts out of its heap.
       final pick = best ? _ease(_seg(t, cell.pickAt, cell.pickAt + 0.55)) : 0.0;
       if (pick > 0) {
         pos = cell.spot;
@@ -956,7 +969,6 @@ class _FilmPainter extends CustomPainter {
       final rect = Rect.fromCenter(center: Offset.zero, width: sz, height: sz);
       final shape = RRect.fromRectAndRadius(rect, Radius.circular(radius));
       if (print > 0.02) {
-        // A thin white edge, and a shadow made of two faint layers.
         final edge = 1.6 * print;
         canvas.drawRRect(
           RRect.fromRectAndRadius(
@@ -985,7 +997,6 @@ class _FilmPainter extends CustomPainter {
       canvas.clipRRect(shape);
       if (cell.flip && !best) canvas.scale(-1, 1);
       canvas.drawImageRect(photo, _cover(photo, 1), rect, image);
-      // As it is read, light goes over it.
       if (read > 0 && collapse < 0.5) {
         canvas.drawRect(
           rect,
@@ -995,7 +1006,6 @@ class _FilmPainter extends CustomPainter {
       canvas.restore();
       canvas.restore();
       if (best && pick > 0) {
-        // Its score, as a small tag, once it has been picked.
         final tag = _seg(t, cell.pickAt + 0.4, cell.pickAt + 0.8);
         if (tag > 0) {
           final text = _painter(
@@ -1004,7 +1014,6 @@ class _FilmPainter extends CustomPainter {
             FontWeight.w700,
             TourPalette.gray900,
           );
-          // Outside the photo, away from the words.
           final away = pos - geo.query;
           final dir = away / math.max(1, away.distance);
           final reach =
@@ -1039,8 +1048,8 @@ class _FilmPainter extends CustomPainter {
     }
   }
 
-  // The words: they leave the bar as a small tag, land among the photos as a pin,
-  // and then a ring goes out from them and picks the nearest photos.
+  /// The words. They leave the bar as a small tag, land among the photos as a pin, and then a ring goes out from them
+  /// and picks the nearest photos. Two rings go out from the pin while it waits.
   void _words(Canvas canvas, double t) {
     final q = geo.query;
     if (t >= _Time.chipFly && t < _Time.queryLands) {
@@ -1083,7 +1092,6 @@ class _FilmPainter extends CustomPainter {
     final land = _out(_seg(t, _Time.queryLands - 0.1, _Time.queryLands + 0.5));
     final out = 1 - _ease(_seg(t, _Time.flightStart, _Time.flightStart + 0.6));
     if (out <= 0) return;
-    // Rings that go out from the pin while it waits.
     for (var k = 0; k < 2; k++) {
       if (t >= _Time.compareStart) break;
       final p = ((t - _Time.queryLands) / 1.8 + k * 0.5) % 1.0;
@@ -1098,7 +1106,6 @@ class _FilmPainter extends CustomPainter {
           ),
       );
     }
-    // The ring that picks the nearest photos.
     if (t >= _Time.compareStart) {
       final r = (t - _Time.compareStart) * 1.12 * geo.clear / _Time.ringSeconds;
       final ring =
@@ -1119,7 +1126,6 @@ class _FilmPainter extends CustomPainter {
         );
       }
     }
-    // The pin: a white head with a teal middle, standing on a small shadow.
     canvas.drawCircle(
       q + const Offset(0, 2),
       8.5 * land,
@@ -1144,7 +1150,7 @@ class _FilmPainter extends CustomPainter {
     );
   }
 
-  // The best matches leave their heaps for the places of the result.
+  /// The best matches leave their heaps for the places of the result, each with its score, and the best one with a "Best match" label.
   void _flights(Canvas canvas, double t) {
     if (t < _Time.flightStart - 0.4) return;
     final bento = geo.bento;
@@ -1185,7 +1191,6 @@ class _FilmPainter extends CustomPainter {
         Paint()..filterQuality = FilterQuality.medium,
       );
       canvas.restore();
-      // Its score, and which one is the best.
       final pill =
           _seg(t, cell.flightAt + 1.2, cell.flightAt + 1.6) *
           (1 - _seg(t, _Time.pillsOut, _Time.pillsOut + 0.6)) *
@@ -1245,7 +1250,7 @@ class _FilmPainter extends CustomPainter {
     }
   }
 
-  // A finger that taps the chip, and later the search bar and its button.
+  /// A finger that taps the chip, and later the search bar and its button.
   void _finger(Canvas canvas, double t) {
     final chip = Offset(geo.w / 2, geo.startY);
     final middle = _Geo.barTop + _Geo.barHeight / 2;

@@ -73,9 +73,8 @@ object FaceSettings {
 }
 
 /**
- * Process-wide hub between the face scan (which may run in a WorkManager
- * worker while the app is closed) and whichever Flutter engine is listening -
- * the same reason the indexing scan's progress goes through a static sink.
+ * Process-wide hub between the face scan, which may run in a WorkManager worker while the app is closed, and whichever
+ * Flutter engine is listening. It exists for the same reason as the indexing scan's static progress sink.
  */
 object FaceScanHub {
     @Volatile var sink: EventChannel.EventSink? = null
@@ -110,48 +109,34 @@ class FaceServices private constructor(context: Context) {
 }
 
 /**
- * Works through the photos already in the search index and finds, recognises and
- * groups their faces - automatically, in the background, newest first, so
- * people appear in the app while it is still running. Safe to stop and start
- * at any time: finished photos are remembered and skipped.
- *
- * It runs in two passes so people show up quickly:
- *  1. every photo: find the faces, and recognise the clear ones (big, sharp,
- *     facing the camera). That is enough to build the people.
- *  2. later: recognise the rest (small, blurry, turned away) and attach them to
- *     the people pass 1 built. Never starts a person, so it can't add noise.
- *
- * Where the time goes, and what is done about it:
- *  - Recognition (a network run per face) is a heavy step, so it only
- *    runs on faces that matter, in batches that span photos, and with settings
- *    found by timing the model on this phone (see FaceTuner).
- *  - One decode per photo, done on a second thread ahead of the analysis.
- *
- * While an indexing scan is running it works in step with it (see [Session] and
- * FaceFollower): every so many photos indexed, indexing waits while their faces are
- * found at full speed, then carries on - so people are searchable long before a big
- * scan finishes, and the two never compete for the CPU. Only that first pass happens
- * then; [run] waits for the indexing scan to end, and picks up the rest.
+ * Finds, recognises and groups the faces of the photos in the search index, in the background and newest first.
+ * Finished photos are skipped, so it is safe to stop and start. The first pass recognises the clear faces, which
+ * builds the people. The second pass attaches the rest to them and never starts a person.
+ * While an indexing scan runs, a [Session] works in step with it, and only the first pass happens then.
  */
 /** Where the scan of one photo opened in the viewer has got to (read by the viewer while it waits). */
 class PhotoScanProgress {
-    @Volatile var stage = "reading" // reading -> detecting -> recognising -> placing
-    @Volatile var faces = 0 // faces found worth recognising
-    @Volatile var total = 0 // how many are being recognised now
-    @Volatile var more = false // finishing a photo that was scanned before
+    /** The step the scan is at: reading, detecting, recognising, then placing. */
+    @Volatile var stage = "reading"
+    /** Faces found that are worth recognising. */
+    @Volatile var faces = 0
+    /** How many faces are being recognised at the moment. */
+    @Volatile var total = 0
+    /** True while a photo that was scanned before is being finished. */
+    @Volatile var more = false
 
-    // A video: how many of its sampled frames have been looked through so far.
+    /** A video: how many of its sampled frames have been looked through so far. */
     @Volatile var video = false
     @Volatile var step = 0
     @Volatile var steps = 0
 
-    // How loose the search is: 0 standard, 1 looser, 2 loosest (see VideoFaceScanner.Relax).
+    /** How loose the search is: 0 standard, 1 looser, 2 loosest (see VideoFaceScanner.Relax). */
     @Volatile var relax = 0
 }
 
 class FaceScanner(private val context: Context, private val services: FaceServices) {
 
-    /** The photos being scanned for the viewer right now, by uri. */
+    /** The photos being scanned for the viewer, by uri. */
     val photoProgress = ConcurrentHashMap<String, PhotoScanProgress>()
 
     private class Attempt(var processed: Int = 0, var failed: Int = 0)
@@ -167,7 +152,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
         val sharpness: Float,
         val good: Boolean,
         val rank: Float,
-        // Set only for faces being recognised now; freed once they have been.
+        /** Set only for faces being recognised, and freed once they have been. */
         var aligned: Bitmap?,
         var embedding: FloatArray? = null,
     )
@@ -177,15 +162,18 @@ class FaceScanner(private val context: Context, private val services: FaceServic
         val item: IndexedImage,
         val width: Int,
         val height: Int,
-        val boxW: Float, // the small copy's size, to turn boxes into 0..1 fractions
+        /** The size of the small copy, for turning boxes into 0..1 fractions. */
+        val boxW: Float,
         val boxH: Float,
         val faces: List<PendingFace>,
     ) {
         val toRecognise get() = faces.count { it.aligned != null }
     }
 
-    // Where the time goes, for the performance logs (see BenchLog, adb logcat -s LostFoundBench):
-    // logged every few dozen photos, and at the end of each batch in step with indexing.
+    /**
+     * Where the time goes, for the performance logs (see BenchLog, adb logcat -s LostFoundBench):
+     * logged every few dozen photos, and at the end of each batch in step with indexing.
+     */
     private class Timing {
         var photos = 0
         var faces = 0
@@ -197,9 +185,11 @@ class FaceScanner(private val context: Context, private val services: FaceServic
         var embedNs = 0L
         var dbNs = 0L
 
-        // The two stages of a pass waiting on each other: the recognition thread with
-        // nothing to do (detection is the slower stage), detection blocked because
-        // recognition is two batches behind (recognition is).
+        /**
+         * The two stages of a pass waiting on each other: the recognition thread with
+         * nothing to do (detection is the slower stage), detection blocked because
+         * recognition is two batches behind (recognition is).
+         */
         var stageIdleNs = 0L
         var stageStallNs = 0L
         var batches = 0
@@ -253,15 +243,13 @@ class FaceScanner(private val context: Context, private val services: FaceServic
     }
 
     /**
-     * Blocks until everything is processed or [shouldStop] says to give up.
-     * [onTick] receives status maps (also published to Flutter).
+     * Blocks until everything is processed or [shouldStop] says to give up. [onTick] receives status maps, also
+     * published to Flutter.
+     * A later run waits for a stopped one that is still finishing its last photo. Photos are analysed at a slightly
+     * raised thread priority, put back afterwards because the thread belongs to a shared pool.
      */
     fun run(shouldStop: () -> Boolean, onTick: (Map<String, Any?>) -> Unit) {
-        // A stopped run may still be finishing its last photo when a new one
-        // starts (pause then resume): wait for it rather than overlap.
         synchronized(runLock) {
-            // The photos are analysed at a slightly raised priority (they asked for
-            // this), put back afterwards - the thread belongs to a shared pool.
             val tid = Process.myTid()
             val previous = Process.getThreadPriority(tid)
             try {
@@ -280,12 +268,10 @@ class FaceScanner(private val context: Context, private val services: FaceServic
     }
 
     /**
-     * Face scanning in step with an indexing scan: it is handed each batch of newly
-     * indexed photos (see ScanHandoff) and works through it at full speed while the
-     * indexing scan waits. Only the first pass (the clear faces, which is what builds the
-     * people); the speed test happens on the first batch if it hasn't yet - indexing
-     * is paused then, so its timings are true - and the refining pass and videos are for
-     * [run] once indexing is over.
+     * Face scanning in step with an indexing scan. It is handed each batch of newly indexed photos (see ScanHandoff)
+     * and works through it at full speed while indexing waits. Only the first pass happens here. The speed test runs
+     * on the first batch, when indexing is paused and the timings are true. The refining pass and videos are left to
+     * [run].
      */
     inner class Session(onTick: (Map<String, Any?>) -> Unit) {
         @Volatile private var cancelled: () -> Boolean = { false }
@@ -309,10 +295,9 @@ class FaceScanner(private val context: Context, private val services: FaceServic
     private val commitLock = Any()
 
     /**
-     * A photo the scan has already been through, opened in the viewer: its first-pass
-     * left the faces beyond the clearest few (and the unclear ones) found but not
-     * recognised. Recognise them now, so every face in the photo can be tapped. True if
-     * any were done.
+     * Finishes a photo the scan has already been through, opened in the viewer. Its first pass left the faces beyond
+     * the clearest few found but not recognised, so they are recognised here and every face in the photo can be
+     * tapped. True if any were done.
      */
     private fun completeDeferred(uri: String, hash: Long, progress: PhotoScanProgress): Boolean {
         val engine = services.engine
@@ -332,7 +317,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             return false
         } catch (e: OutOfMemoryError) {
             return false
-        } ?: return false // the photo is gone or unreadable
+        } ?: return false
 
         class Item(val face: FaceStore.DeferredFace, val aligned: AlignedFace)
         val items = ArrayList<Item>()
@@ -358,7 +343,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             val vectors = engine.embedAligned(items.map { it.aligned.bitmap })
             progress.stage = "placing"
             synchronized(commitLock) {
-                // Clearest first, as the normal scan does it.
                 for (i in items.indices.sortedByDescending { items[it].face.rank }) {
                     val item = items[i]
                     if (!store.isDeferred(item.face.id)) continue
@@ -378,11 +362,10 @@ class FaceScanner(private val context: Context, private val services: FaceServic
     }
 
     /**
-     * A video opened in the viewer: scan it now if it hasn't been (all of its sampled frames,
-     * stored and grouped exactly as the background scan would), so its people are ready and
-     * the strip can show them. Progress is readable while it runs (see [photoProgress], key
-     * "video:uri"). True if the video is now complete; false if it already was, could not be
-     * read, or isn't in the search index / no models.
+     * Scans a video opened in the viewer if it has not been scanned: all of its sampled frames, stored and grouped as
+     * the background scan would, so its people are ready for the strip. Progress is readable while it runs (see
+     * [photoProgress], key "video:uri"). True if the video ends up complete; false if it already was, could not be
+     * read, or is not in the search index, or there are no models.
      */
     /** What a tap on the video's scan button would do: [state] "needs" / "done" / "unavailable"; the search [level]; faces the last scan kept. */
     class VideoScanPlan(val state: String, val level: Int, val lastFaces: Int?)
@@ -397,7 +380,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             ?: return VideoScanPlan("unavailable", 0, null)
         val stored = services.videoScanner.relaxOf(video.hash)
         val last = store.videoFaceCount(video.hash)
-        // Scanned before and nothing was found: the next look is a looser one.
+        /** Scanned before and nothing was found: the next look is a looser one. */
         val level = if (last != null && last == 0) (stored + 1).coerceAtMost(VideoFaceScanner.MAX_RELAX) else stored
         return VideoScanPlan(if (last != null) "done" else "needs", level, last)
     }
@@ -413,12 +396,14 @@ class FaceScanner(private val context: Context, private val services: FaceServic
         if (!sameModels(store.getMeta(META_MODEL_KEY), engine.modelKey())) return none
         val video = ScanEngineHolder.embeddingEngine(context).indexedVideos().firstOrNull { it.uri == uri } ?: return none
 
-        // Asked for by the user (the button): scan it even if it was scanned before - the second
-        // look replaces the first. If the last look found nothing, this one is less strict.
+        /**
+         * Scans the video when the user taps the button, even if it was scanned before, and the second look replaces
+         * the first. If the last look found nothing, this one is less strict. If the background scan is on the video,
+         * it waits for that to finish rather than scanning twice.
+         */
         val level = videoScanPlan(uri).level
         val outcome = services.videoScanner.scan(video, { false }, { true }, background = false, relax = level)
         if (outcome == VideoFaceScanner.BUSY) {
-            // The background scan is on it: wait for it to finish rather than do it twice.
             services.videoScanner.waitUntilFree(video.hash, 180_000L)
             return VideoScanResult(store.isVideoDone(video.hash), level, store.videoFaceCount(video.hash) ?: 0)
         }
@@ -426,15 +411,13 @@ class FaceScanner(private val context: Context, private val services: FaceServic
     }
 
     /**
-     * Looks for faces in one photo right now: for a photo opened in the viewer
-     * before the background scan has reached it. Only photos already in the search
-     * index (that is where their identity comes from), and only with the models
-     * the stored people were made with. True if the photo now has its faces stored.
+     * Looks for faces in one photo for the viewer, before the background scan has reached it. Only photos already in
+     * the search index qualify, because their identity comes from there, and only with the models the stored people
+     * were made with. True if the photo has its faces stored afterwards. A photo marked complete is left alone.
      */
     fun scanOne(uri: String): Boolean {
         val store = services.store
         val known = store.photoHashForUri(uri)
-        // Marked complete: every face in it was recognised before, so there is nothing to do.
         if (known != null && store.isPhotoComplete(known)) return false
 
         val progress = PhotoScanProgress()
@@ -445,13 +428,16 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             photoProgress.remove(uri)
         }
     }
+/**
+ * Scans a photo that is not complete. One scanned before has only its clearest faces recognised, so the rest are done
+ * here.
+ */
 
     private fun scanOneInner(uri: String, known: Long?, progress: PhotoScanProgress): Boolean {
         val engine = services.engine
         val store = services.store
         if (!engine.isReady()) return false
         if (!sameModels(store.getMeta(META_MODEL_KEY), engine.modelKey())) return false
-        // Already scanned: the first pass recognised only its clearest faces - do the rest now.
         if (known != null) return completeDeferred(uri, known, progress)
         val item = ScanEngineHolder.embeddingEngine(context).indexedImages().firstOrNull { it.uri == uri } ?: return false
 
@@ -473,9 +459,10 @@ class FaceScanner(private val context: Context, private val services: FaceServic
         return store.hasPhotoUri(uri)
     }
 
-    // Earlier builds listed the bundled detector's unpacked copy as its own model,
-    // so stored keys look like ".bundled_det_2.5g|w600k_mbf". That is the same
-    // model as "det_2.5g|w600k_mbf" - not a reason to throw the people away.
+    /**
+     * Whether two stored model keys name the same models. A key with the ".bundled_" prefix is the same model as
+     * without it, which is not a reason to throw the people away.
+     */
     private fun sameModels(stored: String?, current: String?): Boolean =
         stored != null && current != null && stored.replace(".bundled_", "") == current
 
@@ -489,49 +476,54 @@ class FaceScanner(private val context: Context, private val services: FaceServic
         var timing = Timing()
         val tried = HashSet<Long>()
 
-        // Set for a photo opened in the viewer: its progress is reported here.
+        /** Set for a photo opened in the viewer, and its progress is reported here. */
         var watch: PhotoScanProgress? = null
 
-        // Videos: how many this run has done, and when that part started (for a fair time-left).
+        /** Videos this run has done, and when that part started, for a fair time left. */
         var videosDone = 0
         var videosStartedAt = 0L
 
         var phase = "scan"
 
-        // True while this run belongs to an indexing scan (see Session), and while it is
-        // working through one of the batches that scan handed over.
+        /**
+         * True while this run belongs to an indexing scan (see [Session]) and works through one of the batches it
+         * handed over.
+         */
         var following = false
         @Volatile var batchActive = false
-        // Bumped by whichever thread stores a photo (see commit), read when reporting.
+        /** Bumped by whichever thread stores a photo (see [commit]), and read when reporting. */
         @Volatile var processed = 0
         var total = 0
         var lastEmitAt = 0L
         var lastStatsAt = 0L
         var stats = Triple(0, 0, 0)
         var sinceMerge = 0
-        // Both stages of a pass (see RecognitionStage) count into this.
+        /** Both stages of a pass (see [RecognitionStage]) count into this. */
         val consecutiveFailures = AtomicInteger(0)
 
-        // The faces stored most recently, newest first, with what the app's square draws of
-        // them: the photo each was found in, where the face and its landmarks are on it (as
-        // fractions of the photo), and who it was placed with. Only while a batch of an
-        // indexing scan is being worked through, and starting over with each.
+        /**
+         * The faces stored most recently, newest first, with what the app's square draws of them: the photo each was
+         * found in, where the face and its landmarks are (as fractions of the photo) and who it was placed with. Kept
+         * only while a batch of an indexing scan is worked through, and reset with each.
+         */
         @Volatile var recentFaceEvents: List<Map<String, Any?>> = emptyList()
 
-        // Set when new faces were stored: the next emit() goes out at once, so they are
-        // shown without waiting for the usual interval.
+        /** Set when faces were stored, so the next [emit] goes out at once without waiting for the usual interval. */
         @Volatile var newFaces = false
 
-        // Photos whose clear faces are waiting for a recognition batch.
+        /** Photos whose clear faces are waiting for a recognition batch. */
         val jobs = ArrayList<Job>()
         var pendingFaces = 0
 
+        /**
+         * Reports the status to the app. The totals are a few queries over the whole table, so they are refreshed only
+         * every [STATS_INTERVAL_MS]. A video takes far longer than a photo, so its time left comes from videos only.
+         */
         fun emit(paused: Boolean = false, done: Boolean = false, error: String? = null, force: Boolean = false) {
             val now = SystemClock.elapsedRealtime()
             if (!force && !done && !newFaces && now - lastEmitAt < EMIT_INTERVAL_MS) return
             newFaces = false
             lastEmitAt = now
-            // The totals are a few queries over the whole table - not needed every tick.
             if (force || done || now - lastStatsAt > STATS_INTERVAL_MS) {
                 stats = store.stats()
                 lastStatsAt = now
@@ -550,7 +542,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                 "people" to stats.third,
                 "failed" to attempt.failed,
                 "recentFaceEvents" to recentFaceEvents,
-                // A video takes far longer than a photo, so its time-left comes from videos only.
                 "runProcessed" to (if (phase == "videos") videosDone else attempt.processed),
                 "elapsedMs" to (if (phase == "videos") now - videosStartedAt else now - startedAt),
                 "error" to error,
@@ -559,7 +550,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             onTick(status)
         }
 
-        // Indexing has priority - wait for it rather than compete. False if stopped meanwhile.
+        /** Waits for the indexing scan to finish, because it has priority. False if stopped meanwhile. */
         fun waitForIndexing(): Boolean {
             while (ScanForegroundService.isScanActive) {
                 emit(paused = true, force = true)
@@ -569,14 +560,15 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             return true
         }
 
-        // Vectors from a different model pair can't be compared with these,
-        // so a swapped model means starting the grouping over.
+        /**
+         * Starts the grouping over when the models changed, because vectors from a different model pair cannot be
+         * compared. A key that differs only in the internal name (see [sameModels]) changes nothing.
+         */
         private fun adoptModels() {
             val key = engine.modelKey()!!
             val stored = store.getMeta(META_MODEL_KEY)
             if (stored != key) {
                 if (sameModels(stored, key)) {
-                    // Only the internal name changed (see sameModels): nothing to redo.
                     store.setMeta(META_MODEL_KEY, key)
                 } else {
                     Log.i(TAG, "face model changed to $key - regrouping from scratch")
@@ -590,8 +582,10 @@ class FaceScanner(private val context: Context, private val services: FaceServic
         private var modelsAdopted = false
         private var configLogged = false
 
-        // What the models run with, once per run: the reason one side is slower than the
-        // other is often a thread count or a backend, not the model itself.
+        /**
+         * Logs what the models run with, once per run. One side being slower than the other is often a thread count or
+         * a backend, not the model itself.
+         */
         private fun logConfigOnce() {
             if (configLogged) return
             configLogged = true
@@ -607,9 +601,10 @@ class FaceScanner(private val context: Context, private val services: FaceServic
         }
 
         /**
-         * One batch of a [Session]: the photos an indexing scan has just written, worked
-         * through at full speed while it waits. [processed]/[total] count this batch.
-         * False if stopped, or the models can't be used.
+         * One batch of a [Session]: the photos an indexing scan has just written, worked through at full speed while
+         * it waits. [processed] and [total] count this batch. The one-off speed test runs first if it has not
+         * happened, because indexing is waiting and the timings are true. False if stopped, or the models cannot be
+         * used.
          */
         fun followBatch(photos: List<IndexedImage>): Boolean {
             if (FaceSettings.paused(context) || !engine.isReady()) return false
@@ -620,8 +615,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             following = true
             batchActive = true
             try {
-                // The one-off speed test, if it hasn't happened yet: indexing is waiting,
-                // so nothing else is competing and the timings are true.
                 if (FaceTuner.needsTuning(context, engine.store)) {
                     phase = "tune"
                     processed = 0
@@ -673,7 +666,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             adoptModels()
             logConfigOnce()
 
-            // One-off: find the fastest settings for this phone.
             if (FaceTuner.needsTuning(context, engine.store)) {
                 if (!waitForIndexing()) {
                     emit(done = true, force = true)
@@ -696,7 +688,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                 if (!refine) break
                 phase = "refine"
                 if (!refineFaces()) return
-                // Photos may have been indexed while this ran.
                 if (!hasNewPhotos()) break
             }
 
@@ -714,9 +705,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             emit(done = true, force = true)
         }
 
-        // ---------------- videos ----------------
-
-        /** False if stopped. */
+        /** False if stopped. A video the viewer scanned meanwhile is skipped. */
         fun scanVideos(): Boolean {
             val indexer = ScanEngineHolder.embeddingEngine(context)
             val videos = indexer.indexedVideos()
@@ -739,19 +728,18 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                     emit(done = true, force = true)
                     return false
                 }
-                // Opened in the viewer meanwhile (scanned there, or being scanned there now).
                 if (store.isVideoDone(video.hash)) {
                     processed++
                     continue
                 }
                 val outcome = services.videoScanner.scan(video, shouldStop, gate = { waitForIndexing() })
                 when (outcome) {
-                    VideoFaceScanner.BUSY -> continue // the viewer has it; nothing to do here
+                    VideoFaceScanner.BUSY -> continue
                     VideoFaceScanner.STOPPED -> {
                         emit(done = true, force = true)
                         return false
                     }
-                    VideoFaceScanner.FAILED -> attempt.failed++ // tried again on a later run
+                    VideoFaceScanner.FAILED -> attempt.failed++
                     else -> {
                         processed++
                         videosDone++
@@ -766,8 +754,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             val finished = store.processedHashes()
             return ScanEngineHolder.embeddingEngine(context).indexedImages().any { it.hash !in finished && it.hash !in tried }
         }
-
-        // ---------------- pass 1: every photo ----------------
 
         /** False if stopped. */
         fun scanPhotos(): Boolean {
@@ -791,16 +777,16 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             }
         }
 
-        // Decodes, analyses and recognises [pending] (see analyse and flush), one decode
-        // ahead of the analysis. [yieldToIndexing]: wait whenever an indexing scan is
-        // running (the normal passes do) - false for a batch an indexing scan has handed
-        // over and is itself waiting for. False if stopped.
+        /**
+         * Decodes, analyses and recognises [pending], one decode ahead of the analysis. Several decoders take the
+         * photos in turn so decoding keeps up with detection, and the photos reach the analysis in whatever order they
+         * finish. [yieldToIndexing] makes it wait whenever an indexing scan runs, which the normal passes do but a
+         * batch handed over by indexing does not. False if stopped.
+         */
         private fun processPhotos(pending: List<IndexedImage>, thorough: Boolean, yieldToIndexing: Boolean): Boolean {
             val cancelled = AtomicBoolean(false)
             val queue = ArrayBlockingQueue<Any>(PREFETCH)
             val end = Any()
-            // Several decoders take the photos in turn, so decoding keeps up with detection
-            // (the photos reach the analysis in whatever order they finish).
             val nextIndex = AtomicInteger(0)
             val decodersLeft = AtomicInteger(DECODE_THREADS)
             val producers = List(DECODE_THREADS) { n ->
@@ -812,7 +798,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
 
             try {
                 while (true) {
-                    // Recognition keeps failing: nothing more can be done in this pass.
                     stage.failure?.let { throw it }
                     if (shouldStop()) {
                         discardJobs()
@@ -824,7 +809,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                     val next = queue.poll(300, TimeUnit.MILLISECONDS)
                     timing.waitNs += System.nanoTime() - waitStartedNs
                     if (next == null) {
-                        // Nothing ready: don't sit on finished work while waiting.
                         flush()
                         continue
                     }
@@ -833,7 +817,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
 
                     if (yieldToIndexing && ScanForegroundService.isScanActive) {
                         flush()
-                        // Indexing has the CPU: what is handed over is finished first.
                         stage.awaitIdle()
                         if (!waitForIndexing()) {
                             prepared.photo?.bitmap?.recycle()
@@ -853,15 +836,12 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                     emit()
                 }
                 flush()
-                // Everything handed to the recognition stage is recognised and stored.
                 stage.finish()
                 stage.failure?.let { throw it }
             } finally {
                 recognition = null
                 stage.close()
-                // Faces cut out but never handed over (the pass ended early) are freed too.
                 discardJobs()
-                // Stop the decoder and free whatever it had ready.
                 cancelled.set(true)
                 while (true) {
                     val left = queue.poll() ?: break
@@ -872,17 +852,16 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             return true
         }
 
-        // Finds the faces in one photo, cuts them out, and decides which are worth
-        // recognising now. Recognition itself is batched - see flush().
-        //
-        // [everyFace]: recognise every face that is big enough, not just the clearest few
-        // (a photo opened in the viewer is one photo - cheap - and the person wants each
-        // face in it to be tappable). The unclear ones still only join people that exist.
+        /**
+         * Finds the faces in one photo, cuts them out and decides which are worth recognising. Face sizes are quoted
+         * as if the photo were at most [REF_SIDE] across. With [everyFace] every face big enough is recognised, not
+         * just the clearest few. An unreadable photo is recorded as having no faces, but a model or runtime problem is
+         * not recorded, so it is tried again on the next run.
+         */
         private fun analyse(prepared: Prepared, thorough: Boolean, everyFace: Boolean = false) {
             val item = prepared.item
             val photo = prepared.photo
 
-            // Unreadable photos are recorded as "no faces" so they aren't retried forever.
             if (photo == null) {
                 synchronized(commitLock) {
                     store.insertPhoto(item.hash, item.uri, 0, 0, emptyList())
@@ -904,9 +883,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
 
                 val smallLong = max(small.width, small.height)
                 val origLong = max(photo.originalWidth, photo.originalHeight)
-                // Sizes are quoted as if the photo were at most REF_SIDE across, however
-                // it was actually decoded, so "how big is this face" means the same
-                // thing for every photo.
                 val refScale = min(origLong, REF_SIDE).toFloat() / smallLong
                 val refW = (small.width * refScale).toInt()
                 val refH = (small.height * refScale).toInt()
@@ -914,7 +890,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                 t = System.nanoTime()
                 for (box in detected) {
                     val size = (min(box.width, box.height) * refScale).toInt()
-                    // Too small to tell apart - not worth keeping at all.
                     if (size < FaceQuality.MIN_EMBED_PX) continue
 
                     val aligned = engine.align(small, box.landmarks)
@@ -926,8 +901,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                     )
                 }
 
-                // Recognise only the clear faces now (the best few, in a big group);
-                // the rest are stored as they are and recognised in pass 2.
                 val now = if (everyFace) {
                     built.toSet()
                 } else {
@@ -952,14 +925,10 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                 } else {
                     jobs += job
                     pendingFaces += job.toRecognise
-                    // The first faces of a follow batch go off as soon as there are a couple, so the
-                    // first of them can be shown within a photo or two; after that, in full batches.
                     val flushAt = if (batchActive && recentFaceEvents.isEmpty()) FIRST_FLUSH_AT else FLUSH_AT
                     if (pendingFaces >= flushAt) flush()
                 }
             } catch (e: Exception) {
-                // A model/runtime problem, not the photo's fault: not recorded, so
-                // it is tried again on the next run.
                 Log.e(TAG, "face analysis failed for ${item.uri}: ${e.message}", e)
                 bumpFailed(1)
                 built.forEach { it.aligned?.recycle() }
@@ -969,10 +938,11 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             }
         }
 
-        // Gets the waiting faces (several photos' worth, up to a full batch) recognised and
-        // their photos stored. During a pass they are handed to the recognition stage, which
-        // works on them while the next photos are decoded and searched for faces; outside
-        // one (a single photo opened in the viewer) it all happens right here.
+        /**
+         * Gets the waiting faces (several photos' worth, up to a full batch) recognised and their photos stored.
+         * During a pass they are handed to the recognition stage, which works while the next photos are decoded.
+         * Outside a pass, for a single photo opened in the viewer, it all happens in place.
+         */
         private fun flush() {
             if (jobs.isEmpty()) return
             val batch = ArrayList(jobs)
@@ -986,9 +956,10 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             }
         }
 
-        // Recognises every waiting face of [batch] in one go, then stores the photos. Returns
-        // the exception if recognition keeps failing (too many times in a row to carry on),
-        // null otherwise.
+        /**
+         * Recognises every waiting face of [batch] in one go, then stores the photos. Returns the exception if
+         * recognition keeps failing, too many times in a row to carry on, and null otherwise.
+         */
         private fun recogniseAndStore(batch: List<Job>): Exception? {
             val waiting = batch.flatMap { job -> job.faces.filter { it.aligned != null } }
             val vectors = try {
@@ -1026,17 +997,18 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             pendingFaces = 0
         }
 
-        // The recognition stage of a pass: a thread of its own, fed whole batches of photos
-        // whose faces have been cut out, so recognising them (the slow part) carries on
-        // while the next photos are being decoded and searched. One thread, first in first
-        // out, so the photos are stored and grouped in the same order as before.
+        /**
+         * The recognition stage of a pass: a thread of its own, fed whole batches of photos with the faces cut out, so
+         * recognising them (the slow part) carries on while the next photos are decoded and searched. One thread,
+         * first in first out, so photos are stored and grouped in order.
+         */
         private var recognition: RecognitionStage? = null
 
         private inner class RecognitionStage {
             private val queue = ArrayBlockingQueue<Any>(MAX_QUEUED_BATCHES)
             private val end = Any()
 
-            // Batches handed over and not yet finished (queued or being recognised).
+            /** Batches handed over and not yet finished, queued or being recognised. */
             private val inFlight = AtomicInteger(0)
 
             @Volatile private var abandoned = false
@@ -1052,7 +1024,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
              * is what keeps memory bounded); false if the pass is being stopped meanwhile.
              */
             fun submit(batch: List<Job>): Boolean {
-                // The stage has died (see failure): nothing would ever take this.
                 if (failure != null || !thread.isAlive) return false
                 val waitStartedNs = System.nanoTime()
                 inFlight.incrementAndGet()
@@ -1091,7 +1062,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             fun close() {
                 if (thread.isAlive) abandon()
                 thread.join(30_000)
-                // A stage that died with batches still queued never got to free them.
                 discardQueued()
             }
 
@@ -1144,9 +1114,11 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             }
         }
 
-        // Stores a photo and places its recognised faces among the people. Under a lock
-        // shared with scanOne(), so a photo opened in the viewer while the background
-        // scan reaches it is never stored twice.
+        /**
+         * Stores a photo and places its recognised faces among the people. Under a lock shared with [scanOne], so a
+         * photo opened in the viewer while the background scan reaches it is never stored twice. A face without an
+         * embedding is stored as found but not recognised, for the second pass.
+         */
         private fun commit(job: Job) {
             synchronized(commitLock) { commitLocked(job) }
         }
@@ -1169,7 +1141,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                     yaw = f.yaw,
                     good = f.good && f.embedding != null,
                     rank = f.rank,
-                    // Empty = found but not recognised yet (pass 2).
                     embedding = f.embedding ?: FloatArray(0),
                 )
             }
@@ -1185,8 +1156,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                 job.faces.forEach { it.aligned?.recycle(); it.aligned = null }
                 throw e
             }
-            // The recognised faces of a photo, for the app's square (while a batch of an
-            // indexing scan is on).
             if (batchActive) {
                 val events = ArrayList<Map<String, Any?>>()
                 for ((i, f) in job.faces.withIndex()) {
@@ -1212,7 +1181,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                 }
             }
             job.faces.forEach { it.aligned?.recycle(); it.aligned = null }
-            // Every face in it recognised (a photo with few faces, or one scanned from the viewer).
             if (job.faces.all { it.embedding != null }) store.markPhotoComplete(job.item.hash)
             processed++
 
@@ -1229,9 +1197,10 @@ class FaceScanner(private val context: Context, private val services: FaceServic
             flush()
         }
 
-        // ---------------- pass 2: the faces pass 1 left for later ----------------
-
-        /** False if stopped. */
+        /**
+         * Recognises the faces the first pass left and attaches them to existing people. Faces are updated under the
+         * lock the viewer's top-up also takes, and only if nobody recognised them meanwhile. False if stopped.
+         */
         fun refineFaces(): Boolean {
             val tries = HashSet<Long>()
             var done = 0
@@ -1267,7 +1236,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                             null
                         }
                         if (loaded == null) {
-                            // The photo is gone or unreadable: nothing more to do for its faces.
                             store.deleteFaces(faces.map { it.id })
                             continue
                         }
@@ -1291,8 +1259,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                         timing.embedNs += System.nanoTime() - t
                         timing.recognised += items.size
                         timing.batches += (items.size + 7) / 8
-                        // Under the lock the viewer's top-up (completeDeferred) also takes, and only
-                        // for faces nobody has recognised in the meantime.
                         synchronized(commitLock) {
                             items.forEachIndexed { i, item ->
                                 if (!store.isDeferred(item.faceId)) return@forEachIndexed
@@ -1318,8 +1284,10 @@ class FaceScanner(private val context: Context, private val services: FaceServic
         }
     }
 
-    // The decoder thread: reads photos ahead of the analysis, one decode each
-    // (bigger only when the thorough option's tiled pass wants the detail).
+    /**
+     * The decoder thread: reads photos ahead of the analysis, one decode each
+     * (bigger only when the thorough option's tiled pass wants the detail).
+     */
     private fun produce(
         pending: List<IndexedImage>,
         thorough: Boolean,
@@ -1354,7 +1322,6 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                     }
                 }
             }
-            // Whoever finishes last says there is no more (everyone else's photos are queued already).
             if (decodersLeft.decrementAndGet() == 0) {
                 while (!queue.offer(end, 300, TimeUnit.MILLISECONDS)) {
                     if (cancelled.get()) return
@@ -1380,22 +1347,29 @@ class FaceScanner(private val context: Context, private val services: FaceServic
         /** Faces waiting for recognition are sent to the model once this many have gathered. */
         private const val FLUSH_AT = 8
 
-        /** The first flush of a follow batch (see processPhotos). */
+        /**
+         * The first flush of a follow batch (see [processPhotos]) goes off as soon as there are a couple of faces, so
+         * the first can be shown within a photo or two.
+         */
         private const val FIRST_FLUSH_AT = 2
 
-        // Batches the detection stage may hand to the recognition stage before it has to
-        // wait for it (see RecognitionStage).
+        /**
+         * Batches the detection stage may hand to the recognition stage before it has to
+         * wait for it (see RecognitionStage).
+         */
         private const val MAX_QUEUED_BATCHES = 2
 
-        // Faces the square keeps track of at a time.
+        /** Faces the square keeps track of at a time. */
         private const val RECENT_FACES = 12
 
         private const val REFINE_PHOTOS_PER_ROUND = 24
         private const val MAX_CONSECUTIVE_FAILURES = 20
         private const val PREFETCH = 2
 
-        // Photos decoded at the same time. One decoder fell behind once recognition got
-        // quick: decoding a photo (~0.4-0.9 s) took nearly as long as analysing it.
+        /**
+         * Photos decoded at the same time. One decoder fell behind once recognition got
+         * quick: decoding a photo (~0.4-0.9 s) took nearly as long as analysing it.
+         */
         private const val DECODE_THREADS = 2
         private const val EMIT_INTERVAL_MS = 800L
         private const val STATS_INTERVAL_MS = 3000L

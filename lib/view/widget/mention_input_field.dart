@@ -8,16 +8,11 @@ import 'package:lost_and_found/utils/app_spacing.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/view/widget/mention_text_controller.dart';
 
-// A reusable version of the search box's own "@name" autocomplete (see
-// MentionTextEditingController and search_tab.dart's _SearchPill, which
-// uses the same MentionDropdown below directly since it anchors its own
-// field rather than this one) - typing "@" opens a dropdown of matching
-// people anchored right below the field; picking one inserts their name as
-// a recognised mention, same as typing a name plainly. Anywhere this app
-// lets someone describe "who's in it" alongside free text should use this
-// rather than a plain TextField, so the two ways of recognising a person
-// stay consistent everywhere - not just in search, but wherever a query
-// gets typed (a collection's own "+ New"/"Edit" sheet, for instance).
+/// A text field with the search box's "@name" autocomplete, for any place where someone describes who is in a photo
+/// alongside free text. Typing "@" opens a dropdown of matching people below the field, and picking one inserts the
+/// name as a recognised mention. Use it instead of a plain TextField wherever a query is typed (see
+/// [MentionTextEditingController]). The search box's own pill uses [MentionDropdown] directly, as it anchors its own
+/// field.
 class MentionInputField extends StatefulWidget {
   const MentionInputField({
     super.key,
@@ -39,9 +34,7 @@ class MentionInputField extends StatefulWidget {
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onSubmitted;
 
-  /// Called on every keystroke, mention pick or recognition change - not
-  /// just submission. Useful for a caller that needs to react live (e.g.
-  /// enabling a Save button once there's something to save).
+  /// Called on every keystroke, mention pick or recognition change, not only on submission.
   final VoidCallback? onChanged;
 
   @override
@@ -83,9 +76,6 @@ class _MentionInputFieldState extends State<MentionInputField> {
       );
       Overlay.of(context).insert(_mentionEntry!);
     }
-    // No explicit rebuild of an already-inserted entry needed:
-    // _MentionDropdown listens to the same controller itself and refilters
-    // on every keystroke on its own.
   }
 
   void _removeMentionOverlay() {
@@ -112,16 +102,11 @@ class _MentionInputFieldState extends State<MentionInputField> {
   }
 }
 
-// The "@" autocomplete dropdown - named people matching whatever's typed
-// after the "@", anchored to the field above via [link] so it tracks it
-// regardless of scrolling. Picking one confirms that exact person - see
-// MentionTextEditingController.selectMention for why that's never
-// ambiguous even when a live plain-text match would have to stay silent.
-//
-// Public (not the field's own private State) because the search box's
-// _SearchPill anchors this to itself directly, rather than going through
-// MentionInputField - both places should look and behave identically
-// instead of each keeping its own copy.
+/// The "@" autocomplete dropdown: the named people matching what is typed after the "@". It is anchored to the field
+/// through [link], so it follows the field when it scrolls. Picking a person confirms that exact person (see
+/// [MentionTextEditingController.selectMention]), and the tap lands outside the field and unfocuses it, so picking
+/// gives the focus back. The overlay gives its entries a full-screen box, so it is unconstrained to size to its short
+/// list. It is public so that [MentionInputField] and the search box's pill look and behave the same.
 class MentionDropdown extends StatelessWidget {
   const MentionDropdown({
     super.key,
@@ -142,11 +127,6 @@ class MentionDropdown extends StatelessWidget {
       targetAnchor: Alignment.bottomLeft,
       followerAnchor: Alignment.topLeft,
       offset: const Offset(0, AppSpacing.xs),
-      // The Overlay hands its top-level entries a full-screen-sized box to
-      // fill, same as it would a route's page (see the search box's own
-      // note on this - same trap). Without this, the dropdown's Material
-      // would stretch to fill the whole screen height instead of sizing to
-      // its own short list.
       child: UnconstrainedBox(
         alignment: Alignment.topLeft,
         child: ListenableBuilder(
@@ -183,11 +163,6 @@ class MentionDropdown extends StatelessWidget {
                     return InkWell(
                       onTap: () {
                         controller.selectMention(person);
-                        // onTapOutside on the field itself already unfocused it the
-                        // moment this tap landed outside its bounds (the dropdown
-                        // sits below the field, not over it) - reclaim focus so
-                        // typing the rest of the sentence continues right where
-                        // the mention was inserted, instead of needing a second tap.
                         focusNode.requestFocus();
                       },
                       child: Padding(

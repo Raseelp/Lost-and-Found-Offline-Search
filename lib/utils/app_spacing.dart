@@ -1,6 +1,7 @@
-/// 8pt-ish scale. Structural layout snaps to sm/md/base/lg/xl - use gap-style
-/// spacing (SizedBox between children) over per-widget padding so rhythm
-/// can't silently drift between screens.
+/// An 8pt-ish spacing scale in logical pixels.
+///
+/// Structural layout snaps to sm, md, base, lg and xl. Prefer gaps (a SizedBox between children) over padding on each
+/// widget, so the rhythm stays the same from screen to screen.
 class AppSpacing {
   AppSpacing._();
 

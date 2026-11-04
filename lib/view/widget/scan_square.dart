@@ -10,19 +10,6 @@ import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/view/widget/chip_art.dart';
 
-// The Library page's scanning hero: a rounded square that is the scan, and shows what is
-// happening inside it.
-//
-// The outline is the progress (indexing's, teal). Inside, while photos are indexed, the ones
-// indexed since the last round (up to six, side by side) are read: each is cut into a grid of
-// patches that light as they are read, and then drops into the strip underneath, which is the
-// queue of photos waiting for their faces. The strip's own outline fills (plum) as that queue
-// fills towards the next face batch. When the batch starts, the queued photos rise into the
-// square and the faces of each are found: the outline of indexing dims and a thinner plum one
-// shows the batch; each photo's faces get a box, landmarks and a small mesh, are lifted out one
-// by one, and travel to the person they match along the bottom (a face nobody matches starts a
-// new person).
-
 /// What the chip is doing: waiting to be started, scanning, or showing that a scan is done.
 enum ScanChipMode { idle, scanning, complete }
 
@@ -73,26 +60,26 @@ class OrbitPhoto {
   final int frames;
 }
 
-// The square is drawn on a 340 x 340 sheet that is scaled to fit.
+/// The square is drawn on a 340 x 340 sheet that is scaled to fit.
 const double _sheet = 340;
 const Rect _photoBox = Rect.fromLTWH(30, 34, 280, 206);
 const Rect _strip = Rect.fromLTWH(30, 252, 280, 56);
-// The queue strip: thumbnails from [_queueLeft] to [_queueRight] (where the last one starts).
+/// The queue strip: thumbnails from [_queueLeft] to [_queueRight] (where the last one starts).
 const double _tileSize = 34;
 const double _queueLeft = 36;
 const double _queueRight = 270;
-// Photos kept in the strip: all of a batch's while faces follow the scan, else the last few.
+/// Photos kept in the strip: all of a batch's while faces follow the scan, else the last few.
 const int _queueMax = 12;
 const int _lastMax = 5;
 
-// Seconds the photos shown together take to be read (the more there are, the quicker - it is
-// meant to look like the pace of the scan), and to have a photo's faces lifted out and placed.
+/// Seconds the photos shown together take to be read (the more there are, the quicker, to look like the pace of the
+/// scan), and to have a photo's faces lifted out and placed.
 const int _mosaicMax = 6;
 double _cycleFor(int photos) => const [3.6, 3.6, 3.2, 2.9, 2.6, 2.3, 2.0][photos.clamp(1, 6)];
 const double _faceCycle = 4.8;
 const int _maxFacesShown = 5;
 const int _traySlots = 5;
-// Cells in the memory array along the top of the bank (two rows).
+/// Cells in the memory array along the top of the bank (two rows).
 const int _memoryCellCount = 136;
 
 double _seg(double t, double a, double b) => ((t - a) / (b - a)).clamp(0.0, 1.0);
@@ -104,9 +91,9 @@ double _back(double x) {
 
 double _lerp(double a, double b, double t) => a + (b - a) * t;
 
-// How [n] photos read together are laid out, as parts of the photo area. Several for each
-// count, and a different one is used each round, so the mosaic is never the same twice; every
-// photo fills its cell (cropped to it, never stretched).
+/// How [n] photos read together are laid out, as parts of the photo area. Several for each
+/// count, and a different one is used each round, so the mosaic is never the same twice; every
+/// photo fills its cell (cropped to it, never stretched).
 const _bentoLayouts = <List<List<Rect>>>[
   [],
   [
@@ -230,7 +217,6 @@ Rect _faceView(_Pic pic, List<FaceEvent> events) {
     bottom = 1;
   }
   final faceW = (right - left) * pic.w, faceH = (bottom - top) * pic.h;
-  // The faces, with some room around them, must stay inside the area.
   final keep = math.min(box.width / (faceW * 1.4), box.height / (faceH * 1.5));
   final scale = math.max(contain, math.min(cover, keep));
   final w = pic.w * scale, h = pic.h * scale;
@@ -268,7 +254,6 @@ Future<List<Color>?> _patchTones(ui.Image image) async {
     final w = image.width, h = image.height;
     final side = math.min(w, h);
     final ox = (w - side) ~/ 2, oy = (h - side) ~/ 2;
-    // Red, green, blue and the number of pixels, for each patch.
     final sums = List<int>.filled(49 * 4, 0);
     for (var y = 0; y < side; y += 2) {
       final row = math.min<int>(6, y * 7 ~/ side);
@@ -292,8 +277,8 @@ Future<List<Color>?> _patchTones(ui.Image image) async {
   }
 }
 
-// Number [i] of a photo's vector (-1..1): derived from the photo's own colours, so each photo
-// gets its own list. (Illustrative: the real vector is made by the model, not by the screen.)
+/// Number [i] of a photo's vector (-1..1): derived from the photo's own colours, so each photo
+/// gets its own list. (Illustrative: the real vector is made by the model, not by the screen.)
 double _vectorValue(List<Color>? tones, int i) {
   final tone = tones == null ? ScanPalette.gray500 : tones[(i * 7) % 49];
   final v = math.sin((tone.r * 12.9898 + tone.g * 78.233 + tone.b * 37.719) * (i + 1) * 3.1) * 43758.5453;
@@ -337,7 +322,7 @@ class OrbitQueueInfo {
   }
 }
 
-// A packet of data running along a bond wire (t from the die, or bank, to the board).
+/// A packet of data running along a bond wire (t from the die, or bank, to the board).
 class _Packet {
   _Packet(this.bar, this.wire, this.speed);
 
@@ -346,7 +331,7 @@ class _Packet {
   double t = 0;
 }
 
-// A thumbnail in the queue strip.
+/// A thumbnail in the queue strip.
 class _QTile {
   _QTile(this.pic, this.x, [this.frames]);
 
@@ -357,7 +342,7 @@ class _QTile {
   final int? frames;
 }
 
-// The photo the square is reading now.
+/// The photo the square is reading at the moment.
 class _Shot {
   _Shot(this.pics, this.frames, this.start, this.layout) : cycle = _cycleFor(pics.length);
 
@@ -373,7 +358,7 @@ class _Shot {
   final int layout;
 }
 
-// A person on the tray along the bottom.
+/// A person on the tray along the bottom.
 class _Person {
   _Person({
     required this.id,
@@ -394,7 +379,7 @@ class _Person {
   double lastUsed = 0;
 }
 
-// One face being lifted out.
+/// One face being lifted out.
 class _FaceItem {
   _FaceItem(this.event, this.slot, this.matched);
 
@@ -404,7 +389,7 @@ class _FaceItem {
   bool committed = false;
 }
 
-// The faces of one photo, waiting for their turn (and for the photo to be read in).
+/// The faces of one photo, waiting for their turn (and for the photo to be read in).
 class _FaceGroup {
   _FaceGroup(this.uri);
 
@@ -423,6 +408,12 @@ class _FaceShot {
   final double start;
 }
 
+/// The Library page's scanning hero: a rounded square that is the scan, with the indexing progress as its teal
+/// outline. The photos indexed since the last round (up to six) are cut into patches that light as they are read, then
+/// drop into the strip underneath, the queue of photos waiting for their faces, whose plum outline fills as the queue
+/// nears the next face batch. When the batch starts, the queued photos rise into the square, their faces are found and
+/// lifted out one by one, and each travels to the person it matches along the bottom (a face nobody matches starts a
+/// person).
 class SquareScanHero extends StatefulWidget {
   const SquareScanHero({
     super.key,
@@ -468,7 +459,7 @@ class SquareScanHero extends StatefulWidget {
   /// While the folder is still being walked: how many files it has found so far.
   final int? discovered;
 
-  /// How fast photos are being indexed now (per second): how busy the connections look.
+  /// How fast photos are being indexed (per second): how busy the connections look.
   final double rate;
 
   /// The numbers the story under the chip tells.
@@ -486,7 +477,7 @@ class SquareScanHero extends StatefulWidget {
 
 class _SquareScanHeroState extends State<SquareScanHero>
     with SingleTickerProviderStateMixin {
-  // Seconds since the hero appeared (a year long, so it never runs out).
+  /// Seconds since the hero appeared (a year long, so it never runs out).
   static const _clockSeconds = 365.0 * 24 * 3600;
   late final AnimationController _clock = AnimationController(
     vsync: this,
@@ -496,8 +487,8 @@ class _SquareScanHeroState extends State<SquareScanHero>
 
   bool _still = false;
 
-  // The clock runs only while something on the chip moves: a scan, the lid, a wire fading, the
-  // reflection following the phone. A chip at rest under its lid draws nothing at all.
+  /// The clock runs only while something on the chip moves: a scan, the lid, a wire fading, the
+  /// reflection following the phone. A chip at rest under its lid draws nothing at all.
   void _wake() {
     if (!mounted || _still || _clock.isAnimating) return;
     _clock.forward();
@@ -512,14 +503,12 @@ class _SquareScanHeroState extends State<SquareScanHero>
     for (var i = 0; i < chipWireCount; i++) {
       if (_wireClip[i] > .002 || _wireFace[i] > .002) return true;
     }
-    // Without a sensor the reflection drifts by itself; with one it follows the phone.
     if (!_tiltLive) return true;
     return (_tilt - _tiltTarget).distance > .002;
   }
 
-  // ---- the three states of the chip ----
   late ScanChipMode _mode = widget.mode;
-  // How much of each state is showing (they cross-fade when the state changes).
+  /// How much of each state is showing (they cross-fade when the state changes).
   late double _idleAmt = widget.mode == ScanChipMode.idle ? 1 : 0;
   late double _scanAmt = widget.mode == ScanChipMode.scanning ? 1 : 0;
   late double _doneAmt = widget.mode == ScanChipMode.complete ? 1 : 0;
@@ -528,14 +517,17 @@ class _SquareScanHeroState extends State<SquareScanHero>
   bool _dismissed = false;
   bool _pressed = false;
   Timer? _dismissTimer;
-  // How the phone is held, for the light on the lid (from the accelerometer, while the lid is
-  // on and in view; without one the lid just glints now and then).
+  /// How the phone is held, for the light on the lid (from the accelerometer, while the lid is on and in view; without
+  /// one the lid just glints from time to time).
   StreamSubscription<AccelerometerEvent>? _tiltSub;
   Offset _tilt = Offset.zero, _tiltTarget = Offset.zero;
   Offset? _tiltBase, _tiltFilter;
   bool _tiltLive = false;
   bool _inView = true;
 
+  /// Follows how the phone is held, as gravity smoothed so that shaking and small movements do not reach the
+  /// reflection, with a small dead band so that holding it still keeps it still. The way it is held becomes the middle
+  /// again over many seconds. Full swing is at about a quarter of the way to tipping the phone on its side.
   void _syncTilt() {
     final want = _mode != ScanChipMode.scanning && !_still && _inView;
     if (!want) {
@@ -549,16 +541,12 @@ class _SquareScanHeroState extends State<SquareScanHero>
     try {
       _tiltSub = accelerometerEventStream(samplingPeriod: SensorInterval.uiInterval).listen(
         (e) {
-          // Gravity as the phone feels it, smoothed so that shaking and small movements do not
-          // reach the reflection, and a small dead band so that holding it still keeps it
-          // still. The way it is held becomes the middle again over many seconds.
           final raw = Offset(e.x, e.y) / 9.81;
           _tiltFilter = _tiltFilter == null ? raw : Offset.lerp(_tiltFilter!, raw, .12);
           _tiltBase = _tiltBase == null ? _tiltFilter : Offset.lerp(_tiltBase!, _tiltFilter!, .004);
           var d = _tiltFilter! - _tiltBase!;
           double dead(double v) => v.abs() < .03 ? 0 : v - v.sign * .03;
           d = Offset(dead(d.dx), dead(d.dy));
-          // Full swing at about a quarter of the way to tipping the phone on its side.
           _tiltTarget = Offset((-d.dx / .42).clamp(-1.0, 1.0), (d.dy / .42).clamp(-1.0, 1.0));
           final wasLive = _tiltLive;
           _tiltLive = true;
@@ -578,54 +566,50 @@ class _SquareScanHeroState extends State<SquareScanHero>
     }
   }
 
-  // How far the lid is off (0 closed, 1 gone), and what is etched on it.
+  /// How far the lid is off (0 closed, 1 gone), and what is etched on it.
   double _lid = 0;
   ChipLidText _lidIdle = const ChipLidText(above: 'ON-DEVICE', big: 'VISION', below: 'PRIVATE AI', hint: 'TAP TO SCAN');
   ChipLidText? _lidDone;
 
-  // ---- indexing ----
   _Shot? _shot;
-  // The strip: photos read and waiting for their faces, oldest first.
+  /// The strip: photos read and waiting for their faces, oldest first.
   final List<_QTile> _queue = [];
   double _fill = 0;
-  // How much of each bond wire has been bonded, in the two rows (CLIP along the top, FACE along
-  // the bottom), and how bright each row is.
+  /// How much of each bond wire has been bonded, in the two rows (CLIP along the top, FACE along
+  /// the bottom), and how bright each row is.
   final List<double> _wireClip = List.filled(chipWireCount, 0);
   final List<double> _wireFace = List.filled(chipWireCount, 0);
   double _clipAlpha = 1, _faceAlpha = .5;
-  // ---- the lanes and the memory ----
-  //
-  // The two rows of wires are lanes of a link between the die (or the memory bank) and the
-  // board. The scan brings them up one after another (a lane that is coming up trains, with a
-  // pattern running up and down it, and flashes along its length when it locks); data packets
-  // run along the lanes that are up, as many as indexing really moves. And the memory array
-  // along the top of the bank fills a cell at a time as items are stored: much finer than the
-  // lanes, so even a big library visibly moves.
+  /// The two rows of wires are lanes of a link between the die (or the memory bank) and the board. The scan brings
+  /// them up one after another (a lane coming up trains, with a pattern running along it, and flashes when it locks),
+  /// and data packets run along the lanes that are up, as many as indexing really moves. The memory array along the
+  /// top of the bank fills a cell at a time as items are stored, much finer than the lanes, so even a big library
+  /// visibly moves.
   final List<_Packet> _packets = [];
-  // The lane each row is bringing up now, or -1.
+  /// The lane each row is bringing up at the moment, or -1.
   final List<int> _training = [-1, -1];
   final List<double> _trainFraction = [0, 0];
-  // When each lane last locked (for the flash along it), and how many were up when last looked.
+  /// When each lane last locked (for the flash along it), and how many were up when last looked.
   final List<List<double>> _lockAt = [
     List.filled(chipWireCount, -100.0),
     List.filled(chipWireCount, -100.0),
   ];
   final List<int> _lanesUp = [-1, -1];
   final List<double> _packetDebt = [0, 0];
-  // The cells of the memory array that have been written, and when the latest were.
+  /// The cells of the memory array that have been written, and when the latest were.
   int _cellsWritten = 0;
   final Map<int, double> _cellWrittenAt = {};
 
   double _lastStep = 0;
-  // Since when no photo has been in the square (it then shows that it is waiting).
+  /// Since when no photo has been in the square (it then shows that it is waiting).
   double _idleSince = -100;
-  // When this scan began, and when the model of each kind (0: photos, 1: faces) began to load.
+  /// When this scan began, and when the model of each kind (0: photos, 1: faces) began to load.
   double _scanAt = -100;
-  // Cores to a row of the die: as many as the phone has (two rows).
+  /// Cores to a row of the die: as many as the phone has (two rows).
   int _dieColumns = 4;
   final List<double> _loadStart = [-1, -1];
-  // At the start of a face batch the strip's photos rise into the square; they are then the
-  // photos the faces are looked for in.
+  /// At the start of a face batch the strip's photos rise into the square; they are then the
+  /// photos the faces are looked for in.
   List<_QTile> _launch = [];
   double _launchAt = -100;
   List<_Pic> _batchPics = [];
@@ -635,18 +619,18 @@ class _SquareScanHeroState extends State<SquareScanHero>
   final math.Random _random = math.Random();
   final Map<int, int> _lastLayout = {};
 
-  // ---- faces ----
   _FaceShot? _faceShot;
   final List<_FaceGroup> _groups = [];
   final Set<int> _seenFaces = {};
   final List<_Person?> _tray = List.filled(_traySlots, null);
   bool _wasFaceMode = false;
 
+  /// Starts the hero. What is already there when it appears is not replayed. The core count is known after the marks
+  /// load, and the pictures of everything under the lid are made then, a little apart, before anyone has tapped.
   @override
   void initState() {
     super.initState();
     _wasFaceMode = widget.faceMode;
-    // What is already there when the hero appears is not replayed.
     for (final photo in widget.photos) {
       _shown.add(photo.id);
     }
@@ -654,8 +638,6 @@ class _SquareScanHeroState extends State<SquareScanHero>
       _seenFaces.add(e.id);
     }
     if (_mode == ScanChipMode.complete) _completeAt = 0;
-    // The core count (so the die the right size) is known after this; the pictures of everything
-    // under the lid are made then, a little apart, before anyone has tapped.
     _loadMarks().whenComplete(() async {
       await Future<void>.delayed(const Duration(milliseconds: 500));
       if (mounted) await warmChipInside(_photoBox, _strip, _dieColumns);
@@ -700,16 +682,15 @@ class _SquareScanHeroState extends State<SquareScanHero>
     });
   }
 
+  /// Makes the chip's pictures as sharp as this screen can show. With reduced motion nothing moves by itself: the
+  /// square only changes when the scan reports something (see [didUpdateWidget]).
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _still = MediaQuery.disableAnimationsOf(context);
     _inView = TickerMode.of(context);
-    // The chip's pictures are made as sharp as this screen can show.
     setChipArtScale(MediaQuery.devicePixelRatioOf(context));
     _syncTilt();
-    // With reduced motion nothing moves by itself: the square only changes when the scan
-    // reports something (see didUpdateWidget).
     if (_still) {
       _clock.stop();
     } else {
@@ -717,8 +698,8 @@ class _SquareScanHeroState extends State<SquareScanHero>
     }
   }
 
-  // The state of the chip changed: what belonged to the last scan goes, and a finished scan
-  // announces itself.
+  /// The state of the chip changed: what belonged to the last scan goes, and a finished scan
+  /// announces itself.
   void _changeMode(ScanChipMode to) {
     _mode = to;
     _syncTilt();
@@ -766,7 +747,7 @@ class _SquareScanHeroState extends State<SquareScanHero>
     return out.toString();
   }
 
-  // What is etched on the lid when a scan has finished.
+  /// What is etched on the lid when a scan has finished.
   ChipLidText? _doneText(ScanChipSummary? summary) {
     if (summary == null) return _lidDone;
     final extra = [
@@ -805,7 +786,6 @@ class _SquareScanHeroState extends State<SquareScanHero>
     }
     if (widget.faceMode != _wasFaceMode) {
       _wasFaceMode = widget.faceMode;
-      // Whatever was being read is finished with; a batch starts or ends.
       _finishShot();
       _groups.clear();
       _faceShot = null;
@@ -836,8 +816,8 @@ class _SquareScanHeroState extends State<SquareScanHero>
     super.dispose();
   }
 
-  // The photos the hero decoded are freed with it (not left for the garbage collector, which
-  // would hold their memory for a while). Each is freed once, whatever shows it.
+  /// The photos the hero decoded are freed with it (not left for the garbage collector, which
+  /// would hold their memory for a while). Each is freed once, whatever shows it.
   void _releaseImages() {
     final freed = <ui.Image>{};
     void free(_Pic? pic) {
@@ -864,9 +844,7 @@ class _SquareScanHeroState extends State<SquareScanHero>
     return _pics[id] = _decodePic(bytes);
   }
 
-  // ---------------------------------------------------------------- stepping
-
-  // Where tile [i] of [m] sits: spread out, then overlapping once there are too many.
+  /// Where tile [i] of [m] sits: spread out, then overlapping once there are too many.
   double _layoutX(int i, int m) {
     if (m <= 1) return _queueLeft;
     final step = math.min(_tileSize + 4, (_queueRight - _queueLeft - _tileSize) / (m - 1));
@@ -879,13 +857,11 @@ class _SquareScanHeroState extends State<SquareScanHero>
     return _layoutX(_queue.length + i, _queue.length + n);
   }
 
-  // What the two rows of bond wires show. The top row (CLIP, gold) is the indexing: wires bond
-  // one after another as the scan advances, or, while the folder is still being walked, a run
-  // of bonding goes back and forth. The bottom row (FACE, copper) is the faces: while indexing
-  // it fills dimly with the queue of photos waiting for their faces; during a batch it bonds
-  // brightly with the batch. A finished scan bonds both rows. A wire that is no longer wanted
-  // is drawn back a little slower than it was drawn, which is what leaves a trail behind a
-  // moving run.
+  /// What the two rows of bond wires show. The top row (CLIP, gold) is the indexing: wires bond one after another as
+  /// the scan advances, or, while the folder is still being walked, a run of bonding goes back and forth. The bottom
+  /// row (FACE, copper) is the faces: dimly the queue of photos waiting for their faces while indexing, brightly the
+  /// batch during a batch. A finished scan bonds both rows. A wire that is not wanted any more is drawn back a little
+  /// slower than it was drawn, which leaves a trail behind a moving run.
   final List<double> _clipTarget = List.filled(chipWireCount, 0);
   final List<double> _faceTarget = List.filled(chipWireCount, 0);
 
@@ -893,7 +869,6 @@ class _SquareScanHeroState extends State<SquareScanHero>
     final clip = _clipTarget..fillRange(0, chipWireCount, 0);
     final face = _faceTarget..fillRange(0, chipWireCount, 0);
     double fill(double n, int i) => (n - i).clamp(0.0, 1.0);
-    // A run along the row, and back, with a short tail.
     double run(int i, double speed, double phase) {
       final span = chipWireCount - 1;
       final x = (now * speed + phase) % (2 * span);
@@ -930,7 +905,6 @@ class _SquareScanHeroState extends State<SquareScanHero>
       case ScanChipMode.idle:
         break;
     }
-    // A quick test of the wires after a tap, before the lid is off: a run over both rows.
     final since = now - _bootAt;
     if (_bootAt >= 0 && since < 1.4 && _mode != ScanChipMode.complete) {
       final n = (since / .6).clamp(0.0, 1.0) * chipWireCount;
@@ -940,7 +914,6 @@ class _SquareScanHeroState extends State<SquareScanHero>
         face[i] = math.max(face[i], fill(n, i) * fade);
       }
     }
-    // Bonded at once, drawn back a little slower.
     final decay = _still ? 0.0 : math.exp(-dt * 9);
     for (var i = 0; i < chipWireCount; i++) {
       _wireClip[i] = math.max(clip[i], _wireClip[i] * decay);
@@ -956,12 +929,13 @@ class _SquareScanHeroState extends State<SquareScanHero>
     _stepLanes(now, dt);
   }
 
+  /// Brings the lanes up one after another and runs data packets along the ones that are up: more of it the faster
+  /// indexing goes, and a steady trickle otherwise, because the scan is working whatever its speed.
   void _stepLanes(double now, double dt) {
     final working = _mode == ScanChipMode.scanning && _scanAmt > .5;
     final progress = widget.progress;
     final fp = widget.faceProgress;
 
-    // Which lane each row is bringing up, and how many it has up.
     final up = [0, 0];
     _training[0] = _training[1] = -1;
     if (working) {
@@ -986,7 +960,6 @@ class _SquareScanHeroState extends State<SquareScanHero>
         up[1] = (_fill * chipWireCount).floor();
       }
     }
-    // A lane that has just come up flashes along its length.
     for (var bar = 0; bar < 2; bar++) {
       if (_lanesUp[bar] >= 0 && up[bar] > _lanesUp[bar] && working) {
         for (var k = _lanesUp[bar]; k < up[bar] && k < chipWireCount; k++) {
@@ -996,7 +969,6 @@ class _SquareScanHeroState extends State<SquareScanHero>
       _lanesUp[bar] = working ? up[bar] : -1;
     }
 
-    // The memory array: a cell is written for every part of the scan that is stored.
     if (working && progress != null) {
       final written = (progress.clamp(0.0, 1.0) * _memoryCellCount).floor();
       if (written > _cellsWritten) {
@@ -1010,8 +982,6 @@ class _SquareScanHeroState extends State<SquareScanHero>
     }
     _cellWrittenAt.removeWhere((_, at) => now - at > .8);
 
-    // Data on the lanes that are up: more of it the faster indexing goes, and a steady trickle
-    // otherwise (the scan is working, whatever its speed).
     final rate = [
       working ? (math.max(1.6, widget.rate * 1.1)).clamp(1.6, 9.0).toDouble() : 0.0,
       working ? (widget.faceMode ? 4.0 : (widget.queue != null ? .7 : 0.0)) : 0.0,
@@ -1031,6 +1001,9 @@ class _SquareScanHeroState extends State<SquareScanHero>
     if (_packets.length > 40) _packets.removeRange(0, _packets.length - 40);
   }
 
+  /// The lid is off while scanning (and for a moment after a tap, whether or not a scan starts) and on otherwise, and
+  /// takes about a second and a quarter either way. The queue fill rises smoothly and empties at once when a batch has
+  /// started.
   void _glide() {
     final now = _now;
     final dt = (now - _lastStep).clamp(0.0, .2);
@@ -1040,8 +1013,6 @@ class _SquareScanHeroState extends State<SquareScanHero>
     for (var i = 0; i < _queue.length; i++) {
       _queue[i].x += (_layoutX(i, m) - _queue[i].x) * k;
     }
-    // The lid is off while scanning (and for a moment after a tap, whether or not a scan
-    // starts), and on otherwise; it takes about a second and a quarter either way.
     final lidOpen = _mode == ScanChipMode.scanning ||
         (_mode == ScanChipMode.idle && _bootAt >= 0 && now - _bootAt < 3.2);
     final lidTarget = lidOpen ? 1.0 : 0.0;
@@ -1061,7 +1032,6 @@ class _SquareScanHeroState extends State<SquareScanHero>
     final target = widget.faceMode || _mode != ScanChipMode.scanning
         ? 0.0
         : (widget.queue?.fill ?? 0.0);
-    // It fills smoothly and empties at once when a batch has started.
     _fill += (target - _fill) * (_still ? 1.0 : 1 - math.exp(-dt * (target < _fill ? 20 : 3)));
   }
 
@@ -1086,7 +1056,7 @@ class _SquareScanHeroState extends State<SquareScanHero>
     if (!_animating()) _clock.stop();
   }
 
-  // The photo being read is done: it joins the queue in the strip.
+  /// The photo being read is done: it joins the queue in the strip.
   void _finishShot() {
     final shot = _shot;
     if (shot == null) return;
@@ -1102,7 +1072,7 @@ class _SquareScanHeroState extends State<SquareScanHero>
     _shot = null;
   }
 
-  // A different layout from the last round's for the same number of photos.
+  /// A different layout from the last round's for the same number of photos.
   int _pickLayout(int n) {
     final count = _bentoLayouts[n.clamp(1, 6)].length;
     var layout = _random.nextInt(count);
@@ -1112,6 +1082,8 @@ class _SquareScanHeroState extends State<SquareScanHero>
     return layout;
   }
 
+  /// Takes the photos indexed since the last round together: the newest few if there were many, because the ones
+  /// skipped over are not shown late.
   void _stepIndex() {
     final now = _now;
     final shot = _shot;
@@ -1123,8 +1095,6 @@ class _SquareScanHeroState extends State<SquareScanHero>
     if (shot != null && _still && fresh.isEmpty) return;
     _finishShot();
     if (_starting || fresh.isEmpty) return;
-    // The photos indexed since the last round, together (the newest few if there were many;
-    // the ones skipped over are not shown late).
     final take = fresh.take(_mosaicMax).toList().reversed.toList();
     _starting = true;
     for (final photo in fresh) {
@@ -1149,18 +1119,18 @@ class _SquareScanHeroState extends State<SquareScanHero>
     });
   }
 
+  /// A photo that cannot be had, or takes too long, is given up on so it never holds up the ones behind it. When faces
+  /// come faster than they can be shown, the oldest waiting photos are skipped. A face without a box or landmarks has
+  /// nothing to draw it by and is skipped.
   void _ingestFaces() {
     for (final e in widget.events.reversed) {
       if (!_seenFaces.add(e.id)) continue;
-      // Without a box (or landmarks) there is nothing to draw it by.
       if (e.personId == null || e.box.length != 4 || e.landmarks.length < 10) continue;
       _FaceGroup? group;
       if (_groups.isNotEmpty && _groups.last.uri == e.photoUri) group = _groups.last;
       if (group == null) {
         group = _FaceGroup(e.photoUri);
         _groups.add(group);
-        // A photo that cannot be had (or takes too long) is given up on, so it never holds
-        // up the ones behind it.
         widget
             .loadPhoto(e.photoUri)
             .then<Uint8List?>((bytes) => bytes)
@@ -1179,7 +1149,6 @@ class _SquareScanHeroState extends State<SquareScanHero>
       }
       group.events.add(e);
     }
-    // Faces come faster than they can be shown: the oldest waiting photos are skipped.
     while (_groups.length > 4) {
       _groups.removeAt(0);
     }
@@ -1213,12 +1182,12 @@ class _SquareScanHeroState extends State<SquareScanHero>
     _faceShot = _startShot(group, pic, now);
   }
 
+  /// Faces that match someone already on the tray go first, so a face never takes their place.
   _FaceShot _startShot(_FaceGroup group, _Pic pic, double now) {
     final events = [...group.events]..sort((a, b) => b.score.compareTo(a.score));
     final shown = events.take(_maxFacesShown).toList();
     final reserved = <int>{};
     final faces = <_FaceItem>[];
-    // Faces that match someone already on the tray first, so a new face never takes their place.
     for (final e in shown) {
       final slot = _tray.indexWhere((p) => p != null && p.id == e.personId);
       if (slot >= 0) {
@@ -1275,8 +1244,6 @@ class _SquareScanHeroState extends State<SquareScanHero>
       )..lastUsed = now;
     }
   }
-
-  // ------------------------------------------------------------------ build
 
   @override
   Widget build(BuildContext context) {
@@ -1357,7 +1324,7 @@ class _SquareScanHeroState extends State<SquareScanHero>
     );
   }
 
-  // What is written under the chip.
+  /// What is written under the chip.
   Widget _below() {
     switch (widget.mode) {
       case ScanChipMode.idle:
@@ -1435,9 +1402,7 @@ class _CompleteTexts extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------- geometry
-
-// The part of the photo that is the face, as a square, in the photo's own pixels.
+/// The part of the photo that is the face, as a square, in the photo's own pixels.
 Rect _faceCrop(_Pic pic, FaceEvent e) {
   final b = e.box.length == 4 ? e.box : const [.3, .3, .7, .7];
   final cx = (b[0] + b[2]) / 2 * pic.w, cy = (b[1] + b[3]) / 2 * pic.h;
@@ -1448,8 +1413,6 @@ Rect _faceCrop(_Pic pic, FaceEvent e) {
   final top = (cy - side / 2).clamp(0.0, pic.h - side);
   return Rect.fromLTWH(left, top, side, side);
 }
-
-// ----------------------------------------------------------------- painter
 
 class _SquarePainter extends CustomPainter {
   _SquarePainter({
@@ -1472,6 +1435,9 @@ class _SquarePainter extends CustomPainter {
   Canvas get _c => _canvas!;
   Canvas? _canvas;
 
+  /// With the lid on, everything under it is hidden (it covers the die, the bank and the wires with room to spare,
+  /// even when pressed), so none of it is drawn. The die and the memory bank are drawn a little smaller than the board
+  /// so it has parts of its own round it.
   @override
   void paint(Canvas canvas, Size size) {
     _canvas = canvas;
@@ -1480,14 +1446,9 @@ class _SquarePainter extends CustomPainter {
     final now = scene._now;
 
     final scan = scene._scanAmt, done = scene._doneAmt;
-    // The board, and the bond wires that are the loading of the scan.
     paintChipBoard(canvas);
-    // With the lid on, everything under it is hidden (it covers the die, the bank and the wires
-    // with room to spare, even when pressed), so none of it is drawn.
     if (scene._lid > 0 || scan > .01) {
       _wires(now);
-      // The die and the memory bank, with everything that happens on them, a little smaller than
-      // the board so it has parts of its own round it.
       canvas.save();
       canvas.translate(chipSheet / 2, chipSheet / 2);
       canvas.scale(chipDieScale);
@@ -1495,7 +1456,6 @@ class _SquarePainter extends CustomPainter {
       paintChipDie(canvas, _photoBox, scene._dieColumns);
       paintChipMemory(canvas, _strip);
 
-      // What is on the die.
       if (scan > .01) {
         _withAlpha(scan, () {
           if (scene.widget.faceMode) {
@@ -1509,7 +1469,6 @@ class _SquarePainter extends CustomPainter {
       canvas.restore();
     }
 
-    // The steel lid, over all of it (and off it while scanning).
     paintChipLid(
       canvas,
       open: scene._lid,
@@ -1525,7 +1484,7 @@ class _SquarePainter extends CustomPainter {
     _canvas = null;
   }
 
-  // Draws [body] at [alpha] (as one picture, so overlapping parts do not show through).
+  /// Draws [body] at [alpha] (as one picture, so overlapping parts do not show through).
   void _withAlpha(double alpha, void Function() body) {
     if (alpha >= .99) {
       body();
@@ -1539,12 +1498,10 @@ class _SquarePainter extends CustomPainter {
     _c.restore();
   }
 
-  // ---- the lanes ----
-
-  // The loading of the scan: two rows of lanes between the die (top, gold, CLIP) or the memory
-  // bank (bottom, copper, FACE) and the board. They are brought up one after another with the
-  // scan. The one coming up trains (a pattern runs up and down it), a lane that has just locked
-  // flashes along its length, and packets of data run along the lanes that are up.
+  /// The loading of the scan: two rows of lanes between the die (top, gold, CLIP) or the memory
+  /// bank (bottom, copper, FACE) and the board. They are brought up one after another with the
+  /// scan. The one coming up trains (a pattern runs up and down it), a lane that has just locked
+  /// flashes along its length, and packets of data run along the lanes that are up.
   void _wires(double now) {
     const gold = ScanPalette.gold350;
     const copper = ScanPalette.orange400;
@@ -1560,13 +1517,11 @@ class _SquarePainter extends CustomPainter {
         alpha: bar == 0 ? scene._clipAlpha : scene._faceAlpha,
         level: (i) {
           if (i == training) {
-            // Coming up: it brightens as more of it is done, and flickers as it trains.
             return (.25 + .5 * fraction + .15 * math.sin(now * 24)).clamp(0.0, 1.0);
           }
           return wires[i];
         },
       );
-      // A lane that has just locked: a bright flash runs along it from the die to the board.
       for (var i = 0; i < chipWireCount; i++) {
         final age = now - scene._lockAt[bar][i];
         if (age < 0 || age > .5) continue;
@@ -1580,7 +1535,6 @@ class _SquarePainter extends CustomPainter {
             ..color = ScanPalette.white.withValues(alpha: .9 * (1 - f * .6)),
         );
       }
-      // The lane being trained: a short bright pattern running up it and down again.
       if (training >= 0) {
         for (var k = 0; k < 2; k++) {
           final f = ((now * 1.5 + k * .5) % 1);
@@ -1593,8 +1547,8 @@ class _SquarePainter extends CustomPainter {
     _packetsOnLanes();
   }
 
-  // A packet is a short bright dash running along its lane from the die (or the bank) to the
-  // board, leaving the lane lit behind it.
+  /// A packet is a short bright dash running along its lane from the die (or the bank) to the
+  /// board, leaving the lane lit behind it.
   void _packetsOnLanes() {
     final c = _c;
     for (final packet in scene._packets) {
@@ -1615,8 +1569,8 @@ class _SquarePainter extends CustomPainter {
     }
   }
 
-  // The memory array along the top of the bank: a cell is written for every bit of the scan
-  // that has been stored. The cell being written next pulses, and the ones just written flash.
+  /// The memory array along the top of the bank: a cell is written for every bit of the scan
+  /// that has been stored. The cell being written next pulses, and the ones just written flash.
   void _memoryCells(double now) {
     final c = _c;
     const cols = _memoryCellCount ~/ 2;
@@ -1652,8 +1606,6 @@ class _SquarePainter extends CustomPainter {
       );
     }
   }
-
-  // ---- helpers ----
 
   Paint _imagePaint(double alpha) =>
       Paint()..color = ScanPalette.white.withValues(alpha: alpha.clamp(0.0, 1.0));
@@ -1698,7 +1650,7 @@ class _SquarePainter extends CustomPainter {
 
   Rect _tileRect(double x) => Rect.fromLTWH(x, _strip.top + 11, _tileSize, _tileSize);
 
-  // The strip: the photos waiting for their faces (the FACE bar fills as the queue does).
+  /// The strip: the photos waiting for their faces (the FACE bar fills as the queue does).
   void _queueStrip(double now) {
     final loadStart = scene._loadStart[0];
     if (loadStart >= 0) _memoryWeights(now, ((now - loadStart) / _loadSeconds).clamp(0.0, 1.0), ScanPalette.glow, 1);
@@ -1710,7 +1662,7 @@ class _SquarePainter extends CustomPainter {
     }
   }
 
-  // The mark on a video's tile: a play sign, and how many frames were read from it.
+  /// The mark on a video's tile: a play sign, and how many frames were read from it.
   void _videoMark(Rect r, int frames, double alpha) {
     if (alpha <= .01) return;
     final c = _c;
@@ -1746,8 +1698,8 @@ class _SquarePainter extends CustomPainter {
     label?.paint(c, Offset(pill.left + h - .5 * k, pill.center.dy - label.height / 2));
   }
 
-  // The data bus between the die and the memory bank: a row of fine lines, lit while a picture
-  // goes down into memory.
+  /// The data bus between the die and the memory bank: a row of fine lines, lit while a picture
+  /// goes down into memory.
   void _bus(double now, double energy) {
     final c = _c;
     final y0 = _photoBox.bottom + 3.4, y1 = _strip.top - 0.5;
@@ -1755,7 +1707,6 @@ class _SquarePainter extends CustomPainter {
       final x = _strip.left + 6 + 17 + i * 38;
       c.drawLine(Offset(x, y0), Offset(x, y1), Paint()..strokeWidth = 1.4..color = ScanPalette.gold400.withValues(alpha: .35));
       if (energy > .02) {
-        // A short run of light, starting a little apart on each line.
         final f = ((now * 2.2 + i * .17) % 1);
         final yy = y0 + (y1 - y0) * f;
         c.drawLine(
@@ -1770,20 +1721,16 @@ class _SquarePainter extends CustomPainter {
     }
   }
 
-  // ---- waiting ----
-
-  // The light of things working on the dark die.
+  /// The light of things working on the dark die.
 
   static final Map<int, List<Rect>> _blockCache = {};
   List<Rect> get _blocks => _blockCache.putIfAbsent(scene._dieColumns, () => chipDieBlocks(_photoBox, scene._dieColumns));
 
-  // While the folder is still being walked: the chip powers up, block by block, the way a real
-  // processor does: the clock generator and the power management first, then the memory
-  // controller and its interface, the fabric, the shared cache, the cores one after another and
-  // last the outside interfaces. The more files have been found, the more of it is awake. A
-  // block that has just come on flashes and then settles to a working glow that flickers a
-  // little, as parts of it switch. What lights is the die's own structure (its memory cells,
-  // its logic, its registers), so the light is coming from inside the silicon.
+  /// While the folder is still being walked: the chip powers up block by block, the way a real processor does: the
+  /// clock generator and power management first, then the memory controller, the fabric, the shared cache, the cores
+  /// one after another and last the outside interfaces. The more files found, the more is awake. A block that has just
+  /// come on flashes and settles to a working glow that flickers a little. What lights is the die's own structure, so
+  /// the light seems to come from inside the silicon.
   void _discovering(double now, int? found) {
     final unit = found != null ? found / 10.0 : (now - scene._scanAt) * 1.2;
     final regions = <(Rect, double)>[];
@@ -1798,10 +1745,10 @@ class _SquarePainter extends CustomPainter {
     paintChipDieLit(_c, _photoBox, scene._dieColumns, regions, ScanPalette.glow);
   }
 
-  // How long the model takes to be loaded in the picture (the chip's part of the story).
+  /// How long the model takes to be loaded in the picture (the chip's part of the story).
   static const double _loadSeconds = 4.6;
 
-  // Where the chips of the memory bank are (one under each place a picture lands).
+  /// Where the chips of the memory bank are (one under each place a picture lands).
   Rect _memoryChip(int k) => Rect.fromLTWH(_strip.left + 6 + k * 38, _strip.top + 11, 34, 34);
 
   static int _hash(int a) {
@@ -1813,12 +1760,10 @@ class _SquarePainter extends CustomPainter {
     return a & 0x7fffffff;
   }
 
-  // The model, as it lands in memory: chip after chip of the bank fills with rows of data, from
-  // the top down, the newest row bright. When it is all in, the data stays, dimmer: the model is
-  // in memory.
+  /// The model, as it lands in memory: chip after chip of the bank fills with rows of data, from
+  /// the top down, the newest row bright. When it is all in, the data stays, dimmer: the model is
+  /// in memory.
   void _memoryWeights(double now, double f, Color color, double alpha) {
-    // Once it is all in, the data does not change: it is one picture, not hundreds of rectangles
-    // every frame.
     if (f >= 1 && alpha == 1 && color == ScanPalette.glow) {
       paintChipCached(_c, 'weights', _strip.inflate(4), (canvas) {
         final saved = _canvas;
@@ -1867,8 +1812,8 @@ class _SquarePainter extends CustomPainter {
     }
   }
 
-  // The data going up from the memory into the die while the model loads: a run of light up each
-  // line of the bus, from every chip of the bank that has begun to fill.
+  /// The data going up from the memory into the die while the model loads: a run of light up each
+  /// line of the bus, from every chip of the bank that has begun to fill.
   void _busUp(double now, double f, Color color, double alpha) {
     final c = _c;
     final y0 = _photoBox.bottom + 3.4, y1 = _strip.top - 0.5;
@@ -1890,10 +1835,10 @@ class _SquarePainter extends CustomPainter {
     }
   }
 
-  // The chip with nothing to read yet. The first time, the model is being loaded into memory:
-  // it comes from the bank, up the bus, into the die, where the shared cache and then each core
-  // fill from the top down with a bright edge. After that the chip waits for the next picture
-  // with a quiet glow, as a loaded processor idles.
+  /// The chip with nothing to read yet. The first time, the model is being loaded into memory:
+  /// it comes from the bank, up the bus, into the die, where the shared cache and then each core
+  /// fill from the top down with a bright edge. After that the chip waits for the next picture
+  /// with a quiet glow, as a loaded processor idles.
   void _waiting(double now, Color color, double alpha, {int kind = 0}) {
     if (alpha <= .01) return;
     final c = _c;
@@ -1905,7 +1850,6 @@ class _SquarePainter extends CustomPainter {
     final (workFrom, workCount) = chipDieWorkRange(scene._dieColumns);
     for (var i = 0; i < blocks.length; i++) {
       final activity = .8 + .2 * math.sin(now * (1.5 + i * .31) + i * 2.1);
-      // The shared cache and the cores are what the model is loaded into.
       final j = i - workFrom;
       final receiving = j >= 0 && j < workCount;
       final s = receiving ? (f * (workCount + .5) - j).clamp(0.0, 1.0) : 1.0;
@@ -1930,7 +1874,7 @@ class _SquarePainter extends CustomPainter {
     if (kind != 0) _memoryWeights(now, f, color, alpha);
   }
 
-  // The corners of a square, like the frame of a viewfinder.
+  /// The corners of a square, like the frame of a viewfinder.
   void _brackets(Rect r, double alpha, bool small, {Color color = ScanPalette.white}) {
     if (alpha <= .01) return;
     final len = r.width * .15;
@@ -1953,15 +1897,14 @@ class _SquarePainter extends CustomPainter {
     }
   }
 
-  // ---- indexing: the photos read together, then queued for their faces ----
-
+  /// Nothing to show yet: the frame waits or, while the folder is still being walked, looks for photos. The bus
+  /// carries the vectors down into memory as the pictures land, and the photos are read side by side, each starting a
+  /// little after the one before.
   void _index(double now) {
     _queueStrip(now);
 
     final shot = scene._shot;
     if (shot == null) {
-      // Nothing to show yet: the frame waits, or - while the folder is still being walked -
-      // looks for photos.
       if (indeterminate) {
         _discovering(now, scene.widget.discovered);
       } else {
@@ -1972,7 +1915,6 @@ class _SquarePainter extends CustomPainter {
     final n = shot.pics.length;
     final t = scene._still ? .6 : ((now - shot.start) / shot.cycle).clamp(0.0, 1.0);
     final cells = _bentoCells(n, shot.layout);
-    // The bus carries the vectors down into memory as the pictures land.
     final stagger0 = n > 1 ? .05 : 0.0;
     var energy = 0.0;
     for (var i = 0; i < n; i++) {
@@ -1980,7 +1922,6 @@ class _SquarePainter extends CustomPainter {
       energy = math.max(energy, math.sin(math.pi * _seg(u, .85, .99)));
     }
     _bus(now, energy);
-    // They are read side by side, each starting a little after the one before.
     final stagger = n > 1 ? .05 : 0.0;
     final span = 1 - stagger * (n - 1);
     for (var i = 0; i < n; i++) {
@@ -1994,18 +1935,18 @@ class _SquarePainter extends CustomPainter {
     }
   }
 
-  // Where a photo of [aspect] sits whole inside [box].
+  /// Where a photo of [aspect] sits whole inside [box].
   Rect _contain(double aspect, Rect box) {
     return aspect > box.width / box.height
         ? Rect.fromCenter(center: box.center, width: box.width, height: box.width / aspect)
         : Rect.fromCenter(center: box.center, width: box.height * aspect, height: box.height);
   }
 
-  // One photo of the round, the way the model reads it: the photo is shown whole and cut to its
-  // middle square (the model only sees a square), the square is cut into the 7 x 7 patches the
-  // model reads, each patch is boiled down to a single colour (a patch becomes one number
-  // vector), the patches look at each other (attention), and what comes out is one vector that
-  // goes down the bus into memory while the photo itself goes to the strip.
+  /// One photo of the round, the way the model reads it: the photo is shown whole and cut to its
+  /// middle square (the model only sees a square), the square is cut into the 7 x 7 patches the
+  /// model reads, each patch is boiled down to a single colour (a patch becomes one number
+  /// vector), the patches look at each other (attention), and what comes out is one vector that
+  /// goes down the bus into memory while the photo itself goes to the strip.
   void _readOne(_Pic pic, Rect cell, double t, Rect slot, bool small, double now) {
     final c = _c;
     final a = _ease(_seg(t, 0, .08));
@@ -2022,7 +1963,6 @@ class _SquarePainter extends CustomPainter {
     final squareShape = RRect.fromRectAndRadius(square, Radius.circular(radius));
     final plain = _imagePaint(a);
 
-    // The part of the photo the model never sees dims and goes.
     if (cut < 1) {
       final dim = _ease(_seg(t, .08, .17));
       c.save();
@@ -2032,7 +1972,6 @@ class _SquarePainter extends CustomPainter {
       c.drawRect(whole, Paint()..color = ScanPalette.black.withValues(alpha: .55 * dim * (1 - cut) * a));
       c.restore();
     }
-    // The square.
     c.save();
     c.clipRRect(squareShape);
     c.drawImageRect(pic.image, _coverSrc(pic, 1), square, plain);
@@ -2042,7 +1981,6 @@ class _SquarePainter extends CustomPainter {
     if (overlay <= .01) return;
     _brackets(square, _ease(_seg(t, .08, .17)) * (1 - _ease(_seg(t, .34, .42))) * overlay, small);
 
-    // The patches pull apart, and one after another are boiled down to their average colour.
     final split = _ease(_seg(t, .36, .46)) * (1 - _ease(_seg(t, .78, .88)));
     final read = _seg(t, .46, .68) * 49;
     final mosaic = 1 - _ease(_seg(t, .76, .86));
@@ -2089,7 +2027,6 @@ class _SquarePainter extends CustomPainter {
       c.restore();
     }
 
-    // The patches look at each other: lines run between patches, a few at a time.
     final look = math.sin(math.pi * _seg(t, .64, .8));
     if (look > .02) {
       c.save();
@@ -2115,10 +2052,6 @@ class _SquarePainter extends CustomPainter {
       c.restore();
     }
 
-    // What comes out: one vector, which is a list of numbers. They appear over the lower half of
-    // the square flickering (not yet worked out), then lock one after another, each flashing as
-    // it does. The list rides down with the photo and is gone into memory by the time the
-    // photo lands.
     final vector = _ease(_seg(t, .72, .8));
     if (vector > .01) {
       final cols = small ? 3 : 4, rows = small ? 4 : 6;
@@ -2157,17 +2090,16 @@ class _SquarePainter extends CustomPainter {
     }
   }
 
-  // One video of the round. A video comes in as a strip of film that rolls in and stops at a
-  // frame; its timeline ticks once for each frame taken (with a shutter flash on the picture),
-  // the frames fan out as a small deck, one sweep reads them all, and the deck snaps back into
-  // one tile with the video mark and the number of frames, which drops into the strip at the
-  // same moment a photo would. (The film and the deck show the one frame the app has, from
-  // slightly different angles.)
+  /// One video of the round. A video comes in as a strip of film that rolls in and stops at a
+  /// frame; its timeline ticks once for each frame taken (with a shutter flash on the picture),
+  /// the frames fan out as a small deck, one sweep reads them all, and the deck snaps back into
+  /// one tile with the video mark and the number of frames, which drops into the strip at the
+  /// same moment a photo would. (The film and the deck show the one frame the app has, from
+  /// slightly different angles.)
   void _burstOne(_Pic pic, Rect cell, double t, Rect slot, bool small, int frames) {
     final c = _c;
     final n = frames > 0 ? frames : 3;
     final a = _ease(_seg(t, 0, .08));
-    // The film's edge above and below the frame, where the sprocket holes are.
     final edge = small ? 5.0 : 9.0;
     final pad = small ? 2.0 : 6.0;
     final still = _contain(
@@ -2187,13 +2119,11 @@ class _SquarePainter extends CustomPainter {
     final overlay = 1 - _ease(_seg(q, .5, 1));
     final spread = fan * (1 - snap);
 
-    // The sweep that reads the frames, top to bottom over the whole deck.
     final reading = math.sin(math.pi * _seg(t, .48, .74));
     final swept = _seg(t, .5, .7);
 
-    // The film, until the frames fan out: a short way of it either side of this frame (the
-    // frames next to it, darker, and the holes along both edges), rolling with it and fading
-    // out towards its ends, so it reads as film going on and not as copies of the frame.
+    // The film rolls with the frame and fades towards its ends, so it reads as film going on and not as copies of the
+    // frame.
     final film = a * (1 - _ease(_seg(t, .3, .42))) * overlay;
     if (film > .01) {
       final reach = whole.width * (small ? .3 : .4);
@@ -2241,7 +2171,6 @@ class _SquarePainter extends CustomPainter {
       c.restore();
     }
 
-    // The deck: the other frames, fanned out to both sides behind the front one.
     final deck = math.min(n, small ? 3 : 5) - 1;
     if (spread > .01) {
       for (var j = deck; j >= 1; j--) {
@@ -2281,7 +2210,6 @@ class _SquarePainter extends CustomPainter {
       }
     }
 
-    // The front frame, flashing each time a frame is taken.
     final tick0 = .1, tickSpan = .2;
     var flash = 0.0;
     for (var j = 0; j < n; j++) {
@@ -2289,13 +2217,11 @@ class _SquarePainter extends CustomPainter {
       if (t >= at) flash = math.max(flash, 1 - _seg(t, at, at + .06));
     }
     c.save();
-    // While the film rolls in, the frame stays inside its own cell.
     if (t < .3) c.clipRect(cell);
     c.clipRRect(frontShape);
     c.drawImageRect(pic.image, _coverSrc(pic, front.width / front.height), front, _imagePaint(a));
     if (flash > .01) c.drawRect(front, Paint()..color = ScanPalette.white.withValues(alpha: .3 * flash * a * overlay));
 
-    // The sweep on the front frame: the patches it has passed light with their colour.
     if (reading > .01 && overlay > .01) {
       final cw = front.width / 7, ch = front.height / 7;
       final rows = swept * 7;
@@ -2317,7 +2243,6 @@ class _SquarePainter extends CustomPainter {
     }
     c.restore();
     if (reading > .01 && swept > 0 && swept < 1) {
-      // The line of the sweep, across the whole deck.
       final reach = front.width * (.5 + spread * .24 * ((deck + 1) ~/ 2) + .04);
       final y = front.top + front.height * swept;
       c.drawLine(
@@ -2331,8 +2256,6 @@ class _SquarePainter extends CustomPainter {
     }
     _brackets(front, _ease(_seg(t, .2, .26)) * (1 - _ease(_seg(t, .34, .4))) * overlay, small);
 
-    // The video's timeline along the bottom of the frame, with a tick where each frame is
-    // taken from; a playhead runs along it and each tick flashes as it is passed.
     final line = a * (1 - _ease(_seg(t, .3, .42))) * overlay;
     if (line > .01) {
       c.save();
@@ -2380,8 +2303,8 @@ class _SquarePainter extends CustomPainter {
       c.restore();
     }
 
-    // What is happening, over the frame while the frames are taken and read (big cells only).
-    // Not how many frames: a small number would look like the video is only partly read.
+    // The caption says what is happening, not how many frames: a small number would look like the video is only partly
+    // read.
     final caption = a * (1 - snap) * overlay;
     if (!small && caption > .01) {
       _text(
@@ -2393,15 +2316,14 @@ class _SquarePainter extends CustomPainter {
       );
     }
 
-    // The deck has snapped into one tile: it carries the video mark into the strip.
     final mark = a * snap;
     if (mark > .01) _videoMark(front, frames, mark);
   }
 
   static final Map<String, TextPainter> _numberText = {};
 
-  // A number of the vector, centred at [at]: [look] 0 is still flickering, 1 is locked, 2 is the
-  // flash as it locks.
+  /// A number of the vector, centred at [at]: [look] 0 is still flickering, 1 is locked, 2 is the
+  /// flash as it locks.
   void _number(String text, Offset at, double size, int look) {
     final key = '$text|${size.toStringAsFixed(1)}|$look';
     var painter = _numberText[key];
@@ -2430,13 +2352,12 @@ class _SquarePainter extends CustomPainter {
 
   static String _signed(double v) => '${v < 0 ? '-' : '+'}${v.abs().toStringAsFixed(2)}';
 
-  // ---- faces ----
-
   Offset _slotCenter(int j) => Offset(_strip.left + 6 + 17 + (j + 1) * 38, _strip.top + 11 + 17);
 
+  /// Lifted faces are shown the way the app really treats them: cut out as a square, straightened onto the standard
+  /// 112 x 112 template, checked for how far the head is turned, and sent to the tray.
   void _faces(double now) {
     final c = _c;
-    // The tray (on the memory bank).
     for (var j = 0; j < _traySlots; j++) {
       _bubble(j, now);
     }
@@ -2449,7 +2370,7 @@ class _SquarePainter extends CustomPainter {
       return;
     }
     final t = ((now - shot.start) / _faceCycle).clamp(0.0, 1.0);
-    final dst = shot.dst; // the photo, scaled to fill the area (it may run past it)
+    final dst = shot.dst;
     const area = _photoBox;
     final a = _ease(_seg(t, 0, .08)) * (1 - _ease(_seg(t, .92, .98)));
     Offset at(double fx, double fy) =>
@@ -2462,7 +2383,6 @@ class _SquarePainter extends CustomPainter {
 
     double lift(int i) => _ease(_seg(t, .42 + .03 * i, .5 + .03 * i));
 
-    // The photo, dimmed except around the faces still in it.
     if (a > 0.001) {
       c.save();
       c.clipRRect(RRect.fromRectAndRadius(area, const Radius.circular(14)));
@@ -2499,7 +2419,6 @@ class _SquarePainter extends CustomPainter {
         final centre = box.center;
         final rad = math.max(box.width, box.height) * .7;
         if (l > 0) {
-          // The hole where the face was lifted out.
           c.drawCircle(
             centre,
             rad,
@@ -2575,9 +2494,6 @@ class _SquarePainter extends CustomPainter {
       c.restore();
     }
 
-    // Lifted faces, the way the app really treats them: cut out as a square, straightened onto the
-    // standard 112 x 112 template (its landmarks moved onto the template's marks), checked for how
-    // far the head is turned, and sent to the tray (the square rounds into the person's circle).
     for (var i = 0; i < shot.faces.length; i++) {
       final face = shot.faces[i];
       final e = face.event;
@@ -2612,8 +2528,8 @@ class _SquarePainter extends CustomPainter {
     }
   }
 
-  // ArcFace's reference landmarks on a 112 x 112 face (what the app's FaceAligner moves every
-  // face onto): left eye, right eye, nose tip, left and right mouth corner.
+  /// ArcFace's reference landmarks on a 112 x 112 face (what the app's FaceAligner moves every
+  /// face onto): left eye, right eye, nose tip, left and right mouth corner.
   static const List<Offset> _template = [
     Offset(38.2946, 51.6963),
     Offset(73.5318, 51.5014),
@@ -2622,9 +2538,9 @@ class _SquarePainter extends CustomPainter {
     Offset(70.7299, 92.2041),
   ];
 
-  // How far the nose sits off the line between the eyes, as a fraction of the eye distance and
-  // signed (the app's FaceQuality.yaw, which only keeps its size): about 0 facing the camera, 0.3
-  // at 45 degrees, 0.6 or more in profile. Faces turned more than 0.55 are not matched.
+  /// How far the nose sits off the line between the eyes, as a fraction of the eye distance and
+  /// signed (the app's FaceQuality.yaw, which only keeps its size): about 0 facing the camera, 0.3
+  /// at 45 degrees, 0.6 or more in profile. Faces turned more than 0.55 are not matched.
   static double _signedYaw(List<Offset> lm) {
     final d = lm[1] - lm[0];
     final eye = d.distance;
@@ -2634,10 +2550,11 @@ class _SquarePainter extends CustomPainter {
     return offset / eye;
   }
 
-  // One face in its square frame of [side] centred at [centre]. [straighten] (0..1) turns it from
-  // the plain crop onto the template, by the same least-squares rotate, scale and shift the app's
-  // FaceAligner uses; [gauge] reveals the head-turn gauge under it and [needle] swings its needle
-  // to this face's turn; [travel] rounds the square into a circle as it goes to the tray.
+  /// One face in its square frame of [side] centred at [centre]. [straighten] (0..1) turns it from the plain crop onto
+  /// the template, by the same least-squares rotate, scale and shift the app's FaceAligner uses. [gauge] reveals the
+  /// head-turn gauge under it, which runs from -1 to +1 as a fraction of the eye distance with the accepted turn in
+  /// violet, and [needle] swings its needle to this face's turn. [travel] rounds the square into a circle as it goes
+  /// to the tray.
   void _alignedFace(
     _Pic pic,
     FaceEvent e,
@@ -2658,7 +2575,6 @@ class _SquarePainter extends CustomPainter {
     c.drawRRect(shape.shift(const Offset(0, 4)).inflate(2), Paint()..color = ScanPalette.indigo800.withValues(alpha: .1 * calm));
     c.drawRRect(shape, Paint()..color = ScanPalette.indigo850);
 
-    // The landmarks in the photo's pixels, and the transform that lands them on the template.
     final lm = [
       for (var j = 0; j < 5; j++) Offset(e.landmarks[j * 2] * pic.w, e.landmarks[j * 2 + 1] * pic.h),
     ];
@@ -2684,7 +2600,6 @@ class _SquarePainter extends CustomPainter {
     final a = norm > 0 ? dot / norm : 1.0, b = norm > 0 ? cross / norm : 0.0;
     final scaleEnd = math.max(math.sqrt(a * a + b * b), 1e-3), angleEnd = math.atan2(b, a);
 
-    // From the plain crop (no turn) to the template, about the middle of the landmarks.
     final crop = _faceCrop(pic, e);
     final scaleStart = side / crop.width;
     final centreStart = (Offset(smx, smy) - crop.center) * scaleStart + Offset(side / 2, side / 2);
@@ -2703,7 +2618,6 @@ class _SquarePainter extends CustomPainter {
 
     final shown = (l * (1 - travel * 2)).clamp(0.0, 1.0);
     if (shown > .01) {
-      // The eye line of the template, the marks the landmarks are moved onto, and the landmarks.
       c.save();
       c.clipRRect(shape);
       c.drawLine(
@@ -2741,9 +2655,6 @@ class _SquarePainter extends CustomPainter {
         ..color = ScanPalette.white.withValues(alpha: .95),
     );
 
-    // The head-turn gauge: the track runs from a turn of -1 to +1 (as a fraction of the eye
-    // distance), the violet part is the turn that is accepted for matching, and the needle shows
-    // this face's turn.
     final gaugeShown = gauge * (1 - travel * 2).clamp(0.0, 1.0);
     if (gaugeShown > .01) {
       final half = side * .46 * gauge;
@@ -2777,12 +2688,11 @@ class _SquarePainter extends CustomPainter {
     }
   }
 
-  // The 5 landmarks joined into a small mesh over the face, just before it is lifted out.
+  /// The 5 landmarks joined into a small mesh over the face, just before it is lifted out.
   void _mesh(FaceEvent e, Offset Function(double, double) at, double grow, double alpha) {
     if (grow <= 0) return;
     final c = _c;
     final p = [for (var j = 0; j < 5; j++) at(e.landmarks[j * 2], e.landmarks[j * 2 + 1])];
-    // Eyes, nose, mouth corners (left eye 0, right eye 1, nose 2, mouth 3 and 4).
     final fill = Path()
       ..moveTo(p[0].dx, p[0].dy)
       ..lineTo(p[1].dx, p[1].dy)
@@ -2804,7 +2714,7 @@ class _SquarePainter extends CustomPainter {
     }
   }
 
-  // The strip's photos rising into the square when a batch starts.
+  /// The strip's photos rising into the square when a batch starts.
   void _launching(double now) {
     final tiles = scene._launch;
     if (tiles.isEmpty) return;
@@ -2825,7 +2735,7 @@ class _SquarePainter extends CustomPainter {
     }
   }
 
-  // While no photo with faces is being shown: the batch's photos go by under a scan line.
+  /// While no photo with faces is being shown: the batch's photos go by under a scan line.
   void _lookingForFaces(double now) {
     final history = scene._batchPics;
     if (history.isEmpty) {
@@ -2940,18 +2850,17 @@ class _SquarePainter extends CustomPainter {
     }
   }
 
-  // The painter reads the hero's state as well as its own fields (the press, the lid's text, the
-  // core count...), and is only made again when the hero is built, which is when one of them
-  // may have changed: so it always repaints (the frame was going to be drawn anyway).
+  /// The painter reads the hero's state as well as its own fields (the press, the lid's text, the
+  /// core count...), and is only made again when the hero is built, which is when one of them
+  /// may have changed: so it always repaints (the frame was going to be drawn anyway).
   @override
   bool shouldRepaint(_SquarePainter old) => true;
 }
 
-/// What a scan tells the user under the chip: one gauge that shows whatever the scan is doing
-/// now. While photos are made searchable it is gold (the top row of wires on the chip); there
-/// is no bar for faces until a batch starts. When a batch of faces starts the
-/// gauge fades to copper (the bottom row of wires) and shows that batch's progress, and when
-/// the batch ends it fades back to gold and the photos' progress.
+/// What a scan tells the user under the chip: one gauge for whatever the scan is doing. While photos are made
+/// searchable it is gold (the top row of wires on the chip), with no bar for faces until a batch starts. When a batch
+/// of faces starts the gauge fades to copper (the bottom row of wires) and shows the batch's progress, and when the
+/// batch ends it fades back to gold.
 class _ScanStory extends StatefulWidget {
   const _ScanStory({super.key, required this.stats, required this.queue, required this.facesNow});
 
@@ -3012,7 +2921,7 @@ class _ScanStoryState extends State<_ScanStory> with SingleTickerProviderStateMi
     return out.toString();
   }
 
-  // Time left, rounded the way people say it (a figure that changes every second is noise).
+  /// Time left, rounded the way people say it (a figure that changes every second is noise).
   static String _left(int ms) {
     final minutes = ms / 60000;
     if (minutes < .75) return 'under a minute left';
@@ -3079,7 +2988,6 @@ class _ScanStoryState extends State<_ScanStory> with SingleTickerProviderStateMi
   @override
   Widget build(BuildContext context) {
     final channel = _current();
-    // With motion off the sweep is not drawn (see below), so it does not run either.
     final sweeping = channel.fraction == null && !MediaQuery.disableAnimationsOf(context);
     if (sweeping && !_sweep.isAnimating) _sweep.repeat();
     if (!sweeping && _sweep.isAnimating) _sweep.stop();
@@ -3096,7 +3004,6 @@ class _ScanStoryState extends State<_ScanStory> with SingleTickerProviderStateMi
     );
 
     return ExcludeSemantics(
-      // Lined up with the edges of the chip's board.
       child: FractionallySizedBox(
         widthFactor: 296 / 340,
         child: Padding(

@@ -1,22 +1,20 @@
-// Byte Pair Encoding, ported from OpenAI's CLIP tokenizer.
-
 import 'dart:collection';
 
+/// Byte Pair Encoding, ported from OpenAI's CLIP tokenizer.
 class BPE {
   final Map<String, int> bpeRanks;
   final Map<String, List<String>> cache = {};
 
   BPE(this.bpeRanks);
 
+  /// Splits one word into its byte pair tokens. CLIP marks the end of a word by appending `</w>` to its last character
+  /// before merging, and the vocab and merge ranks were trained that way. `the</w>` is a different token from a
+  /// mid-word "the", so leaving the marker out gives wrong tokens for almost every word.
   List<String> encode(String token) {
     if (cache.containsKey(token)) {
       return cache[token]!;
     }
 
-    // CLIP marks the end of a word by appending </w> to its last character
-    // before merging - the vocab and merge ranks were trained with this
-    // baked in ("the</w>" is a distinct, single vocab token from mid-word
-    // "the"), so skipping it silently mis-tokenizes almost every word.
     List<String> word = token.split('');
     if (word.isNotEmpty) {
       word[word.length - 1] = '${word.last}</w>';

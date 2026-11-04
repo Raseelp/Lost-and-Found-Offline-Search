@@ -10,10 +10,9 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * One face found in an image. Coordinates are in pixels of the bitmap that was
- * given to [FaceDetector.detect]. [landmarks] is 10 numbers: x,y of the left
- * eye, right eye, nose, left mouth corner, right mouth corner (from the
- * subject's point of view is not guaranteed - "left" means smaller x).
+ * One face found in an image. Coordinates are in pixels of the bitmap that was given to [FaceDetector.detect].
+ * [landmarks] is 10 numbers: x,y of the left eye, right eye, nose, left mouth corner and right mouth corner. Left
+ * means the smaller x, which is not guaranteed to be the subject's left.
  */
 class DetectedFace(
     val left: Float,
@@ -28,17 +27,9 @@ class DetectedFace(
 }
 
 /**
- * SCRFD-2.5G face detector (InsightFace) running on ONNX Runtime; the model is
- * bundled in the app's assets. Standalone on purpose - it takes a bitmap and
- * returns faces, so a scan pass can call it from anywhere.
- *
- * Pass 1 runs the whole image letterboxed into 640x640. Big images then get a
- * second pass over overlapping tiles, because a face that is only a few pixels
- * wide at 640 becomes findable when its tile is blown up instead - this is what
- * makes group photos work.
- *
- * Not thread-safe by itself (buffers are reused); callers serialise with the
- * lock inside [detect].
+ * SCRFD-2.5G face detector (InsightFace) on ONNX Runtime, with the model bundled in the assets. Big images get a
+ * second pass over overlapping tiles after the letterboxed 640x640 pass, because a face a few pixels wide becomes
+ * findable when its tile is blown up. Not thread-safe by itself, so callers serialise with the lock inside [detect].
  */
 class FaceDetector(private val store: FaceModelStore) : AutoCloseable {
 
@@ -46,7 +37,7 @@ class FaceDetector(private val store: FaceModelStore) : AutoCloseable {
     private var session: OrtSession? = null
     private val lock = Any()
 
-    // Sized for the loaded model's input (640 for SCRFD) - rebuilt on a swap.
+    /** The spec the buffers below are sized for (640 for SCRFD). They are rebuilt when the model is swapped. */
     private var loaded: FaceModelSpec? = null
     private var inputSize = 640
     private var inputBuffer = FloatBuffer.allocate(0)
@@ -55,8 +46,7 @@ class FaceDetector(private val store: FaceModelStore) : AutoCloseable {
     /** Id of the detector model in use, or null if none is installed. */
     val modelId: String? get() = store.selected(FaceModelKind.DETECTOR)?.spec?.id
 
-    // The selected detector's session, reloaded if a different model was
-    // chosen (or its settings changed) since the last call.
+    /** The selected detector's session, reloaded if a different model was chosen or its settings changed since the last call. */
     private fun session(): OrtSession {
         val model = store.selected(FaceModelKind.DETECTOR)
             ?: throw IllegalStateException("No face detection model installed")
@@ -74,8 +64,9 @@ class FaceDetector(private val store: FaceModelStore) : AutoCloseable {
     }
 
     /**
-     * @param tiled also scan overlapping tiles when the image is big enough
-     *   for that to help (see class doc).
+     * Finds the faces in [bitmap] that score at least [scoreThreshold].
+     *
+     * @param tiled also scan overlapping tiles when the image is big enough for that to help (see class doc).
      */
     fun detect(
         bitmap: Bitmap,
@@ -92,9 +83,12 @@ class FaceDetector(private val store: FaceModelStore) : AutoCloseable {
         nms(found, NMS_IOU)
     }
 
-    // A 2x2 grid of tiles that each cover ~60% of the width/height, so
-    // neighbours overlap by about 20% and a face on a seam is whole in one
-    // of them. (Wide/tall panoramas get more tiles along the long side.)
+    /**
+     * Detects on a grid of 2x2 tiles that each cover about 60% of the width and height, so neighbours overlap by about
+     * 20% and a face on a seam is whole in one of them. Wide or tall panoramas get more tiles along the long side. A
+     * face touching a tile edge that is not the image's edge is dropped, because the crop cuts it off, its box would
+     * be wrong, and the neighbouring tile has it whole.
+     */
     private fun detectTiles(bitmap: Bitmap, threshold: Float): List<DetectedFace> {
         val w = bitmap.width
         val h = bitmap.height
@@ -110,9 +104,6 @@ class FaceDetector(private val store: FaceModelStore) : AutoCloseable {
                 val y = if (rows == 1) 0 else ((h - tileH) * r / (rows - 1f)).roundToInt()
                 val faces = detectRegion(bitmap, x, y, tileW, tileH, threshold)
                 for (f in faces) {
-                    // A face touching a tile edge that isn't the image's
-                    // edge is cut off by the crop - its box would be wrong,
-                    // and the neighbouring tile has it whole.
                     val cutLeft = x > 0 && f.left <= EDGE_SLACK + x
                     val cutTop = y > 0 && f.top <= EDGE_SLACK + y
                     val cutRight = x + tileW < w && f.right >= x + tileW - EDGE_SLACK
@@ -124,8 +115,11 @@ class FaceDetector(private val store: FaceModelStore) : AutoCloseable {
         return out
     }
 
-    // Detect inside one rectangle of the bitmap; results come back in the
-    // whole bitmap's coordinates.
+    /**
+     * Detects inside one rectangle of the bitmap and returns results in the whole bitmap's coordinates. The rectangle
+     * is resized into the top-left corner of the input canvas, as InsightFace letterboxes. Scaling and channel order
+     * come from the model's spec, and the outputs are score, box and landmark tensors for strides 8, 16 and 32.
+     */
     private fun detectRegion(
         bitmap: Bitmap,
         rx: Int, ry: Int, rw: Int, rh: Int,
@@ -135,8 +129,6 @@ class FaceDetector(private val store: FaceModelStore) : AutoCloseable {
         val newW = max(1, (rw * scale).roundToInt())
         val newH = max(1, (rh * scale).roundToInt())
 
-        // Crop + resize in one go, straight into the 640 canvas' top-left
-        // corner (how InsightFace letterboxes); the rest stays zero.
         val region = if (rx == 0 && ry == 0 && rw == bitmap.width && rh == bitmap.height) {
             bitmap
         } else {
@@ -150,13 +142,10 @@ class FaceDetector(private val store: FaceModelStore) : AutoCloseable {
             resized.getPixels(row, 0, newW, 0, y, newW, 1)
             System.arraycopy(row, 0, pixels, y * inputSize, newW)
         }
-        // (createScaledBitmap hands back its input when nothing changes, so
-        // check identity before recycling either.)
+        // createScaledBitmap returns its input when nothing changes, so check identity before recycling either.
         if (resized !== bitmap) resized.recycle()
         if (region !== bitmap && region !== resized) region.recycle()
 
-        // Channel-first, (v - mean) / std in the order the model wants (all
-        // taken from its spec - SCRFD is RGB, (v - 127.5) / 128).
         val spec = loaded!!
         val plane = inputSize * inputSize
         val data = inputBuffer.array()
@@ -187,8 +176,6 @@ class FaceDetector(private val store: FaceModelStore) : AutoCloseable {
         val faces = ArrayList<DetectedFace>()
         tensor.use {
             session.run(mapOf(inputName to tensor)).use { result ->
-                // Outputs: 3 score tensors, 3 box tensors, 3 landmark tensors,
-                // each for strides 8, 16, 32 (graph order).
                 for ((level, stride) in STRIDES.withIndex()) {
                     val scores = (result[level] as OnnxTensor).floatBuffer
                     val boxes = (result[level + 3] as OnnxTensor).floatBuffer
@@ -231,9 +218,10 @@ class FaceDetector(private val store: FaceModelStore) : AutoCloseable {
         return nms(faces, NMS_IOU)
     }
 
-    // Shrinks in steps of at most half: one big bilinear jump (a 3000px photo
-    // to 640) skips pixels and blurs small faces into noise, which costs
-    // detections. Returns [src] itself if it already has the size.
+    /**
+     * Shrinks in steps of at most half. One big bilinear jump (a 3000px photo to 640) skips pixels and blurs small
+     * faces into noise, which costs detections. Returns [src] itself if it already has the size.
+     */
     private fun resize(src: Bitmap, w: Int, h: Int): Bitmap {
         var current = src
         while (current.width / 2 >= w && current.height / 2 >= h) {
@@ -247,7 +235,7 @@ class FaceDetector(private val store: FaceModelStore) : AutoCloseable {
         return out
     }
 
-    // Canvas -> region -> bitmap coordinates, clamped to the region.
+    /** Converts a canvas coordinate to a bitmap coordinate through the region, clamped to the region. */
     private fun toRegionX(v: Float, scale: Float, rx: Int, rw: Int) =
         rx + (v / scale).coerceIn(0f, rw.toFloat())
 
@@ -285,8 +273,7 @@ class FaceDetector(private val store: FaceModelStore) : AutoCloseable {
         const val DEFAULT_SCORE_THRESHOLD = 0.5f
         private const val NMS_IOU = 0.4f
 
-        // Below this, blowing tiles up gains nothing (the whole image is
-        // already at or above the model's input size).
+        /** Below this side length, blowing tiles up gains nothing, because the whole image is already at or above the model's input size. */
         private const val TILING_MIN_SIDE = 1000
         private const val EDGE_SLACK = 2f
     }

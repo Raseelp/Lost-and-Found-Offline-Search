@@ -136,7 +136,7 @@ class _MergeHistoryScreenState extends State<MergeHistoryScreen> {
   }
 }
 
-// A face, or a plain circle if the picture isn't available any more.
+/// A face, or a plain circle if the picture is not available any more.
 class _Avatar extends StatelessWidget {
   const _Avatar({required this.faceId});
 

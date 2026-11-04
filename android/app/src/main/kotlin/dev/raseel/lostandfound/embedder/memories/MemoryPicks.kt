@@ -3,13 +3,10 @@ package dev.raseel.lostandfound.embedder.memories
 import dev.raseel.lostandfound.embedder.faces.TimelinePicks
 
 /**
- * Which photos stand for a day of a past year.
- *
- * A day can hold anything from one photo to a thousand (a trip), so the choice is made from a bounded
- * list of candidates, never by looking at everything: first the photos with the clearest faces (a
- * group beats a close-up, see [TimelinePicks.score]), then - to give the day some variety - photos
- * with no people, spread evenly through the day rather than the first ones taken. Shots taken almost
- * together (a burst) count once. The result is in the order they were taken.
+ * Which photos stand for a day of a past year. A day can hold from one photo to a thousand, so the choice is made from
+ * a bounded list of candidates. First come the photos with the clearest faces (a group beats a close-up, see
+ * [TimelinePicks.score]). Then, for variety, photos with no people, spread evenly through the day. Shots taken almost
+ * together count once. The result is in the order they were taken.
  */
 object MemoryPicks {
     const val BURST_MS = 120_000L
@@ -30,7 +27,6 @@ object MemoryPicks {
             val rest = candidates.filter { it.score <= 0f }.sortedBy { it.takenMs }
             val need = n - chosen.size
             if (rest.isNotEmpty()) {
-                // Evenly spread: the middle of each of [need] equal parts of the day's list.
                 val step = rest.size.toDouble() / need
                 var next = 0
                 for (i in 0 until need) {

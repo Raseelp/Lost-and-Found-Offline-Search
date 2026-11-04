@@ -9,7 +9,7 @@ import org.junit.Test
 class EmbeddingMetaReaderTest {
     private val dim = 8
 
-    // The same layout EmbeddingStore.writeRecord writes.
+    /** The same layout EmbeddingStore.writeRecord writes. */
     private fun record(out: DataOutputStream, path: String, folder: String, hash: Long, video: String?, ts: Long) {
         val p = path.toByteArray()
         out.writeInt(p.size); out.write(p)
@@ -62,7 +62,6 @@ class EmbeddingMetaReaderTest {
         val (end, seen) = read(cut)
         assertEquals(one.size.toLong(), end)
         assertEquals(listOf(1L), seen.map { it.key })
-        // Next time, from where it stopped, the rest is read.
         val (end2, seen2) = read(whole.copyOfRange(one.size, whole.size), start = end)
         assertEquals(whole.size.toLong(), end2)
         assertEquals(listOf(2L), seen2.map { it.key })

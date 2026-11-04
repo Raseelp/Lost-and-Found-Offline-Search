@@ -3,12 +3,10 @@ import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 
-// The Library page's hero is a processor (see chip_art.dart and scan_square.dart) that is the
-// scan. This file holds what is shared with the controls round it.
+/// The Library page's hero is a processor (see chip_art.dart and scan_square.dart) that is the
+/// scan. This file holds what is shared with the controls round it.
 
-// ---------------------------------------------------------------------------
-// Small shared pieces
-// ---------------------------------------------------------------------------
+/// Small shared pieces
 
 /// A pill with an icon, for the controls around the chip (Stop, Choose folder).
 /// [busy] swaps the icon for a small spinner and stops taps, for an action that

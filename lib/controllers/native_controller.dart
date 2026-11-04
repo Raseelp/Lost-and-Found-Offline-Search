@@ -19,18 +19,15 @@ import 'package:lost_and_found/utils/query_words.dart';
 import 'package:lost_and_found/view/widget/mention_text_controller.dart';
 import 'package:lost_and_found/view/widget/permission_prompt.dart';
 
+/// The state behind the Search, Collections and Library tabs: scans, searches, the search models and the permissions
+/// they need.
 class NativeController extends GetxController with WidgetsBindingObserver {
-  // Keys for the preferences persisted below - see
-  // _loadPersistedPreferences/toggleSelectedContentMode/setResultsLayout/
-  // setSliderValue/setSearchContentMode.
   static const _contentModeKey = 'scan_content_mode';
   static const _resultsLayoutKey = 'results_layout';
   static const _resultsLimitKey = 'results_limit';
   static const _searchContentModeKey = 'search_content_mode';
-  // See _persistInterruptedScanMarker/_checkForInterruptedScan.
   static const _interruptedScanKey = 'interrupted_scan';
-  // folderId -> how many files couldn't be embedded the last time that
-  // location finished scanning. See _recordFailedForFolder.
+  /// Holds, for each folder id, how many files could not be embedded the last time that location finished scanning.
   static const _failedByFolderKey = 'failed_by_folder';
 
   @override
@@ -46,28 +43,22 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     await _resumeActiveScanIfAny();
     await _checkForInterruptedScan();
     _refreshCollections();
-    // A scan that ended while the app was closed leaves its items for this (see LatestScan).
     unawaited(refreshLatestScan());
     super.onInit();
   }
 
-  // Counts/covers for the Collections tab depend on the index, so anything
-  // that changes it (startup once models are known, a finished scan, a
-  // clear) re-scores them. Guarded - the collections controller is
-  // registered right after this one, so it may not exist yet at the very
-  // start.
+  /// Scores the collections again. Their counts and covers depend on the index, so anything that changes it (startup once
+  /// the models are known, a finished scan, a clear) calls this. The collections controller is registered right after
+  /// this one, so it may not exist yet at the very start.
   void _refreshCollections() {
     if (Get.isRegistered<CollectionsController>()) {
       unawaited(Get.find<CollectionsController>().refreshStats());
     }
   }
 
-  // Scan mode (images/videos/both), results layout (list/grid columns),
-  // and the results-per-search limit are just standing preferences, not
-  // something tied to any one scan or search - loaded once here before
-  // anything else needs them, so the UI opens already showing what the
-  // user picked last time rather than resetting to the defaults every
-  // launch.
+  /// Loads the standing preferences: the scan mode, the results layout, the results limit and the search mode. They are
+  /// loaded once before anything else needs them, so the UI opens showing what the person picked last time. If loading
+  /// fails the app opens with the defaults, since blocking startup is never worth it.
   Future<void> _loadPersistedPreferences() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -112,8 +103,6 @@ class NativeController extends GetxController with WidgetsBindingObserver {
 
       update();
     } catch (e) {
-      // Worst case the app just opens with the defaults, same as before
-      // this existed - never worth blocking startup over.
       debugPrint('Failed to load persisted preferences: $e');
     }
   }
@@ -126,14 +115,10 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     super.onClose();
   }
 
-  // A permanently-denied notification permission hands off to the app's
-  // system settings screen (see requestBackgroundScanPermission) and
-  // returns immediately, well before the user has actually responded to
-  // it - checking right after that call reads the answer too early and
-  // leaves the "Enable" control stuck showing stale state until something
-  // else happens to refresh it. Re-checking on resume (the same pattern
-  // the storage-permissions card already uses) catches the real answer
-  // the moment the user comes back from that screen.
+  /// Checks the notification permission again on resume. A permanently denied permission hands off to the system
+  /// settings screen (see [requestBackgroundScanPermission]) and returns at once, well before the person has answered,
+  /// so checking right after that call reads the answer too early and leaves the "Enable" control showing stale state.
+  /// The check on resume catches the real answer when the person comes back. The latest scan is read again too.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
@@ -142,8 +127,9 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  // The items the latest indexing scan stored: they are tagged as new wherever they are shown.
-  // Kept for this run of the app only; a scan that stored nothing leaves them as they were.
+  /// The items the latest indexing scan stored, which are tagged as new wherever they are shown. They are kept for this
+  /// run of the app only, and a scan that stored nothing leaves them as they were. A scan that ended while the app was
+  /// closed leaves its items to be taken by [refreshLatestScan] (see LatestScan).
   Set<String> latestScanUris = {};
 
   bool isInLatestScan(String uri) => latestScanUris.contains(uri);
@@ -167,9 +153,9 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     update();
   }
 
-  // Which home tab is showing: 0 Search, 1 Collections, 2 Library. Lives
-  // here (not in the home screen's own state) so something opened from
-  // another tab - a photo inside a collection - can send the user to Search.
+  /// Which home tab is showing: 0 Search, 1 Collections, 2 Library. It lives here and not in the state of the home
+  /// screen, so that something opened from another tab, such as a photo inside a collection, can send the person to
+  /// Search.
   int homeTab = 0;
 
   void setHomeTab(int index) {
@@ -181,10 +167,9 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   int total = 0;
   int embedded = 0;
   int skipped = 0;
-  // The four kept in step by refreshLibraryStats - totalEmbeddings is raw
-  // embedding vectors (a video contributes several, one per frame);
-  // images/videos are distinct media item counts; indexSizeBytes is the
-  // on-disk size of the embeddings store itself.
+  /// The count of raw embedding vectors, where a video contributes several, one per frame. [totalImages] and
+  /// [totalVideos] count distinct media items, and [indexSizeBytes] is the size on disk of the embeddings store itself.
+  /// [refreshLibraryStats] keeps the four in step.
   int totalEmbeddings = 0;
 
   /// The search model that made an index the app dropped when it switched to another one (0: none was). While it
@@ -196,27 +181,23 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   double sliderValue = 20;
   List<Map<String, dynamic>> searchResults = [];
   bool isScanning = false;
-  // Stop was tapped and the scan is finishing the work in hand (a batch of photos, a video's
-  // frames, a face batch) before it ends, which can take a few seconds. The Library tab shows
-  // "Stopping" and ignores further taps until the scan's final tick clears it.
+  /// Stop was tapped and the scan is finishing the work in hand (a batch of photos, a video's frames, a face batch)
+  /// before it ends, which can take a few seconds. The Library tab shows "Stopping" and ignores further taps until the
+  /// final tick of the scan clears it.
   bool isStopping = false;
-  // Set by _checkForInterruptedScan when a scan was still running last time
-  // this app process existed but isn't anymore (killed by the OS rather
-  // than finished or explicitly stopped - see _persistInterruptedScanMarker)
-  // and no live one was found to reconnect to. Null means there's nothing
-  // to offer resuming. Keys: folderId, uri, mode, contentMode.
+  /// Set when a scan was still running last time the app process existed but is not any more, because the system killed
+  /// the app and the scan was not finished or stopped, and no live scan was found to reconnect to. Null means there is
+  /// nothing to offer resuming. The keys are folderId, uri, mode and contentMode.
   Map<String, String>? interruptedScan;
 
-  // Files that couldn't be embedded (corrupt, unsupported, unreadable) as of
-  // each location's last completed scan - shown as the Library tab's
-  // "Failed" tile. A failed file isn't stored, so every rescan retries it;
-  // that's also why a finished library still counted a few files as "new".
+  /// The files that could not be embedded (corrupt, unsupported or unreadable) as of the last completed scan of each
+  /// location, shown as the "Failed" tile of the Library tab. A failed file is not stored, so every rescan tries it
+  /// again, which is why a finished library can still count a few files as new.
   final Map<String, int> _failedByFolder = {};
   int totalFailed = 0;
 
-  // Set when a scan runs all the way to the end (not cancelled, not
-  // errored) - drives the Library tab's completion card. Cleared by the
-  // card itself, or when the next scan begins.
+  /// Set when a scan runs all the way to the end, neither cancelled nor failed. It drives the completion card of the
+  /// Library tab, and the card or the start of the next scan clears it.
   ScanSummary? scanSummary;
 
   void dismissScanSummary() {
@@ -245,65 +226,51 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     await _persistFailedByFolder();
   }
 
-  // Whether the OS will show our scan-progress notification (see
-  // ScanForegroundService natively). Never requested automatically - we
-  // already ask for storage/media access right before a scan, and asking
-  // for both at once overwhelms people. Instead the scanning UI offers its
-  // own "Enable" control; this just reflects the OS's actual current
-  // answer, re-checked on app open and whenever a scan starts.
+  /// Whether the system will show the scan-progress notification (see ScanForegroundService on the native side). It is
+  /// never requested automatically, because storage and media access is asked for right before a scan and asking for
+  /// both at once overwhelms people. The scanning UI offers its own "Enable" control instead. This only reflects the
+  /// current answer of the system, checked when the app opens and whenever a scan starts.
   bool backgroundNotificationsGranted = false;
   bool isSearching = false;
   bool isFetchingMetadata = false;
   bool showMetadata = false;
   String error = '';
   String scannedPath = '';
-  // Recognises one named person typed plainly, or picked via "@", inside the query itself -
-  // see MentionTextEditingController's own doc for how runSearch() below uses it.
+  /// Recognises one named person typed plainly, or picked with "@", inside the query itself. See
+  /// [MentionTextEditingController] for how [runSearch] uses it.
   final MentionTextEditingController searchTextController =
       MentionTextEditingController(
         peopleProvider: () => Get.isRegistered<FacesController>()
             ? Get.find<FacesController>().people
             : const [],
       );
-  // The search box's focus, held here so the navigation bar's Search button
-  // can put the cursor in it.
+  /// The focus of the search box, held here so the Search button of the navigation bar can put the cursor in it.
   final FocusNode searchFocusNode = FocusNode();
   ContentMode selectedContentMode = ContentMode.both;
-  // What a search is filtered to include - separate from
-  // selectedContentMode above, which governs scanning (what to embed),
-  // not searching (what to search across). Set via the search filter
-  // sheet - see setSearchContentMode.
+  /// What a search is filtered to include. It is separate from [selectedContentMode], which governs scanning (what to
+  /// embed) and not searching (what to search across). The search filter sheet sets it through [setSearchContentMode].
   ContentMode searchContentMode = ContentMode.both;
   final Map<String, Uint8List> imageCache = {};
 
-  // The image attached for a reverse-image search - picking one no longer
-  // searches immediately. It's held here (shown as a preview chip) until
-  // the user explicitly submits, same as typing text doesn't search until
-  // Search is pressed.
+  /// The image attached for a reverse-image search. It is held here and shown as a preview chip until the person
+  /// submits, just as typing text does not search until Search is pressed.
   String? pickedSearchImageUri;
-  // Set only when the attached "image" is really one frame of a video - the
-  // uri above is then the video's, not a photo's. See searchWithVideoFrame.
+  /// Set only when the attached image is really one frame of a video. The uri is then the video's and not a photo's. See
+  /// [searchWithVideoFrame].
   int? pickedSearchVideoTimestampMs;
   Uint8List? pickedSearchImageBytes;
 
-  // The last submitted *text* query, if that's how the currently-shown
-  // results were found - null after an image-based search, since there's
-  // no text to explain a match by. Set in runSearch, read by
-  // loadMatchExplanation when a result gets opened.
-  //
-  // Deliberately the mention-stripped phrase, not the raw box text - a
-  // name isn't something CLIP has any concept of, so it's not what "why
-  // this matched" should explain. lastMentionedPersonIds/Names below are
-  // the other half of the same search, snapshotted separately rather than
-  // re-read live off searchTextController later (which may have since been
-  // edited for the *next* search by the time something asks).
+  /// The last submitted text query, if that is how the results on screen were found; null after an image search.
+  /// [runSearch] sets it and [loadMatchExplanation] reads it when a result is opened.
+  /// It is the phrase with the mentions stripped, because CLIP has no concept of a name. [lastMentionedPersonIds] and
+  /// [lastMentionedPeopleNames] are kept separately, because [searchTextController] may have been edited for the next
+  /// search by the time something asks.
   String? lastTextQuery;
   List<int> lastMentionedPersonIds = [];
   List<String> lastMentionedPeopleNames = [];
 
-  /// The last search's free text with any mentioned names put back in front
-  /// of it - what a "save as collection" name/query field should show,
-  /// since [lastTextQuery] alone silently drops them.
+  /// The free text of the last search with any mentioned names put back in front of it. This is what a "save as
+  /// collection" name or query field should show, since [lastTextQuery] alone drops the names.
   String get lastQueryWithMentions {
     final text = lastTextQuery ?? '';
     if (lastMentionedPeopleNames.isEmpty) return text;
@@ -311,23 +278,18 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     return text.isEmpty ? names : '$names $text';
   }
 
-  // Set when the results on screen came from an image search (a picked photo,
-  // "search with this image", or a video frame) - what "Save as collection"
-  // turns into a photo-seeded collection. Null after a text search.
+  /// Set when the results on screen came from an image search (a picked photo, "search with this image" or a video
+  /// frame). "Save as collection" turns it into a photo-seeded collection. It is null after a text search.
   String? lastImageSeedUri;
   int? lastImageSeedTimestampMs;
 
-  // "Why this matched" for whichever result is currently open - see
-  // loadMatchExplanation. Empty until that resolves, or if there's
-  // nothing to explain (image-based search, or a query with no real
-  // content words in it).
+  /// "Why this matched" for the result that is open (see [loadMatchExplanation]). It is empty until that resolves, or
+  /// when there is nothing to explain, as after an image search or a query with no real content words.
   List<MapEntry<String, double>> matchExplanation = [];
 
-  // "Similar to this" - the small strip shown from the viewer instead of
-  // running the full search straight away. Its own list and thumbnail
-  // cache, separate from searchResults/imageCache above, since those
-  // represent a different (and much larger) result set that a real search
-  // would clear and replace. See loadSimilar.
+  /// The results of "Similar to this", the small strip shown from the viewer in place of the full search. It has its own
+  /// list and thumbnail cache, separate from [searchResults] and [imageCache], because those hold a different and much
+  /// larger result set that a real search would clear and replace. See [loadSimilar].
   List<Map<String, dynamic>> similarResults = [];
   final Map<String, Uint8List> similarThumbCache = {};
   bool isLoadingSimilar = false;
@@ -335,26 +297,21 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   late StreamSubscription<Map<String, dynamic>> _progressSub;
   IndexedFolder scanResult = IndexedFolder.empty();
 
-  // Recent (not whole-scan-average) throughput, recomputed from consecutive
-  // progress events - reacts within a couple of seconds to something that
-  // actually changes speed, instead of being dragged down by the whole
-  // scan's history like a cumulative average would be.
+  /// Recent throughput, recomputed from consecutive progress events. It reacts within a couple of seconds to a change
+  /// of speed, where an average over the whole scan would be dragged down by its history.
   double recentEmbeddingsPerSecond = 0;
   IndexedFolder? _previousProgress;
 
-  // "Recently indexed" strip: a small, bounded, newest-first list of files
-  // shown while a scan is running. Deliberately its own cache (not
-  // imageCache) - a concurrent search clears imageCache on every run (see
-  // runSearch), which would otherwise blank this strip mid-scan.
-  // Fetching is throttled on purpose: the scan can embed several files per
-  // progress tick, and fetching a thumbnail for every single one would
-  // compete with the scan itself for I/O/CPU. One fetch per tick keeps the
-  // strip feeling alive without adding meaningful load.
+  /// The most thumbnails kept for the "Recently indexed" strip, a small newest-first list of files shown while a scan is
+  /// running. The strip has its own cache and not [imageCache], because a search running at the same time clears
+  /// [imageCache] on every run (see [runSearch]) and that would blank the strip mid-scan. Fetching is throttled by
+  /// [_recentThumbFetchThrottle], since the scan can embed several files per progress tick and fetching a thumbnail for
+  /// each would compete with the scan for I/O and CPU.
   static const int _maxRecentThumbnails = 10;
   static const Duration _recentThumbFetchThrottle = Duration(milliseconds: 300);
-  // Several are read at once so the square can show a whole round of photos together.
+  /// How many thumbnails are read at once, so that the square can show a whole round of photos together.
   static const int _recentThumbParallel = 4;
-  // Thumbnails that arrive together repaint the page once, not once each.
+  /// Makes thumbnails that arrive together repaint the page once and not once each.
   Timer? _thumbUpdateTimer;
 
   void _scheduleThumbUpdate() {
@@ -365,8 +322,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     });
   }
 
-  // While faces follow the scan: how many photos wait for the next face batch, how long since
-  // the last batch ended, the rule they fill towards, and when this was reported.
+  /// While faces follow the scan: how many photos wait for the next face batch, how long since the last batch ended, the
+  /// rule they fill towards, and when this was reported.
   int? faceQueueCount;
   int faceQueueMs = 0;
   int faceBatchPhotos = 60;
@@ -378,8 +335,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   final Set<String> _recentThumbInFlight = {};
   DateTime? _lastRecentThumbFetch;
 
-  // Throttles the Library tab's live stat refresh during an active scan -
-  // see _maybeRefreshLibraryStatsLive.
+  /// Throttles the live refresh of the stats of the Library tab during a scan (see [_maybeRefreshLibraryStatsLive]).
   DateTime? _lastLiveStatsRefresh;
 
   final db = IndexedFolderDbHelper.instance;
@@ -387,8 +343,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
 
   List<IndexedFolder> allIndexedFoldersList = [];
 
-  // Search (CLIP) models ready - the only ones downloaded (the face models are part of
-  // the app). The setup screen shows until this is true.
+  /// Whether the search (CLIP) models are ready. They are the only models downloaded, since the face models are part of
+  /// the app. The setup screen shows until this is true.
   bool modelsReady = false;
   bool isCheckingModels = true;
   List<ModelStatus> modelStatuses = [];
@@ -397,8 +353,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   String downloadError = '';
   StreamSubscription<ModelDownloadProgress>? _downloadSub;
 
-  // Download speed, in bytes per second over the last few seconds (smoothed);
-  // null until there is a reading.
+  /// The download speed in bytes per second over the last few seconds, smoothed. It is null until there is a reading.
   double? downloadBytesPerSecond;
   DateTime? _speedAt;
   int _speedBytes = 0;
@@ -444,17 +399,15 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   bool get searchModelsVerified =>
       _searchModels.isNotEmpty && _searchModels.every((m) => m.verified);
 
-  /// What the setup screen's button would download right now (whatever isn't there yet).
+  /// What the setup screen's button would download (whatever isn't there yet).
   int get pendingDownloadBytes {
     var total = 0;
     if (!searchModelsVerified) total += searchModelBytes;
     return total;
   }
 
-  // Things that were computed while the models were missing (collection counts
-  // and covers) are empty and nothing else would redo them: when the search
-  // models come back - a finished download, or a check that finds them - redo
-  // them now.
+  /// Redoes the things computed while the models were missing. Collection counts and covers are empty then, and nothing
+  /// else would redo them when the search models come back, by a finished download or a check that finds them.
   Future<void> _modelsBecameReady() async {
     await refreshLibraryStats();
     _refreshCollections();
@@ -472,7 +425,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     if (!wasReady && modelsReady) unawaited(_modelsBecameReady());
   }
 
-  /// Downloads the search models if they aren't on the device yet.
+  /// Downloads the search models if they are not on the device yet. Whatever happened, cancelled or failed, it ends by
+  /// reading what is really on the device, because the setup screen goes by that.
   Future<void> startModelDownload() async {
     if (isDownloadingModels) return;
 
@@ -501,8 +455,6 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     } finally {
       await _downloadSub?.cancel();
       _downloadSub = null;
-      // What is really on the device, whatever happened (cancelled, or failed): the
-      // setup screen goes by this.
       final wasReady = modelsReady;
       try {
         modelsReady = await NativeServices().areModelsReady();
@@ -526,8 +478,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     await checkModelsReady();
   }
 
-  // Just picks and previews - doesn't search. Mirrors typing text: nothing
-  // runs until the user submits.
+  /// Picks an image and previews it without searching. As with typing text, nothing runs until the person submits.
   Future<void> pickSearchImage() async {
     final uri = await NativeServices().pickImageForSearching();
     if (uri == null) return;
@@ -543,19 +494,15 @@ class NativeController extends GetxController with WidgetsBindingObserver {
         isCompressed: true,
       );
     } catch (_) {
-      // Preview failed to load - the search itself still works from the
-      // uri alone, so this isn't fatal, just a missing thumbnail.
+      // Only the preview is missing, the search works from the uri alone.
     }
     update();
   }
 
-  // "Search with this image" from the full-screen viewer - attaches the
-  // photo exactly as if it had been picked from the search bar, then runs
-  // the same search. The text box is cleared (an attached image takes
-  // priority in runSearch anyway, but leaving stale text behind would show
-  // up again the moment the image chip is removed), and the previous
-  // result's match explanation goes too since it described a different
-  // search.
+  /// "Search with this image" from the full-screen viewer. It attaches the photo as if it had been picked from the
+  /// search bar and runs the same search. The text box is cleared, because stale text would show up again the moment the
+  /// image chip is removed, even though an attached image takes priority in [runSearch]. The match explanation of the
+  /// previous result goes too, since it described a different search.
   Future<void> searchWithImage({
     required String uri,
     required Uint8List bytes,
@@ -570,10 +517,9 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     return runSearch();
   }
 
-  // Same idea from the video viewer - the "image" is one frame of a video,
-  // so the picked uri is the video's and the timestamp says which frame
-  // (see runSearch). The preview bytes are that same frame, fetched here
-  // since the search bar's chip needs something to show.
+  /// The same from the video viewer, where the image is one frame of a video. The picked uri is the video's and the
+  /// timestamp says which frame (see [runSearch]). The preview bytes are that same frame, fetched here because the chip
+  /// of the search bar needs something to show.
   Future<void> searchWithVideoFrame({
     required String uri,
     required int timestampMs,
@@ -592,32 +538,25 @@ class NativeController extends GetxController with WidgetsBindingObserver {
         timestampMs: timestampMs,
       );
     } catch (_) {
-      // Missing preview only - the search itself doesn't need it.
+      // Only the preview is missing, the search does not need it.
     }
     update();
 
     await runSearch();
   }
 
-  // "Similar to this" - the same embedding search behind searchWithImage/
-  // searchWithVideoFrame, but for a quick strip of ~10 results shown right
-  // in the viewer instead of a full results screen. [timestampMs] set means
-  // the seed is one frame of a video, same convention as above.
-  //
-  // The native side scores every stored embedding regardless of topK, so
-  // asking for a small number costs nothing extra - the +3 over the 10 we
-  // actually want just covers dropping the seed itself (it always comes
-  // back as its own best match) without a second round trip.
-  //
-  // Guarded by _similarToken: this is shared, single-instance state, and
-  // nothing stops two calls overlapping - closing the strip while a fetch
-  // is still in flight (clearSimilar), or opening it again for a different
-  // photo before the first fetch finished. Without a token, whichever call
-  // happens to resolve last would win regardless of which one is actually
-  // still wanted, silently repopulating results for a photo the viewer has
-  // already moved on from.
+  /// Counts the calls of [loadSimilar] and [clearSimilar]. The results are shared, single-instance state and nothing
+  /// stops two calls from overlapping: the strip can be closed while a fetch is in flight, or opened again for a
+  /// different photo before the first fetch finished. Without the token the call that resolves last would win, whether
+  /// or not it is the one still wanted, and would fill the results for a photo the viewer has moved on from.
   int _similarToken = 0;
 
+  /// Loads Similar to this: the same embedding search as [searchWithImage] and [searchWithVideoFrame], but a strip of
+  /// about ten results in the viewer. A [timestampMs] means the seed is one frame of a video.
+  /// The limit is 13 for the ten wanted, because the seed always comes back as its own best match and the extra three
+  /// cover dropping it.
+  /// Thumbnails load three at a time and the screen is updated once per three, because update() rebuilds the whole
+  /// viewer screen.
   Future<void> loadSimilar({required String uri, int? timestampMs}) async {
     final token = ++_similarToken;
     similarResults = [];
@@ -639,7 +578,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
               contentMode: ContentMode.both,
             );
       if (token != _similarToken) {
-        return; // superseded while the search was in flight
+        return;
       }
 
       similarResults = raw
@@ -648,14 +587,6 @@ class NativeController extends GetxController with WidgetsBindingObserver {
           .toList();
       update();
 
-      // Small and fast (grid-sized thumbnails, not full images) - loaded a
-      // few at a time so the strip fills in rather than waiting on all ten.
-      // update() rebuilds this whole viewer screen (the same one GetBuilder
-      // covers everything else on it too), so - same as openPerson's own
-      // thumbnail workers in faces_controller.dart - it's batched rather
-      // than called after every single thumbnail, which for ten quick
-      // fetches would otherwise mean up to ten extra full-screen rebuilds
-      // stacked on top of whatever else is animating (the badge, playback).
       const workers = 3;
       var next = 0;
       var sinceUpdate = 0;
@@ -684,10 +615,9 @@ class NativeController extends GetxController with WidgetsBindingObserver {
 
       await Future.wait([for (var i = 0; i < workers; i++) worker()]);
     } on ModelsNotReadyError {
-      // Silently empty - the viewer itself already says elsewhere when
-      // models aren't ready; this strip just has nothing to show.
+      // The viewer says elsewhere that the models are not ready.
     } catch (_) {
-      // No strip - the viewer is still fully usable without it.
+      // The viewer is fully usable without the strip.
     } finally {
       if (token == _similarToken) {
         isLoadingSimilar = false;
@@ -696,8 +626,9 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     }
   }
 
+  /// Empties the strip. A load still in flight is invalidated, so it cannot fill the results again afterwards.
   void clearSimilar() {
-    _similarToken++; // invalidates any load still in flight so it can't repopulate after this
+    _similarToken++;
     similarResults = [];
     similarThumbCache.clear();
     isLoadingSimilar = false;
@@ -746,12 +677,15 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     update();
   }
 
-  // The one submit action, whichever input is active - an attached image
-  // takes priority over typed text (matching what's actually shown in the
-  // search bar), never both at once.
-  // Counts the searches, so a search that was replaced by a newer one stops loading its tiles.
+  /// Counts the searches, so a search that was replaced by a newer one stops loading its tiles.
   int _searchRun = 0;
 
+  /// The one submit action, whichever input is active. An attached image takes priority over typed text, and the two
+  /// are never used together.
+  /// People recognised in the text narrow the search to photos and videos with all of them in it. Their names are
+  /// dropped from what is sent to CLIP, which has no concept of a name. Tiles load three at a time, because the native
+  /// side decodes on three threads. A cleared or replaced search stops, and an older one leaves [isSearching] to the
+  /// newer.
   Future<void> runSearch() async {
     final run = ++_searchRun;
     final imageUri = pickedSearchImageUri;
@@ -766,8 +700,6 @@ class NativeController extends GetxController with WidgetsBindingObserver {
       imageCache.clear();
 
       if (imageUri != null) {
-        // No text behind an image-based search, so there's nothing to
-        // explain a match by - see loadMatchExplanation's doc.
         lastTextQuery = null;
         lastMentionedPersonIds = [];
         lastMentionedPeopleNames = [];
@@ -786,14 +718,9 @@ class NativeController extends GetxController with WidgetsBindingObserver {
                 limit: sliderValue.round().toInt(),
                 contentMode: searchContentMode,
               );
-        // The search was cleared (or replaced) while it ran.
         if (run != _searchRun) return;
         searchResults = found;
       } else {
-        // Recognised people (typed plainly, or picked via "@" - "Person and Person2 at the
-        // beach") narrow the search to photos/videos with all of them in it; their names are
-        // dropped from what's sent to CLIP, since a name isn't something an image-similarity
-        // model has any concept of - only the words describing what to find in those photos are.
         final mentionedPeople = <int, Person>{
           for (final p in searchTextController.recognizedPeople) p.id: p,
         }.values.toList();
@@ -801,9 +728,6 @@ class NativeController extends GetxController with WidgetsBindingObserver {
         final query = searchTextController.queryWithoutMention;
         lastTextQuery = query;
         lastMentionedPersonIds = mentionedIds;
-        // A Person can only ever be recognised/mentioned in the first place
-        // if it has a name (see peopleProvider's own filter in
-        // MentionTextEditingController) - never null here.
         lastMentionedPeopleNames = mentionedPeople.map((p) => p.name!).toList();
         lastImageSeedUri = null;
         lastImageSeedTimestampMs = null;
@@ -819,8 +743,6 @@ class NativeController extends GetxController with WidgetsBindingObserver {
 
       debugPrint(searchResults.toString());
 
-      // The tiles load three at a time (the native side decodes on three threads), each
-      // worker taking the next result as soon as it is free, instead of one after another.
       final pending = [
         for (final item in searchResults)
           if (!imageCache.containsKey(cacheKeyForResult(item))) item,
@@ -855,7 +777,6 @@ class NativeController extends GetxController with WidgetsBindingObserver {
       modelsReady = false;
       error = 'Models are not downloaded yet.';
     } finally {
-      // Not when a newer search has taken over: it is still going and clears this itself.
       if (run == _searchRun) isSearching = false;
       update();
     }
@@ -872,8 +793,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     return item.isVideo ? '${item.uri}@${item.timestampMs}' : item.uri;
   }
 
-  // items is newest-first. Starts the reads of the not-yet-fetched items, a few at a time and
-  // not more often than the throttle, so a fast scan can't turn this into a thumbnail flood.
+  /// Starts the reads of the thumbnails not fetched yet, a few at a time and not more often than the throttle, so a fast
+  /// scan cannot turn this into a thumbnail flood. The [items] are newest first.
   void _maybeFetchNextRecentThumbnail(List<RecentEmbeddedItem> items) {
     if (items.isEmpty) return;
 
@@ -898,13 +819,16 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     if (started > 0) _lastRecentThumbFetch = now;
   }
 
+  /// Reads the small thumbnail of one item for the "Recently indexed" strip. It is small because the chip draws it at
+  /// most 300 pixels wide, and a video's frame is made while holding the lock that the video decoding of the scan needs.
+  /// The strip is cosmetic, so a missed thumbnail is never worth showing an error. When the oldest item leaves the
+  /// strip its bytes are dropped only if no other item in the strip needs them, as the same file could reappear under
+  /// the same key.
   Future<void> _fetchRecentThumbnail(
     RecentEmbeddedItem item,
     String key,
   ) async {
     try {
-      // Small: the chip draws these at most 300 pixels wide, and a video's frame is made while
-      // holding the lock the scan's own video decoding needs.
       final bytes = await NativeServices().loadThumbnail(
         uri: item.uri,
         isVideo: item.isVideo,
@@ -915,8 +839,6 @@ class NativeController extends GetxController with WidgetsBindingObserver {
       recentThumbnails.insert(0, item);
       if (recentThumbnails.length > _maxRecentThumbnails) {
         final removed = recentThumbnails.removeLast();
-        // Only drop the cached bytes if nothing else in the strip still
-        // needs them (same file could reappear if it hashes the same key).
         if (!recentThumbnails.any(
           (e) => _recentThumbKey(e) == _recentThumbKey(removed),
         )) {
@@ -925,7 +847,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
       }
       _scheduleThumbUpdate();
     } catch (_) {
-      // Cosmetic feature - never worth surfacing an error for a missed thumbnail.
+      // The strip is cosmetic.
     } finally {
       _recentThumbInFlight.remove(key);
     }
@@ -939,8 +861,6 @@ class NativeController extends GetxController with WidgetsBindingObserver {
         : PickingMode.folder;
     final ContentMode contentMode = selectedContentMode;
 
-    // Stable identity for this location, ties every scan of it together
-    // across rescans - the device sentinel, or the folder's own SAF URI.
     String folderId;
     String uri;
 
@@ -950,7 +870,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     } else {
       final pickedUri = await NativeServices().pickFolderUri();
       if (pickedUri == null) {
-        return; // user cancelled the picker - nothing changed
+        return;
       }
       uri = pickedUri;
       folderId = pickedUri;
@@ -964,11 +884,10 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     );
   }
 
-  // Reuses a scan interrupted by the OS killing the app mid-run (see
-  // _checkForInterruptedScan) - same folderId/uri as before, no picker
-  // involved. Safe to skip the picker for a folder scan because
-  // SafPickerActivity takes a *persistable* URI permission grant when the
-  // folder was first picked, so it's still valid after an app restart.
+  /// Resumes a scan interrupted by the system killing the app mid-run (see [_checkForInterruptedScan]), with the same
+  /// folderId and uri as before and no picker. The picker can be skipped for a folder scan because SafPickerActivity
+  /// takes a persistable URI permission grant when the folder is first picked, so it is still valid after an app
+  /// restart.
   Future<void> resumeInterruptedScan() async {
     final marker = interruptedScan;
     if (marker == null || isScanning) return;
@@ -989,28 +908,24 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     );
   }
 
-  // The user chose not to resume it - just forget it rather than keep
-  // asking every launch.
+  /// Forgets the interrupted scan when the person chose not to resume it, so it is not offered at every launch.
   Future<void> dismissInterruptedScan() async {
     interruptedScan = null;
     update();
     await _clearInterruptedScanMarker();
   }
 
-  // Shared by a fresh pick (pickAndScanFolders) and resuming an interrupted
-  // one (resumeInterruptedScan) - everything from here on doesn't care how
-  // the folderId/uri/mode were arrived at.
+  /// Starts a scan. [pickAndScanFolders] and [resumeInterruptedScan] share it.
+  /// The notification permission is not requested here, because storage and media access is asked for right below and
+  /// a second prompt would be one too many. The marker of an interrupted scan is written before the scan starts, not
+  /// only on each progress tick, so that a kill before the first tick still leaves a marker to resume from. A clean
+  /// finish, a stop or an immediate failure clears it.
   Future<void> _beginScan({
     required String folderId,
     required String uri,
     required PickingMode scanMode,
     required ContentMode contentMode,
   }) async {
-    // Never requested here - we're about to ask for storage/media access
-    // below, and asking for notifications too would be one permission
-    // prompt too many. Just refresh what the OS currently says, in case it
-    // changed since the app opened (e.g. granted from system settings);
-    // the scanning UI offers its own control to actually request it.
     unawaited(checkBackgroundScanPermission());
 
     isScanning = true;
@@ -1028,11 +943,6 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     error = '';
     update();
 
-    // Written before the scan actually starts, not just on each progress
-    // tick - so even a kill before the first tick arrives still leaves a
-    // marker behind to resume from. Cleared on a clean finish, an explicit
-    // stop, or an immediate failure below (see _listenToScanProgress's done
-    // branch and this method's own failure branch).
     unawaited(
       _persistInterruptedScanMarker(
         folderId: folderId,
@@ -1071,16 +981,14 @@ class NativeController extends GetxController with WidgetsBindingObserver {
 
       return;
     }
-
-    // Bookkeeping for a normal finish already ran from inside
-    // _listenToScanProgress's done branch, above - by the time scan()
-    // resolves, the native loop's last onProgress(done: true) tick has
-    // already reached it.
   }
 
-  // Shared by a scan started in this session and one resumed on app start
-  // (see _resumeActiveScanIfAny) - either way, a live scan is identified by
-  // the same progress stream and finishes the same way.
+  /// Follows the progress of a live scan, started in this session or resumed on app start. The bookkeeping for a
+  /// normal finish runs here, when the last tick with done set arrives.
+  /// The speed is measured over the time of indexing itself, because the waits while faces are found would make it
+  /// look slow. A tick that embedded nothing is ignored, because a rate of 0 would flip the UI back to measuring
+  /// speed. Only a scan that reached the end counts as completed, because a cancelled scan reports done too, with
+  /// processed short of total.
   void _listenToScanProgress() {
     _progressSub = NativeServices().scanProgressStream().listen((data) {
       final newResult = IndexedFolder.fromMap(data);
@@ -1088,26 +996,13 @@ class NativeController extends GetxController with WidgetsBindingObserver {
       final prev = _previousProgress;
       if (prev != null) {
         final embeddedDelta = newResult.embedded - prev.embedded;
-        // Over indexing's own time: the waits while faces are found for a batch
-        // would make it look slow (the time left still uses the real time).
         final msDelta = newResult.activeMs - prev.activeMs;
-        // Ignore a duplicate/out-of-order tick rather than divide by ~0 and
-        // show a meaningless spike. Also ignore a tick that embedded
-        // nothing (e.g. a run of already-indexed files getting skipped
-        // between two ticks) rather than let it compute a rate of exactly
-        // 0 - that flipped the UI back to "measuring speed" every time a
-        // skip happened, instead of only showing that once at the very
-        // start. Leaving recentEmbeddingsPerSecond untouched here just
-        // keeps showing the last real rate until the next tick that
-        // actually embedded something.
         if (msDelta > 200 && embeddedDelta > 0) {
           recentEmbeddingsPerSecond = embeddedDelta / (msDelta / 1000.0);
         }
       }
       _previousProgress = newResult;
       scanResult = newResult;
-      // Also set when the stop came from somewhere else (WorkManager stopping the work, or a
-      // newer scan replacing this one), so the screen never invites a pointless second tap.
       if (data['stopping'] == true) isStopping = true;
       final queued = data['faceQueue'];
       if (!newResult.done && queued is num) {
@@ -1127,14 +1022,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
         isStopping = false;
         _progressSub.cancel();
         unawaited(_clearInterruptedScanMarker());
-        // Only a scan that actually reached the end counts - a cancelled
-        // one reports done too, with processed short of total, and an
-        // errored one reports total 0.
         final completed =
             scanResult.total > 0 && scanResult.processed >= scanResult.total;
-        // Faces were found along with this scan, and what it left for the face worker is
-        // started natively when the scan runs to its end - a scan the user stopped does not
-        // start one, so nothing is asked of the face scan from here.
         if (completed) {
           scanSummary = ScanSummary(
             total: scanResult.total,
@@ -1145,9 +1034,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
         if (scanResult.id.isNotEmpty) {
           unawaited(_finishScan(folderId: scanResult.id));
         }
-        // The scan's items are final by now (even a scan the user stopped).
         unawaited(refreshLatestScan());
-        // There may be stories now (the first ones, for a first scan): the note that says so is set.
         if (completed && Get.isRegistered<StoriesController>()) {
           unawaited(Get.find<StoriesController>().scheduleReminderWhenReady());
         }
@@ -1164,12 +1051,10 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     _refreshCollections();
   }
 
-  // Removing the app from Recents doesn't kill this process (the
-  // foreground service keeps it alive so the scan can finish), but it does
-  // recreate the Activity/Flutter engine - so a scan started before that
-  // keeps running natively with nothing telling this fresh Dart layer about
-  // it. Called from onInit to resync with whatever the native side says is
-  // still going, using the same cache the notification itself reads from.
+  /// Resyncs with a scan that is still going on the native side. Removing the app from Recents does not kill the process,
+  /// since the foreground service keeps it alive so the scan can finish, but it recreates the Activity and the Flutter
+  /// engine. A scan started before that keeps running natively with nothing telling the fresh Dart layer about it.
+  /// [onInit] calls this, and it reads the same cache that the notification reads from.
   Future<void> _resumeActiveScanIfAny() async {
     final progress = await NativeServices().getActiveScanProgress();
     if (progress == null) return;
@@ -1192,16 +1077,12 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     update();
   }
 
-  // Called from onInit right after _resumeActiveScanIfAny - only reaches
-  // here if that found nothing actually still running natively. If a
-  // marker was still persisted at that point, the process that was running
-  // it is gone without ever reaching a clean finish/stop, which on a
-  // foreground-serviced, wake-locked scan realistically means the OS killed
-  // it (see _persistInterruptedScanMarker for when the marker is written
-  // and cleared). Surfacing that as "tap to resume" turns a silent failure
-  // into a one-tap fix - the underlying embedImages() call already skips
-  // whatever it finished before by hash, so resuming just picks up where
-  // it left off rather than starting over.
+  /// Offers to resume a scan that the system killed. [onInit] calls it right after [_resumeActiveScanIfAny], so it only
+  /// matters when that found nothing still running natively. If a marker is still persisted then, the process that ran
+  /// the scan is gone without a clean finish or stop, which for a scan with a foreground service and a wake lock means
+  /// the system killed it (see [_persistInterruptedScanMarker] for when the marker is written and cleared). Showing that
+  /// as "tap to resume" turns a silent failure into a one-tap fix, because the embedImages() call already skips by hash
+  /// whatever it finished before, so resuming picks up where it left off.
   Future<void> _checkForInterruptedScan() async {
     if (isScanning) return;
     try {
@@ -1249,12 +1130,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  // Also backs the Library tab's live stat tiles - besides the explicit
-  // call sites below (after a scan finishes, after clearing/deleting),
-  // this is also called periodically while a scan is running (see
-  // _listenToScanProgress) so the numbers climb in real time instead of
-  // only updating once the whole scan completes.
-  /// The person has seen that the index was dropped for a new search model (and what to do about it).
+  /// The person has seen that the index was dropped for another search model, and what to do about it.
   Future<void> acknowledgeModelReset() async {
     modelResetFrom = 0;
     update();
@@ -1265,6 +1141,9 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     }
   }
 
+  /// Reads the stats of the library again. It also backs the live stat tiles of the Library tab: besides the calls after
+  /// a scan finishes and after clearing or deleting, it is called periodically while a scan runs (see
+  /// [_listenToScanProgress]), so the numbers climb in real time.
   Future<void> refreshLibraryStats() async {
     final stats = await NativeServices().getLibraryStats();
     totalEmbeddings = stats.totalEmbeddings;
@@ -1275,12 +1154,9 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     update();
   }
 
-  // Throttled rather than called on every progress tick (twice a second) -
-  // refreshLibraryStats re-reads the whole embeddings store from disk, and
-  // doing that on every tick would compete with the scan's own I/O for a
-  // large library, for no real benefit over updating every couple of
-  // seconds. Still far more "live" than the old behavior of only updating
-  // once the entire scan finishes.
+  /// Calls [refreshLibraryStats] at most every two seconds and not on every progress tick, which comes twice a second.
+  /// It re-reads the whole embeddings store from disk, and doing that on every tick would compete with the I/O of the
+  /// scan for a large library, for no real benefit.
   void _maybeRefreshLibraryStatsLive() {
     final now = DateTime.now();
     if (_lastLiveStatsRefresh != null &&
@@ -1301,11 +1177,12 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     );
   }
 
+  /// Loads the metadata of one photo or video. It resets the previous metadata first, so the sheet does not open with the
+  /// metadata of the previous photo.
   Future<void> loadMetaDataByUri({
     required String uri,
     bool isVideo = false,
   }) async {
-    // Reset so the sheet doesn't open with the previous photo's metadata.
     showMetadata = false;
     selectedMetadata = ImageMetadata.empty();
     isFetchingMetadata = true;
@@ -1321,11 +1198,9 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     update();
   }
 
-  // Actions sheet (both viewers) - each a thin passthrough to native, since
-  // the actual work (share intent, MediaStore copy, wallpaper, clipboard)
-  // only makes sense done natively. Feedback (snackbar/share sheet opening)
-  // is the calling widget's job, not this controller's - it needs a
-  // BuildContext these don't have.
+  /// Shares a file. This and the other actions of the actions sheet of both viewers pass straight through to the native
+  /// side, since the work (share intent, MediaStore copy, wallpaper, clipboard) only makes sense there. Feedback such as
+  /// a snackbar is the job of the calling widget, because it needs a BuildContext that these do not have.
   Future<void> shareFile({required String uri, required bool isVideo}) {
     return NativeServices().shareFile(uri: uri, isVideo: isVideo);
   }
@@ -1342,18 +1217,16 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     return NativeServices().copyImageToClipboard(uri: uri);
   }
 
-  // Called when a result is actually opened, not for every result a
-  // search returns - see NativeServices.explainMatch's doc on why this is
-  // lazy. Silently leaves matchExplanation empty (no loading state, no
-  // error) whenever there's nothing honest to show: an image-based
-  // search, or a query with no real content words (e.g. just "photos of
-  // it") - the UI section this backs simply doesn't appear in that case.
+  /// Loads "Why this matched" for a result. It is called when a result is opened and not for every result a search
+  /// returns (see [NativeServices.explainMatch] for why it is lazy). [matchExplanation] stays empty, with no loading
+  /// state and no error, whenever there is nothing honest to show: after an image search, or for a query with no real
+  /// content words such as just "photos of it". The section of the UI that it backs does not appear then. A [query] is
+  /// set when the result was opened from somewhere other than a text search, such as a collection, and explains the
+  /// match by that phrase.
   Future<void> loadMatchExplanation({
     required String path,
     required bool isVideo,
     required int timestampMs,
-    // Set when the result was opened from somewhere other than a text
-    // search (a collection) - explains the match by that phrase instead.
     String? query,
   }) async {
     matchExplanation = [];
@@ -1392,8 +1265,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     update();
   }
 
-  // Shows "Stopping" right away: the scan only ends once the work in hand is finished, and
-  // without feedback a second tap looked necessary. Repeated taps are ignored meanwhile.
+  /// Shows "Stopping" right away: the scan only ends once the work in hand is finished, and
+  /// without feedback a second tap looked necessary. Repeated taps are ignored meanwhile.
   Future<void> stopScanning() async {
     if (!isScanning || isStopping) return;
     isStopping = true;
@@ -1411,8 +1284,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  // embedded is fetched fresh from native rather than accumulated here,
-  // since native's per-scan numbers only describe that one scan.
+  /// embedded is fetched fresh from native rather than accumulated here,
+  /// since native's per-scan numbers only describe that one scan.
   Future<void> addIndexedFolderToDb({
     required IndexedFolder indexedFolder,
     required String folderId,
@@ -1433,8 +1306,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     update();
   }
 
-  // Timing logs for indexing and face finding (adb logcat -s LostFoundBench). The
-  // switch itself lives natively, where the logs are written; this mirrors it.
+  /// Timing logs for indexing and face finding (adb logcat -s LostFoundBench). The
+  /// switch itself lives natively, where the logs are written; this mirrors it.
   bool benchLogsEnabled = true;
 
   Future<void> _loadBenchLogs() async {
@@ -1452,8 +1325,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     await NativeServices().setBenchLogsEnabled(value);
   }
 
-  // The note that asks to finish indexing (see IndexNudge): on until turned off. The switch lives natively, where
-  // the note is made; this mirrors it.
+  /// The note that asks to finish indexing (see IndexNudge): on until turned off. The switch lives natively, where
+  /// the note is made; this mirrors it.
   bool indexNudgeEnabled = true;
 
   Future<void> _loadIndexNudge() async {
@@ -1465,8 +1338,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  /// Turns the note on or off. Turning it on asks for the notification permission (Android 13 and later) and
-  /// stays off if it is refused. Returns whether it is on now.
+  /// Turns the note on or off. Turning it on asks for the notification permission (Android 13 and later) and stays off
+  /// if it is refused. Returns whether it is on.
   Future<bool> setIndexNudgeEnabled(bool on) async {
     if (on) {
       final allowed = await askPermission(
@@ -1514,12 +1387,9 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     update();
   }
 
-  // Based on the whole-scan average rather than the recent/instantaneous
-  // one - an ETA that jumps around every time the recent rate wobbles would
-  // be more distracting than useful. Null until there's enough data to
-  // bother estimating from.
-  // Milliseconds indexing has left at the speed so far; null until enough has been done
-  // for the figure to mean something (the first few seconds are not typical).
+  /// Milliseconds indexing has left at the speed so far; null until enough has been done for the figure to mean
+  /// something. It is based on the whole-scan average, because an estimate that jumps with every wobble of the recent
+  /// rate is more distracting than useful.
   int? get scanEtaMs {
     if (!isScanning) return null;
     final total = scanResult.total;
@@ -1572,9 +1442,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     update();
   }
 
-  // Explicit close, not a toggle - for anything that should only ever
-  // close the sheet (tapping the photo, dragging the sheet down), never
-  // flip it open. A no-op update() call when already closed is harmless.
+  /// Closes the sheet, and never opens it. It is for anything that should only close it (tapping the photo, dragging
+  /// the sheet down).
   void hideMetadata() {
     if (!showMetadata) return;
     showMetadata = false;
@@ -1604,13 +1473,11 @@ class NativeController extends GetxController with WidgetsBindingObserver {
 
     if (required.isEmpty) return true;
 
-    // Asked the way every permission is (see askPermission): once Android has stopped asking, a dialog says how
-    // to turn it on in App info, rather than the scan ending without a word.
     return askPermission(AppPermission.media, only: required);
   }
 
-  // Read-only - reflects the OS's current answer without prompting.
-  // No-op/always-granted pre-Android 13, where this permission doesn't exist.
+  /// Read-only: reflects the OS's current answer without prompting. Always granted before Android 13, where this
+  /// permission does not exist.
   Future<void> checkBackgroundScanPermission() async {
     if (!Platform.isAndroid) {
       backgroundNotificationsGranted = true;
@@ -1621,25 +1488,19 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     update();
   }
 
-  // The only place that actually prompts for it - wired to the "Enable"
-  // control in the scanning UI, never called automatically. No battery-
-  // optimization-exemption request alongside it anymore - Play policy
-  // only allows that for a short list of core-function use cases this
-  // app doesn't fit, and the scan surviving being killed (WorkManager's
-  // own retry-after-interruption) is the replacement for asking not to
-  // be killed in the first place.
+  /// The only place that prompts for it, wired to the Enable control in the scanning UI and never called
+  /// automatically. There is no battery optimisation exemption request, because Play policy allows that only for a
+  /// short list of core-function use cases this app does not fit. The scan surviving being killed (WorkManager's retry
+  /// after interruption) takes its place. The value read afterwards may be stale until didChangeAppLifecycleState
+  /// corrects it on resume.
   Future<void> requestBackgroundScanPermission() async {
     if (!Platform.isAndroid) return;
 
-    // Once the OS has stopped asking, a dialog explains and opens App info (see askPermission).
     await askPermission(
       AppPermission.notifications,
       purpose: 'show the scan\'s progress and keep it going in the background',
     );
 
-    // Reads whatever actually landed above - the real value if the user
-    // responded synchronously, a stale one otherwise, corrected by
-    // didChangeAppLifecycleState the moment the app resumes for real.
     await checkBackgroundScanPermission();
   }
 
@@ -1679,10 +1540,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     unawaited(_persistString(_contentModeKey, contentMode.name));
   }
 
-  // Committed from the search filter sheet's draft state - never called
-  // live per-tap, only once the user taps Confirm (see
-  // _SearchFilterSheet). Whether this should also re-run the current
-  // search is that widget's call, not this setter's.
+  /// Committed from the search filter sheet's draft state, only once the user taps Confirm (see _SearchFilterSheet).
+  /// Whether this also re-runs the current search is that widget's call, not this setter's.
   void setSearchContentMode(ContentMode contentMode) {
     searchContentMode = contentMode;
     update();
@@ -1696,14 +1555,13 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     update();
     unawaited(_persistString(_resultsLayoutKey, layout.name));
   }
+/// Saves a preference. A failed write is only logged, because it is cosmetic: the default is used on the next launch.
 
   Future<void> _persistString(String key, String value) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(key, value);
     } catch (e) {
-      // Cosmetic preference, not core state - a failed write just means
-      // it falls back to the default next launch, never worth surfacing.
       debugPrint('Failed to persist "$key": $e');
     }
   }

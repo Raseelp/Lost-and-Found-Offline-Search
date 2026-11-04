@@ -78,27 +78,27 @@ class SplashStage extends StatefulWidget {
   State<SplashStage> createState() => _SplashStageState();
 }
 
+/// Runs the splash: waits for the app, plays the animation and takes itself away.
 class _SplashStageState extends State<SplashStage> with TickerProviderStateMixin {
-  // How long the animation waits at the start for the app, at the most, before the app shows through anyway
-  // (it has its own loading screen).
+  /// The longest the animation waits at the start for the app before the app shows through anyway, as it has its own
+  /// loading screen.
   static const Duration _patience = Duration(seconds: 6);
 
-  // How long the app is left to build its first screen while the icon sits, at the least, and at the most.
-  // After the least, the rest plays as soon as the app's own thread has been quiet for a moment (a loop that
-  // looks at how late a short timer fires), so the lens does not have to share the thread with the app starting.
+  /// The least and the most time the app is left to build its first screen while the icon sits. See
+  /// [_waitForQuiet].
   static const Duration _settle = Duration(milliseconds: 350);
   static const Duration _settleMost = Duration(milliseconds: 1500);
 
-  // With "Remove animations": the finished icon, still, for this long.
+  /// With "Remove animations" the finished icon is shown still for this long.
   static const Duration _stillHold = Duration(milliseconds: 500);
 
-  // AnimationBehavior.preserve: the phone's own animation scale must not speed the clock up or skip it.
+  /// Uses [AnimationBehavior.preserve], so the phone's own animation scale cannot speed the clock up or skip it.
   late final AnimationController _clock = AnimationController(
     vsync: this,
     duration: SplashTimeline.real(SplashTimeline.totalMs),
     animationBehavior: AnimationBehavior.preserve,
   );
-  // Real time since the start, for the sky, which keeps drifting while the main clock waits for the app.
+  /// Real time since the start, for the sky, which keeps drifting while [_clock] waits for the app.
   late final AnimationController _ambient = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 3600000),
@@ -124,16 +124,17 @@ class _SplashStageState extends State<SplashStage> with TickerProviderStateMixin
     SplashPainter.warmUp();
   }
 
+  /// Starts the animation, or with "Remove animations" sets the finished icon.
+  ///
+  /// The gate is released after the first frame, because this runs while the tree is being built.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_started) return;
     _started = true;
     if (calm(context)) {
-      // No movement: the finished icon, then the app.
       _clock.value = SplashTimeline.restMs / SplashTimeline.totalMs;
       _ambient.value = 1000 / SplashPainter.ambientSpanMs;
-      // (Not now: this runs while the tree is being built.)
       WidgetsBinding.instance.addPostFrameCallback((_) => SplashGate.release());
       _timer = Timer(_stillHold, _leaveWhenReady);
     } else {
@@ -172,7 +173,8 @@ class _SplashStageState extends State<SplashStage> with TickerProviderStateMixin
   }
 
   /// Plays the rest once the app has had [_settle] and its thread has been quiet for about 130 ms, or after
-  /// [_settleMost] whatever it is doing.
+  /// [_settleMost] whatever it is doing. The quiet is found by how late a short timer fires, so the lens does not
+  /// share the thread with the app starting.
   void _waitForQuiet() {
     final started = splashNowMs();
     var last = started;
@@ -191,11 +193,12 @@ class _SplashStageState extends State<SplashStage> with TickerProviderStateMixin
     });
   }
 
+  /// Plays the animation from the hold to the end. The picture the cover is drawn from later is made first, while
+  /// the sweep is still slow.
   void _playRest() {
     if (!mounted || _leaving || !_atHold) return;
     _atHold = false;
     _timer?.cancel();
-    // The picture the cover is drawn from later is made now, as the sweep begins slowly.
     _painter?.prepare(MediaQuery.sizeOf(context));
     _clock
         .animateTo(1, duration: SplashTimeline.real(SplashTimeline.totalMs - SplashTimeline.holdMs), curve: Curves.linear)
@@ -220,10 +223,10 @@ class _SplashStageState extends State<SplashStage> with TickerProviderStateMixin
     }
   }
 
+  /// Fades the splash out. With "Remove animations" it is taken away at once and nothing fades.
   void _fadeOut() {
     if (!mounted || _leave.isAnimating || _leave.isCompleted) return;
     _timer?.cancel();
-    // With "Remove animations" the splash is just taken away: nothing fades.
     if (calm(context)) {
       _finish();
       return;
@@ -249,9 +252,9 @@ class _SplashStageState extends State<SplashStage> with TickerProviderStateMixin
     super.dispose();
   }
 
+  /// The splash is a picture to look at, so it is kept out of the screen reader's way. A tap on it leaves early.
   @override
   Widget build(BuildContext context) {
-    // A picture to look at, not something to read out or tap through: it is out of the way of the screen reader.
     return ExcludeSemantics(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,

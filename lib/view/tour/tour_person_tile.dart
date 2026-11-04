@@ -8,7 +8,9 @@ import 'package:lost_and_found/utils/palettes/tour_palette.dart';
 /// One person as the People tab shows them (see PersonTile): a small tilted stack of their faces, the cover on
 /// top and two more behind it leaning the other way, then the name and how many photos. The stack fans out one
 /// tile after another when the page shows. Where a person has fewer faces than the stack holds, the cards behind
-/// are left blank, as in the app. The pictures are bundled (the app's own tile reads faces from its database).
+/// are left blank, as in the app, and the two cards behind lean by different amounts, as there. The pictures are bundled
+/// (the app's own tile reads faces from its database). The line under the name is scaled down rather than cut off, so a
+/// narrow phone still reads "248 photos" in full.
 class TourPersonTile extends StatefulWidget {
   const TourPersonTile({
     super.key,
@@ -88,7 +90,7 @@ class _TourPersonTileState extends State<TourPersonTile>
     super.dispose();
   }
 
-  // One face in the stack: a white-bordered rounded square (blank when the person has too few faces).
+  /// One face in the stack: a white-bordered rounded square, blank when the person has too few faces.
   Widget _card(String? asset, double size, {required bool top, String? badge}) {
     final radius = size * 0.24;
     return DecoratedBox(
@@ -151,7 +153,6 @@ class _TourPersonTileState extends State<TourPersonTile>
     final textTheme = Theme.of(context).textTheme;
     final lean = widget.lean;
     final dir = lean < 0 ? 1.0 : -1.0;
-    // The same lean the app gives the two cards behind (a different amount each, peeking out to the sides).
     final angles = [lean, lean + dir * 11, lean - dir * 7];
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
@@ -176,7 +177,6 @@ class _TourPersonTileState extends State<TourPersonTile>
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // Furthest back first.
                         for (final layer in const [2, 1, 0])
                           AnimatedBuilder(
                             animation: _fan,
@@ -209,7 +209,6 @@ class _TourPersonTileState extends State<TourPersonTile>
             },
           ),
           const SizedBox(height: AppSpacing.sm),
-          // Scaled down rather than cut off, so a narrow phone still reads "248 photos" in full.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 3),
             child: FittedBox(

@@ -14,7 +14,7 @@ import 'package:lost_and_found/view/widget/collections_bento.dart';
 import 'package:lost_and_found/view/widget/nothing_indexed.dart';
 import 'package:lost_and_found/view/widget/on_this_day_card.dart';
 
-/// Opens [collection] - shared by the tab's cards and the Search tab's chips.
+/// Opens [collection]. The tab's cards and the Search tab's chips share it.
 void openCollectionScreen(
   BuildContext context,
   CollectionsController controller,
@@ -26,8 +26,10 @@ void openCollectionScreen(
   ).push(MaterialPageRoute(builder: (_) => const CollectionScreen()));
 }
 
-// The full grid: the user's own collections first, then the built-ins that
-// aren't hidden. Long-press a card to edit/hide/delete.
+/// The full grid: the user's own collections first, then the built-ins that are not hidden. Long-press a card to edit,
+/// hide or delete it. Above the grid are the On this day section, which shows only when there is something from this
+/// date and can be ticked for export like a collection, and the featured collection, which is out of the way while
+/// choosing. Below it are what was hidden and room for the action button, which is put away while choosing.
 class CollectionsTab extends StatelessWidget {
   const CollectionsTab({
     super.key,
@@ -59,7 +61,7 @@ class CollectionsTab extends StatelessWidget {
     );
   }
 
-  // A run of tiles in the grid, [list] in the order given on [shapes].
+  /// A run of tiles in the grid, [list] in the order given on [shapes].
   Widget _grid(
     BuildContext context,
     List<SmartCollection> list,
@@ -78,8 +80,8 @@ class CollectionsTab extends StatelessWidget {
     );
   }
 
-  // Plain squares, two across, the same size as the mosaic's squares (an odd number of them
-  // cannot be laid out as a mosaic: it would leave a hole in the last row).
+  /// Plain squares, two across, the same size as the mosaic's squares. An odd number of them cannot be laid out as a
+  /// mosaic, because it would leave a hole in the last row.
   Widget _squares(BuildContext context, List<SmartCollection> list) {
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
@@ -132,24 +134,22 @@ class CollectionsTab extends StatelessWidget {
     );
   }
 
-  // The tiles, in three runs: the collections worth looking at in a bento mosaic (the biggest
-  // get the biggest tiles), then the everyday ones (documents, screenshots ...) in plain squares,
-  // then, tucked away, the built-ins that have nothing in them yet.
+  /// The tiles, in three runs. First come the collections worth looking at, in a bento mosaic where the biggest get
+  /// the biggest tiles. Then come the everyday ones (documents, screenshots) in plain squares. Last, tucked away, are
+  /// the built-ins with nothing in them yet. A built-in counts as empty only once everything has been scored. A
+  /// collection you made, or one being worked out, is never put away, and it does not jump to the front once its items
+  /// are in.
   List<Widget> _mosaicSlivers(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final all = controller.visible;
     int count(SmartCollection c) => controller.statsFor(c.id).count;
 
-    // Only once everything has been scored; a collection you made, or one being worked out
-    // right now, is never put away.
     bool noMatches(SmartCollection c) =>
         controller.hasScored &&
         c.isBuiltIn &&
         !controller.syncing.contains(c.id) &&
         count(c) == 0;
 
-    // Collections you made that have something in them come first, then the rest. One being worked out right
-    // now (just made, say) is among them, so it does not jump to the front once its items are in.
     bool yoursWithItems(SmartCollection c) =>
         !c.isBuiltIn && (count(c) > 0 || controller.syncing.contains(c.id));
     final main = [
@@ -228,7 +228,7 @@ class CollectionsTab extends StatelessWidget {
     ];
   }
 
-  // Nothing is indexed yet: no tiles to show, just where to start.
+  /// Shown when nothing is indexed yet: no tiles, just where to start.
   Widget _nothingYet(BuildContext context) {
     return const SliverToBoxAdapter(
       child: Padding(
@@ -284,8 +284,6 @@ class CollectionsTab extends StatelessWidget {
             ),
           ),
         ),
-        // This date in the past years: above the featured collection, there only when there is something
-        // from it. It can be ticked for export like a collection.
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
           sliver: SliverToBoxAdapter(
@@ -301,7 +299,6 @@ class CollectionsTab extends StatelessWidget {
             ),
           ),
         ),
-        // The featured collection, a different one now and then. Out of the way while choosing.
         if (!controller.selecting && !nothingIndexed)
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(
@@ -323,7 +320,6 @@ class CollectionsTab extends StatelessWidget {
           _nothingYet(context)
         else
           ..._mosaicSlivers(context),
-        // What was hidden: the collections, and the On this day card (only while it has something to show).
         SliverToBoxAdapter(
           child: GetBuilder<MemoriesController>(
             builder: (memories) {
@@ -369,7 +365,6 @@ class CollectionsTab extends StatelessWidget {
           ),
         ),
         SliverToBoxAdapter(
-          // Room for the action button too, except while choosing (it is put away then).
           child: SizedBox(
             height: controller.selecting ? floatingBarClearance(context) : actionFabClearance(context),
           ),
@@ -379,9 +374,8 @@ class CollectionsTab extends StatelessWidget {
   }
 }
 
-// Shown while collections are being (re)scored. The first pass also has to
-// embed every collection's prompts, which is the slow part - that gets a
-// real "x of y"; after that it's just a quick refresh.
+/// Shown while collections are being scored. The first pass also has to embed every collection's prompts, which is
+/// the slow part, so it gets a real "x of y". After that it is a quick refresh.
 class _ScoringProgress extends StatelessWidget {
   const _ScoringProgress({required this.controller});
 

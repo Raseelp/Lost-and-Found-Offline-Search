@@ -68,12 +68,11 @@ class StoryEdition {
 }
 
 /// The rings of the Search tab and their stories.
-///
-/// Each ring has an edition: a few pictures it has not shown before, chosen through one lens (new, a throwback,
-/// the best, forgotten ones - see [StoryPlanner]). The edition is made when the ring is opened, and a ring that
-/// has been opened is grey for 24 hours (its story can be played again); then it has a new edition, made of
-/// pictures that were not in any before, until the ring has nothing left, when it rests for a few days and its
-/// round starts again. Which rings are in the row, and in what order, is [StoryRowPicker]'s work.
+/// Each ring has an edition: a few pictures it has not shown before, chosen through one lens (new ones, a throwback,
+/// the best, forgotten ones; see [StoryPlanner]). The edition is made when the ring is opened, and the ring is grey
+/// for 24 hours, though its story can be played again. Then it gets another edition from pictures not in any before,
+/// until nothing is left. It rests for a few days and its round starts again. [StoryRowPicker] chooses which rings are
+/// in the row and in what order.
 class StoriesController extends GetxController with WidgetsBindingObserver {
   StoriesController({StoriesStore? store, DateTime Function()? clock})
     : _store = store ?? SqliteStoriesStore(),
@@ -105,7 +104,7 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
   final Map<String, RingState> _states = {};
   final Map<String, Future<StoryEdition?>> _building = {};
 
-  // The rings of the row (see StoryBatch), and whether the next time they are asked for a new batch is to be made.
+  /// The rings of the row (see [StoryBatch]), and whether the next time they are asked for, a fresh batch is made.
   StoryBatch _batch = const StoryBatch();
   bool _newBatch = false;
 
@@ -135,7 +134,7 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
     super.onClose();
   }
 
-  // Leaving the app sets the note for a day later, so it comes even to someone who has never opened a ring.
+  /// Leaving the app sets the note for a day later, so it comes even to someone who has never opened a ring.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) unawaited(scheduleReminder(cancelIfNone: true));
@@ -168,7 +167,7 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
 
   bool _named(StoryRing ring) => ring.kind == StoryKind.collection || (ring.person!.name ?? '').trim().isNotEmpty;
 
-  // The state as the picker should see it: a rest that is over has also ended the round.
+  /// The state as the picker should see it: a rest that is over has also ended the round.
   RingFacts _facts(StoryRing ring, int now) {
     final s = _stateOf(ring.key);
     var state = s;
@@ -220,8 +219,8 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
     unawaited(_store.saveMeta('batch', jsonEncode({'at': _batch.at, 'keys': _batch.keys, 'lit': _batch.lit.toList()})));
   }
 
-  // People and collections are found one after the other when the app starts: until both are, no batch is made or ended
-  // (see StoryBatch.next), and the one there is stays as it was.
+  /// People and collections are found one after the other when the app starts. Until both are, no batch is made or
+  /// ended (see [StoryBatch.next]), and the one there stays as it was.
   bool _dataReady(CollectionsController collections) {
     if (Get.isRegistered<FacesController>() && Get.find<FacesController>().isLoadingPeople) return false;
     if (collections.isScoring) return false;
@@ -232,9 +231,9 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
   /// Whether [ring] has nothing new: it was opened (in the batch of the row), or it has nothing left to show.
   bool isSeen(StoryRing ring) => !_batch.isLit(_facts(ring, _now), _now);
 
-  /// The rings to show: the batch of the row, the ones with something new first (people and collections taking turns,
-  /// as the batch was made), then the ones that were opened, which stay where they are in the row. The batch is kept until
-  /// it is used up (see [StoryBatch]). Empty until the saved state has been read.
+  /// The rings to show: the batch of the row, the ones with something new first (people and collections taking
+  /// turns, as the batch was made), then the ones that were opened, which stay where they are in the row. The batch
+  /// is kept until it is used up (see [StoryBatch]). Empty until the saved state has been read.
   List<StoryRing> ringsFor(List<Person> people, CollectionsController collections) {
     if (!ready) return const [];
     final now = _now;
@@ -286,6 +285,9 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
   StoryEdition _editionOf(RingState s) =>
       s.hasEdition ? StoryEdition(frames: s.frames, caption: s.caption) : StoryEdition.empty;
 
+  /// Builds the edition of [ring]. Null when its pictures could not be read, or when nothing is left that makes a
+  /// story: the ring then rests for [restDays] days and keeps its last edition. A rest that is over starts a new
+  /// round.
   Future<StoryEdition?> _build(StoryRing ring) async {
     final now = _now;
     final state = _stateOf(ring.key);
@@ -295,7 +297,6 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
       ..eligible = items.length
       ..lastCount = ring.count;
 
-    // A rest that is over starts a new round.
     if (state.restUntil != 0 && state.restUntil <= now) {
       await _store.clearShown(ring.key);
       state
@@ -316,7 +317,6 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
       ranked: ring.kind == StoryKind.collection,
     );
     if (plan == null) {
-      // Nothing left that makes a story: the ring rests, and keeps its last one.
       state
         ..restUntil = now + restDays * _day
         ..shownCount = shown.length;
@@ -347,6 +347,9 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
   }
 
   /// What a ring holds, without screenshots, with when each was taken. Null when it could not be read.
+  ///
+  /// A ring that holds something but gives nothing back (the models are not ready, say) could not be read. That is
+  /// not the same as having nothing left to show, so null is returned: it is tried again later and does not rest.
   Future<List<StoryItem>?> _poolOf(StoryRing ring) async {
     List<Map<String, dynamic>> raw;
     try {
@@ -359,8 +362,6 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
       debugPrint('stories: could not read ${ring.key}: $e');
       return null;
     }
-    // A ring that holds something but gives nothing back could not be read (the models are not ready, say): that is
-    // not the same as having nothing left to show, so it is tried again later and does not rest.
     if (raw.isEmpty && ring.count > 0) return null;
     final seen = <String>{};
     final unique = [
@@ -418,15 +419,16 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  /// Who will be in the row of rings of the "stories have refreshed" note when it comes at [atMs]: the rings that are
-  /// lit then (up to eight), as text for the native side, which makes the note later without the app running.
+  /// Who will be in the row of rings of the "stories have refreshed" note when it comes at [atMs]: the rings that
+  /// are lit then (up to eight), as text for the native side, which makes the note later without the app running.
+  /// With [litOnly] false it takes the rings of the row now instead. A person without a name sends an empty title:
+  /// the note shows their ring but does not read "Unnamed" out.
   String _reminderRings(int atMs, {bool litOnly = true}) {
     if (!Get.isRegistered<FacesController>() || !Get.isRegistered<CollectionsController>()) return '[]';
     final collections = Get.find<CollectionsController>();
     final people = Get.find<FacesController>().people;
     final candidates = _candidates(people, collections);
     final byKey = {for (final r in candidates) r.key: r};
-    // The rings of the row now, or the ones that will be lit at [atMs] (the next batch).
     final chosen = litOnly
         ? [
             for (final p in StoryRowPicker.pick(
@@ -441,7 +443,6 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
     final out = <Map<String, Object>>[];
     for (final ring in chosen) {
       if (ring.kind == StoryKind.person) {
-        // A person without a name sends an empty one: the note shows their ring but does not read "Unnamed" out.
         out.add({'title': (ring.person!.name ?? '').trim(), 'faceId': ring.person!.coverFaceId, 'person': true});
       } else {
         final cover = collections.selectedCover(ring.collection!.id);
@@ -474,6 +475,9 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
   /// A new edition now, by hand: the rings that were opened are due again at once (with pictures that have not been
   /// shown), people and collections are looked at again, and the rings are chosen again. Returns whether there is
   /// anything new to see afterwards.
+  ///
+  /// The rings opened within the last day are made to look as if they were opened a day ago. The list of states is
+  /// copied, because a ring being made ready elsewhere can add its state while this waits for the store.
   Future<bool> refreshStories() async {
     if (refreshing) return true;
     refreshing = true;
@@ -481,10 +485,8 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
     _refreshes++;
     _newBatch = true;
     final now = _now;
-    // A copy of the list: a ring being made ready elsewhere can add its state while this waits for the store.
     for (final s in _states.values.toList()) {
       if (s.hasEdition && !StoryRowPicker.unviewed(s) && now - s.viewedAt < _day) {
-        // Opened a day ago, as far as the ring can tell (and made before that).
         s
           ..builtAt = now - 2 * _day
           ..viewedAt = now - _day;
@@ -504,10 +506,10 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
   }
 
   /// Turns the "stories have refreshed" note on or off. Turning it on asks for the notification permission (Android 13
-  /// and later) and stays off if it is refused. Returns whether it is on now.
+  /// and later) and stays off if it is refused. The permission is asked as every other is (see [askPermission]), so
+  /// it says why if it is turned down. Returns whether it is on now.
   Future<bool> setReminder(bool on) async {
     if (on) {
-      // Asked as every permission is (see askPermission): it says why if it is turned down.
       final allowed = await askPermission(
         AppPermission.notifications,
         purpose: 'tell you when your stories have refreshed',

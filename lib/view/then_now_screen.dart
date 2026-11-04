@@ -55,8 +55,8 @@ class _ThenAndNowScreenState extends State<ThenAndNowScreen>
   final MemoriesController _memories = Get.find<MemoriesController>();
   final PreviewLoader _loader = PreviewLoader();
 
-  // Where the divider is, as a share of the width: it sweeps in from the edge when the screen opens, to
-  // show there are two pictures, until a finger takes it.
+  /// Where the divider is, as a share of the width. It sweeps in from the edge when the screen opens, to show there
+  /// are two pictures, until a finger takes it.
   final ValueNotifier<double> _split = ValueNotifier(1);
   late final AnimationController _intro = AnimationController(
     vsync: this,
@@ -64,9 +64,10 @@ class _ThenAndNowScreenState extends State<ThenAndNowScreen>
   );
   bool _touched = false;
 
-  // Which of the few photos at each end is shown (the ones picked first are random, the same all day).
+  /// Which of the few photos at each end is shown. The ones picked first are random, the same all day.
   late int _thenAt = widget.found.startThen, _nowAt = widget.found.startNow;
 
+  /// The divider sweeps in once the pictures have had a moment to arrive.
   @override
   void initState() {
     super.initState();
@@ -75,7 +76,6 @@ class _ThenAndNowScreenState extends State<ThenAndNowScreen>
         _split.value = 1 - 0.5 * Curves.easeInOutCubic.transform(_intro.value);
       }
     });
-    // After the pictures have had a moment to arrive.
     Future<void>.delayed(const Duration(milliseconds: 450), () {
       if (mounted && !_touched) _intro.forward();
     });
@@ -88,11 +88,11 @@ class _ThenAndNowScreenState extends State<ThenAndNowScreen>
     super.dispose();
   }
 
+  /// Moves the divider to [share] of the width, with a light tick as it passes the middle.
   void _set(double share) {
     _touched = true;
     _intro.stop();
     final next = share.clamp(0.0, 1.0);
-    // A light tick as the divider passes the middle.
     if ((_split.value - 0.5).sign != (next - 0.5).sign) {
       HapticFeedback.selectionClick();
     }
@@ -230,10 +230,12 @@ class _ThenAndNowScreenState extends State<ThenAndNowScreen>
   }
 }
 
-/// Then | Now, and under it that end's photos in a row that scrolls like a wheel: the one in the middle is
-/// larger, ringed and compared, the others smaller and fainter toward the edges; its date and who is in it
-/// under it. A light tick as each one reaches the middle. A swipe lets the row run on and slow down by itself,
-/// landing on the photo nearest to where it would have stopped.
+/// One end's photos in a row that scrolls like a wheel: the one in the middle is larger, ringed and compared, the
+/// others smaller and fainter toward the edges, with its date and who is in it under it. A swipe lets the row run on
+/// and slow down, landing on the photo nearest to where it would have stopped.
+///
+/// Each photo's semantics node carries its own tap, because a screen reader reads and presses only that node. The date
+/// line changes at once, because a cross-fade could meet itself on a quick Then, Now, Then.
 class _Picker extends StatefulWidget {
   const _Picker({
     required this.then,
@@ -258,13 +260,13 @@ class _Picker extends StatefulWidget {
 class _PickerState extends State<_Picker> {
   static const double _item = 64;
 
-  // Then (true) or the latest (false): which end the row is choosing for.
+  /// Then (true) or the latest (false): which end the row is choosing for.
   bool _isThen = true;
   PageController? _row;
   double _fraction = 0.2;
 
-  // The photo in the middle of the row right now. While the row runs on it is only ringed and named: the
-  // comparison changes once the row slows (a full picture to load for every photo it passes would stutter).
+  /// The photo in the middle of the row. While the row runs on it is only ringed and named. The comparison changes
+  /// once the row slows, because a full picture to load for every photo it passes would stutter.
   int? _centre;
   Timer? _settle;
 
@@ -281,8 +283,8 @@ class _PickerState extends State<_Picker> {
     if (i != null && mounted && i != (_isThen ? widget.thenAt : widget.nowAt)) widget.onPick(_isThen, i);
   }
 
-  // A new row for each end, opening on the photo in use there. The old one's controller goes once that row
-  // has gone (it is still attached for the rest of this frame).
+  /// Rebuilds the row for each end, opening on the photo in use there. The previous controller goes once that row has
+  /// gone, because it is still attached for the rest of this frame.
   void _newRow() {
     final old = _row;
     _settle?.cancel();
@@ -291,10 +293,10 @@ class _PickerState extends State<_Picker> {
     if (old != null) WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
   }
 
+  /// Sizes the row so that each picture takes the same width whatever the screen's.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Each picture takes the same width whatever the screen's.
     final width = MediaQuery.sizeOf(context).width - AppSpacing.xl * 2;
     final fraction = (_item / width).clamp(0.1, 0.5);
     if (_row == null || fraction != _fraction) {
@@ -303,10 +305,10 @@ class _PickerState extends State<_Picker> {
     }
   }
 
+  /// When the photo is chosen from somewhere else, the row's own choice does not stand any more.
   @override
   void didUpdateWidget(covariant _Picker old) {
     super.didUpdateWidget(old);
-    // Chosen from somewhere else: the row's own choice no longer stands.
     final now = _isThen ? widget.thenAt : widget.nowAt;
     if (now != (_isThen ? old.thenAt : old.nowAt) && now != _centre) {
       _settle?.cancel();
@@ -321,7 +323,7 @@ class _PickerState extends State<_Picker> {
     super.dispose();
   }
 
-  // The photo tapped comes to the middle: gliding there, or with motion off simply there.
+  /// The photo tapped comes to the middle: gliding there, or with motion off simply there.
   void _goTo(PageController row, int i) {
     if (calm(context)) {
       row.jumpToPage(i);
@@ -330,9 +332,9 @@ class _PickerState extends State<_Picker> {
     }
   }
 
+  /// Changes the end the row chooses for. A photo still settling on this end is kept before the row changes.
   void _choose(bool isThen) {
     if (isThen == _isThen) return;
-    // A photo still settling on this end is kept before the row changes to the other.
     _pick();
     HapticFeedback.selectionClick();
     setState(() {
@@ -361,7 +363,6 @@ class _PickerState extends State<_Picker> {
         SizedBox(
           height: _item + 16,
           child: NotificationListener<ScrollEndNotification>(
-            // Come to rest: the comparison catches up at once.
             onNotification: (_) {
               _pick();
               return false;
@@ -371,7 +372,6 @@ class _PickerState extends State<_Picker> {
               controller: row,
               pageSnapping: false,
               physics: _WheelPhysics(fraction: _fraction),
-              // The ring and shadow of the one in the middle are not cut off.
               clipBehavior: Clip.none,
               itemCount: sides.length,
               onPageChanged: _passing,
@@ -391,7 +391,6 @@ class _PickerState extends State<_Picker> {
                   button: true,
                   selected: i == at,
                   label: '${_monthYear(sides[i].taken)}${sides[i].company == null ? '' : ', ${sides[i].company}'}',
-                  // The tap is on this node as well: a screen reader reads (and presses) only this one.
                   onTap: () => _goTo(row, i),
                   excludeSemantics: true,
                   child: GestureDetector(
@@ -422,7 +421,6 @@ class _PickerState extends State<_Picker> {
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
-        // Changes at once (a cross-fade could meet itself coming back on a quick Then, Now, Then).
         Text.rich(
           TextSpan(
             children: [
@@ -453,9 +451,11 @@ class _WheelPhysics extends ScrollPhysics {
   @override
   _WheelPhysics applyTo(ScrollPhysics? ancestor) => _WheelPhysics(fraction: fraction, parent: buildParent(ancestor));
 
+  /// Past an end the usual way back is used. Otherwise the target is the photo nearest to where the glide would
+  /// come to rest by itself. A move too small to leave the photo it is on springs softly back onto it, and any other
+  /// glides as it would have, slowed just enough to stop on the photo.
   @override
   Simulation? createBallisticSimulation(ScrollMetrics position, double velocity) {
-    // Past an end: the usual way back.
     if ((velocity <= 0 && position.pixels <= position.minScrollExtent) ||
         (velocity >= 0 && position.pixels >= position.maxScrollExtent)) {
       return super.createBallisticSimulation(position, velocity);
@@ -463,16 +463,13 @@ class _WheelPhysics extends ScrollPhysics {
     final extent = position.viewportDimension * fraction;
     if (extent <= 0) return super.createBallisticSimulation(position, velocity);
     final tolerance = toleranceFor(position);
-    // Where it would come to rest by itself, and the photo nearest to that.
     final glide = super.createBallisticSimulation(position, velocity);
     final natural = glide?.x(double.infinity) ?? position.pixels;
     final target = ((natural / extent).round() * extent).clamp(position.minScrollExtent, position.maxScrollExtent);
     if (velocity.abs() < tolerance.velocity && (target - position.pixels).abs() < tolerance.distance) return null;
-    // Not enough to leave the photo it is on: a soft spring back onto it.
     if ((position.pixels / extent).round() * extent == target) {
       return _Landing(SpringSimulation(spring, position.pixels, target, velocity, tolerance: tolerance), target);
     }
-    // Otherwise it glides as it would have, slowed just enough to stop on the photo.
     return _Landing(
       FrictionSimulation.through(position.pixels, target, velocity, tolerance.velocity * velocity.sign),
       target,
@@ -480,7 +477,7 @@ class _WheelPhysics extends ScrollPhysics {
   }
 }
 
-// A glide or spring that ends exactly on [target]: either stops once it is within a pixel of it.
+/// A glide or spring that ends exactly on [target]: either stops once it is within a pixel of it.
 class _Landing extends Simulation {
   _Landing(this.glide, this.target) : super(tolerance: glide.tolerance);
 
@@ -676,7 +673,6 @@ class _Compare extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Now underneath, then over it up to the divider.
                 PortraitImage(side: now, memories: memories),
                 ValueListenableBuilder<double>(
                   valueListenable: split,

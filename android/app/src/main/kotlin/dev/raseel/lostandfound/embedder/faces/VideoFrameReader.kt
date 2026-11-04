@@ -42,7 +42,7 @@ class VideoFrameReader private constructor(
         }
     }
 
-    // Older phones can only give the full frame: make it a sensible size.
+    /** Shrinks a full frame to at most [maxSide] across. Older phones can only give the full frame. */
     private fun shrink(frame: Bitmap): Bitmap {
         val long = max(frame.width, frame.height)
         if (long <= maxSide) return frame
@@ -65,7 +65,10 @@ class VideoFrameReader private constructor(
         /** Frames are read at most this many pixels across (faces are found at 640 anyway). */
         const val MAX_SIDE = 1600
 
-        /** Null if the video can't be opened (yet: the decoder may just be busy). */
+        /**
+         * Returns null if the video can't be opened (yet: the decoder may just be busy). Frames come out upright, so for a
+         * video rotated by 90 or 270 degrees the width and height are swapped.
+         */
         fun open(context: Context, uri: Uri, maxSide: Int = MAX_SIDE): VideoFrameReader? = synchronized(VideoFrameExtractor.decodeLock) {
             val retriever = MediaMetadataRetriever()
             try {
@@ -74,7 +77,6 @@ class VideoFrameReader private constructor(
                 var w = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
                 var h = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
                 val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
-                // Frames come out upright, so the size we ask for is the rotated one.
                 if (rotation == 90 || rotation == 270) {
                     val t = w
                     w = h

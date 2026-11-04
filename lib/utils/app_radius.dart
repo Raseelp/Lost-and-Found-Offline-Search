@@ -1,6 +1,5 @@
-/// Radius grammar - don't mix in-between values. sm for inline/compact
-/// elements, md for small tiles, lg for cards, xl for large surfaces, pill
-/// for anything that reads as an action (buttons, search, chips).
+/// Radius grammar. Do not mix in-between values. [sm] is for inline or compact elements, [md] for small tiles,
+/// [lg] for cards, [xl] for large surfaces and [pill] for anything that reads as an action (buttons, search, chips).
 class AppRadius {
   AppRadius._();
 

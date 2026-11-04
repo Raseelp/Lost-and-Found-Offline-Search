@@ -4,14 +4,15 @@ import java.util.Calendar
 import java.util.TimeZone
 
 /**
- * Days on the calendar, for "this day in past years".
- *
- * A day is a local day: midnight to midnight in the phone's time zone, so a photo taken at 23:50 stays
- * on its own day. Each year gets its own range, so a day in a past year is found with one lookup on
- * the date index (a range scan), however many photos there are in all.
+ * Days on the calendar, for "this day in past years". A day is a local day, midnight to midnight in the phone's time
+ * zone, so a photo taken at 23:50 stays on its own day. Each year gets its own range, so a past day is one date index
+ * range scan.
  */
 object MemoryDays {
-
+/**
+ * The local days [month]/[day] of [year], widened by [spread] days either side, as [start, end) in ms. Null for a date
+ * that does not exist, such as 29 February in a year without one.
+ */
     /** The local days [month]/[day] of [year], widened by [spread] days either side, as [start, end) in ms; null for 29 February in a year without one. */
     fun range(year: Int, month: Int, day: Int, spread: Int = 0, tz: TimeZone = TimeZone.getDefault()): Pair<Long, Long>? {
         val cal = Calendar.getInstance(tz)
@@ -19,7 +20,7 @@ object MemoryDays {
         cal.isLenient = false
         return try {
             cal.set(year, month - 1, day, 0, 0, 0)
-            cal.timeInMillis // validates the date
+            cal.timeInMillis
             val centre = cal.timeInMillis
             cal.timeInMillis = centre
             cal.add(Calendar.DAY_OF_MONTH, -spread)

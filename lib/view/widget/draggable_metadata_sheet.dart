@@ -3,18 +3,11 @@ import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 
-// A bottom sheet that tracks the finger while dragging its handle and
-// flings open/closed based on release velocity - the Instagram-comments
-// feel, instead of a hard binary toggle. The old version wrapped its
-// *entire* content (including the scrollable metadata list) in one
-// onVerticalDragUpdate, which the inner SingleChildScrollView's own
-// vertical-drag recognizer almost always won against in Flutter's gesture
-// arena - which is why it "couldn't drag down." Restricting the drag
-// recognizer to just the handle bar removes that conflict entirely.
-//
-// [visible] is the source of truth for open/closed from outside (e.g. an
-// info button); dragging the handle can also close it, reported back
-// through [onDismissed] so the caller's own state stays in sync.
+/// A bottom sheet that follows the finger while its handle is dragged and flings open or closed by the speed at
+/// release.
+/// [visible] says from outside whether the sheet is open, and a drag that closes it is reported through [onDismissed]
+/// so the caller's state stays in sync. Only the handle bar listens for the drag, because a drag recognizer around the
+/// whole content loses in the gesture arena to the vertical scroll view of the metadata list.
 class DraggableMetadataSheet extends StatefulWidget {
   const DraggableMetadataSheet({
     super.key,
@@ -63,10 +56,10 @@ class _DraggableMetadataSheetState extends State<DraggableMetadataSheet>
     _controller.value = (_controller.value - delta / sheetHeight).clamp(0.0, 1.0);
   }
 
+  /// A flick faster than 300 decides the direction whatever the distance. A slower release goes to the side of
+  /// halfway it landed on.
   void _onDragEnd(DragEndDetails details) {
     final velocity = details.primaryVelocity ?? 0;
-    // A decisive flick wins regardless of how far it's travelled yet;
-    // otherwise whichever side of halfway it landed on.
     final shouldOpen = velocity < -300
         ? true
         : velocity > 300
@@ -80,6 +73,8 @@ class _DraggableMetadataSheetState extends State<DraggableMetadataSheet>
     }
   }
 
+  /// The child is mounted only while the sheet is at least partly open. An entrance animation inside it, such as the
+  /// match-strength bars, then plays every time the sheet opens.
   @override
   Widget build(BuildContext context) {
     final sheetHeight = MediaQuery.of(context).size.height * widget.heightFactor;
@@ -109,12 +104,6 @@ class _DraggableMetadataSheetState extends State<DraggableMetadataSheet>
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                // Only mounted while there's any visibility, torn down
-                // once fully closed - so an entrance animation inside
-                // `child` (like the match-strength bars) replays every
-                // time the sheet opens, instead of only playing once on
-                // first build (invisibly, before the sheet ever slid into
-                // view, back when it stayed permanently mounted offscreen).
                 Expanded(child: _controller.value > 0 ? widget.child : const SizedBox.shrink()),
               ],
             ),

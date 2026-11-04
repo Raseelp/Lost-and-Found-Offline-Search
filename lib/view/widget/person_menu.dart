@@ -16,9 +16,8 @@ import 'package:lost_and_found/view/split_person_screen.dart';
 import 'package:lost_and_found/view/widget/face_widgets.dart';
 import 'package:lost_and_found/view/widget/person_demo.dart';
 
-/// Everything you can do with one person, in one menu - opened by holding a face in
-/// the People tab. (Their own page shows these as [PersonHeadActions] instead - the
-/// same five actions, floating round their head rather than hidden behind a tap.)
+/// Everything you can do with one person, in one menu, opened by holding a face in the People tab. Their own page
+/// shows the same five actions as [PersonHeadActions], floating round their head instead.
 void showPersonMenu(
   BuildContext context,
   FacesController faces,
@@ -27,8 +26,6 @@ void showPersonMenu(
   showFacesSheet<void>(
     context,
     title: person.name ?? 'This person',
-    // Everyday things first; the three that fix the app's mistakes after, under their own heading, each
-    // saying which mistake it is for (so they are not confused with one another). Scrolls on a short screen.
     builder: (sheet) => SingleChildScrollView(
       child: Column(
       mainAxisSize: MainAxisSize.min,
@@ -60,8 +57,6 @@ void showPersonMenu(
           subtitle: "Pick a person to see photos they're both in",
           onTap: () {
             Navigator.of(sheet).pop();
-            // To the People tab, in "choose people" mode with this one ticked
-            // (from a person's own page that means going back to it first).
             Navigator.of(context).popUntil((route) => route.isFirst);
             Get.find<NativeController>().setHomeTab(3);
             faces.startSelecting(person);
@@ -214,11 +209,10 @@ void showMergePicker(
   );
 }
 
-/// The five everyday actions (everything but rename, which sits under the name with its
-/// own pencil icon) as small round buttons floating around the person's photo instead of
-/// behind a "⋯" tap - the dots were too easy to miss. Same actions, same calls, as
-/// [showPersonMenu]. They pop in with a light, staggered bounce the moment the page opens,
-/// so there's nothing to discover - they're just there.
+/// The five everyday actions (everything but rename, which sits under the name with its own pencil icon) as small
+/// round buttons floating around the person's photo, because a "⋯" tap was too easy to miss. Same actions and calls as
+/// [showPersonMenu]. They pop in with a light, staggered bounce the moment the page opens, so there is nothing to
+/// discover.
 class PersonHeadActions extends StatefulWidget {
   const PersonHeadActions({super.key, required this.faces, required this.person, this.size = 104});
 
@@ -244,27 +238,31 @@ class _Orbit {
   });
 
   final IconData icon;
-  final String label; // the short caption under the button: the situation it is for
-  final String title; // the bubble's heading, asked as a question about the person
-  final String message; // one short line under the demo
-  final String confirmLabel; // the bubble's action button
-  final PersonDemoKind demo; // the little film the bubble plays of what it does
-  final bool fix; // one of the three that fix the app's mistakes, kept behind "Fix mistakes"
+  /// The short caption under the button: the situation it is for.
+  final String label;
+  /// The bubble's heading, asked as a question about the person.
+  final String title;
+  /// One short line under the demo.
+  final String message;
+  /// The bubble's action button.
+  final String confirmLabel;
+  /// The little film the bubble plays of what it does.
+  final PersonDemoKind demo;
+  /// One of the three that fix the app's mistakes, kept behind "Fix mistakes".
+  final bool fix;
   final VoidCallback onTap;
   final bool danger;
 }
 
 class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProviderStateMixin {
-  // Not forward()'d here - see initState. Slower than it was (620ms), too: at that speed and
-  // starting the instant this widget existed, it was mostly done before the page's own push
-  // transition had even settled, so it came and went before anyone was looking at it.
+  /// Not forward()ed here, see initState, which waits out the page's own transition first so the pop-in plays on a
+  /// screen that sits still. It is slow (620ms) on purpose: started any earlier it was mostly done before that
+  /// transition settled.
   late final AnimationController _in = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
 
   @override
   void initState() {
     super.initState();
-    // Waits out the page's own transition first, so the pop-in plays on a screen that's already
-    // sitting still in front of the user rather than racing their arrival.
     Future.delayed(const Duration(milliseconds: 380), () {
       if (mounted) _in.forward();
     });
@@ -274,19 +272,16 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
   @override
   void didUpdateWidget(covariant PersonHeadActions old) {
     super.didUpdateWidget(old);
-    // Another person shown here (after a merge, say): their faces, not the last one's.
     if (old.person.id != widget.person.id) {
       _moreFaces = const [];
       _loadCast();
     }
   }
 
-  // ---- What the bubbles' demos are made of (see PersonDemo) ----
-
-  // More of the person's faces than their tile's three, so the demos' grids look like theirs.
+  /// More of the person's faces than their tile's three, so the demos' grids look like theirs.
   List<int> _moreFaces = const [];
 
-  // Fetched once, quietly, and the pictures made ahead, so a demo never starts on blank circles.
+  /// Fetched once, quietly, and the pictures made ahead, so a demo never starts on blank circles.
   Future<void> _loadCast() async {
     final faces = widget.faces;
     final asked = widget.person.id;
@@ -304,7 +299,7 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
     }
   }
 
-  // The tour's demo people, standing in for others when the library has fewer than four.
+  /// The tour's demo people, standing in for others when the library has fewer than four.
   static const _standIns = [
     ('assets/tour/faces/maya.jpg', 'Maya'),
     ('assets/tour/faces/sam.jpg', 'Sam'),
@@ -324,7 +319,6 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
       if (others.length >= 4) break;
       others.add((DemoPic.asset(asset), name));
     }
-    // Their photos already on this page; their faces fill in for any not loaded yet.
     final photos = <DemoPic>[];
     if (faces.active?.id == person.id) {
       for (final item in faces.photos) {
@@ -345,25 +339,17 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
     );
   }
 
-  // The button that was tapped, waiting to be confirmed. Null: showing the orbit as normal.
-  // The whole sequence is three animations played one after another:
-  //   1. _burst (0->1): the other four buttons are pulled in toward the tapped one and fade
-  //      out, while it turns into a solid glowing badge and pulses - gathering everything
-  //      into one point.
-  //   2. _travel (0->1): that badge then flies from its spot in the orbit to the middle,
-  //      growing as it goes, until it's sitting where the photo was.
-  //   3. the explanation opens as a speech bubble underneath it, floating in its own overlay
-  //      (see _bubbleEntry) rather than as another widget in this column - so it can appear
-  //      and disappear without ever resizing this page's scroll content, which would jostle
-  //      the photo grid below every time.
-  // Cancelling or confirming folds the bubble away, then reverses 2 and 1 to bring
-  // everything back (skipped on confirm, since the page is about to leave anyway).
+  /// The button that was tapped, waiting to be confirmed. Null: showing the orbit as normal. Three animations play one
+  /// after another: _burst pulls the other four buttons into the tapped one, which turns into a glowing badge; _travel
+  /// flies the badge to where the photo was; then the explanation opens as a speech bubble in its own overlay (see
+  /// _bubbleEntry), so it never resizes this page's scroll content and jostles the photo grid. Cancelling or
+  /// confirming folds the bubble away and reverses the rest, except on confirm, when the page is leaving anyway.
   _Orbit? _pending;
   int _pendingIndex = 0;
   late final AnimationController _burst = AnimationController(vsync: this, duration: const Duration(milliseconds: 320));
   late final AnimationController _travel = AnimationController(vsync: this, duration: const Duration(milliseconds: 360));
 
-  // 0: the fixes are folded into "Fix mistakes" at the bottom; 1: they are out, completing the ring.
+  /// 0: the fixes are folded into "Fix mistakes" at the bottom; 1: they are out, completing the ring.
   late final AnimationController _fan = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 520),
@@ -375,14 +361,13 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
     _fan.isForwardOrCompleted ? _fan.reverse() : _fan.forward();
   }
 
-  // Anchors the floating bubble to wherever the badge ends up, so it tracks it with no
-  // layout coupling at all between the two.
+  /// Anchors the floating bubble to wherever the badge ends up, so it tracks it with no
+  /// layout coupling at all between the two.
   final LayerLink _badgeLink = LayerLink();
   OverlayEntry? _bubbleEntry;
   late final AnimationController _bubbleFade = AnimationController(vsync: this, duration: const Duration(milliseconds: 220));
 
-  // Gap between the badge's edge and the bubble's tail - half the badge's biggest size,
-  // plus a little breathing room.
+  /// Gap between the badge's edge and the bubble's tail: half the badge's biggest size plus a little breathing room.
   static const _bubbleGap = _bigBadge / 2 + 8;
 
   void _ask(int index, _Orbit action) {
@@ -410,15 +395,11 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
         return CompositedTransformFollower(
           link: _badgeLink,
           showWhenUnlinked: false,
-          // Between the badge and the photos below it, tail pointing up at the badge.
           targetAnchor: Alignment.center,
           followerAnchor: Alignment.topCenter,
           offset: const Offset(0, _bubbleGap),
-          // The Overlay always hands its top-level entries a full-screen-sized box to fill,
-          // same as it would a route's page. Without this, the bubble's Stack (and its
-          // Positioned.fill background) would inherit that full height instead of shrinking
-          // to its own content - UnconstrainedBox is what lets it ignore that and size (and
-          // paint) itself only as large as it actually needs to be.
+          // The Overlay gives top-level entries a full-screen box, which the bubble's Stack would fill.
+          // UnconstrainedBox lets it shrink to its content.
           child: UnconstrainedBox(
             alignment: Alignment.topCenter,
             child: Material(
@@ -454,9 +435,6 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
   }
 
   void _close() {
-    // The bubble fading away, the badge setting off on its way back, and the orbit
-    // reassembling all start together - one fold-away motion, not one thing waiting on
-    // another.
     _bubbleFade.reverse().whenComplete(_removeBubbleOverlay);
     _travel.reverse().whenComplete(() {
       if (!mounted || _pending == null) return;
@@ -466,23 +444,19 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
     });
   }
 
-  // The bubble stays visible (fading out) for a beat after this runs - see the 140ms delay
-  // below - so a fast double-tap on Confirm could otherwise land twice and run the action
-  // twice (pushing Split/Review's screen twice, for instance). _confirming guards against
-  // that without touching the timing anything else here relies on.
+  /// The bubble stays visible, fading out, for a beat after this runs (see the 140ms delay below), so a fast
+  /// double-tap on Confirm could land twice and run the action twice. _confirming guards against that without touching
+  /// the timing anything else relies on.
   bool _confirming = false;
 
   void _confirm() {
     final action = _pending;
     if (_confirming || action == null) return;
     _confirming = true;
-    // Ready for the next time once the bubble is gone (it stays set until then, for the double-tap).
     _bubbleFade.reverse().whenComplete(() {
       _removeBubbleOverlay();
       _confirming = false;
     });
-    // Snappy on purpose: the page is about to leave (or another sheet is about to open) -
-    // watching everything fly back first would just be a delay.
     Future.delayed(const Duration(milliseconds: 140), () {
       if (!mounted) return;
       setState(() => _pending = null);
@@ -503,9 +477,6 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
 
   List<_Orbit> _actions(BuildContext context) {
     final name = widget.person.name;
-    // Each caption names the situation it is for; each bubble asks it about this person, plays a
-    // short film of what happens, and says it in one line. The everyday three go round the top; the
-    // three that fix the app's mistakes wait behind "Fix mistakes" at the bottom (see _fan).
     return [
       _Orbit(
         icon: Icons.groups_rounded,
@@ -515,7 +486,6 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
         confirmLabel: 'Choose someone',
         demo: PersonDemoKind.together,
         onTap: () {
-          // To the People tab, in "choose people" mode with this one ticked.
           Navigator.of(context).popUntil((route) => route.isFirst);
           Get.find<NativeController>().setHomeTab(3);
           widget.faces.startSelecting(widget.person);
@@ -540,7 +510,6 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
         danger: true,
         onTap: () => widget.faces.setHidden(widget.person, true),
       ),
-      // The fixes, named by what looks wrong.
       _Orbit(
         icon: Icons.grid_view_rounded,
         label: 'Not them',
@@ -578,22 +547,22 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
     ];
   }
 
-  // Degrees, 0 = straight up, clockwise. Folded, four circles a quarter apart: the everyday three at the
-  // left, top and right, "Fix mistakes" at the bottom. Opened, six a sixth apart: the everyday three move
-  // up round the ring to make room, "Fix mistakes" turns into Shown twice where it is, and the other two
-  // fixes come out of it either side. The name sits below this whole box.
+  /// Degrees, 0 = straight up, clockwise. Folded, four circles a quarter apart: the everyday three at the
+  /// left, top and right, "Fix mistakes" at the bottom. Opened, six a sixth apart: the everyday three move
+  /// up round the ring to make room, "Fix mistakes" turns into Shown twice where it is, and the other two
+  /// fixes come out of it either side. The name sits below this whole box.
   static const _foldedAngles = [-90.0, 0.0, 90.0, 180.0, 180.0, 180.0];
   static const _openAngles = [-60.0, 0.0, 60.0, 240.0, 180.0, 120.0];
   static const _doorAngle = 180.0;
 
-  // Where the circle [i] is on the ring with the fixes [fan] of the way out.
+  /// Where the circle [i] is on the ring with the fixes [fan] of the way out.
   double _angleOf(int i, double fan) {
     final t = i < 3 ? Curves.easeInOutCubic.transform(fan) : Curves.easeOutCubic.transform(_emerge(i, fan));
     return _foldedAngles[i] + (_openAngles[i] - _foldedAngles[i]) * t;
   }
 
-  // How far out a fix is: Shown twice is there at once (it is "Fix mistakes" turned over); the other
-  // two leave it a moment later, one after the other.
+  /// How far out a fix is: Shown twice is there at once (it is "Fix mistakes" turned over); the other
+  /// two leave it a moment later, one after the other.
   static double _emerge(int i, double fan) => switch (i) {
     4 => const Interval(0, 0.45).transform(fan),
     3 => const Interval(0.18, 0.9).transform(fan),
@@ -601,20 +570,17 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
     _ => fan,
   };
 
-  // Each button lives in a box this big, centred on its orbit point - a fixed size (not
-  // whatever its icon+label happen to measure) so its tap target is exactly where it's
-  // drawn, with no ambiguity for Stack/Positioned to get wrong.
+  /// Each button lives in a box this big, centred on its orbit point. The size is fixed rather than measured from the
+  /// icon and label, so the tap target is exactly where it is drawn.
   static const _slot = 72.0;
 
-  // How big the badge gets once it's finished travelling to the photo's spot.
+  /// How big the badge gets once it's finished travelling to the photo's spot.
   static const _bigBadge = 88.0;
 
   Widget _headStack(BuildContext context, List<_Orbit> actions) {
     final avatarRadius = widget.size / 2;
     const iconSize = 40.0;
-    // Far enough out that no caption touches the photo.
     final orbitRadius = avatarRadius + iconSize / 2 + 32;
-    // Generous enough that no button, or the badge at its biggest, ever clips.
     final boxSize = math.max(orbitRadius * 2 + iconSize + 36, _bigBadge + 40);
     final center = boxSize / 2;
 
@@ -637,7 +603,6 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
               top: center - avatarRadius,
               width: widget.size,
               height: widget.size,
-              // Fades out as the badge arrives and takes its place.
               child: AnimatedBuilder(
                 animation: _travel,
                 builder: (context, child) => Opacity(opacity: 1 - _travel.value, child: child),
@@ -649,10 +614,7 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
                 Builder(
                   builder: (context) {
                     final fix = actions[i].fix;
-                    // The everyday ones pop in one after another, with a small overshoot.
                     final start = (fix ? 3 : i) / 4 * 0.35;
-                    // Each sits in a slot centred on the photo and is carried round the ring from there,
-                    // so it travels along the circle rather than across it.
                     return Positioned(
                       left: center - _slot / 2,
                       top: center - _slot / 2,
@@ -666,19 +628,15 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
                             Interval(start, start + 0.55, curve: Curves.linear).transform(_in.value),
                           );
                           final burstT = pendingIndex == null ? 0.0 : Curves.easeInOutCubic.transform(_burst.value);
-                          // Pulled in toward wherever the tapped button is, and faded out -
-                          // as though being gathered up into it.
                           final delta = ownOffset + (tappedOffset - ownOffset) * burstT;
                           var opacity = (1.0 - burstT) * entrance.clamp(0.0, 1.0);
                           var scale = (1.0 - 0.55 * burstT) * entrance.clamp(0.0, 1.4);
                           if (fix) {
                             final out = _emerge(i, _fan.value);
                             if (i == 4) {
-                              // "Fix mistakes" turning over into this one, swelling with it.
                               opacity *= out;
                               scale *= 1 + 0.14 * math.sin(math.pi * const Interval(0, 0.6).transform(_fan.value));
                             } else {
-                              // Budding out of it: small and faint at first, full size once clear.
                               opacity *= (out * 2.5).clamp(0.0, 1.0);
                               scale *= 0.35 + 0.65 * Curves.easeOutBack.transform(out);
                             }
@@ -696,7 +654,6 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
                             animation: _fan,
                             builder: (context, _) => _OrbitButton(
                               action: actions[i],
-                              // A fix can only be tapped once it is out.
                               onTap: _pending == null && (!fix || _fan.value > 0.6) ? () => _ask(i, actions[i]) : null,
                             ),
                           ),
@@ -705,8 +662,6 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
                     );
                   },
                 ),
-            // "Fix mistakes", completing the ring at the bottom. Tapped, it swells a little and turns over
-            // into Shown twice, while the other two fixes come out of it.
             Positioned(
               left: center + doorOffset.dx - _slot / 2,
               top: center + doorOffset.dy - _slot / 2,
@@ -747,8 +702,6 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
                 ),
               ),
             ),
-            // Folds the fixes back: a small close on the photo's lower edge, there while they are out.
-            // Drawn 30 across, touched anywhere in 44.
             Positioned(
               left: center - 22,
               top: center + avatarRadius - 22,
@@ -793,9 +746,6 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
                 ),
               ),
             ),
-            // The tapped button: a solid glowing badge from the moment it's tapped, that
-            // then travels from its orbit spot to the middle and grows, ending up sitting
-            // where the photo was.
             if (pendingIndex != null)
               Builder(
                 builder: (context) {
@@ -819,8 +769,6 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
                   );
                 },
               ),
-            // The glow the badge gathers as everyone converges into it, fading away once
-            // it sets off on its journey.
             if (pendingIndex != null)
               Positioned(
                 left: center + tappedOffset.dx - 45,
@@ -845,10 +793,8 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
           ],
         );
 
-    // A fixed size, always - this box's footprint in the page's scroll content never
-    // changes, no matter what's happening inside it (badge growing, bubble opening and
-    // closing). The bubble floats in its own overlay instead of living in this layout, so
-    // none of that ever pushes the photo grid below around.
+    // A fixed size, always: the badge growing or the bubble opening must not change this box's footprint in the page's
+    // scroll content and push the photo grid.
     return RepaintBoundary(
       child: CompositedTransformTarget(
         link: _badgeLink,
@@ -869,10 +815,8 @@ class _OrbitButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The fixes (and "Fix mistakes") are quieter than the everyday ones: no shadow, greyer.
     final quiet = action.fix;
     final color = action.danger ? AppColors.danger : (quiet ? AppColors.ink48 : AppColors.ink80);
-    // One button for a screen reader: the circle and its words are the same thing, named by the words.
     return Semantics(
       button: true,
       enabled: onTap != null,
@@ -910,8 +854,6 @@ class _OrbitButton extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 3),
-        // On one line, even where it runs a little wider than the button's slot. Tapping the words
-        // works too.
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
@@ -928,14 +870,13 @@ class _OrbitButton extends StatelessWidget {
   }
 }
 
-/// The pulse the tapped button gathers while the others converge into it: a soft glow at
-/// its centre, and a couple of rings spreading outward and fading - the same "something is
-/// happening here" language the rest of the app uses (the People button's pulse, the glow
-/// around a recognised face), so this reads as one visual system rather than a one-off.
+/// The pulse the tapped button gathers while the others converge into it: a soft glow at its centre and a couple of
+/// rings spreading outward and fading, the same "something is happening here" language the rest of the app uses.
 class _BurstPainter extends CustomPainter {
   _BurstPainter(this.t, this.color);
 
-  final double t; // 0..1
+  /// Progress from 0 to 1.
+  final double t;
   final Color color;
 
   @override
@@ -969,9 +910,8 @@ class _BurstPainter extends CustomPainter {
   bool shouldRepaint(covariant _BurstPainter old) => old.t != t || old.color != color;
 }
 
-/// What the tapped orbit button becomes: a solid, glowing circle carrying just its icon -
-/// no label, since by the time it's grown large it's sitting where the photo was and
-/// speaks for itself.
+/// What the tapped orbit button becomes: a solid, glowing circle carrying just its icon. It has no label because by
+/// the time it has grown it sits where the photo was and speaks for itself.
 class _TravelBadge extends StatelessWidget {
   const _TravelBadge({required this.icon, required this.color});
 
@@ -997,14 +937,10 @@ class _TravelBadge extends StatelessWidget {
   }
 }
 
-/// The explanation, as a speech bubble opening underneath the badge once it's arrived -
-/// the badge is "speaking" it, rather than a boxy alert appearing out of nowhere. Cancel
-/// sends the badge back on its way to the orbit; confirming runs the action once it's gone.
-///
-/// No Center wrapper here - this widget is sized by a CompositedTransformFollower, which
-/// gives it the full overlay's loose-but-finite constraints; Center/Align would expand to
-/// fill those rather than shrink to content the way they would inside a Column. A plain
-/// SizedBox(width: ...) with no height set lets the Stack below size itself to its content.
+/// The explanation, as a speech bubble opening underneath the badge once it has arrived, so the badge seems to speak
+/// it. Cancel sends the badge back to the orbit, and confirming runs the action once it is gone. There is no Center
+/// wrapper because a CompositedTransformFollower gives this widget loose but finite constraints, and Center or Align
+/// would expand to fill them. A SizedBox(width: ...) with no height lets the Stack size itself to its content.
 class _Bubble extends StatelessWidget {
   const _Bubble({
     required this.width,
@@ -1044,7 +980,6 @@ class _Bubble extends StatelessWidget {
               children: [
                 Text(action.title, textAlign: TextAlign.center, style: textTheme.titleSmall),
                 const SizedBox(height: AppSpacing.md),
-                // What it does, shown with this person's own faces and photos.
                 PersonDemo(kind: action.demo, cast: cast),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
@@ -1071,9 +1006,8 @@ class _Bubble extends StatelessWidget {
   }
 }
 
-/// The bubble's background: a rounded rectangle with a small triangular notch at the top,
-/// centre, pointing up at the badge it belongs to - one shape, one shadow, so the notch
-/// never looks stuck on.
+/// The bubble's background: a rounded rectangle with a small triangular notch at the top centre, pointing up at the
+/// badge it belongs to. It is one shape with one shadow, so the notch never looks stuck on.
 class _BubbleShapePainter extends CustomPainter {
   _BubbleShapePainter({required this.radius, required this.tailHeight, required this.tailWidth});
 

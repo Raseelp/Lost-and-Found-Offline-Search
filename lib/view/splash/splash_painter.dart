@@ -26,16 +26,16 @@ class SplashPainter extends CustomPainter {
   /// The screen's pixels per logical pixel, for the picture of the cover that is made once.
   final double devicePixelRatio;
 
-  // The sky behind the tile once the lens is out, as one picture made once (see [_bakeCover]),
-  // so each frame draws one filled shape instead of a clip and five soft circles.
+  /// The sky behind the tile once the lens is out, as one picture made once (see [_bakeCover]), so that each frame
+  /// draws one filled shape instead of a clip and five soft circles.
   ui.Image? _cover;
   ui.ImageShader? _coverShader;
   Size? _coverSize;
 
-  // Set if the picture could not be made (the graphics layer refused): the cover is then drawn live, through a clip.
+  /// Set when the graphics layer refused to make [_cover]. The cover is then drawn live, through a clip.
   bool _coverFailed = false;
 
-  // The gradient of the sky, which only depends on the screen's height.
+  /// The gradient of the sky, which only depends on the screen's height.
   ui.Shader? _skyShader;
   double _skyShaderHeight = 0;
 
@@ -43,7 +43,7 @@ class SplashPainter extends CustomPainter {
   static const Color _white = Color(0xFFFFFFFF);
   static const Color _teal = Color(0xFF165E59);
 
-  // The shaders are in canvas units, so they are made once and work at any scale.
+  /// The shaders are in canvas units, so they are made once and work at any scale.
   static const Rect _canvas = Rect.fromLTWH(0, 0, 108, 108);
   static final ui.Shader _skyOld = ui.Gradient.linear(_canvas.topLeft, _canvas.bottomLeft, const [Color(0xFF4FB8FF), Color(0xFFB9E6FF)], const [0, 0.7]);
   static final ui.Shader _skyNew = ui.Gradient.linear(_canvas.topLeft, _canvas.bottomLeft, const [Color(0xFFFAFBFA), Color(0xFFDCEBE7)], const [0, 0.7]);
@@ -63,7 +63,7 @@ class SplashPainter extends CustomPainter {
     ..lineTo(108, 108)
     ..close();
 
-  // The f and the l, on their own canvas (see [_toLetters]), and the crossbar.
+  /// The f and the l, on their own canvas (see [_toLetters]), and the crossbar.
   static final Path _letters = Path()
     ..moveTo(34, 26)
     ..lineTo(34, 58)
@@ -75,7 +75,7 @@ class SplashPainter extends CustomPainter {
     ..lineTo(70, 53);
   static const Rect _letterBounds = Rect.fromLTRB(24, 18, 88, 84);
 
-  // The two arrows on the slider's handle, around its centre.
+  /// The two arrows on the slider's handle, around its centre.
   static final Path _arrows = Path()
     ..moveTo(-1.1, -1.6)
     ..lineTo(-2.7, 0)
@@ -86,11 +86,11 @@ class SplashPainter extends CustomPainter {
 
   static final RRect _window = RRect.fromLTRBR(18, 18, 90, 90, const Radius.circular(16));
 
-  // The sky behind the icon: pale blue, the sky of the old icon, fading to white by the bottom, with soft white clouds
-  // and fine hill lines drifting across the lower part. Clouds: where (as fractions of the screen), size (on a 360
-  // wide screen), and how strong.
+  /// The sky behind the icon: pale blue fading to white by the bottom, with soft white clouds and fine hill lines
+  /// drifting across the lower part.
   static const List<Color> _skyColours = [Color(0xFFBFE3FF), Color(0xFFE6F4FF), Color(0xFFFFFFFF)];
   static const List<double> _skyStops = [0, 0.5, 0.85];
+  /// Each cloud as where it is (fractions of the screen), its size (on a 360 wide screen) and how strong it is.
   static const List<({double x, double y, double size, double strength})> _clouds = [
     (x: 70 / 360, y: 150 / 780, size: 120, strength: 0.9),
     (x: 290 / 360, y: 260 / 780, size: 140, strength: 0.85),
@@ -98,20 +98,21 @@ class SplashPainter extends CustomPainter {
   ];
   static const Color _lineColour = Color(0xFF2E7FB8);
 
-  // Where the big lens goes, as fractions of the screen: over the top (the search field, the stories), then the
-  // middle (the photos), where it widens from.
+  /// Where the big lens goes, as fractions of the screen: over the top (the search field, the stories), then the
+  /// middle (the photos), where it widens from.
   static const Pt _tripTop = (x: 118 / 360, y: 200 / 780);
   static const Pt _tripMiddle = (x: 252 / 360, y: 440 / 780);
 
-  // The shadow along the letters, drawn once into a picture each (a layer per frame would be wasted work: it
-  // never changes, only the side of the slider it is on).
+  /// The shadow along the letters, drawn once into a picture for each side of the slider. It never changes, so a
+  /// layer per frame would be wasted work.
   static ui.Image? _rimOld;
   static ui.Image? _rimNew;
   static const double _rimScale = 4;
   static const Color _rimOldColour = Color(0x4D0B3B50);
   static const Color _rimNewColour = Color(0x5904201D);
 
-  /// Works out the shared shapes before the animation starts, so that the first frames do not have to.
+  /// Works out the shared shapes before the animation starts, so that the first frames do not have to. Without the
+  /// letters' shadow they are a little flatter, and the splash goes on.
   static void warmUp() {
     _skyOld;
     _skyNew;
@@ -119,7 +120,6 @@ class SplashPainter extends CustomPainter {
       _rimOld ??= _makeRim(_rimOldColour);
       _rimNew ??= _makeRim(_rimNewColour);
     } catch (e) {
-      // Without the shadow the letters are just a little flatter: the splash goes on.
       debugPrint('splash: could not make the letters shadow: $e');
     }
   }
@@ -151,6 +151,11 @@ class SplashPainter extends CustomPainter {
     return image;
   }
 
+  /// Draws the frame for [progress]: the sky with the tile and the icon on it, and once the lens is out, the cover
+  /// with a round hole where the lens is, so the app shows through.
+  /// The hole stays open to the end, or the cover would show again for a moment, so its radius aims well past the
+  /// farthest corner. It is cut at the middle of the ring's stroke, so the ring always covers its edge. The cover
+  /// picture is made by [prepare] while the animation waited, and drawn live in the same shape without one.
   @override
   void paint(Canvas canvas, Size size) {
     final f = SplashFrame(progress.value * SplashTimeline.totalMs);
@@ -158,8 +163,6 @@ class SplashPainter extends CustomPainter {
     final iconPx = _iconPx < size.width * 0.5 ? _iconPx : size.width * 0.5;
     final unit = iconPx / 72;
 
-    // The big lens, once it is out of the tile: where it is and how big. This goes on after its ring has faded
-    // out (the hole it makes in the cover must stay open to the end, or the cover would show again for a moment).
     Offset? lensAt;
     var lensR = 0.0;
     if (f.t >= SplashTimeline.lensStartMs) {
@@ -168,19 +171,15 @@ class SplashPainter extends CustomPainter {
       final open = at(_tripMiddle);
       final p = tripAt(f.trip, [start, at(_tripTop), open]);
       lensAt = Offset(p.x, p.y);
-      // Wide enough, at the end, to take in the farthest corner from where it widens.
       final reach = [(0.0, 0.0), (size.width, 0.0), (0.0, size.height), (size.width, size.height)]
           .map((c) => math.sqrt(math.pow(c.$1 - open.x, 2) + math.pow(c.$2 - open.y, 2)))
           .reduce(math.max);
-      // It aims well past that, so the hole has taken in every corner some frames before the end and stays open.
       lensR = lerp(lerp(12.5 * unit, 30.6 * unit, f.lensGrow), reach * 1.5 + 8 * unit, f.widen);
     }
 
-    // Normally made already, while the animation waited (see [prepare]); this is only for when it was not.
     final amb = _ambientT;
     if (f.t >= SplashTimeline.coverBakedMs && !_coverFailed && (_cover == null || _coverSize != size)) _bakeCover(size, amb);
     if (f.t < SplashTimeline.coverBakedMs) {
-      // The sky with the tile on it, drawn live (this is all there is until the lens is out).
       _background(canvas, size, amb);
       if (f.iconOpacity > 0) {
         canvas.save();
@@ -194,8 +193,6 @@ class SplashPainter extends CustomPainter {
         canvas.restore();
       }
     } else {
-      // The same picture, drawn as the whole screen with a round hole in it where the lens is: the app shows
-      // through the hole. The hole is cut at the middle of the ring's stroke, so the ring always covers its edge.
       final path = Path()
         ..fillType = PathFillType.evenOdd
         ..addRect(Offset.zero & size);
@@ -205,7 +202,6 @@ class SplashPainter extends CustomPainter {
       if (shader != null) {
         canvas.drawPath(path, Paint()..shader = shader);
       } else {
-        // No picture to draw from: the same cover, drawn live inside the same shape.
         canvas.save();
         canvas.clipPath(path);
         _background(canvas, size, amb);
@@ -225,8 +221,7 @@ class SplashPainter extends CustomPainter {
     _bakeCover(size, _ambientT + until);
   }
 
-  /// Draws the sky as it is at [ambientT] into one picture, the size
-  /// of the screen in pixels.
+  /// Draws the sky as it is at [ambientT] into one picture, the size of the screen in pixels.
   void _bakeCover(Size size, double ambientT) {
     _releaseCover();
     try {
@@ -265,17 +260,18 @@ class SplashPainter extends CustomPainter {
     _rimNew = null;
   }
 
-  /// Everything behind the tile at time [t]: white, the sky, the clouds and the hill lines.
+  /// Everything behind the tile at time [t]: white, the sky, the clouds and the seven fine hill lines.
+  ///
+  /// The sky fades in from the white the system showed before. The lines keep their shape on a wide screen (a phone
+  /// on its side) instead of tangling.
   void _background(Canvas canvas, Size size, double t) {
     final scale = size.width / 360;
     final sy = size.height / 780;
-    // The lines keep their shape on a wide screen (a phone on its side) instead of tangling.
     final fine = math.min(scale, sy);
     final fade = seg(t, 0, 600);
     canvas.drawRect(Offset.zero & size, Paint()..color = _white);
     if (fade <= 0) return;
 
-    // The sky fades in from the white the system showed before.
     canvas.drawRect(
       Offset.zero & size,
       Paint()..shader = _skyFor(size.height),
@@ -297,7 +293,6 @@ class SplashPainter extends CustomPainter {
       );
     }
 
-    // Seven fine hill lines.
     final lines = seg(t, 0, 700);
     for (var i = 0; i < 7; i++) {
       final base = (470 + i * 42) * sy;
@@ -337,18 +332,19 @@ class SplashPainter extends CustomPainter {
     canvas.drawLine(from, from + Offset(r * 0.62 * k, r * 0.62 * k), paint);
   }
 
+  /// The icon on its 108 unit canvas. The old look is on the right of the slider and the new look on the left: the
+  /// sky and hills, then the letters (white on the old side, teal on the new), then the slider with its round handle
+  /// and two small arrows.
   void _icon(Canvas canvas, SplashFrame f) {
     final split = f.splitX;
     canvas.save();
     canvas.clipRRect(_window);
 
-    // Sky and hills: the old look on the right of the slider, the new on the left.
     canvas.drawRect(_canvas, Paint()..shader = _skyOld);
     _newSide(canvas, split, () => canvas.drawRect(_canvas, Paint()..shader = _skyNew));
     _hill(canvas, _hill1, split, const Color(0xFF46B37B), const Color(0xFFA9D6CE));
     _hill(canvas, _hill2, split, const Color(0xFF2E8E5E), const Color(0xFF6FB8AC));
 
-    // The letters: white on the old side, teal on the new.
     void letters(Color colour) {
       canvas.save();
       _toLetters(canvas);
@@ -360,7 +356,6 @@ class SplashPainter extends CustomPainter {
     _newSide(canvas, split, () => letters(_teal));
     _rim(canvas, split);
 
-    // The slider: its line, and the round handle with two small arrows.
     if (f.lineOpacity > 0) {
       canvas.drawRect(Rect.fromLTWH(split - 0.8, 0, 1.6, 108), Paint()..color = _white.withValues(alpha: f.lineOpacity));
       canvas.save();
@@ -398,7 +393,7 @@ class SplashPainter extends CustomPainter {
 
   void _toLetters(Canvas canvas) => _toLettersOn(canvas);
 
-  /// translate(54 54) scale(0.72) translate(-52 -52): how the letters sit on the icon.
+  /// Puts the letters on the icon: moved to its middle, scaled to 0.72 and moved back by 52.
   static void _toLettersOn(Canvas canvas) {
     canvas.translate(54, 54);
     canvas.scale(0.72);

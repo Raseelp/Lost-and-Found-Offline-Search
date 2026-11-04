@@ -6,6 +6,7 @@ Thanks for helping. Bug reports, ideas and pull requests are all welcome.
 
 - For anything bigger than a small fix, open an issue first so we can agree on the approach.
 - Keep each pull request to one change, and describe what it does and how you tested it.
+- Write comments as described in [docs/comments.md](docs/comments.md).
 - Run `flutter analyze` and the Kotlin unit tests (`cd android && ./gradlew :app:testDebugUnitTest`)
   before you open it.
 

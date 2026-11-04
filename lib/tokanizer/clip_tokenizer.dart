@@ -14,9 +14,9 @@ class ClipTokenizer {
 
   ClipTokenizer._(this.vocab, this.bpe);
 
-  // Loaded once per app session; vocab/merges never change at runtime.
   static Future<ClipTokenizer>? _cached;
 
+  /// Returns the tokenizer, loading the vocabulary and merges only once per app session.
   static Future<ClipTokenizer> load() {
     return _cached ??= _loadUncached();
   }
@@ -57,9 +57,11 @@ class ClipTokenizer {
     return text.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
+  /// Splits [text] with the pattern of open_clip's SimpleTokenizer.
+  ///
+  /// A word does not take the space before it, and a number is cut into single digits. The GPT-2 pattern would make
+  /// every space a token of its own.
   Iterable<String> _splitWords(String text) {
-    // CLIP's own pattern (open_clip's SimpleTokenizer): a word does not take the space before it along - that is
-    // GPT-2's pattern, and with it every space became a token of its own - and a number is cut into single digits.
     final regex = RegExp(
       r"""'s|'t|'re|'ve|'m|'ll|'d|\p{L}+|\p{N}|[^\s\p{L}\p{N}]+""",
       unicode: true,
@@ -68,9 +70,10 @@ class ClipTokenizer {
     return regex.allMatches(text).map((m) => m.group(0)!);
   }
 
+  /// Pads [tokens] with zeros to [maxLength]. A text that is too long is cut and still ends with [endToken], as in
+  /// the model's own tokenizer.
   List<int> _padOrTruncate(List<int> tokens) {
     if (tokens.length > maxLength) {
-      // A text that is too long is cut, and still ends with the end token (as the model's tokenizer does).
       return [...tokens.sublist(0, maxLength - 1), endToken];
     }
 

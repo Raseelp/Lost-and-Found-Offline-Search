@@ -4,8 +4,10 @@ import java.io.File
 import java.util.Random
 import org.junit.Test
 
-// Writes zips with ZipPartWriter (plain and zip64) for a few awkward sizes, with the files they
-// should hold beside them, for a tool outside the JVM to check (see the build's zip-test folder).
+/**
+ * Writes zips with ZipPartWriter (plain and zip64) for a few awkward sizes, with the files they
+ * should hold beside them, for a tool outside the JVM to check (see the build's zip-test folder).
+ */
 class ZipPartWriterTest {
     @Test
     fun writesZips() {

@@ -11,8 +11,8 @@ class PrivatePage extends StatelessWidget {
 
   final TourPageScope scope;
 
-  // The least height the film is drawn in; with very large text there is hardly any room left under the title, and
-  // the film then keeps its size and scrolls.
+  /// The least height the film is drawn in. With very large text there is hardly any room left under the title, so
+  /// the film keeps this size and scrolls.
   static const double _leastFilm = 380;
 
   @override

@@ -3,18 +3,17 @@ import 'package:lost_and_found/utils/app_colors.dart';
 import 'package:lost_and_found/utils/app_radius.dart';
 import 'package:lost_and_found/utils/app_spacing.dart';
 
-/// A centered confirm dialog for irreversible actions - no shadow, a
-/// hairline divider above the button row, canvas background. Used instead
-/// of the platform AlertDialog chrome so every confirm in the app looks
-/// the same.
+/// A centred confirm dialog for irreversible actions, with no shadow, a hairline divider above the button row and a
+/// canvas background. It replaces the platform AlertDialog so every confirm in the app looks the same.
+///
+/// [confirmColor] is red for something hard to undo or worth a pause, and the app's own colour for a plain check
+/// before going ahead.
 Future<void> showConfirmDialog(
   BuildContext context, {
   required String title,
   required String message,
   required String confirmLabel,
   required VoidCallback onConfirm,
-  // Red for something hard to undo or worth a pause on; the app's own colour for a
-  // plain "here's what happens next, go ahead?" check.
   Color confirmColor = AppColors.danger,
 }) async {
   final confirmed = await showDialog<bool>(

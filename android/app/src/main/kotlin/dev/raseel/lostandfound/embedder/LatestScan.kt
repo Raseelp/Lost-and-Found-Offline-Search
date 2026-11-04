@@ -6,16 +6,9 @@ import java.io.File
 
 /**
  * The items the latest indexing scan stored, so the app can tag them as new.
- *
- * A scan collects the items it stores as it goes ([add]) and, when it ends (it ran to its end,
- * or the user stopped it), they become the latest scan's items ([finish]). A scan that stored
- * nothing leaves the previous ones alone. The app takes them once with [take]; after that they
- * are gone from here, so opening the app from scratch later shows no tags.
- *
- * The scan runs in the background and may end while the app is closed (or may be restarted by
- * the system part-way), so the items are also kept in two small files in the app's own storage:
- * the ones of the scan still running (so a restarted scan carries on with the same list) and the
- * finished ones until the app has taken them.
+ * A scan collects its items with [add], and [finish] makes them the latest scan's items. A scan that stored nothing
+ * leaves the previous ones alone. The app takes them once with [take]. They are also kept in two small files, because
+ * the scan may end while the app is closed or be restarted by the system.
  */
 object LatestScan {
     private const val TAG = "LatestScan"
@@ -24,13 +17,12 @@ object LatestScan {
 
     private val lock = Any()
 
-    // Guarded by [lock]: the running scan's items, the ones not yet in its file, and the
-    // finished items waiting for the app to take them.
+    /** The running scan's items, the ones not yet in its file, and the finished items waiting to be taken. All guarded by [lock]. */
     private val keys = LinkedHashSet<String>()
     private val unwritten = ArrayList<String>()
     private var ready: List<String>? = null
 
-    /** A scan starts. [resume]: the system restarted it, so it carries on with the same items. */
+    /** A scan starts. [resume] is true when the system restarted it, so it carries on with the same items. */
     fun begin(context: Context, resume: Boolean): Unit = synchronized(lock) {
         keys.clear()
         unwritten.clear()
@@ -46,10 +38,9 @@ object LatestScan {
         }
     }
 
-    /** Items the scan has just stored. */
+    /** Items the scan has just stored. The files hold one item per line, so one with a line break is skipped. */
     fun add(uris: Collection<String>): Unit = synchronized(lock) {
         for (uri in uris) {
-            // A line per item; a name with a line break in it cannot be kept, and cannot be a uri.
             if (uri.isEmpty() || uri.indexOf('\n') >= 0) continue
             if (keys.add(uri)) unwritten.add(uri)
         }
@@ -66,7 +57,7 @@ object LatestScan {
         }
     }
 
-    /** The scan has ended: what it stored is now the latest scan's items (if it stored any). */
+    /** The scan has ended. What it stored, if anything, becomes the latest scan's items. */
     fun finish(context: Context): Unit = synchronized(lock) {
         val running = File(context.filesDir, RUNNING_FILE)
         if (keys.isEmpty()) {
@@ -89,7 +80,7 @@ object LatestScan {
         running.delete()
     }
 
-    /** The latest scan's items, if the app has not taken them yet; they are not kept after this. */
+    /** The latest scan's items, if the app has not taken them yet. They are not kept after this. */
     fun take(context: Context): List<String> = synchronized(lock) {
         val file = File(context.filesDir, READY_FILE)
         val list = ready ?: try {

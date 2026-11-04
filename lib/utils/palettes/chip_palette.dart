@@ -2,9 +2,9 @@ import 'package:flutter/painting.dart';
 
 /// The colours of the scanning chip drawn on the Library tab: the board, the die, the pins.
 ///
-/// Named by hue and lightness (a higher number is darker; an `A` and a number is how opaque it is).
-/// Everything here belongs to a picture that is drawn in code, so it does not follow the theme in
-/// AppColors - which is for the screens themselves.
+/// Named by hue and lightness (a higher number is darker; an `A` and a number is how opaque it is). Everything here
+/// belongs to a picture that is drawn in code, so it does not follow the theme in AppColors, which is for the
+/// screens themselves.
 class ChipPalette {
   ChipPalette._();
 

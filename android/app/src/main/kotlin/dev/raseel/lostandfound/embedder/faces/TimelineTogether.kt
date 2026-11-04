@@ -1,8 +1,8 @@
 package dev.raseel.lostandfound.embedder.faces
 
 /**
- * Who each person is photographed with most, and when they first were - for the timeline's
- * "first photo together" moment.
+ * Who each person is photographed with most, and when they first were, for the timeline's "first photo together"
+ * moment.
  */
 object TimelineTogether {
     /**
@@ -80,10 +80,10 @@ object TimelineTogether {
     private const val DAY_MS = 86_400_000L
 
     /**
-     * A reunion: a photo of [minPeople] to [maxPeople] people where none of the pairs among them has been
-     * photographed together for [gapDays] days, and at least two of the pairs were together before that
-     * (so it is people coming back together, not people meeting). At most one a [spacingDays] stretch,
-     * the one with the most people (then the longest time apart) winning.
+     * A reunion: a photo of [minPeople] to [maxPeople] people where no pair among them has been photographed together
+     * for [gapDays] days, and at least two pairs were together before that. At most one a [spacingDays] stretch, the
+     * one with the most people (then the longest time apart) winning. A day's photos only count towards the
+     * last-together times once the day is over, so its best photo can win.
      */
     fun reunions(
         media: List<Item>,
@@ -94,8 +94,6 @@ object TimelineTogether {
     ): List<Reunion> {
         val last = HashMap<kotlin.Pair<Long, Long>, Long>()
         val found = ArrayList<Reunion>()
-        // What a day's photos add to [last] waits until the day is over: all the photos of a get-together
-        // are measured against the time before it, so its best photo can win, not only its first.
         val today = ArrayList<kotlin.Pair<kotlin.Pair<Long, Long>, Long>>()
         var day = Long.MIN_VALUE
         for (m in media.sortedBy { it.ms }) {
@@ -130,7 +128,6 @@ object TimelineTogether {
             }
             for (key in pairs) today += key to m.ms
         }
-        // The best of each stretch.
         val chosen = ArrayList<Reunion>()
         for (r in found.sortedWith(compareByDescending<Reunion> { it.people.size }.thenByDescending { it.gapDays })) {
             if (chosen.none { Math.abs(it.ms - r.ms) < spacingDays * DAY_MS }) chosen += r

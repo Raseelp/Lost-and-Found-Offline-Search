@@ -1,11 +1,9 @@
 package dev.raseel.lostandfound.embedder.faces
 
 /**
- * Which photos and videos stand for a month on the People timeline's filmstrip.
- *
- * Every month gets a few: the ones with the clearest faces, and the most people in them, so a group
- * photo beats a single close-up. Shots taken almost together (a burst) count once, so the strip
- * does not show the same moment four times.
+ * Which photos and videos stand for a month on the People timeline's filmstrip. Each month gets those with the
+ * clearest faces and the most people, so a group photo beats a single close-up. Shots taken almost together count
+ * once.
  */
 object TimelinePicks {
     class Candidate(
@@ -14,7 +12,6 @@ object TimelinePicks {
         val isVideo: Boolean,
         /** Where in a video the best face is (0 for a photo). */
         val tsMs: Long,
-        /** When it was taken. */
         val takenMs: Long,
         /** Higher is better. */
         val score: Float,

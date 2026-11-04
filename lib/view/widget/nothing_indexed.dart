@@ -22,15 +22,11 @@ void goToLibrary(BuildContext context) {
 /// Where [NothingIndexed] is shown: each place has its own picture of what it will hold.
 enum NothingIndexedPlace { search, collections, faces, export }
 
-/// What a screen shows when nothing has been indexed yet: a small picture of what the screen will hold, made of the
-/// tour's sample photos (bundled, CC0) since there is nothing of the person's own to show yet, then a line about it
-/// and a button that starts indexing (as the Library's chip does) and goes to the Library to show it. The picture is
-/// kept small: it shows the way, the screen is not about it.
-///
-/// On Search, example searches take turns and the photos move into the order of how well they match, the best first
-/// and biggest (the tour's search, page 2); on Collections, the tiles get their covers and names; on Faces, people
-/// show as the People tab shows them, a stack of faces each, some still to be named; on the zip export, the list gets
-/// its rows and two are chosen. With animations turned off they show filled in, still.
+/// What a screen shows when nothing has been indexed: a small picture of what the screen will hold, made of the tour's
+/// sample photos (bundled, CC0) since there is nothing of the person's own, a line about it, and a button that starts
+/// indexing (as the Library's chip does) and goes to the Library.
+/// The picture stays small, at most 260 wide or about two thirds of a phone's width, because it shows the way and the
+/// screen is not about it. With animations turned off it shows filled in, still.
 class NothingIndexed extends StatelessWidget {
   const NothingIndexed({super.key, required this.place});
 
@@ -62,7 +58,6 @@ class NothingIndexed extends StatelessWidget {
         ExcludeSemantics(
           child: Center(
             child: ConstrainedBox(
-              // A way in, not the screen itself: kept to about two thirds of a phone's width.
               constraints: const BoxConstraints(maxWidth: 260),
               child: switch (place) {
                 NothingIndexedPlace.search => const _SearchDemo(),
@@ -89,7 +84,6 @@ class NothingIndexed extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.base),
-        // The scan starts here, as from the Library's chip, and the Library comes up to show it.
         FilledButton(
           onPressed: () {
             final native = Get.find<NativeController>();
@@ -104,7 +98,6 @@ class NothingIndexed extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // The scan chip, small: the same thing that starts the scan in the Library.
               Container(
                 width: 34,
                 height: 34,
@@ -134,7 +127,7 @@ class NothingIndexed extends StatelessWidget {
   }
 }
 
-// The tour's sample pictures the demos are made of.
+/// The asset of a sample picture of the tour, which the demos are made of.
 String _photo(String id) => 'assets/tour/photos/$id.jpg';
 String _face(String id) => 'assets/tour/faces/$id.jpg';
 
@@ -238,8 +231,6 @@ Widget _cover(String asset, {int width = 320}) => Image.asset(
   errorBuilder: (_, _, _) => const SizedBox.shrink(),
 );
 
-// ---- Search: example searches take turns, and the photos move into the order of how well they match ----
-
 class _SearchDemo extends StatefulWidget {
   const _SearchDemo();
 
@@ -251,7 +242,7 @@ class _SearchDemoState extends State<_SearchDemo>
     with TickerProviderStateMixin, _Loop {
   static const int _shown = 7;
 
-  // The tour's searches, worked out ahead of time (nothing is searched here).
+  /// The tour's searches, worked out ahead of time, since nothing is searched here.
   static final List<SampleQuery> _queries = [
     for (final text in const [
       'a dog on a beach',
@@ -262,7 +253,7 @@ class _SearchDemoState extends State<_SearchDemo>
       kSampleQueries.firstWhere((q) => q.text == text),
   ];
 
-  // The photos that take part (the "@" search's person is not among them).
+  /// The photos that take part. The person of the "@" search is not among them.
   static final List<SamplePhoto> _photos = [
     for (final p in kSamplePhotos)
       if (!p.id.startsWith('messi')) p,
@@ -274,7 +265,7 @@ class _SearchDemoState extends State<_SearchDemo>
   @override
   bool get shimmers => false;
 
-  // Which example is showing: built again only when it changes (the photos move by themselves).
+  /// Which example is showing. The demo is built again only when it changes, because the photos move by themselves.
   int _turn = 0;
 
   @override
@@ -351,7 +342,7 @@ class _SearchDemoState extends State<_SearchDemo>
     );
   }
 
-  // A photo in its place for the search: the best match first and biggest, as the tour's search lays them out.
+  /// A photo in its place for the search, the best match first and biggest, as the tour's search lays them out.
   Widget _tile(SamplePhoto photo, int rank, List<Rect> rects, Size area) {
     final visible = rank >= 0 && rank < _shown;
     final rect = visible
@@ -428,8 +419,6 @@ class _ExampleChip extends StatelessWidget {
     );
   }
 }
-
-// ---- Collections: the tiles get their covers and names, one after another ----
 
 class _CollectionsDemo extends StatefulWidget {
   const _CollectionsDemo();
@@ -537,12 +526,10 @@ class _CollectionsDemoState extends State<_CollectionsDemo>
   }
 }
 
-// ---- Faces: people as the People tab shows them, some still to be named ----
-
 class _FacesDemo extends StatelessWidget {
   const _FacesDemo();
 
-  // Who is shown (no name: still to be named), their faces (the cover first), and the lean of their stack.
+  /// Who is shown (an empty name is still to be named), their faces (the cover first) and the lean of their stack.
   static const List<(String, List<String>, double)> _people = [
     ('Maya', ['maya', 'maya_2', 'maya_3'], -4.4),
     ('Sam', ['sam', 'sam_2', 'sam_3'], 3.0),
@@ -580,8 +567,6 @@ class _FacesDemo extends StatelessWidget {
   }
 }
 
-// ---- The zip export: the list gets its rows, and two of them are chosen ----
-
 class _ExportDemo extends StatefulWidget {
   const _ExportDemo();
 
@@ -591,7 +576,7 @@ class _ExportDemo extends StatefulWidget {
 
 class _ExportDemoState extends State<_ExportDemo>
     with TickerProviderStateMixin, _Loop {
-  // What each of the first three rows holds, and whether it gets chosen.
+  /// What each of the first three rows holds, and whether it gets chosen.
   static final List<(String, String, String, bool)> _rows = [
     ('Beach', 'Collection', _photo('friends_beach'), true),
     ('Maya', 'Person', _face('maya'), true),
