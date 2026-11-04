@@ -54,9 +54,10 @@ Dart tests in `test/`, for example stopping a scan (`stop_indexing_test.dart`).
 
 The sources are in `design/app-icon/`: `icon.svg` (the whole icon, used for the older square icons and the
 Play Store image) and the three layers of Android's adaptive icon, on a 108 unit canvas: `background.svg` (the
-landscape, filling the canvas edge to edge), `foreground.svg` (the carved lf, kept inside the 66 unit safe area
-so no launcher shape cuts it) and `monochrome.svg` (the lf alone, which Android 13 and later draw when themed
-icons are on). `res/mipmap-anydpi-v26/ic_launcher.xml` puts them together. To change the icon, edit the SVGs
+landscape, filling the canvas edge to edge, split in two: the app's own colours on the left and the earlier blue
+and green on the right), `foreground.svg` (the carved lf, teal on the left and white on the right, with the white
+slider line and its round handle; the lf and the handle are kept inside the 66 unit safe area so no launcher shape
+cuts them) and `monochrome.svg` (the lf alone, which Android 13 and later draw when themed icons are on). `res/mipmap-anydpi-v26/ic_launcher.xml` puts them together. To change the icon, edit the SVGs
 and render the PNGs again with `render.js`: `ic_launcher.png` at 48, 72, 96, 144 and 192 px and the three
 layers at 108, 162, 216, 324 and 432 px (mdpi to xxxhdpi).
 
