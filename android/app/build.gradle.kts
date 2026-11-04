@@ -73,14 +73,16 @@ android {
     signingConfigs {
         create("release") {
             val keystorePropertiesFile = rootProject.file("key.properties")
-            val keystoreProperties = Properties().apply {
-                load(FileInputStream(keystorePropertiesFile))
-            }
+            if (keystorePropertiesFile.exists()) {
+                val keystoreProperties = Properties().apply {
+                    load(FileInputStream(keystorePropertiesFile))
+                }
 
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
         }
     }
 
@@ -94,8 +96,8 @@ android {
         release {
             signingConfig = signingConfigs.getByName("release")
 
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -108,8 +110,10 @@ android {
         create("preview") {
             initWith(getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
-            // Nothing is shrunk (as in release), so no ProGuard files: and the copy of this build type that Flutter
+            // Nothing is shrunk, so no ProGuard files: and the copy of this build type that Flutter
             // gives each plugin must not point at the app's own.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles.clear()
             // The plugins have no build type of this name: they are built as for release.
             matchingFallbacks += listOf("release")

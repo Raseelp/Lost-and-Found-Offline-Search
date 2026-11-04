@@ -21,6 +21,10 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Lets Android 16 show the scan's progress as a live update, with a chip in the status bar
+         (see ScanNotification). Ignored by older versions. -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS"/>
     <!-- Keeps a scan alive in the background: a visible notification while
          indexing runs, so the OS (and battery-happy OEM task killers) don't
          treat the app as idle and kill it mid-scan. specialUse, not
@@ -35,10 +39,6 @@
          rejection and is what this app used successfully before this
          WorkManager migration - see PROPERTY_SPECIAL_USE_FGS_SUBTYPE below
          for the justification Play review will want. -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <!-- Lets Android 16 show the scan's progress as a live update, with a chip in the status bar
-         (see ScanNotification). Ignored by older versions. -->
-    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <!-- Keeps the CPU from suspending mid-scan once the screen turns off -
