@@ -42,6 +42,7 @@ import dev.raseel.lostandfound.embedder.faces.FaceServices
 import dev.raseel.lostandfound.embedder.faces.PhotoScanProgress
 import dev.raseel.lostandfound.embedder.faces.FaceTuner
 import dev.raseel.lostandfound.embedder.faces.FaceSettings
+import dev.raseel.lostandfound.embedder.memories.IndexNudge
 import dev.raseel.lostandfound.embedder.memories.LibraryDates
 import dev.raseel.lostandfound.embedder.memories.MemoryDay
 import dev.raseel.lostandfound.embedder.memories.MemoryDays
@@ -76,6 +77,10 @@ class MainActivity : FlutterActivity() {
     // The home tab a tapped notification wants shown, not yet taken by the app (takeOpenTab); -1: none.
     @Volatile
     private var openTab = -1
+
+    // The "Index now" button of the finish-indexing note was pressed, not yet taken by the app (takeIndexNow).
+    @Volatile
+    private var indexNow = false
 
     private val CHANNEL = "lostandfound/native"
     private val PROGRESS_CHANNEL = "lostandfound/progress"
@@ -218,6 +223,12 @@ class MainActivity : FlutterActivity() {
         noteTabTap(intent)
     }
 
+    override fun onStop() {
+        super.onStop()
+        // The app is left: the "finish indexing" note is set for a few days from now (it only comes if the library is not all indexed then).
+        try { IndexNudge.arm(applicationContext) } catch (_: Exception) {}
+    }
+
     override fun onResume() {
         super.onResume()
         // The app is in use: the stories notes that went unanswered no longer count.
@@ -228,6 +239,10 @@ class MainActivity : FlutterActivity() {
         when (intent?.action) {
             ACTION_OPEN_LIBRARY -> openTab = TAB_LIBRARY
             ACTION_OPEN_STORIES -> openTab = TAB_SEARCH
+            IndexNudge.ACTION_INDEX_NOW -> {
+                openTab = TAB_LIBRARY
+                indexNow = true
+            }
         }
     }
 
@@ -1348,6 +1363,19 @@ class MainActivity : FlutterActivity() {
                 "takeOpenTab" -> {
                     result.success(openTab)
                     openTab = -1
+                }
+
+                // The finish-indexing note: on or off, and whether "Index now" was pressed since last asked (taken once).
+                "getIndexNudge" -> result.success(IndexNudge.enabled(applicationContext))
+
+                "setIndexNudge" -> {
+                    IndexNudge.setEnabled(applicationContext, call.argument<Boolean>("enabled") ?: true)
+                    result.success(true)
+                }
+
+                "takeIndexNow" -> {
+                    result.success(indexNow)
+                    indexNow = false
                 }
 
                 // The memory a tapped notification wants opened (taken once), or null.

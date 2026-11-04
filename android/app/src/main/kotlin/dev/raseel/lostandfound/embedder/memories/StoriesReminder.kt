@@ -61,6 +61,9 @@ object StoriesReminder {
 
     fun enabled(context: Context): Boolean = prefs(context).getBoolean("reminder", true)
 
+    /** Whether a stories note went out on [today] (a day number, see [MemoryDays.dayNumber]). */
+    fun postedToday(context: Context, today: Int): Boolean = prefs(context).getInt("last_post_day", -1) == today
+
     /** Who the rings in the note will be (see [StoryPreview.parse]), as the app last said. */
     fun setRings(context: Context, json: String?) {
         prefs(context).edit().putString("reminder_rings", json).apply()
@@ -101,7 +104,9 @@ object StoriesReminder {
         val now = System.currentTimeMillis()
         val today = MemoryDays.dayNumber(now)
         val memories = MemoryPrefs(app)
-        val memoryToday = memories.enabled && Slot.entries.any { memories.lastDay(it) == today }
+        // A day the "finish indexing" note went out counts like a day a memory did: this note waits for the next.
+        val memoryToday = (memories.enabled && Slot.entries.any { memories.lastDay(it) == today }) ||
+            IndexNudge.postedToday(app, today)
         val skips = p.getInt("memory_skips", 0)
         val lastPostDay = p.getInt("last_post_day", -1)
         if (shouldWait(lastPostDay, today, memoryToday, skips)) {

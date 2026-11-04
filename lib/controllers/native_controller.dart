@@ -38,6 +38,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     await _loadPersistedPreferences();
     unawaited(_loadBenchLogs());
+    unawaited(_loadIndexNudge());
     await checkModelsReady();
     await getAllFoldersList();
     await refreshLibraryStats();
@@ -1449,6 +1450,38 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     benchLogsEnabled = value;
     update();
     await NativeServices().setBenchLogsEnabled(value);
+  }
+
+  // The note that asks to finish indexing (see IndexNudge): on until turned off. The switch lives natively, where
+  // the note is made; this mirrors it.
+  bool indexNudgeEnabled = true;
+
+  Future<void> _loadIndexNudge() async {
+    try {
+      indexNudgeEnabled = await NativeServices().indexNudgeEnabled();
+      update();
+    } catch (_) {
+      // Stays on, the default.
+    }
+  }
+
+  /// Turns the note on or off. Turning it on asks for the notification permission (Android 13 and later) and
+  /// stays off if it is refused. Returns whether it is on now.
+  Future<bool> setIndexNudgeEnabled(bool on) async {
+    if (on) {
+      final allowed = await askPermission(
+        AppPermission.notifications,
+        purpose: 'remind you to finish indexing your photos',
+      );
+      if (!allowed) {
+        await _loadIndexNudge();
+        return indexNudgeEnabled;
+      }
+    }
+    indexNudgeEnabled = on;
+    update();
+    await NativeServices().setIndexNudgeEnabled(on);
+    return on;
   }
 
   Future<void> clearAllEmbeddings() async {

@@ -30,6 +30,11 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
 
 - A preview build (`.preview`): runs at release speed but installs next to the app in use, with its
   own data. See `docs/development.md`.
+- A note that asks you to finish indexing, when less than nine tenths of the photos and videos on the phone are in
+  the search index. It says what is waiting (how many photos and videos) and what you are missing: how much can be
+  searched, more of someone you know, photos of this day, or what search can see. It comes three days after you last
+  used the app, then 7 and 14 days later if unanswered, and then no more. It makes no sound, and its Index now
+  button opens the Library and starts the scan. It can be turned off in Settings.
 - A Copy logs button in Settings > Diagnostics, under Performance logs. It copies the app's recent log,
   with the app, Android and phone details on top, to paste into a bug report. The log can contain photo
   file addresses.

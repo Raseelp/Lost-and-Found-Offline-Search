@@ -112,6 +112,16 @@ class LibraryDates private constructor(context: Context) : SQLiteOpenHelper(cont
     private fun count(db: SQLiteDatabase): Int =
         db.rawQuery("SELECT COUNT(*) FROM days", null).use { it.moveToFirst(); it.getInt(0) }
 
+    /** How many photos and how many videos the catalog holds. */
+    fun kindCounts(): Pair<Int, Int> {
+        var photos = 0
+        var videos = 0
+        readableDatabase.rawQuery("SELECT video, COUNT(*) FROM days GROUP BY video", null).use {
+            while (it.moveToNext()) if (it.getInt(0) == 0) photos = it.getInt(1) else videos = it.getInt(1)
+        }
+        return photos to videos
+    }
+
     /** Files in the catalog, and how many of them have no date looked up yet. */
     fun progress(): Pair<Int, Int> {
         val db = readableDatabase

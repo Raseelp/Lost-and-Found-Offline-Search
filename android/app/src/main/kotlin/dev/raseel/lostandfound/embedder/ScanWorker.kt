@@ -44,7 +44,14 @@ class ScanWorker(
         // mean the scan the user just started has finished) is dropped.
         val thisRun = latestRun.incrementAndGet()
         ScanEngineHolder.embeddingEngine(applicationContext).cancelEmbedding()
-        return scanMutex.withLock { runScan(thisRun) }
+        return scanMutex.withLock {
+            running.incrementAndGet()
+            try {
+                runScan(thisRun)
+            } finally {
+                running.decrementAndGet()
+            }
+        }
     }
 
     private suspend fun runScan(thisRun: Int): Result {
@@ -186,6 +193,8 @@ class ScanWorker(
             // makes the list final (a second time does nothing).
             if (isStopped) LatestScan.flush(applicationContext) else LatestScan.finish(applicationContext)
             ScanForegroundService.onScanEnded(applicationContext)
+            // However it ended, the "finish indexing" note is set again from now (what is true is looked at when it is due).
+            try { dev.raseel.lostandfound.embedder.memories.IndexNudge.arm(applicationContext) } catch (_: Exception) {}
         }
     }
 
@@ -220,5 +229,11 @@ class ScanWorker(
 
         // Counts the scans asked for; only the latest one reports progress.
         private val latestRun = java.util.concurrent.atomic.AtomicInteger(0)
+
+        // How many scans are being run right now (one, or two while a replaced one winds down).
+        private val running = java.util.concurrent.atomic.AtomicInteger(0)
+
+        /** Whether an indexing scan is running in this process. */
+        fun isRunning(): Boolean = running.get() > 0
     }
 }

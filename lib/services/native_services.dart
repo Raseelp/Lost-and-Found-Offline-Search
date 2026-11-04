@@ -626,6 +626,17 @@ class NativeServices {
     return tab < 0 ? null : tab;
   }
 
+  /// The note that asks to finish indexing: whether it is on (it is, until turned off).
+  Future<bool> indexNudgeEnabled() async =>
+      await _channel.invokeMethod<bool>('getIndexNudge') ?? true;
+
+  Future<void> setIndexNudgeEnabled(bool value) =>
+      _channel.invokeMethod('setIndexNudge', {'enabled': value});
+
+  /// Whether "Index now" on that note was pressed since this was last asked (taken once).
+  Future<bool> takeIndexNow() async =>
+      await _channel.invokeMethod<bool>('takeIndexNow') ?? false;
+
   /// The memory a tapped notification wants opened (taken once): its kind and year, or null.
   Future<({String kind, int year, int personId})?> takeLaunchMemory() async {
     final map = await _channel.invokeMapMethod<String, dynamic>(

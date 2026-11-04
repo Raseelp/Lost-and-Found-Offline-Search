@@ -1121,6 +1121,20 @@ class _MemoriesSection extends StatelessWidget {
                     ),
                   ),
                 ),
+                GetBuilder<NativeController>(
+                  builder: (native) => _SettingsRow(
+                    icon: Icons.manage_search_rounded,
+                    title: 'Finish indexing reminder',
+                    subtitle: 'A note, up to three, if some of your photos and videos are not indexed yet. It shows what you are missing.',
+                    trailing: Switch(
+                      // On only if the phone lets the app show notes at all (else it could not come).
+                      value: native.indexNudgeEnabled && native.backgroundNotificationsGranted,
+                      onChanged: (on) async {
+                        await native.setIndexNudgeEnabled(on);
+                      },
+                    ),
+                  ),
+                ),
                 GetBuilder<StoriesController>(
                   builder: (stories) => stories.reminderEnabled
                       ? _TapRow(

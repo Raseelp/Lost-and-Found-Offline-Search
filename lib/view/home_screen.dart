@@ -138,7 +138,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final tab = await NativeServices().takeOpenTab();
       if (tab == null || !mounted) return;
       Get.until((route) => route.isFirst);
-      _showTab(Get.find<NativeController>(), tab == _tabLibrary ? _tabLibrary : _tabSearch, tapped: false);
+      final native = Get.find<NativeController>();
+      _showTab(native, tab == _tabLibrary ? _tabLibrary : _tabSearch, tapped: false);
+      // "Index now" on the note that asks to finish indexing: the Library is shown (above), and the scan starts at
+      // once, over the whole phone.
+      if (await NativeServices().takeIndexNow() && mounted) {
+        native.setScanWholePhone(true);
+        await startIndexing(context, native);
+      }
     } catch (e) {
       debugPrint('takeOpenTab failed: $e');
     }
