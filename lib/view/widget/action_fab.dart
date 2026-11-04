@@ -61,11 +61,12 @@ class ActionFabState extends State<ActionFab> with TickerProviderStateMixin {
   static const double _item = 52;
   static const double _radius = 122;
 
-  // 0 closed, 1 open: the dimming and every action's budding out hang on it.
+  // 0 closed, 1 open: the dimming and every action's budding out hang on it. (Quick to react: the whole motion,
+  // with its cling and its wobble, plays in about two thirds of the time it once did.)
   late final AnimationController _open = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 820),
-    reverseDuration: const Duration(milliseconds: 460),
+    duration: const Duration(milliseconds: 520),
+    reverseDuration: const Duration(milliseconds: 300),
   );
 
   // 0: the button floats above the search button, 1: it has run into it. Goes past both a little (the
@@ -144,14 +145,14 @@ class ActionFabState extends State<ActionFab> with TickerProviderStateMixin {
       if (calm) {
         _dock.value = 1;
       } else {
-        _dock.animateTo(1, duration: const Duration(milliseconds: 950), curve: const _LiquidFall());
+        _dock.animateTo(1, duration: const Duration(milliseconds: 600), curve: const _LiquidFall());
       }
     } else if (!_wantsDock && wasDocked) {
       // The search button lets go of it: it stretches out slowly, then springs free and settles.
       if (calm) {
         _dock.value = 0;
       } else {
-        _dock.animateTo(0, duration: const Duration(milliseconds: 1050), curve: const _LiquidRise());
+        _dock.animateTo(0, duration: const Duration(milliseconds: 650), curve: const _LiquidRise());
       }
     }
     // Another tab, choosing started, the keyboard came up: the actions it was showing are gone.

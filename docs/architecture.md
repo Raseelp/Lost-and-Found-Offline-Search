@@ -142,6 +142,8 @@ search model is in Settings > Danger zone.
   A tap opens the app on the Library tab (`MainActivity.ACTION_OPEN_LIBRARY`, picked up by the home
   screen through `takeOpenLibrary`).
 - **Daily memories**: `memories/DailyMemoryWorker`, two slots a day.
+- **Finish-indexing note**: `memories/IndexNudge`, a worker set a few days after the app was last used
+  (see [Memories](memories.md)).
 - **Zip export**: `export/ZipExportWorker`.
 
 ## Project layout

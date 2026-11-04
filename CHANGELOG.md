@@ -43,6 +43,8 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   file addresses.
 
 ### Changed
+- The round action button on the People and Collections tabs reacts faster: it moves into and out of the search
+  button, and its actions come out and go back, in about two thirds of the time. The motion itself is the same.
 - Every short message in the app (Copied, Merged with Undo, Saved with View and so on) now looks the same and is
   worded the same way: a short sentence ending in a full stop, on a light frosted card that sits clear of the bottom
   bar. A new one replaces the one on screen, and it can be swiped away. A message with a button, such as the Undo

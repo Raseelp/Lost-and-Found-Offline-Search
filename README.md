@@ -47,6 +47,7 @@ the phone. Nothing is uploaded.
 - See today's date in past years with On this day.
 - Get a photo memory each morning and evening (optional).
 - Watch stories of your people and places on the Search tab. Each has a new one a day after you watch it.
+- Get a gentle reminder to finish indexing when much of your phone is not searchable yet (optional).
 
 ### Viewer
 - Share, save a copy, set as wallpaper, or copy to the clipboard.

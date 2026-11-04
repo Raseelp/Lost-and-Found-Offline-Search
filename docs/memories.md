@@ -69,3 +69,15 @@ or never. The app sends who those rings are with it, since the note is made late
 - At most one a day. A day a daily memory went out is skipped, but not more than two days running.
 - Never between 22:00 and 08:00 (moved to 09:00). It opens the app on the Search tab.
 - The lock screen shows only the title, and a person with no name is never read out.
+
+## Finish-indexing note
+
+When fewer than nine in ten of the photos and videos on the phone are in the search index, a note (`IndexNudge`)
+asks to finish indexing. It says what is waiting (how many photos and videos) and what is missing because of
+it: how much can be searched, more of someone you know, photos of this day, or what search can see.
+
+- It comes three days after the app was last used, then 7 and 14 days later if unanswered, and then no more.
+  Each use of the app sets the first one again.
+- It makes no sound. Its Index now button opens the Library and starts the scan over the whole phone.
+- It is not sent when the library is already indexed enough, or while a scan is running.
+- It can be turned off in Settings.

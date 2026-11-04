@@ -41,7 +41,7 @@ cd android && ./gradlew :app:testDebugUnitTest
 ```
 
 Covers the zip writer (including that other zip tools can read its output), the search index
-header, the memories, timeline and date logic, the scan and stories notifications, the face
+header, the memories, timeline and date logic, the scan, stories and finish-indexing notifications, the face
 pictures and the text of Copy logs.
 
 ```bash
@@ -73,6 +73,33 @@ frame or two. Page transitions, dialogs, sheets and animated widgets need nothin
   still frame when motion is off and follows the setting when it changes.
 - Springs and tickers of our own check `calm(context)` and jump to where they would settle.
 - A scroll or page move uses `glideTo`, or `jumpToPage` when `calm(context)` is true.
+- The start animation shows a still picture and the messages appear without sliding (see below).
+
+## Start animation
+
+The start animation is drawn in Flutter over the app (`lib/view/splash/`, mounted in `main.dart`), not by Android's own
+splash screen. Android 12 and newer show a plain white splash with no icon (`res/values-v31/styles.xml`) and the
+launch window is white in dark mode too, so nothing jumps when the first Flutter frame comes.
+
+- `splash_timeline.dart` is the timing as plain maths: the icon fades in, the slider sweeps, a big lens grows out of
+  the tile, glides over the screen and widens until the app shows through it. `splash_painter.dart` draws it and
+  `splash_overlay.dart` runs the clocks. The whole thing is about 2.9 s (`SplashTimeline.slowdown` stretches or
+  shortens it).
+- The app is held back (`SplashGate`) until the icon has appeared, so building the first screen does not land in
+  the middle of the animation. The animation then waits for the app's thread to be quiet (at least 0.35 s, at most
+  1.5 s) before the sweep and the lens play, and the sky keeps drifting while it waits.
+- The sky behind the tile is drawn once as a picture when the lens comes out, and each frame draws that picture with
+  a round hole where the lens is. The app underneath shows through the hole, whatever it is: the tour on a fresh
+  install, the model download screen, or the home screen.
+- With "Remove animations" on it shows a still picture for half a second and is taken away. A tap skips it.
+
+## Messages
+
+Every short message ("Copied.", "Merged two people." with Undo) goes through `AppToast` in `lib/utils/app_toast.dart`,
+so they all look the same. It sits above the floating bar on the home screen and near the bottom of the screen
+anywhere else, above the keyboard when it is up. A message with a button shows the time left as a line that shrinks.
+A new message replaces the one on screen. Write them as a short sentence that ends with a full stop. The video viewer
+has its own message card, because it shows face pictures.
 
 ## Logs
 
