@@ -340,7 +340,8 @@ class StoryRowPicker {
 /// The rings of the row, kept together as one batch of up to eight. The row does not slide over everything there is:
 /// the batch stays until it has been used up, the opened rings going grey behind the ones that have not been. When
 /// every ring has been opened and a day has gone by since the last, the next batch is chosen, preferring other rings.
-/// A refresh by hand starts the next batch at once. A batch nobody finishes stays as it is.
+/// A refresh by hand starts the next batch at once. A batch nobody finishes stays as it is, except that rings which
+/// become lit later (more photos were indexed, a person was found) join it while it has places left.
 class StoryBatch {
   const StoryBatch({this.keys = const [], this.lit = const {}, this.at = 0});
 
@@ -380,7 +381,7 @@ class StoryBatch {
       final last = present.fold<int>(0, (a, f) => max(a, f.state.viewedAt));
       rebuild = now - last >= StoryRowPicker.day;
     }
-    if (!rebuild) return this;
+    if (!rebuild) return _toppedUp(all, present, now, seed);
 
     final picks = StoryRowPicker.pick(all, now, seed, keepGreys: 0);
     if (picks.isEmpty) return present.isEmpty ? StoryBatch(at: now) : this;
@@ -390,5 +391,99 @@ class StoryBatch {
     };
     if (!force && present.isNotEmpty && newLit.isEmpty && !anyLit) return this;
     return StoryBatch(keys: [for (final p in picks) p.facts.key], lit: newLit, at: now);
+  }
+
+  /// This batch with [key] counted among the lit rings, when it is in the batch: a ring that was opened got new pictures.
+  StoryBatch withLit(String key) {
+    if (!keys.contains(key) || lit.contains(key)) return this;
+    return StoryBatch(keys: keys, lit: {...lit, key}, at: at);
+  }
+
+  /// This batch with the rings that have become lit since it was made, while it has places left. A batch is kept
+  /// until it is used up, so without this a person found or a collection filled by a later scan would wait for the
+  /// next batch however many places were empty. The rings already in it stay as they are, and the people and
+  /// collection caps are kept as long as there is a ring that fits them.
+  StoryBatch _toppedUp(List<RingFacts> all, List<RingFacts> present, int now, int seed) {
+    final room = StoryRowPicker.maxRings - present.length;
+    if (room <= 0) return this;
+    final inBatch = keys.toSet();
+    final fresh = [
+      for (final f in all)
+        if (!inBatch.contains(f.key) && StoryRowPicker.lit(f, now)) f,
+    ]..sort((a, b) => StoryRowPicker.score(b, now, seed).compareTo(StoryRowPicker.score(a, now, seed)));
+    if (fresh.isEmpty) return this;
+
+    var people = present.where((f) => f.isPerson).length;
+    var collections = present.length - people;
+    final added = <RingFacts>[];
+    for (final f in fresh) {
+      if (added.length >= room) break;
+      final fits = f.isPerson ? people < StoryRowPicker.maxPeople : collections < StoryRowPicker.maxCollections;
+      if (!fits) continue;
+      added.add(f);
+      if (f.isPerson) {
+        people++;
+      } else {
+        collections++;
+      }
+    }
+    for (final f in fresh) {
+      if (added.length >= room) break;
+      if (!added.contains(f)) added.add(f);
+    }
+    return StoryBatch(
+      keys: [...keys, for (final f in added) f.key],
+      lit: {...lit, for (final f in added) f.key},
+      at: at,
+    );
+  }
+}
+
+/// Pictures that come to a ring after its story was made. A ring that was opened lights again when it gets new pictures,
+/// and its story opens at the first of them, as new stories added to one already seen do.
+class StoryArrivals {
+  /// How many new pictures one arrival adds, and the most pictures a story holds after arrivals.
+  static const int maxNew = 6;
+  static const int maxFrames = 12;
+
+  /// A small number that stands for a picture, kept to know which ones a ring held (the same on every run).
+  static int hash(String uri) {
+    var h = 2166136261;
+    for (final c in uri.codeUnits) {
+      h = ((h ^ c) * 16777619) & 0x7fffffff;
+    }
+    return h;
+  }
+
+  /// The pictures of [items] that are not among [known], newest first, at most [maxNew].
+  static List<StoryItem> fresh(List<StoryItem> items, Set<int> known) {
+    final out = [
+      for (final i in items)
+        if (!known.contains(hash(i.uri))) i,
+    ]..sort((a, b) => b.takenMs != a.takenMs ? b.takenMs.compareTo(a.takenMs) : a.uri.compareTo(b.uri));
+    return out.take(maxNew).toList();
+  }
+
+  /// [frames] with [fresh] added after them, marked as unread. Marks already there stay (their story was not opened
+  /// yet). When there would be more than [maxFrames], the oldest pictures that are not unread go first.
+  static List<StoryFrame> join(List<StoryFrame> frames, List<StoryItem> fresh) {
+    final all = [...frames, for (final i in fresh) i.frame.withFresh(true)];
+    var extra = all.length - maxFrames;
+    if (extra <= 0) return all;
+    final out = <StoryFrame>[];
+    for (final f in all) {
+      if (extra > 0 && !f.fresh) {
+        extra--;
+      } else {
+        out.add(f);
+      }
+    }
+    return out;
+  }
+
+  /// Where a story opens: its first unread picture, or the start.
+  static int firstUnread(List<StoryFrame> frames) {
+    final i = frames.indexWhere((f) => f.fresh);
+    return i < 0 ? 0 : i;
   }
 }

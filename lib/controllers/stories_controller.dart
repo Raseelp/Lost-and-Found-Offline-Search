@@ -65,6 +65,9 @@ class StoryEdition {
   final String? caption;
 
   static const StoryEdition empty = StoryEdition(frames: []);
+
+  /// Where the story opens: its first picture that came after it was last opened, or the start.
+  int get firstUnread => StoryArrivals.firstUnread(frames);
 }
 
 /// The rings of the Search tab and their stories.
@@ -257,6 +260,14 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
       for (final k in _batch.keys)
         if (byKey[k] != null && _stateOf(k).mutedUntil <= now) byKey[k]!,
     ];
+    if (dataReady) {
+      for (final r in inRow) {
+        final s = _stateOf(r.key);
+        if (s.hasEdition && !StoryRowPicker.unviewed(s) && s.lastCount > 0 && r.count > s.lastCount) {
+          unawaited(_checkArrivals(r));
+        }
+      }
+    }
     final lit = [
       for (final r in inRow)
         if (!isSeen(r)) r,
@@ -293,6 +304,7 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
     final state = _stateOf(ring.key);
     final items = await _poolOf(ring);
     if (items == null) return null;
+    unawaited(_saveKnown(ring.key, items));
     state
       ..eligible = items.length
       ..lastCount = ring.count;
@@ -383,14 +395,86 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
 
   /// [ring]'s story was opened. The first time an edition is opened it greys the ring for 24 hours, and the note that
   /// says the stories have refreshed is set for then; playing it again changes nothing.
-  Future<void> markViewed(StoryRing ring) async {
+  ///
+  /// [shown] is the list of pictures the viewer was given. When the story has changed since, because new pictures came
+  /// while it was open, that was not the story that was watched, so the ring stays lit for the pictures it has not shown.
+  Future<void> markViewed(StoryRing ring, {List<StoryFrame>? shown}) async {
     final state = _stateOf(ring.key);
     if (!StoryRowPicker.unviewed(state)) return;
+    if (shown != null && !identical(shown, state.frames)) return;
     final now = _now;
-    state.viewedAt = now;
+    state
+      ..viewedAt = now
+      ..frames = [for (final f in state.frames) f.withFresh(false)];
     await _store.saveState(state);
     update();
     unawaited(scheduleReminder());
+    unawaited(_rememberRing(ring));
+  }
+
+  /// The pictures each ring held when it was last looked at, as small numbers, to tell which ones came after.
+  String _knownKey(String ringKey) => 'known:$ringKey';
+
+  Future<Set<int>?> _knownOf(String ringKey) async {
+    final json = await _store.loadMeta(_knownKey(ringKey));
+    if (json == null) return null;
+    try {
+      return {for (final n in jsonDecode(json) as List) (n as num).toInt()};
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _saveKnown(String ringKey, List<StoryItem> items) =>
+      _store.saveMeta(_knownKey(ringKey), jsonEncode([for (final i in items) StoryArrivals.hash(i.uri)]));
+
+  /// Notes what [ring] holds, when it was never noted (a story made before this was kept), so that what comes later is
+  /// told apart from what was there.
+  Future<void> _rememberRing(StoryRing ring) async {
+    if (await _knownOf(ring.key) != null) return;
+    final items = await _poolOf(ring);
+    if (items != null) await _saveKnown(ring.key, items);
+  }
+
+  final Set<String> _checkingArrivals = {};
+  final Map<String, int> _arrivalTried = {};
+
+  /// A ring whose story was opened got new pictures: its story gets them after the ones it had, marked unread, and the
+  /// ring lights again. The story then opens at the first of them. Tried again no sooner than a minute later when the
+  /// pictures could not be read.
+  Future<void> _checkArrivals(StoryRing ring) async {
+    final tried = _now;
+    if (_checkingArrivals.contains(ring.key) || _building.containsKey(ring.key)) return;
+    if (tried - (_arrivalTried[ring.key] ?? 0) < 60000) return;
+    _checkingArrivals.add(ring.key);
+    _arrivalTried[ring.key] = tried;
+    try {
+      final items = await _poolOf(ring);
+      if (items == null) return;
+      final state = _stateOf(ring.key);
+      if (!state.hasEdition || StoryRowPicker.unviewed(state)) return;
+      final known = await _knownOf(ring.key);
+      final fresh = known == null ? <StoryItem>[] : StoryArrivals.fresh(items, known);
+      state
+        ..eligible = items.length
+        ..lastCount = ring.count;
+      if (fresh.isNotEmpty) {
+        final now = _now;
+        state
+          ..frames = StoryArrivals.join(state.frames, fresh)
+          ..builtAt = now
+          ..restUntil = 0
+          ..shownCount += fresh.length;
+        await _store.addShown(ring.key, [for (final i in fresh) i.uri], now);
+        _batch = _batch.withLit(ring.key);
+        _saveBatch();
+      }
+      await _saveKnown(ring.key, items);
+      await _store.saveState(state);
+      update();
+    } finally {
+      _checkingArrivals.remove(ring.key);
+    }
   }
 
   /// Sets the "stories have refreshed" note for a day from now, with the rings that will be lit then (opened before or

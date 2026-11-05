@@ -2,16 +2,25 @@ import 'dart:convert';
 
 /// One picture of a story: where it is, not the picture itself (loaded when it is shown).
 class StoryFrame {
-  const StoryFrame({required this.uri, required this.isVideo, required this.timestampMs});
+  const StoryFrame({required this.uri, required this.isVideo, required this.timestampMs, this.fresh = false});
 
   final String uri;
   final bool isVideo;
   final int timestampMs;
 
-  Map<String, dynamic> toJson() => {'u': uri, 'v': isVideo, 't': timestampMs};
+  /// The picture came to the ring after its story was last opened, so the story starts here (see StoryArrivals).
+  final bool fresh;
 
-  factory StoryFrame.fromJson(Map<String, dynamic> m) =>
-      StoryFrame(uri: m['u'] as String, isVideo: m['v'] as bool? ?? false, timestampMs: (m['t'] as num?)?.toInt() ?? 0);
+  Map<String, dynamic> toJson() => {'u': uri, 'v': isVideo, 't': timestampMs, if (fresh) 'n': true};
+
+  factory StoryFrame.fromJson(Map<String, dynamic> m) => StoryFrame(
+    uri: m['u'] as String,
+    isVideo: m['v'] as bool? ?? false,
+    timestampMs: (m['t'] as num?)?.toInt() ?? 0,
+    fresh: m['n'] as bool? ?? false,
+  );
+
+  StoryFrame withFresh(bool value) => StoryFrame(uri: uri, isVideo: isVideo, timestampMs: timestampMs, fresh: value);
 }
 
 /// What is remembered about one ring: its current edition (the story it is showing), when that was made and

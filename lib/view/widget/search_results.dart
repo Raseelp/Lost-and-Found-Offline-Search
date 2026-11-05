@@ -15,6 +15,7 @@ import 'package:lost_and_found/view/image_full_screen.dart';
 import 'package:lost_and_found/view/video_full_screen.dart';
 import 'package:lost_and_found/view/widget/grid_video_layer.dart';
 import 'package:lost_and_found/view/widget/moment_badge.dart';
+import 'package:lost_and_found/view/widget/new_tag.dart';
 
 /// Higher decode caps requested only for a bento tile big enough to need them (see _bentoUpgradeDimension), instead of
 /// raising the cap every tile shares. Three tiers: a 2-cell tile needs a small bump, the 4-cell hero more, the 8 and
@@ -803,7 +804,7 @@ class _ResultTileState extends State<_ResultTile>
                     Positioned(
                       left: 6,
                       top: 6,
-                      child: _NewTag(compact: constraints.maxWidth < 96),
+                      child: NewTag(compact: constraints.maxWidth < 96),
                     ),
                   Positioned(
                     right: 9,
@@ -815,51 +816,6 @@ class _ResultTileState extends State<_ResultTile>
             },
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// The mark on an item the latest scan indexed. A small pill on a normal tile, a dot on a very
-/// small one. The ring keeps it readable on a light or a dark photo.
-class _NewTag extends StatelessWidget {
-  const _NewTag({required this.compact});
-
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: 'New, indexed in the latest scan',
-      child: ExcludeSemantics(
-        child: compact
-            ? Container(
-                width: 9,
-                height: 9,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.onMedia, width: 1.4),
-                ),
-              )
-            : Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(AppRadius.pill),
-                  border: Border.all(color: AppColors.onMedia.withValues(alpha: .85), width: 1),
-                ),
-                child: const Text(
-                  'NEW',
-                  style: TextStyle(
-                    color: AppColors.onPrimary,
-                    fontSize: 9,
-                    height: 1.1,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: .6,
-                  ),
-                ),
-              ),
       ),
     );
   }

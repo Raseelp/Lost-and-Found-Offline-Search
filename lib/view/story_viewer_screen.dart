@@ -19,6 +19,7 @@ import 'package:lost_and_found/utils/motion.dart';
 import 'package:lost_and_found/view/collection_screen.dart';
 import 'package:lost_and_found/view/person_screen.dart';
 import 'package:lost_and_found/view/widget/media_chrome_button.dart';
+import 'package:lost_and_found/view/widget/new_tag.dart';
 import 'package:lost_and_found/view/widget/story_rings.dart';
 import 'package:video_player/video_player.dart';
 
@@ -503,6 +504,10 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
 
   int _frame = 0;
 
+  /// The picture this page starts at when it becomes the one on screen: the first that came after the story was last
+  /// opened. A page that is already on screen starts there at once.
+  int _start = 0;
+
   /// Null while the story's pictures are being found.
   List<StoryFrame>? _frames;
 
@@ -567,8 +572,9 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
   void didUpdateWidget(covariant _StoryPage old) {
     super.didUpdateWidget(old);
     if (widget.active && !old.active) {
-      if (_frames != null) unawaited(_stories.markViewed(widget.ring));
-      _frame = 0;
+      if (_frames != null) unawaited(_stories.markViewed(widget.ring, shown: _frames));
+      _frame = _start;
+      _start = 0;
       _enterFrame();
     } else if (!widget.active && old.active) {
       _pause();
@@ -655,12 +661,21 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
     final edition = await _edition();
     if (_gone) return;
     final frames = edition.frames;
+    final first = edition.firstUnread;
     setState(() {
       _frames = frames;
       _caption = edition.caption;
+      if (widget.active) {
+        _frame = first;
+      } else {
+        _start = first;
+      }
     });
-    if (widget.active) unawaited(_stories.markViewed(widget.ring));
-    for (var k = 0; k < frames.length; k++) {
+    if (widget.active) unawaited(_stories.markViewed(widget.ring, shown: frames));
+    final order = frames.isEmpty
+        ? <int>[]
+        : [first, for (var k = 0; k < frames.length; k++) if (k != first) k];
+    for (final k in order) {
       if (_gone) return;
       await _fetch(k);
     }
@@ -914,11 +929,21 @@ class _StoryPageState extends State<_StoryPage> with SingleTickerProviderStateMi
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.titleSmall?.copyWith(color: AppColors.onMedia),
                             ),
-                            Text(
-                              _caption ?? '${ring.count} photos and videos',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.onMedia70),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    _caption ?? '${ring.count} photos and videos',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.onMedia70),
+                                  ),
+                                ),
+                                if (frames != null && _frame < frames.length && frames[_frame].fresh) ...[
+                                  const SizedBox(width: AppSpacing.sm),
+                                  const NewTag(label: 'New picture'),
+                                ],
+                              ],
                             ),
                           ],
                         ),

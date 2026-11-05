@@ -229,6 +229,154 @@ void main() {
     });
   });
 
+  group('StoryBatch top-up', () {
+    RingFacts ring(String key, {bool person = true, int count = 30}) =>
+        RingFacts(key: key, isPerson: person, count: count, named: true, state: RingState(key));
+
+    StoryBatch first(List<RingFacts> all) => const StoryBatch().next(all, nowMs, 1);
+
+    test('rings that appear after the batch was made join it while it has places left', () {
+      final one = [ring('a')];
+      final batch = first(one);
+      expect(batch.keys, ['a']);
+      final grown = batch.next([...one, ring('b'), ring('c', person: false)], nowMs, 1);
+      expect(grown.keys.first, 'a');
+      expect(grown.keys.toSet(), {'a', 'b', 'c'});
+      expect(grown.isLit(ring('b'), nowMs), isTrue);
+      expect(grown.isLit(ring('c', person: false), nowMs), isTrue);
+    });
+
+    test('a ring with too few pictures is not added', () {
+      final batch = first([ring('a')]);
+      final same = batch.next([ring('a'), ring('b', count: 2)], nowMs, 1);
+      expect(identical(same, batch), isTrue);
+    });
+
+    test('a full batch takes nothing more', () {
+      final eight = [for (var i = 0; i < 8; i++) ring('r$i', person: i.isEven)];
+      final batch = first(eight);
+      expect(batch.keys.length, 8);
+      final same = batch.next([...eight, ring('extra')], nowMs, 1);
+      expect(identical(same, batch), isTrue);
+    });
+
+    test('only the places that are left are filled, best rings first', () {
+      final seven = [for (var i = 0; i < 7; i++) ring('r$i', person: i.isEven)];
+      final batch = first(seven);
+      final grown = batch.next([...seven, ring('x', person: false), ring('y', person: false)], nowMs, 1);
+      expect(grown.keys.length, 8);
+    });
+
+    test('asking again changes nothing once the rings have joined', () {
+      final batch = first([ring('a')]);
+      final all = [ring('a'), ring('b')];
+      final grown = batch.next(all, nowMs, 1);
+      expect(identical(grown.next(all, nowMs, 1), grown), isTrue);
+    });
+
+    test('a ring that has gone away does not use up a place, and its key is kept', () {
+      final seven = [for (var i = 0; i < 7; i++) ring('r$i', person: i.isEven)];
+      final batch = first([...seven, ring('gone')]);
+      expect(batch.keys.length, 8);
+      final grown = batch.next([...seven, ring('x', person: false)], nowMs, 1);
+      expect(grown.keys.contains('gone'), isTrue);
+      expect(grown.keys.contains('x'), isTrue);
+    });
+
+    test('a ring of the kind that has room is taken before one that would pass the cap', () {
+      final people = [for (var i = 0; i < 5; i++) ring('p$i')];
+      final batch = first(people);
+      expect(batch.keys.length, 5);
+      final grown = batch.next([...people, ring('p5'), ring('p6'), ring('c', person: false)], nowMs, 1);
+      expect(grown.keys.length, 8);
+      expect(grown.keys.contains('c'), isTrue);
+    });
+
+    test('a ring the batch already holds is never added twice', () {
+      final batch = first([ring('a'), ring('b')]);
+      final grown = batch.next([ring('a'), ring('b'), ring('c')], nowMs, 1);
+      expect(grown.keys.where((k) => k == 'a').length, 1);
+      expect(grown.keys.where((k) => k == 'b').length, 1);
+    });
+
+    test('the rings already in the batch keep their place and their lit state', () {
+      final a = ring('a');
+      final batch = first([a]);
+      final grown = batch.next([a, ring('b')], nowMs, 1);
+      expect(grown.keys.first, 'a');
+      expect(grown.at, batch.at);
+    });
+  });
+
+  group('StoryArrivals', () {
+    StoryFrame frame(String u, {bool fresh = false}) => StoryFrame(uri: u, isVideo: false, timestampMs: 0, fresh: fresh);
+
+    test('a picture stands for the same number on every run, and different pictures differ', () {
+      expect(StoryArrivals.hash('content://media/1'), StoryArrivals.hash('content://media/1'));
+      expect(StoryArrivals.hash('content://media/1'), isNot(StoryArrivals.hash('content://media/2')));
+    });
+
+    test('the new ones are the pictures that were not known, newest first', () {
+      final items = [item(1, 100), item(2, 300), item(3, 200), item(4, 50)];
+      final known = {StoryArrivals.hash(items[0].uri), StoryArrivals.hash(items[3].uri)};
+      final fresh = StoryArrivals.fresh(items, known);
+      expect(fresh.map((i) => i.uri), [items[1].uri, items[2].uri]);
+    });
+
+    test('nothing is new when everything was known, and at most six are taken', () {
+      final items = [for (var i = 0; i < 10; i++) item(i, i)];
+      expect(StoryArrivals.fresh(items, {for (final i in items) StoryArrivals.hash(i.uri)}), isEmpty);
+      expect(StoryArrivals.fresh(items, {}).length, StoryArrivals.maxNew);
+    });
+
+    test('new pictures join after the story, marked unread, and the story opens at the first of them', () {
+      final story = [frame('a'), frame('b'), frame('c')];
+      final joined = StoryArrivals.join(story, [item(7, 5), item(8, 4)]);
+      expect(joined.length, 5);
+      expect(joined.map((f) => f.fresh), [false, false, false, true, true]);
+      expect(StoryArrivals.firstUnread(joined), 3);
+    });
+
+    test('a story without unread pictures opens at the start', () {
+      expect(StoryArrivals.firstUnread([frame('a'), frame('b')]), 0);
+      expect(StoryArrivals.firstUnread(const []), 0);
+    });
+
+    test('marks that were already there stay when more arrive', () {
+      final story = [frame('a'), frame('b', fresh: true)];
+      final joined = StoryArrivals.join(story, [item(9, 1)]);
+      expect(joined.map((f) => f.fresh), [false, true, true]);
+      expect(StoryArrivals.firstUnread(joined), 1);
+    });
+
+    test('a long story loses its oldest read pictures first, never an unread one', () {
+      final story = [for (var i = 0; i < 10; i++) frame('old$i')];
+      final joined = StoryArrivals.join(story, [for (var i = 0; i < 6; i++) item(100 + i, i)]);
+      expect(joined.length, StoryArrivals.maxFrames);
+      expect(joined.where((f) => f.fresh).length, 6);
+      expect(joined.first.uri, 'old4');
+    });
+
+    test('the unread mark survives being saved and read back, and is not written when it is not set', () {
+      expect(frame('a', fresh: true).toJson()['n'], isTrue);
+      expect(frame('a').toJson().containsKey('n'), isFalse);
+      expect(StoryFrame.fromJson(frame('a', fresh: true).toJson()).fresh, isTrue);
+      expect(StoryFrame.fromJson({'u': 'x'}).fresh, isFalse);
+      expect(frame('a', fresh: true).withFresh(false).fresh, isFalse);
+    });
+  });
+
+  group('StoryBatch.withLit', () {
+    test('a ring of the batch that was not lit becomes lit, and others are left alone', () {
+      const batch = StoryBatch(keys: ['a', 'b'], lit: {'a'}, at: 5);
+      final lit = batch.withLit('b');
+      expect(lit.lit, {'a', 'b'});
+      expect(lit.at, 5);
+      expect(identical(batch.withLit('a'), batch), isTrue);
+      expect(identical(batch.withLit('zzz'), batch), isTrue);
+    });
+  });
+
   group('RingState', () {
     test('frames survive being saved and read back', () {
       final s = RingState('k')
