@@ -19,12 +19,21 @@ import 'package:lost_and_found/utils/app_toast.dart';
 /// The sheet that makes a new collection (from the action button, see ActionFab): what to find, in words (with
 /// other ways of saying it) or by a photo to look like, a preview of what that finds and who is in it, photos,
 /// videos or both, and a name taken from the words. Before anything is typed it offers a few ideas to start from.
-Future<void> showNewCollectionSheet(BuildContext context, CollectionsController controller) {
+Future<void> showNewCollectionSheet(BuildContext context, CollectionsController controller) =>
+    showCollectionSheet(context, controller);
+
+/// The same sheet, for changing a collection that exists: [editing] is filled in as it is, with everything that can be
+/// set when one is made, and saving changes it in place.
+Future<void> showCollectionSheet(
+  BuildContext context,
+  CollectionsController controller, {
+  SmartCollection? editing,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: AppColors.transparent,
-    builder: (_) => _NewCollectionSheet(controller: controller),
+    builder: (_) => _CollectionSheet(controller: controller, editing: editing),
   );
 }
 
@@ -37,16 +46,19 @@ const _maxMore = 3;
 /// How many of the best matches the preview shows.
 const _shownMatches = 5;
 
-class _NewCollectionSheet extends StatefulWidget {
-  const _NewCollectionSheet({required this.controller});
+class _CollectionSheet extends StatefulWidget {
+  const _CollectionSheet({required this.controller, this.editing});
 
   final CollectionsController controller;
 
+  /// The collection being changed, or null for a new one.
+  final SmartCollection? editing;
+
   @override
-  State<_NewCollectionSheet> createState() => _NewCollectionSheetState();
+  State<_CollectionSheet> createState() => _CollectionSheetState();
 }
 
-class _NewCollectionSheetState extends State<_NewCollectionSheet> {
+class _CollectionSheetState extends State<_CollectionSheet> {
   /// Names typed in the words are recognised as people, the same way the search box does it.
   late final MentionTextEditingController _query = MentionTextEditingController(
     peopleProvider: () => Get.isRegistered<FacesController>() ? Get.find<FacesController>().people : const [],
@@ -66,6 +78,21 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
 
   String _contentMode = 'both';
 
+  SmartCollection? get _editing => widget.editing;
+  bool get _isEdit => _editing != null;
+  bool get _isPhotoEdit => _editing?.isPhotos ?? false;
+
+  /// The words as the sheet opened. Words that are left alone are saved exactly as they were stored, whatever the
+  /// field's name recognition makes of them: a name in them that was never a filter must not become one now, and a
+  /// built-in keeps its own several phrasings, because the sheet shows only the short phrase.
+  String _startText = '';
+
+  bool get _wordsTouched => _query.text != _startText;
+
+  /// People of the collection that the words cannot name again (no name, or the same name as someone else), kept so
+  /// that saving does not drop them.
+  List<int> _keptIds = const [];
+
   CollectionPreview? _preview;
   bool _previewing = false;
   int _previewToken = 0;
@@ -80,6 +107,48 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
     _moreFocus.addListener(() {
       if (mounted && !_moreFocus.hasFocus && _addingMore) _commitMore();
     });
+    if (_isEdit) _prefill(_editing!);
+  }
+
+  /// Fills the sheet with [c] as it is. People it already filters by are put back in front of the words, the same way
+  /// the search's own lastQueryWithMentions does, and the field's name recognition picks them up at once. A collection
+  /// of people only keeps no words. Other phrasings are listed only for a collection you made, because a built-in's
+  /// several phrasings are an implementation detail.
+  void _prefill(SmartCollection c) {
+    _contentMode = c.contentMode;
+    _nameTyped = true;
+    _name.text = c.name;
+    if (c.isPhotos) {
+      final uri = c.seedUri;
+      if (uri != null) {
+        unawaited(
+          NativeServices()
+              .loadThumbnail(uri: uri, isVideo: c.seedTimestampMs != null, timestampMs: c.seedTimestampMs ?? 0, size: 240)
+              .then((bytes) {
+                if (mounted) setState(() => _photoBytes = bytes);
+              })
+              .catchError((_) {}),
+        );
+      }
+      return;
+    }
+    final people = Get.isRegistered<FacesController>() ? Get.find<FacesController>().people : const <Person>[];
+    final names = [
+      for (final p in people)
+        if (c.personIds.contains(p.id) && (p.name ?? '').trim().isNotEmpty) p.name!.trim(),
+    ];
+    final words = c.queryText == 'a photo' && c.personIds.isNotEmpty ? '' : c.queryText;
+    _query.text = [if (names.isNotEmpty) names.join(' and '), if (words.isNotEmpty) words].join(' ');
+    _startText = _query.text;
+    final recognized = {for (final p in _query.recognizedPeople) p.id};
+    _keptIds = [
+      for (final id in c.personIds)
+        if (!recognized.contains(id)) id,
+    ];
+    if (!c.isBuiltIn) _more.addAll(c.prompts.skip(1).take(_maxMore));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _schedulePreview();
+    });
   }
 
   @override
@@ -93,7 +162,24 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
   }
 
   bool get _hasWords => _query.text.trim().isNotEmpty;
-  bool get _hasInput => _photoUri != null || _hasWords;
+  bool get _photoMode => _photoUri != null || _isPhotoEdit;
+  bool get _hasInput => _photoMode || _hasWords || _keptIds.isNotEmpty;
+
+  /// The phrases the collection is made of as the sheet stands. Words left alone keep what is stored (a built-in keeps
+  /// all its phrasings), with the ones added here after them.
+  List<String> get _promptsNow {
+    final c = _editing;
+    if (c != null && !_wordsTouched) return c.isBuiltIn ? [...c.prompts, ..._more] : [c.prompts.first, ..._more];
+    return [_query.queryWithoutMention.trim(), ..._more];
+  }
+
+  /// The people the matches have to include: those named in the words, and those kept from before. Words left alone
+  /// keep the people the collection had.
+  List<int> get _peopleNow {
+    final c = _editing;
+    if (c != null && !_wordsTouched) return [...c.personIds];
+    return {..._keptIds, for (final p in _query.recognizedPeople) p.id}.toList();
+  }
 
   String get _autoName {
     if (_photoUri != null) return 'Similar photos';
@@ -110,6 +196,7 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
   /// Starts the preview once typing pauses and not on every key. The last answer dims at once, so it is clear a new
   /// one is coming.
   void _schedulePreview() {
+    if (_isPhotoEdit && _photoUri == null) return;
     _previewTimer?.cancel();
     final native = Get.find<NativeController>();
     if (!_hasInput || native.totalEmbeddings == 0) {
@@ -127,10 +214,11 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
   Future<void> _runPreview() async {
     final token = ++_previewToken;
     final preview = await widget.controller.previewCollection(
-      prompts: [_query.queryWithoutMention, ..._more],
+      prompts: _promptsNow,
       seedUri: _photoUri,
       contentMode: _contentMode,
-      personIds: _photoUri == null ? [for (final p in _query.recognizedPeople) p.id] : const [],
+      personIds: _photoUri == null ? _peopleNow : const [],
+      sensitivity: _editing?.sensitivity ?? SmartCollection.defaultSensitivity,
       shown: _shownMatches,
     );
     if (!mounted || token != _previewToken) return;
@@ -196,6 +284,10 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
   /// plays its own "finding matches", so there is nothing to wait for here. A phrase still being typed is kept.
   void _save() {
     if (_addingMore) _commitMore();
+    if (_isEdit) {
+      _saveEdit();
+      return;
+    }
     final controller = widget.controller;
     final typed = _name.text.trim();
     final name = typed.isNotEmpty ? typed : _autoName;
@@ -226,11 +318,50 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
     }
   }
 
+  /// Changes the collection in place and closes the sheet. A name alone is a rename: nothing is found again unless the
+  /// words, the phrasings, the people or what is included changed. A photo collection can change its name, what it
+  /// includes and the photo it looks like. A built-in whose words were left alone keeps its own phrasings, with any
+  /// added here after them.
+  void _saveEdit() {
+    final c = _editing!;
+    final controller = widget.controller;
+    final typed = _name.text.trim();
+    final SmartCollection updated;
+    if (c.isPhotos) {
+      final name = typed.isEmpty ? c.name : typed;
+      final photo = _photoUri;
+      final contentMode = _contentMode;
+      Navigator.of(context).pop();
+      if (photo == null) {
+        unawaited(controller.updateCollection(c.copyWith(name: name, contentMode: contentMode)));
+      } else {
+        unawaited(
+          controller.changePhoto(c, uri: photo, name: name, contentMode: contentMode).then((read) {
+            if (!read) AppToast.show("That photo couldn't be read.");
+          }),
+        );
+      }
+      return;
+    }
+    final prompts = _promptsNow;
+    if (prompts.first.isEmpty) prompts[0] = 'a photo';
+    final keepsOwn = c.isBuiltIn && !_wordsTouched;
+    updated = c.copyWith(
+      name: typed.isNotEmpty ? typed : (_autoName.isNotEmpty ? _autoName : c.name),
+      contentMode: _contentMode,
+      personIds: _peopleNow,
+      prompts: keepsOwn && _more.isEmpty ? null : prompts,
+      explainQuery: keepsOwn ? c.explainQuery : null,
+    );
+    Navigator.of(context).pop();
+    unawaited(controller.updateCollection(updated));
+  }
+
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final textTheme = Theme.of(context).textTheme;
-    final showIdeas = !_hasInput;
+    final showIdeas = !_hasInput && !_isEdit;
 
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
@@ -262,7 +393,7 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.base),
-                  Text('New collection', style: textTheme.titleMedium),
+                  Text(_isEdit ? 'Edit collection' : 'New collection', style: textTheme.titleMedium),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     'Fills itself as new photos are indexed.',
@@ -271,8 +402,8 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
                   const SizedBox(height: AppSpacing.lg),
                   const _Label('FIND'),
                   const SizedBox(height: AppSpacing.sm),
-                  _photoUri != null ? _photoFind(textTheme) : _wordsFind(textTheme),
-                  if (_hasWords && _photoUri == null) ...[
+                  _photoMode ? _photoFind(textTheme) : _wordsFind(textTheme),
+                  if (_hasWords && !_photoMode) ...[
                     const SizedBox(height: AppSpacing.sm),
                     _morePhrasings(textTheme),
                   ],
@@ -318,7 +449,7 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
           Expanded(
             child: MentionInputField(
               controller: _query,
-              autofocus: true,
+              autofocus: !_isEdit,
               onChanged: _changed,
               style: textTheme.bodyMedium,
               decoration: const InputDecoration(
@@ -361,11 +492,18 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(child: Text('Photos that look like this', style: textTheme.titleSmall)),
-          IconButton(
-            tooltip: 'Describe in words instead',
-            icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.ink80),
-            onPressed: _clearPhoto,
-          ),
+          if (_isPhotoEdit)
+            IconButton(
+              tooltip: 'Choose another photo',
+              icon: const Icon(Icons.image_outlined, size: 20, color: AppColors.ink80),
+              onPressed: _pickPhoto,
+            )
+          else
+            IconButton(
+              tooltip: 'Describe in words instead',
+              icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.ink80),
+              onPressed: _clearPhoto,
+            ),
         ],
       ),
     );
@@ -373,74 +511,79 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
 
   Widget _morePhrasings(TextTheme textTheme) {
     final chipText = textTheme.labelMedium?.copyWith(color: AppColors.ink);
-    return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        Text('Also describe it as', style: textTheme.bodySmall?.copyWith(color: AppColors.ink80)),
-        for (final phrase in _more)
-          Container(
-            height: 32,
-            padding: const EdgeInsets.only(left: AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.parchment,
-              borderRadius: BorderRadius.circular(AppRadius.pill),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(phrase, style: chipText),
-                IconButton(
-                  tooltip: 'Remove $phrase',
-                  visualDensity: VisualDensity.compact,
-                  iconSize: 14,
-                  icon: const Icon(Icons.close_rounded, color: AppColors.ink80),
-                  onPressed: () {
-                    setState(() => _more.remove(phrase));
-                    _schedulePreview();
-                  },
+    return LayoutBuilder(
+      builder: (context, box) => Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text('Also describe it as', style: textTheme.bodySmall?.copyWith(color: AppColors.ink80)),
+          for (final phrase in _more)
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: box.maxWidth),
+              child: Container(
+                height: 32,
+                padding: const EdgeInsets.only(left: AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.parchment,
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
-              ],
-            ),
-          ),
-        if (_addingMore)
-          Container(
-            width: 160,
-            height: 32,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.parchment,
-              borderRadius: BorderRadius.circular(AppRadius.pill),
-            ),
-            child: TextField(
-              controller: _moreField,
-              focusNode: _moreFocus,
-              autofocus: true,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _commitMore(),
-              style: chipText,
-              decoration: const InputDecoration(
-                isCollapsed: true,
-                hintText: 'e.g. "coast"',
-                hintStyle: TextStyle(color: AppColors.ink48),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(child: Text(phrase, style: chipText, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    IconButton(
+                      tooltip: 'Remove $phrase',
+                      visualDensity: VisualDensity.compact,
+                      iconSize: 14,
+                      icon: const Icon(Icons.close_rounded, color: AppColors.ink80),
+                      onPressed: () {
+                        setState(() => _more.remove(phrase));
+                        _schedulePreview();
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
-          )
-        else if (_more.length < _maxMore)
-          TextButton(
-            onPressed: () => setState(() => _addingMore = true),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              minimumSize: const Size(0, 32),
+          if (_addingMore)
+            Container(
+              width: 160,
+              height: 32,
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              textStyle: textTheme.labelMedium,
+              decoration: BoxDecoration(
+                color: AppColors.parchment,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+              ),
+              child: TextField(
+                controller: _moreField,
+                focusNode: _moreFocus,
+                autofocus: true,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => _commitMore(),
+                style: chipText,
+                decoration: const InputDecoration(
+                  isCollapsed: true,
+                  hintText: 'e.g. "coast"',
+                  hintStyle: TextStyle(color: AppColors.ink48),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+            )
+          else if (_more.length < _maxMore)
+            TextButton(
+              onPressed: () => setState(() => _addingMore = true),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                minimumSize: const Size(0, 32),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                textStyle: textTheme.labelMedium,
+              ),
+              child: const Text('+ Add'),
             ),
-            child: const Text('+ Add'),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -619,23 +762,30 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
     );
   }
 
+  /// Three even choices across the sheet. With large text they would break words in half, so they wrap as they are.
   Widget _includeChoice() {
     const choices = [('both', 'Both'), ('images', 'Images'), ('videos', 'Videos')];
+    Widget pill(String value, String label) => _Pill(
+      label: label,
+      selected: _contentMode == value,
+      onTap: () {
+        if (_contentMode == value) return;
+        setState(() => _contentMode = value);
+        _schedulePreview();
+      },
+    );
+    if (MediaQuery.textScalerOf(context).scale(1) > 1.3) {
+      return Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        children: [for (final (value, label) in choices) pill(value, label)],
+      );
+    }
     return Row(
       children: [
         for (final (value, label) in choices) ...[
           if (value != choices.first.$1) const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: _Pill(
-              label: label,
-              selected: _contentMode == value,
-              onTap: () {
-                if (_contentMode == value) return;
-                setState(() => _contentMode = value);
-                _schedulePreview();
-              },
-            ),
-          ),
+          Expanded(child: pill(value, label)),
         ],
       ],
     );
@@ -672,7 +822,7 @@ class _NewCollectionSheetState extends State<_NewCollectionSheet> {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
           child: Center(
             child: Text(
-              'Save collection',
+              _isEdit ? 'Save changes' : 'Save collection',
               style: textTheme.titleSmall?.copyWith(color: enabled ? AppColors.onPrimary : AppColors.ink48),
             ),
           ),

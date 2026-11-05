@@ -17,6 +17,7 @@ import 'package:lost_and_found/view/export_zip_screen.dart';
 import 'package:lost_and_found/view/widget/confirm_dialog.dart';
 import 'package:lost_and_found/view/widget/mention_input_field.dart';
 import 'package:lost_and_found/view/widget/mention_text_controller.dart';
+import 'package:lost_and_found/view/widget/new_collection_sheet.dart';
 
 String _countLabel(int count) => count == 1 ? '1 item' : '$count items';
 
@@ -700,55 +701,13 @@ void showOnThisDayMenu(
   );
 }
 
-/// Edits [collection]. A photo collection has no phrase to edit, so only its name can change. Otherwise the field
-/// shows the short phrase, because a built-in's several prompts are an implementation detail, and leaving it alone
-/// keeps the built-in's own. People already mentioned are put back in front of the phrase, the same way the search's
-/// own lastQueryWithMentions does. The field's name recognition then picks them up as soon as it opens, and the
-/// collection does not look as if it had no person filter.
+/// Edits [collection] in the same sheet that makes a new one (see [showCollectionSheet]), filled in as the collection
+/// is now.
 Future<void> showEditCollectionSheet(
   BuildContext context,
   SmartCollection collection,
   CollectionsController controller,
-) {
-  if (collection.isPhotos) {
-    return showSaveCollectionSheet(
-      context,
-      title: 'Rename collection',
-      initialName: collection.name,
-      initialQuery: 'photos that look like the one you saved',
-      onSave: (name, _, __) => controller.updateCollection(
-        collection.copyWith(name: name.isEmpty ? collection.name : name),
-      ),
-    );
-  }
-
-  final currentQuery = collection.queryText;
-  final currentPersonNames = collection.personIds.isEmpty || !Get.isRegistered<FacesController>()
-      ? const <String>[]
-      : Get.find<FacesController>().people
-          .where((p) => collection.personIds.contains(p.id))
-          .map((p) => p.name)
-          .whereType<String>()
-          .toList();
-  final initialQueryWithMentions = currentPersonNames.isEmpty
-      ? currentQuery
-      : '${currentPersonNames.join(' and ')} $currentQuery';
-
-  return showSaveCollectionSheet(
-    context,
-    title: 'Edit collection',
-    initialName: collection.name,
-    initialQuery: initialQueryWithMentions,
-    showQuery: true,
-    onSave: (name, query, personIds) => controller.updateCollection(
-      collection.copyWith(
-        name: name.isEmpty ? query : name,
-        prompts: query == currentQuery ? null : [query],
-        personIds: personIds,
-      ),
-    ),
-  );
-}
+) => showCollectionSheet(context, controller, editing: collection);
 
 class _MenuRow extends StatelessWidget {
   const _MenuRow({

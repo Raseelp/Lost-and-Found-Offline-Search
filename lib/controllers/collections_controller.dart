@@ -367,6 +367,7 @@ class CollectionsController extends GetxController {
     int? seedTimestampMs,
     String contentMode = 'both',
     List<int> personIds = const [],
+    double sensitivity = SmartCollection.defaultSensitivity,
     int shown = 5,
   }) async {
     try {
@@ -388,7 +389,7 @@ class CollectionsController extends GetxController {
         'id': 'preview',
         'embedding': embedding,
         'contentMode': contentMode,
-        'k': SmartCollection.defaultSensitivity,
+        'k': sensitivity,
         if (personIds.isNotEmpty) 'personIds': personIds,
       };
       final scored = await NativeServices().scoreCollections([spec]);
@@ -733,6 +734,30 @@ class CollectionsController extends GetxController {
     return collection;
   }
 
+  /// Saves [collection] (a photo collection) with [name] and [contentMode], looking like the photo at [uri] from now on.
+  /// The new photo is embedded with the current search model, and the matches are found again. Returns false when the
+  /// photo could not be read: the name and what is included are saved all the same, and the collection keeps looking
+  /// like the photo it had.
+  Future<bool> changePhoto(
+    SmartCollection collection, {
+    required String uri,
+    required String name,
+    required String contentMode,
+  }) async {
+    List<double> embedding = const [];
+    try {
+      embedding = _normalized(await NativeServices().encodeImage(uri: uri));
+    } catch (e) {
+      debugPrint('Could not embed the new photo: $e');
+    }
+    var updated = collection.copyWith(name: name, contentMode: contentMode);
+    if (embedding.isNotEmpty) {
+      updated = updated.withSeed(uri: uri, embedding: embedding, model: _modelVersion);
+    }
+    await updateCollection(updated);
+    return embedding.isNotEmpty;
+  }
+
   /// Saves [updated]. A rename changes nothing about what matches, so the work and the matching animation are
   /// redone only when the query, content filter, sensitivity or people changed.
   Future<void> updateCollection(SmartCollection updated) async {
@@ -746,6 +771,8 @@ class CollectionsController extends GetxController {
         before.embeddingSignature != fresh.embeddingSignature ||
         before.contentMode != fresh.contentMode ||
         before.sensitivity != fresh.sensitivity ||
+        before.seedUri != fresh.seedUri ||
+        before.seedTimestampMs != fresh.seedTimestampMs ||
         !listEquals(before.personIds, fresh.personIds);
 
     if (active?.id == updated.id) {

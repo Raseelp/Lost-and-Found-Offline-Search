@@ -43,6 +43,8 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   file addresses.
 
 ### Changed
+- Changing a collection opens the same sheet as making one, filled in, so the words, other ways of saying it, what is
+  included and the name can all be changed with a preview, and a collection made from a photo can look like another.
 - The daily memory and the stories note are now on from the start. They go out only while Android allows
   notifications for the app. The app asks for that once, when your first scan ends or is stopped, and Settings shows
   a banner at the top of Notifications while it is off. Switches stay as you left them when the permission is refused. On Android 12

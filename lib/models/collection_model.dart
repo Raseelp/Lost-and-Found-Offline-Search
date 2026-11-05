@@ -121,6 +121,33 @@ class SmartCollection {
     );
   }
 
+  /// This photo collection looking like another photo: [uri] (and the moment of a video, if it is one) with
+  /// [embedding], the vector the search model [model] made for it. Everything else stays as it is.
+  SmartCollection withSeed({
+    required String uri,
+    int? timestampMs,
+    required List<double> embedding,
+    required String model,
+  }) {
+    return SmartCollection(
+      id: id,
+      name: name,
+      icon: icon,
+      prompts: prompts,
+      explainQuery: explainQuery,
+      contentMode: contentMode,
+      sensitivity: sensitivity,
+      isBuiltIn: isBuiltIn,
+      createdAt: createdAt,
+      kind: kind,
+      seedEmbedding: embedding,
+      seedUri: uri,
+      seedTimestampMs: timestampMs,
+      seedModel: model,
+      personIds: personIds,
+    );
+  }
+
   Map<String, Object?> toRow({int hiddenState = 0}) => {
     'id': id,
     'name': name,

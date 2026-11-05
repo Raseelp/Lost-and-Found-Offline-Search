@@ -33,6 +33,8 @@ class _FakeNative extends NativeController {
 class _FakeCollections extends CollectionsController {
   final List<Map<String, Object?>> previews = [];
   final List<Map<String, Object?>> created = [];
+  final List<SmartCollection> updated = [];
+  final List<Map<String, Object?>> photoChanges = [];
 
   /// The real setup loads the saved collections, so it is skipped on purpose.
   @override
@@ -46,14 +48,37 @@ class _FakeCollections extends CollectionsController {
     int? seedTimestampMs,
     String contentMode = 'both',
     List<int> personIds = const [],
+    double sensitivity = SmartCollection.defaultSensitivity,
     int shown = 5,
   }) async {
-    previews.add({'prompts': prompts, 'contentMode': contentMode, 'personIds': personIds});
+    previews.add({
+      'prompts': prompts,
+      'contentMode': contentMode,
+      'personIds': personIds,
+      'sensitivity': sensitivity,
+      'seedUri': seedUri,
+    });
     return const CollectionPreview(
       count: 142,
       items: [],
       people: [(personId: 1, count: 38), (personId: 2, count: 21), (personId: 99, count: 3)],
     );
+  }
+
+  @override
+  Future<void> updateCollection(SmartCollection collection) async {
+    updated.add(collection);
+  }
+
+  @override
+  Future<bool> changePhoto(
+    SmartCollection collection, {
+    required String uri,
+    required String name,
+    required String contentMode,
+  }) async {
+    photoChanges.add({'id': collection.id, 'uri': uri, 'name': name, 'contentMode': contentMode});
+    return true;
   }
 
   @override
@@ -242,6 +267,298 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
       expect(find.widgetWithText(TextField, 'Evenings'), findsOneWidget);
+    });
+
+    Future<void> openEdit(WidgetTester tester, SmartCollection collection) async {
+      tester.view.physicalSize = const Size(1170, 2532);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () => showCollectionSheet(context, collections, editing: collection),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> saveChanges(WidgetTester tester) async {
+      await tester.ensureVisible(find.text('Save changes'));
+      await tester.tap(find.text('Save changes'));
+      await tester.pumpAndSettle();
+    }
+
+    final mine = SmartCollection(
+      id: 'user_1',
+      name: 'Evenings',
+      prompts: const ['sunsets', 'golden hour'],
+      contentMode: 'images',
+      createdAt: 1,
+    );
+
+    final beach = SmartCollection(
+      id: 'builtin_beach',
+      name: 'Beach',
+      prompts: const ['a beach', 'sand and sea', 'waves'],
+      sensitivity: 2.8,
+      isBuiltIn: true,
+    );
+
+    group('editing', () {
+      testWidgets('a collection you made opens filled in, with what it finds', (tester) async {
+        await openEdit(tester, mine);
+        expect(find.text('Edit collection'), findsOneWidget);
+        expect(find.text('New collection'), findsNothing);
+        expect(find.text('TRY ONE'), findsNothing);
+        expect(find.text('Start from a photo'), findsNothing);
+        expect(find.widgetWithText(TextField, 'sunsets'), findsOneWidget);
+        expect(find.widgetWithText(TextField, 'Evenings'), findsOneWidget);
+        expect(find.text('golden hour'), findsOneWidget);
+        expect(find.text('Save changes'), findsOneWidget);
+        expect(find.text('Save collection'), findsNothing);
+        expect(collections.previews.last['prompts'], ['sunsets', 'golden hour']);
+        expect(collections.previews.last['contentMode'], 'images');
+        expect(find.text('142 photos'), findsOneWidget);
+      });
+
+      testWidgets('a new name alone changes only the name', (tester) async {
+        await openEdit(tester, mine);
+        await tester.enterText(find.widgetWithText(TextField, 'Evenings'), 'Nights');
+        await tester.pump();
+        await saveChanges(tester);
+        final saved = collections.updated.single;
+        expect(saved.name, 'Nights');
+        expect(saved.prompts, ['sunsets', 'golden hour']);
+        expect(saved.contentMode, 'images');
+        expect(saved.personIds, isEmpty);
+        expect(find.text('Edit collection'), findsNothing, reason: 'closed');
+      });
+
+      testWidgets('what is included can be changed and is previewed again', (tester) async {
+        await openEdit(tester, mine);
+        await tester.tap(find.text('Videos'));
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
+        expect(collections.previews.last['contentMode'], 'videos');
+        await saveChanges(tester);
+        expect(collections.updated.single.contentMode, 'videos');
+      });
+
+      testWidgets('the words and other ways of saying it can be changed', (tester) async {
+        await openEdit(tester, mine);
+        await tester.enterText(find.widgetWithText(TextField, 'sunsets'), 'dusk');
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Remove golden hour'));
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
+        expect(collections.previews.last['prompts'], ['dusk']);
+        await saveChanges(tester);
+        expect(collections.updated.single.prompts, ['dusk']);
+      });
+
+      testWidgets('a person it filters by is put back in the words and kept when saving', (tester) async {
+        final withMaya = SmartCollection(id: 'user_2', name: 'Maya outdoors', prompts: const ['sunsets'], personIds: const [1]);
+        await openEdit(tester, withMaya);
+        expect(find.widgetWithText(TextField, 'Maya sunsets'), findsOneWidget);
+        expect(collections.previews.last['prompts'], ['sunsets']);
+        expect(collections.previews.last['personIds'], [1]);
+        await saveChanges(tester);
+        expect(collections.updated.single.personIds, [1]);
+        expect(collections.updated.single.prompts, ['sunsets']);
+      });
+
+      testWidgets('a collection of people only shows only their names, and saves the same phrase', (tester) async {
+        final onlyMaya = SmartCollection(id: 'user_3', name: 'Maya', prompts: const ['a photo'], personIds: const [1]);
+        await openEdit(tester, onlyMaya);
+        expect(find.widgetWithText(TextField, 'Maya'), findsNWidgets(2), reason: 'the words and the name');
+        await saveChanges(tester);
+        expect(collections.updated.single.prompts, ['a photo']);
+        expect(collections.updated.single.personIds, [1]);
+      });
+
+      testWidgets('a person who has no name cannot be typed again, so saving keeps them', (tester) async {
+        final withUnnamed = SmartCollection(id: 'user_4', name: 'Someone', prompts: const ['sunsets'], personIds: const [7]);
+        await openEdit(tester, withUnnamed);
+        expect(collections.previews.last['personIds'], [7]);
+        await saveChanges(tester);
+        expect(collections.updated.single.personIds, [7]);
+      });
+
+      testWidgets('a built-in shows its short phrase, is previewed as it really is, and keeps its phrasings', (tester) async {
+        await openEdit(tester, beach);
+        expect(find.widgetWithText(TextField, 'a beach'), findsOneWidget);
+        expect(find.text('sand and sea'), findsNothing);
+        expect(collections.previews.last['prompts'], ['a beach', 'sand and sea', 'waves']);
+        expect(collections.previews.last['sensitivity'], 2.8);
+        await tester.enterText(find.widgetWithText(TextField, 'Beach'), 'Seaside');
+        await tester.pump();
+        await saveChanges(tester);
+        final saved = collections.updated.single;
+        expect(saved.name, 'Seaside');
+        expect(saved.prompts, ['a beach', 'sand and sea', 'waves']);
+        expect(saved.sensitivity, 2.8);
+        expect(saved.isBuiltIn, isTrue);
+      });
+
+      testWidgets('a built-in whose words are changed gets the new words', (tester) async {
+        await openEdit(tester, beach);
+        await tester.enterText(find.widgetWithText(TextField, 'a beach'), 'coast');
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
+        expect(collections.previews.last['prompts'], ['coast']);
+        await saveChanges(tester);
+        expect(collections.updated.single.prompts, ['coast']);
+      });
+
+      testWidgets('a phrase added to a built-in comes after its own', (tester) async {
+        await openEdit(tester, beach);
+        await tester.tap(find.text('+ Add'));
+        await tester.pump();
+        await tester.enterText(find.widgetWithText(TextField, 'e.g. "coast"'), 'surf');
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
+        await saveChanges(tester);
+        expect(collections.updated.single.prompts, ['a beach', 'sand and sea', 'waves', 'surf']);
+      });
+
+      testWidgets('a photo collection keeps its photo and can change its name and what it includes', (tester) async {
+        final photos = SmartCollection(
+          id: 'user_5',
+          name: 'Like this',
+          prompts: const ['photos like the one you saved'],
+          kind: SmartCollection.kindPhotos,
+          seedUri: 'content://media/1',
+          seedEmbedding: const [0.1, 0.2],
+        );
+        await openEdit(tester, photos);
+        expect(find.text('Photos that look like this'), findsOneWidget);
+        expect(find.byTooltip('Describe in words instead'), findsNothing);
+        expect(find.byTooltip('Choose another photo'), findsOneWidget);
+        expect(find.text('Describe what to find'), findsNothing);
+        expect(find.text('INCLUDE'), findsOneWidget);
+        expect(find.text('NAME'), findsOneWidget);
+        expect(collections.previews, isEmpty);
+        await tester.enterText(find.widgetWithText(TextField, 'Like this'), 'Mine');
+        await tester.tap(find.text('Images'));
+        await tester.pump();
+        await saveChanges(tester);
+        final saved = collections.updated.single;
+        expect(saved.name, 'Mine');
+        expect(saved.contentMode, 'images');
+        expect(saved.isPhotos, isTrue);
+        expect(saved.prompts, ['photos like the one you saved']);
+        expect(saved.seedEmbedding, [0.1, 0.2]);
+      });
+
+      testWidgets('a photo collection can look like another photo, previewed and saved', (tester) async {
+        messenger.setMockMethodCallHandler(channel, (call) async => call.method == 'pickImage' ? 'content://media/9' : null);
+        final photos = SmartCollection(
+          id: 'user_6',
+          name: 'Like this',
+          prompts: const ['photos like the one you saved'],
+          kind: SmartCollection.kindPhotos,
+          seedUri: 'content://media/1',
+          seedEmbedding: const [0.1, 0.2],
+        );
+        await openEdit(tester, photos);
+        await tester.tap(find.byTooltip('Choose another photo'));
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
+        expect(collections.previews.last['seedUri'], 'content://media/9');
+        expect(find.text('142 photos and videos'), findsOneWidget);
+        await saveChanges(tester);
+        expect(collections.updated, isEmpty);
+        expect(collections.photoChanges, [
+          {'id': 'user_6', 'uri': 'content://media/9', 'name': 'Like this', 'contentMode': 'both'},
+        ]);
+      });
+
+      testWidgets('picking no photo leaves a photo collection with the one it has', (tester) async {
+        messenger.setMockMethodCallHandler(channel, (call) async => null);
+        final photos = SmartCollection(
+          id: 'user_7',
+          name: 'Like this',
+          prompts: const ['photos like the one you saved'],
+          kind: SmartCollection.kindPhotos,
+          seedUri: 'content://media/1',
+          seedEmbedding: const [0.1, 0.2],
+        );
+        await openEdit(tester, photos);
+        await tester.tap(find.byTooltip('Choose another photo'));
+        await tester.pumpAndSettle();
+        await saveChanges(tester);
+        expect(collections.photoChanges, isEmpty);
+        expect(collections.updated.single.seedUri, 'content://media/1');
+      });
+
+      testWidgets('words left alone are saved as they were, even when they hold a name that was never a filter', (tester) async {
+        final plain = SmartCollection(id: 'user_8', name: 'Trip', prompts: const ['a photo of Maya at the beach']);
+        await openEdit(tester, plain);
+        expect(collections.previews.last['prompts'], ['a photo of Maya at the beach']);
+        expect(collections.previews.last['personIds'], isEmpty);
+        await tester.enterText(find.widgetWithText(TextField, 'Trip'), 'Beach trip');
+        await tester.pump();
+        await saveChanges(tester);
+        final saved = collections.updated.single;
+        expect(saved.prompts, ['a photo of Maya at the beach']);
+        expect(saved.personIds, isEmpty);
+        expect(saved.name, 'Beach trip');
+      });
+
+      testWidgets('words that are changed have their names recognised as people', (tester) async {
+        final plain = SmartCollection(id: 'user_9', name: 'Trip', prompts: const ['sunsets']);
+        await openEdit(tester, plain);
+        await tester.enterText(find.widgetWithText(TextField, 'sunsets'), 'Maya sunsets');
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
+        expect(collections.previews.last['personIds'], [1]);
+        await saveChanges(tester);
+        expect(collections.updated.single.personIds, [1]);
+        expect(collections.updated.single.prompts, ['sunsets']);
+      });
+
+      testWidgets('a built-in keeps its short phrase when a phrasing is added to it', (tester) async {
+        final withShort = SmartCollection(
+          id: 'builtin_food',
+          name: 'Food',
+          prompts: const ['a plate of food on a table', 'a meal'],
+          explainQuery: 'food',
+          isBuiltIn: true,
+        );
+        await openEdit(tester, withShort);
+        expect(find.widgetWithText(TextField, 'food'), findsOneWidget);
+        await tester.tap(find.text('+ Add'));
+        await tester.pump();
+        await tester.enterText(find.widgetWithText(TextField, 'e.g. "coast"'), 'dinner');
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
+        await saveChanges(tester);
+        final saved = collections.updated.single;
+        expect(saved.prompts, ['a plate of food on a table', 'a meal', 'dinner']);
+        expect(saved.explainQuery, 'food');
+        expect(saved.queryText, 'food');
+      });
+
+      testWidgets('an emptied name falls back to the words', (tester) async {
+        await openEdit(tester, mine);
+        await tester.enterText(find.widgetWithText(TextField, 'Evenings'), '');
+        await tester.pump();
+        await saveChanges(tester);
+        expect(collections.updated.single.name, 'Sunsets');
+      });
     });
   });
 }
