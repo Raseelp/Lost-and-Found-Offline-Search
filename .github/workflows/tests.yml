@@ -36,6 +36,9 @@ jobs:
       - name: Dart tests
         run: flutter test
 
+      - name: Create the Gradle launcher
+        run: flutter build apk --debug --config-only
+
       - name: Kotlin unit tests
         working-directory: android
         run: ./gradlew :app:testDebugUnitTest
