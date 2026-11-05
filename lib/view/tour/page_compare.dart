@@ -28,6 +28,9 @@ class _ComparePageState extends State<ComparePage>
   );
   bool _still = false;
 
+  static const _ours = 'assets/tour/logos/lost_and_found.png';
+  static const _theirs = 'assets/tour/logos/google_photos.png';
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +43,8 @@ class _ComparePageState extends State<ComparePage>
     super.didChangeDependencies();
     _still = MediaQuery.disableAnimationsOf(context);
     if (_still) _c.value = 1;
+    precacheImage(const AssetImage(_ours), context);
+    precacheImage(const AssetImage(_theirs), context);
   }
 
   @override
@@ -124,7 +129,6 @@ class _Table extends StatelessWidget {
     ('Needs the internet', 'No', 'Yes'),
     ('Face data', 'On your phone', 'In your Google account'),
     ('Source code', 'Open on GitHub', 'Closed'),
-    ('Price', 'Free', 'Free to 15 GB, then paid'),
   ];
 
   static const double _gap = 8;
@@ -208,13 +212,22 @@ class _Table extends StatelessWidget {
     final Widget oursChild;
     final Widget theirsChild;
     if (first) {
-      oursChild = Text(
-        'Lost & Found',
-        style: heading?.copyWith(color: TourPalette.white),
+      oursChild = _fade(
+        a,
+        _Brand(
+          asset: _ComparePageState._ours,
+          name: 'Lost & Found',
+          style: heading?.copyWith(color: TourPalette.white),
+        ),
       );
-      theirsChild = Text(
-        'Google Photos',
-        style: heading?.copyWith(color: AppColors.ink),
+      theirsChild = _fade(
+        b,
+        _Brand(
+          asset: _ComparePageState._theirs,
+          name: 'Google Photos',
+          style: heading?.copyWith(color: AppColors.ink),
+          logoSize: 27,
+        ),
       );
     } else {
       oursChild = Column(
@@ -323,6 +336,52 @@ class _Table extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// The head of a column: the logo, small, with the name under it. The logo is only decoration, so a screen reader reads
+/// the name (the row already says both names in one sentence). Every logo has the same 32 point place, left aligned.
+/// [logoSize] is smaller for one that has no tile of its own: a bare shape looks larger than a tile of the same size.
+class _Brand extends StatelessWidget {
+  const _Brand({
+    required this.asset,
+    required this.name,
+    required this.style,
+    this.logoSize = _size,
+  });
+
+  final String asset;
+  final String name;
+  final TextStyle? style;
+  final double logoSize;
+
+  static const double _size = 32;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox.square(
+          dimension: _size,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Image.asset(
+              asset,
+              width: logoSize,
+              height: logoSize,
+              filterQuality: FilterQuality.medium,
+              excludeFromSemantics: true,
+              errorBuilder: (context, error, stack) =>
+                  SizedBox.square(dimension: logoSize),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(name, style: style),
+      ],
     );
   }
 }
