@@ -276,8 +276,8 @@ class SettingsScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: AppSpacing.xl),
-                      const _GroupLabel('Memories'),
-                      const _MemoriesSection(),
+                      const _GroupLabel('Notifications'),
+                      const _NotificationsSection(),
                       const SizedBox(height: AppSpacing.xl),
                       const _GroupLabel('Diagnostics'),
                       _GroupCard(
@@ -1013,10 +1013,99 @@ List<Widget> _expertFaceRows(
   ];
 }
 
-/// The settings for the daily memory notification. The reminder to finish indexing shows as on only when the phone
-/// lets the app show notifications at all, because it could not come otherwise.
-class _MemoriesSection extends StatelessWidget {
-  const _MemoriesSection();
+/// A one-line banner at the top of Notifications. It shows while a notification is on and the phone has notifications
+/// off for the app. It is not a setting: the switches below stay as the person left them, and nothing can come until
+/// this is allowed. The same permission has a row under Permissions, at the top of this screen.
+class _NotificationsOffBanner extends StatelessWidget {
+  const _NotificationsOffBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return GetBuilder<NativeController>(
+      builder: (native) => GetBuilder<MemoriesController>(
+        builder: (memories) => GetBuilder<StoriesController>(
+          builder: (stories) {
+            final wanted =
+                memories.settings.enabled ||
+                stories.reminderEnabled ||
+                native.indexNudgeEnabled;
+            if (!wanted || native.backgroundNotificationsGranted) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.parchment,
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                    left: AppSpacing.base,
+                    right: AppSpacing.xs,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.notifications_off_outlined,
+                        size: 18,
+                        color: AppColors.ink48,
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppSpacing.sm,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Notifications are off',
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: AppColors.ink80,
+                                ),
+                              ),
+                              Text(
+                                'Turn on notifications to get your daily memory, stories note and indexing reminder.',
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: AppColors.ink48,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          minimumSize: const Size(0, 44),
+                        ),
+                        onPressed: () async {
+                          await native.requestBackgroundScanPermission(
+                            purpose: 'send your daily memory and your notes',
+                          );
+                          await memories.loadSettings();
+                        },
+                        child: const Text('Turn on'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// The notification settings: the daily memory, the stories note and the finish indexing note. The switches show what
+/// the person chose, whether or not the phone allows notifications, and the banner above them says when it does not.
+class _NotificationsSection extends StatelessWidget {
+  const _NotificationsSection();
 
   @override
   Widget build(BuildContext context) {
@@ -1029,6 +1118,7 @@ class _MemoriesSection extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const _NotificationsOffBanner(),
             _GroupCard(
               children: [
                 _SettingsRow(
@@ -1043,14 +1133,6 @@ class _MemoriesSection extends StatelessWidget {
                     },
                   ),
                 ),
-                if (s.enabled && !s.allowed)
-                  _TapRow(
-                    icon: Icons.notifications_off_outlined,
-                    title: 'Notifications are off for this app',
-                    subtitle:
-                        'Tap to open the system settings and turn them on.',
-                    onTap: openAppSettings,
-                  ),
                 if (s.enabled) ...[
                   _TapRow(
                     icon: Icons.send_rounded,
@@ -1065,7 +1147,7 @@ class _MemoriesSection extends StatelessWidget {
                     title: 'Stories reminder',
                     subtitle: 'A note a day after you last use the app, when there are stories to watch.',
                     trailing: Switch(
-                      value: stories.reminderEnabled && stories.reminderAllowed,
+                      value: stories.reminderEnabled,
                       onChanged: (on) async {
                         await stories.setReminder(on);
                       },
@@ -1076,24 +1158,14 @@ class _MemoriesSection extends StatelessWidget {
                   builder: (native) => _SettingsRow(
                     icon: Icons.manage_search_rounded,
                     title: 'Finish indexing reminder',
-                    subtitle: 'A note, up to three, if some of your photos and videos are not indexed yet. It shows what you are missing.',
+                    subtitle: 'A note if some of your photos and videos are not indexed yet.',
                     trailing: Switch(
-                      value: native.indexNudgeEnabled && native.backgroundNotificationsGranted,
+                      value: native.indexNudgeEnabled,
                       onChanged: (on) async {
                         await native.setIndexNudgeEnabled(on);
                       },
                     ),
                   ),
-                ),
-                GetBuilder<StoriesController>(
-                  builder: (stories) => stories.reminderEnabled
-                      ? _TapRow(
-                          icon: Icons.send_rounded,
-                          title: 'Send one now',
-                          subtitle: 'See what the stories note looks like.',
-                          onTap: () async => say(await stories.sendTest()),
-                        )
-                      : const SizedBox.shrink(),
                 ),
               ],
             ),

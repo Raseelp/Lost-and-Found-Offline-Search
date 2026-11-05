@@ -23,7 +23,9 @@ found with one range lookup on the date index.
 
 ## Daily memory notifications
 
-Settings > Memories turns on two notifications a day, each sent only when there is something good:
+Settings > Notifications controls two notifications a day, each sent only when there is something good. They
+are on by default and go out only while Android allows notifications for the app. The app asks for that
+once, when the first scan ends or is stopped, and Settings shows a note while it is off.
 
 - **Morning (6:30)** looks back: on this day, anniversaries, a few days of a trip, the same date
   across the years.

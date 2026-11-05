@@ -505,19 +505,16 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
     return ringsFor(faces.people, collections).any((r) => !isSeen(r));
   }
 
-  /// Turns the "stories have refreshed" note on or off. Turning it on asks for the notification permission (Android 13
-  /// and later) and stays off if it is refused. The permission is asked as every other is (see [askPermission]), so
-  /// it says why if it is turned down. Returns whether it is on now.
+  /// Turns the "stories have refreshed" note on or off. The choice is kept even when the notification permission is
+  /// refused (Android 13 and later), because the note is on by default and only goes out while the permission is
+  /// given. Turning it on asks for the permission as every other is asked (see [askPermission]), so it says why if it
+  /// is turned down. Returns whether it is on now.
   Future<bool> setReminder(bool on) async {
     if (on) {
-      final allowed = await askPermission(
+      await askPermission(
         AppPermission.notifications,
         purpose: 'tell you when your stories have refreshed',
       );
-      if (!allowed) {
-        await _loadReminder();
-        return false;
-      }
     }
     final r = await NativeServices().storiesReminder(enabled: on);
     reminderEnabled = r.enabled;

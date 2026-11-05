@@ -330,7 +330,7 @@ class ThenNow {
 
 /// What the person chose about the daily memory (it comes twice a day, at fixed times: early morning and evening).
 class MemorySettings {
-  const MemorySettings({this.enabled = false, this.allowed = true});
+  const MemorySettings({this.enabled = true, this.allowed = true});
 
   final bool enabled;
 
@@ -343,7 +343,7 @@ class MemorySettings {
   );
 
   factory MemorySettings.fromMap(Map<dynamic, dynamic> m) => MemorySettings(
-    enabled: m['enabled'] as bool? ?? false,
+    enabled: m['enabled'] as bool? ?? true,
     allowed: m['allowed'] as bool? ?? true,
   );
 }

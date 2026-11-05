@@ -261,19 +261,16 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  /// Turns the daily memory on or off. Turning it on asks for the notification permission first (Android 13 and later)
-  /// and stays off if it is refused. The permission is asked as every permission is (see [askPermission]), and it says
-  /// why if it is turned down. Returns whether it is on.
+  /// Turns the daily memory on or off. The choice is kept even when the notification permission is refused (Android
+  /// 13 and later), because the daily memory is on by default and only goes out while the permission is given. Turning
+  /// it on asks for the permission as every permission is asked (see [askPermission]), and that says why if it is
+  /// turned down. Returns whether it is on.
   Future<bool> setEnabled(bool on) async {
     if (on) {
-      final allowed = await askPermission(
+      await askPermission(
         AppPermission.notifications,
         purpose: 'send your daily memory',
       );
-      if (!allowed) {
-        await loadSettings();
-        return false;
-      }
     }
     settings = await _native.setMemorySettings(enabled: on);
     update();

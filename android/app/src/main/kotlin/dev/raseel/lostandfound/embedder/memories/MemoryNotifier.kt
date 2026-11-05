@@ -18,7 +18,7 @@ class MemoryPrefs(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("memories", Context.MODE_PRIVATE)
 
     var enabled: Boolean
-        get() = prefs.getBoolean("enabled", false)
+        get() = prefs.getBoolean("enabled", true)
         set(v) = prefs.edit().putBoolean("enabled", v).apply()
 
     var lastKind: MemoryKind?

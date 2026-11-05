@@ -16,6 +16,8 @@ import 'package:lost_and_found/models/meta_data_model.dart';
 import 'package:lost_and_found/models/model_status.dart';
 import 'package:lost_and_found/services/native_services.dart';
 import 'package:lost_and_found/utils/query_words.dart';
+import 'package:lost_and_found/utils/app_colors.dart';
+import 'package:lost_and_found/view/widget/confirm_dialog.dart';
 import 'package:lost_and_found/view/widget/mention_text_controller.dart';
 import 'package:lost_and_found/view/widget/permission_prompt.dart';
 
@@ -124,6 +126,58 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       unawaited(checkBackgroundScanPermission());
       unawaited(refreshLatestScan());
+      if (_offerNotificationsPending) {
+        _offerNotificationsPending = false;
+        unawaited(_offerNotifications());
+      }
+    }
+  }
+
+  static const _notificationsOfferedKey = 'notifications_offered';
+  bool _offerNotificationsPending = false;
+  bool _offeringNotifications = false;
+
+  /// After the first scan ends, finished or stopped, asks once whether the app may send notifications. The daily memory
+  /// and the stories note are on by default and cannot come without it. Nothing is asked if it is already allowed, and
+  /// a scan that ends while the app is in the background asks when the app is next opened.
+  Future<void> _offerNotifications() async {
+    if (_offeringNotifications) return;
+    _offeringNotifications = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_notificationsOfferedKey) ?? false) return;
+      await checkBackgroundScanPermission();
+      if (backgroundNotificationsGranted) {
+        await prefs.setBool(_notificationsOfferedKey, true);
+        return;
+      }
+      final context = Get.context;
+      final state = WidgetsBinding.instance.lifecycleState;
+      final foreground = state == null || state == AppLifecycleState.resumed;
+      if (!foreground || context == null || !context.mounted) {
+        _offerNotificationsPending = true;
+        return;
+      }
+      await prefs.setBool(_notificationsOfferedKey, true);
+      if (!context.mounted) return;
+      await showConfirmDialog(
+        context,
+        title: 'Allow notifications?',
+        message:
+            'Your daily memory, your stories note and the scan\'s progress come as notifications. '
+            'You can turn each one off in Settings.',
+        confirmLabel: 'Allow',
+        confirmColor: AppColors.primary,
+        onConfirm: () => unawaited(
+          requestBackgroundScanPermission(
+            purpose: 'send your daily memory, your stories note and the scan\'s progress',
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('offerNotifications failed: $e');
+    } finally {
+      _offeringNotifications = false;
     }
   }
 
@@ -1035,6 +1089,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
           unawaited(_finishScan(folderId: scanResult.id));
         }
         unawaited(refreshLatestScan());
+        unawaited(_offerNotifications());
         if (completed && Get.isRegistered<StoriesController>()) {
           unawaited(Get.find<StoriesController>().scheduleReminderWhenReady());
         }
@@ -1338,18 +1393,15 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     }
   }
 
-  /// Turns the note on or off. Turning it on asks for the notification permission (Android 13 and later) and stays off
-  /// if it is refused. Returns whether it is on.
+  /// Turns the note on or off. The choice is kept even when the notification permission is refused, because the note is
+  /// on by default and only goes out while the permission is given. Turning it on asks for the permission (Android 13
+  /// and later). Returns whether it is on.
   Future<bool> setIndexNudgeEnabled(bool on) async {
     if (on) {
-      final allowed = await askPermission(
+      await askPermission(
         AppPermission.notifications,
         purpose: 'remind you to finish indexing your photos',
       );
-      if (!allowed) {
-        await _loadIndexNudge();
-        return indexNudgeEnabled;
-      }
     }
     indexNudgeEnabled = on;
     update();
@@ -1493,12 +1545,14 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   /// short list of core-function use cases this app does not fit. The scan surviving being killed (WorkManager's retry
   /// after interruption) takes its place. The value read afterwards may be stale until didChangeAppLifecycleState
   /// corrects it on resume.
-  Future<void> requestBackgroundScanPermission() async {
+  Future<void> requestBackgroundScanPermission({String? purpose}) async {
     if (!Platform.isAndroid) return;
 
     await askPermission(
       AppPermission.notifications,
-      purpose: 'show the scan\'s progress and keep it going in the background',
+      purpose:
+          purpose ??
+          'show the scan\'s progress and keep it going in the background',
     );
 
     await checkBackgroundScanPermission();

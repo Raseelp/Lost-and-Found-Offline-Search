@@ -43,6 +43,10 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   file addresses.
 
 ### Changed
+- The daily memory and the stories note are now on from the start. They go out only while Android allows
+  notifications for the app. The app asks for that once, when your first scan ends or is stopped, and Settings shows
+  a banner at the top of Notifications while it is off. Switches stay as you left them when the permission is refused. On Android 12
+  and older, turning notifications on now opens App info, because those versions have no prompt.
 - The round action button on the People and Collections tabs reacts faster: it moves into and out of the search
   button, and its actions come out and go back, in about two thirds of the time. The motion itself is the same.
 - Every short message in the app (Copied, Merged with Undo, Saved with View and so on) now looks the same and is

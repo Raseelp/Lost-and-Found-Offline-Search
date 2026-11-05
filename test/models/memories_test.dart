@@ -189,14 +189,15 @@ void main() {
       expect(MemoryPhoto.fromMap({'key': 7.0, 'takenMs': 5.0}).takenMs, 5);
     });
 
-    test('settings default to off and allowed, and can be changed one at a time', () {
+    test('settings default to on and allowed, and can be changed one at a time', () {
       final s = MemorySettings.fromMap({});
-      expect(s.enabled, isFalse);
+      expect(s.enabled, isTrue);
       expect(s.allowed, isTrue);
-      final on = s.copyWith(enabled: true);
-      expect(on.enabled, isTrue);
-      expect(on.allowed, isTrue);
-      expect(on.copyWith(allowed: false).enabled, isTrue);
+      expect(const MemorySettings().enabled, isTrue);
+      final off = s.copyWith(enabled: false);
+      expect(off.enabled, isFalse);
+      expect(off.allowed, isTrue);
+      expect(off.copyWith(allowed: false).enabled, isFalse);
     });
   });
 }
