@@ -3,11 +3,7 @@
 Find your photos and videos by describing them, and by who is in them. Everything runs on your
 phone, with no account and no cloud.
 
-<p align="center">
-  <a href="https://github.com/Raseelp/Lost-and-Found-Offline-Search/raw/main/docs/media/launch-film.mp4">
-    <img src="docs/media/launch-film.jpg" alt="Watch the launch film (1 min 42 s)" width="720">
-  </a>
-</p>
+https://github.com/user-attachments/assets/c24047fc-3c93-400e-a860-6f955888a8c5
 
 Type "a birthday cake with candles" or "the whiteboard from that meeting" and Lost & Found finds it, whatever
 the file is called. It recognises the people in your photos and videos, so you can also search
