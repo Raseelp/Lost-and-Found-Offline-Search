@@ -3,13 +3,10 @@
 Find your photos and videos by describing them, and by who is in them. Everything runs on your
 phone, with no account and no cloud.
 
-<!-- Screenshots: replace each placeholder with a phone screenshot (about 1080 px wide). -->
 <p align="center">
-  <img src="docs/screenshots/search.png" alt="Search" width="19%">
-  <img src="docs/screenshots/people.png" alt="People" width="19%">
-  <img src="docs/screenshots/timeline.png" alt="People timeline" width="19%">
-  <img src="docs/screenshots/on-this-day.png" alt="On this day" width="19%">
-  <img src="docs/screenshots/memory.png" alt="Daily memory notification" width="19%">
+  <a href="docs/media/launch-film.mp4">
+    <img src="docs/media/launch-film.jpg" alt="Watch the launch film (1 min 42 s)" width="720">
+  </a>
 </p>
 
 Type "a birthday cake with candles" or "the whiteboard from that meeting" and Lost & Found finds it, whatever
