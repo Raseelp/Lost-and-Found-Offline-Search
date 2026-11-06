@@ -3,7 +3,7 @@
 Find your photos and videos by describing them, and by who is in them. Everything runs on your
 phone, with no account and no cloud.
 
-https://github.com/user-attachments/assets/c24047fc-3c93-400e-a860-6f955888a8c5
+https://github.com/user-attachments/assets/d94c3847-1bde-4fa7-ac63-a4237429575d
 
 Type "a birthday cake with candles" or "the whiteboard from that meeting" and Lost & Found finds it, whatever
 the file is called. It recognises the people in your photos and videos, so you can also search
