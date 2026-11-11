@@ -49,7 +49,7 @@
 
     <application
         android:label="Lost &amp; Found"
-        android:name="${applicationName}"
+        android:name=".LostFoundApp"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="false">
 
@@ -103,6 +103,17 @@
                 android:value="On-device photo/video indexing: generates CLIP embeddings from the folders the user picked, so search stays available even while the app is backgrounded." />
         </service>
 
+        <!-- Hands the files of a problem report (Settings > About > Note from the developer) to the mail app. -->
+        <provider
+            android:name=".features.settings.ReportFileProvider"
+            android:authorities="${applicationId}.reportfiles"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/report_paths" />
+        </provider>
+
         <!-- Flutter embedding metadata -->
         <meta-data
             android:name="flutterEmbedding"
@@ -110,11 +121,15 @@
 
     </application>
 
-    <!-- Required by Flutter text processing -->
+    <!-- Required by Flutter text processing, and to see whether a mail app is installed. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />
             <data android:mimeType="text/plain" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="mailto" />
         </intent>
     </queries>
 

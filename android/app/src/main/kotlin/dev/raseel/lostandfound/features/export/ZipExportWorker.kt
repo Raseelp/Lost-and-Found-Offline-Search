@@ -1,5 +1,6 @@
 package dev.raseel.lostandfound.features.export
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,7 +15,6 @@ import android.os.Build
 import android.os.Environment
 import android.os.PowerManager
 import android.provider.MediaStore
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.documentfile.provider.DocumentFile
@@ -103,7 +103,7 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
         try {
             setForeground(foregroundInfo("Getting your zip ready", 0, true))
         } catch (e: Exception) {
-            Log.w(TAG, "setForeground failed, going on anyway: ${e.message}")
+            AppLog.w(TAG, "setForeground failed, going on anyway: ${e.message}")
         }
         val wake = (context.getSystemService(Context.POWER_SERVICE) as? PowerManager)
             ?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "lostandfound:zipExport")
@@ -136,7 +136,7 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
             state.phase = ZipExportState.CANCELLED
             return Result.success()
         } catch (e: Throwable) {
-            Log.e(TAG, "the zip could not be made: ${e.message}", e)
+            AppLog.e(TAG, "the zip could not be made: ${e.message}", e)
             discard()
             state.error = friendly(e)
             state.phase = ZipExportState.FAILED

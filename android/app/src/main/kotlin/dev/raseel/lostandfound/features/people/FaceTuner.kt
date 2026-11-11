@@ -1,8 +1,8 @@
 package dev.raseel.lostandfound.features.people
 
+import dev.raseel.lostandfound.core.log.AppLog
 import ai.onnxruntime.OnnxTensor
 import android.content.Context
-import android.util.Log
 import java.io.File
 import java.nio.FloatBuffer
 import java.util.Random
@@ -100,7 +100,7 @@ object FaceTuner {
         val p = prefs(context)
 
         p.getString("trying", null)?.let { crashed ->
-            Log.w(TAG, "a previous test of $crashed never finished - not trying it again")
+            AppLog.w(TAG, "a previous test of $crashed never finished - not trying it again")
             p.edit().putStringSet("bad", (p.getStringSet("bad", emptySet()) ?: emptySet()) + crashed).remove("trying").commit()
         }
         val bad = p.getStringSet("bad", emptySet()) ?: emptySet()
@@ -112,7 +112,7 @@ object FaceTuner {
             val best = tuneModel(context, store, model, bad, shouldStop)
                 ?: if (shouldStop()) return else RunConfig(defaultThreads(kind)) to 0f
             chosen[model.spec.id] = best
-            Log.i(TAG, "${model.spec.id}: chose ${best.first.describe()} at ${best.second.toInt()} ms")
+            AppLog.i(TAG, "${model.spec.id}: chose ${best.first.describe()} at ${best.second.toInt()} ms")
         }
 
         val editor = p.edit()
@@ -153,14 +153,14 @@ object FaceTuner {
             val outcome = try {
                 benchmark(store, model, config, input, perUnit, results.minOfOrNull { it.second }, if (config.provider == "cpu") null else reference)
             } catch (e: Throwable) {
-                Log.w(TAG, "$key failed: ${e.message}")
+                AppLog.w(TAG, "$key failed: ${e.message}")
                 null
             }
             p.edit().remove("trying").commit()
             if (outcome != null) {
                 if (reference == null && config.provider == "cpu") reference = outcome.output
                 results += config to outcome.msPerUnit
-                Log.i(TAG, "$key -> ${outcome.msPerUnit.toInt()} ms")
+                AppLog.i(TAG, "$key -> ${outcome.msPerUnit.toInt()} ms")
             }
             return outcome?.msPerUnit
         }
@@ -223,7 +223,7 @@ object FaceTuner {
             val (warmNs, warmOut) = runOnce()
             val warmMs = warmNs / 1_000_000f / units
             if (reference != null && cosine(warmOut, reference) < MIN_SIMILARITY) {
-                Log.w(TAG, "${config.encode()} gave different answers - rejected")
+                AppLog.w(TAG, "${config.encode()} gave different answers - rejected")
                 return null
             }
             if (bestSoFar != null && warmMs > bestSoFar * 3f) return Outcome(warmMs, warmOut)

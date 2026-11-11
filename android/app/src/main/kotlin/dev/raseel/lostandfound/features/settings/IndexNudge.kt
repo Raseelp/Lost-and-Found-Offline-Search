@@ -1,5 +1,6 @@
 package dev.raseel.lostandfound.features.settings
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -372,7 +373,7 @@ class IndexNudgeWorker(context: Context, params: WorkerParameters) : Worker(cont
         try {
             IndexNudge.fire(applicationContext)
         } catch (e: Exception) {
-            android.util.Log.w("IndexNudge", "failed: ${e.message}")
+            AppLog.w("IndexNudge", "failed: ${e.message}")
         }
         return Result.success()
     }

@@ -1,7 +1,8 @@
 part of '../settings_screen.dart';
 
 /// Which build this is, the way Telegram X lists it: the version, the build number and the commit it was made from
-/// (a "+" after the commit means there were changes that were not committed). Tapping copies it, for a bug report.
+/// (a "+" after the commit means there were changes that were not committed). Tapping opens the source code on GitHub, and a long press copies
+/// the build, for a bug report.
 class _BuildRow extends StatefulWidget {
   const _BuildRow();
 
@@ -27,22 +28,23 @@ class _BuildRowState extends State<_BuildRow> {
     });
   }
 
+  Future<void> _copyBuild() async {
+    final text = _text;
+    if (text == null) return;
+    await Clipboard.setData(ClipboardData(text: 'Lost & Found $text'));
+    AppToast.show('Build details copied.');
+  }
+
   @override
   Widget build(BuildContext context) {
-    final text = _text;
     return InkWell(
-      onTap: text == null
-          ? null
-          : () async {
-              await Clipboard.setData(
-                ClipboardData(text: 'Lost & Found $text'),
-              );
-              AppToast.show('Build details copied.');
-            },
+      onTap: () => openLink(kRepoUrl),
+      onLongPress: _copyBuild,
       child: _SettingsRow(
         icon: Icons.info_outline_rounded,
         title: 'Lost & Found',
-        subtitle: text ?? 'Version',
+        subtitle: _text ?? 'Version',
+        trailing: const _RowChevron(),
       ),
     );
   }

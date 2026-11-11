@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.core.view.WindowCompat
 import dev.raseel.lostandfound.core.media.MediaChannel
 import dev.raseel.lostandfound.core.native.FeatureChannel
+import dev.raseel.lostandfound.core.native.NativeExecutors
 import dev.raseel.lostandfound.features.collections.CollectionsChannel
 import dev.raseel.lostandfound.features.export.ExportChannel
 import dev.raseel.lostandfound.features.home.HomeChannel
@@ -19,6 +20,8 @@ import dev.raseel.lostandfound.features.model_download.ModelDownloadChannel
 import dev.raseel.lostandfound.features.people.PeopleChannel
 import dev.raseel.lostandfound.features.search.SearchChannel
 import dev.raseel.lostandfound.features.settings.IndexNudge
+import dev.raseel.lostandfound.features.settings.ReportAttachmentPicker
+import dev.raseel.lostandfound.features.settings.ReportMail
 import dev.raseel.lostandfound.features.settings.SettingsChannel
 import dev.raseel.lostandfound.features.viewer.ViewerChannel
 import io.flutter.embedding.android.FlutterActivity
@@ -42,6 +45,7 @@ class MainActivity : FlutterActivity() {
     }
 
     val picker = SafPicker(this)
+    val reportAttachments = ReportAttachmentPicker(this)
 
     private val home = HomeChannel(this)
     private val memories = MemoriesChannel(this)
@@ -97,10 +101,14 @@ class MainActivity : FlutterActivity() {
         try { IndexNudge.ensureArmed(applicationContext) } catch (_: Exception) {}
     }
 
-    /** The app is in use: unanswered stories notes stop counting. */
+    /**
+     * The app is in use: unanswered stories notes stop counting, and the copies of a problem report's files are
+     * deleted if the person is back from the mail app they were handed to.
+     */
     override fun onResume() {
         super.onResume()
         try { StoriesReminder.noteOpened(applicationContext) } catch (_: Exception) {}
+        NativeExecutors.logExecutor.execute { ReportMail.cleanUpIfHandedOver(applicationContext) }
     }
 
     /**
@@ -123,5 +131,6 @@ class MainActivity : FlutterActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         picker.onResult(requestCode, resultCode, data)
+        reportAttachments.onResult(requestCode, resultCode, data)
     }
 }

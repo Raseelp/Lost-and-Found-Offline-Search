@@ -1,7 +1,7 @@
 package dev.raseel.lostandfound.features.memories
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.content.Context
-import android.util.Log
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -48,7 +48,7 @@ object MemoryDay {
             dates.sync(ScanEngineHolder.embeddingEngine(app))
             dates.resolve(app, faces, budgetMs)
         } catch (e: Exception) {
-            Log.w(TAG, "dates failed: ${e.message}")
+            AppLog.w(TAG, "dates failed: ${e.message}")
         }
         val (total, pending) = dates.progress()
         if (total == 0) return MemoryOutcome(null, "Nothing is indexed yet")
@@ -75,7 +75,7 @@ object MemoryDay {
             val ctx = MemoryEvergreen.Ctx(now, today, java.util.TimeZone.getDefault(), exclude, recent, if (saved == null) null else if (test) emptyMap() else announced)
             notices += MemoryEvergreen(dates, faces, planner).build(ctx)
         } catch (e: Exception) {
-            Log.w(TAG, "people memories failed: ${e.message}")
+            AppLog.w(TAG, "people memories failed: ${e.message}")
         }
 
         val kind = if (test) {
@@ -119,9 +119,9 @@ class DailyMemoryWorker(context: Context, params: WorkerParameters) : Worker(con
         val slot = Slot.fromCode(inputData.getString(MemoryScheduler.KEY_SLOT))
         try {
             val outcome = MemoryDay.run(applicationContext, slot)
-            Log.i("DailyMemory", "${slot.code}: ${outcome.sent?.code ?: "nothing"}: ${outcome.message}")
+            AppLog.i("DailyMemory", "${slot.code}: ${outcome.sent?.code ?: "nothing"}: ${outcome.message}")
         } catch (e: Exception) {
-            Log.w("DailyMemory", "failed: ${e.message}")
+            AppLog.w("DailyMemory", "failed: ${e.message}")
         }
         MemoryScheduler.apply(applicationContext, replace = true, only = slot)
         return Result.success()

@@ -1,7 +1,7 @@
 package dev.raseel.lostandfound.features.library
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.content.Context
-import android.util.Log
 import java.io.File
 
 /**
@@ -31,7 +31,7 @@ object LatestScan {
             try {
                 running.forEachLine { if (it.isNotEmpty()) keys.add(it) }
             } catch (e: Exception) {
-                Log.w(TAG, "begin: the running list could not be read (${e.message})")
+                AppLog.w(TAG, "begin: the running list could not be read (${e.message})")
             }
         } else {
             running.delete()
@@ -53,7 +53,7 @@ object LatestScan {
             File(context.filesDir, RUNNING_FILE).appendText(unwritten.joinToString("\n", postfix = "\n"))
             unwritten.clear()
         } catch (e: Exception) {
-            Log.w(TAG, "flush: ${e.message}")
+            AppLog.w(TAG, "flush: ${e.message}")
         }
     }
 
@@ -73,7 +73,7 @@ object LatestScan {
             target.delete()
             if (!temp.renameTo(target)) temp.delete()
         } catch (e: Exception) {
-            Log.w(TAG, "finish: the list could not be saved (${e.message})")
+            AppLog.w(TAG, "finish: the list could not be saved (${e.message})")
         }
         keys.clear()
         unwritten.clear()
@@ -86,7 +86,7 @@ object LatestScan {
         val list = ready ?: try {
             if (file.exists()) file.readLines().filter { it.isNotEmpty() } else emptyList()
         } catch (e: Exception) {
-            Log.w(TAG, "take: ${e.message}")
+            AppLog.w(TAG, "take: ${e.message}")
             emptyList()
         }
         ready = null

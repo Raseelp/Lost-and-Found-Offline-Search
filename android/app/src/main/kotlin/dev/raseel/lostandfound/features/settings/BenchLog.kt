@@ -1,45 +1,25 @@
 package dev.raseel.lostandfound.features.settings
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
-import android.util.Log
 import java.io.File
 
 /**
  * The performance logs for finding where indexing's time goes.
- * CLIP and faces both log through here under [TAG], so they can be read side by side. The "Performance logs" setting
- * switches them, and they are on unless the user turns them off.
+ * CLIP and faces both log through here under [TAG], so they can be read side by side. They are always on.
  */
 object BenchLog {
 
     const val TAG = "LostFoundBench"
 
-    private const val PREFS = "bench_log"
-    private const val KEY_ENABLED = "enabled"
-
-    @Volatile
-    private var cached: Boolean? = null
-
-    private fun prefs(context: Context) =
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-
-    fun enabled(context: Context): Boolean =
-        cached ?: synchronized(this) {
-            cached ?: prefs(context).getBoolean(KEY_ENABLED, true).also { cached = it }
-        }
-
-    fun setEnabled(context: Context, value: Boolean) {
-        prefs(context).edit().putBoolean(KEY_ENABLED, value).apply()
-        cached = value
-    }
-
-    /** Logs [message] if the logs are on. The message is only built then. */
-    fun log(context: Context, message: () -> String) {
-        if (enabled(context)) Log.i(TAG, message())
+    /** Logs the message. It is only built when the log line is written. */
+    fun log(message: () -> String) {
+        AppLog.i(TAG, message())
     }
 
     /**

@@ -25,6 +25,19 @@ class _GroupCard extends StatelessWidget {
   }
 }
 
+class _RowChevron extends StatelessWidget {
+  const _RowChevron();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Icon(
+      Icons.chevron_right_rounded,
+      size: 20,
+      color: AppColors.ink48,
+    );
+  }
+}
+
 /// A settings row that does something when tapped.
 class _TapRow extends StatelessWidget {
   const _TapRow({
@@ -32,6 +45,7 @@ class _TapRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.chevron = false,
   });
 
   final IconData icon;
@@ -39,13 +53,21 @@ class _TapRow extends StatelessWidget {
   final String subtitle;
   final VoidCallback? onTap;
 
+  /// Shows an arrow on the right, for a row that opens another screen or app.
+  final bool chevron;
+
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
       child: Opacity(
         opacity: onTap == null ? 0.5 : 1,
-        child: _SettingsRow(icon: icon, title: title, subtitle: subtitle),
+        child: _SettingsRow(
+          icon: icon,
+          title: title,
+          subtitle: subtitle,
+          trailing: chevron ? const _RowChevron() : null,
+        ),
       ),
     );
   }

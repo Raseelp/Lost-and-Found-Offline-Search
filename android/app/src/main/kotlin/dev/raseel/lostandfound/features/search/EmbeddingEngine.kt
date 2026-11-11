@@ -1,5 +1,6 @@
 package dev.raseel.lostandfound.features.search
 
+import dev.raseel.lostandfound.core.log.AppLog
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
@@ -13,7 +14,6 @@ import dev.raseel.lostandfound.core.storage.EmbeddingStore
 import dev.raseel.lostandfound.core.storage.HashUtils
 import androidx.documentfile.provider.DocumentFile
 import android.provider.DocumentsContract
-import android.util.Log
 import java.nio.FloatBuffer
 import java.nio.LongBuffer
 import java.util.concurrent.atomic.AtomicInteger
@@ -107,7 +107,7 @@ class EmbeddingEngine(
         val t = clipTiming
         clipTiming = ClipTiming().also { it.pausedAtStart = pausedMs }
         if (t.images == 0) return
-        BenchLog.log(context) {
+        BenchLog.log {
             val wallMs = System.currentTimeMillis() - t.startedAt
             val facesMs = pausedMs - t.pausedAtStart
             val activeMs = (wallMs - facesMs).coerceAtLeast(1L)
@@ -194,7 +194,7 @@ class EmbeddingEngine(
             val visionModel = ModelCatalog.MODELS.first { it.id == "vision" }
             val startedNs = System.nanoTime()
             visionSession = createVisionSession(modelManager.localFile(visionModel).absolutePath)
-            BenchLog.log(context) {
+            BenchLog.log {
                 "model loaded: $MODEL_LABEL vision (${visionModel.sizeBytes / 1_000_000} MB, on $visionBackend) in " +
                     "${(System.nanoTime() - startedNs) / 1_000_000}ms"
             }
@@ -206,7 +206,7 @@ class EmbeddingEngine(
                 modelManager.localFile(textModel).absolutePath,
                 OrtSession.SessionOptions()
             )
-            BenchLog.log(context) {
+            BenchLog.log {
                 "model loaded: $MODEL_LABEL text (${textModel.sizeBytes / 1_000_000} MB) in " +
                     "${(System.nanoTime() - startedNs) / 1_000_000}ms"
             }
@@ -221,7 +221,7 @@ class EmbeddingEngine(
     private fun createVisionSession(path: String): OrtSession {
         val prefs = context.getSharedPreferences(ENGINE_PREFS, Context.MODE_PRIVATE)
         if (prefs.getBoolean(KEY_XNNPACK_TRYING, false)) {
-            Log.w(TAG, "the last try at XNNPACK never came back, using the plain CPU path")
+            AppLog.w(TAG, "the last try at XNNPACK never came back, using the plain CPU path")
         } else {
             val threads = Runtime.getRuntime().availableProcessors().coerceIn(2, VISION_THREADS_MAX)
             prefs.edit().putBoolean(KEY_XNNPACK_TRYING, true).commit()
@@ -235,7 +235,7 @@ class EmbeddingEngine(
                 prefs.edit().putBoolean(KEY_XNNPACK_TRYING, false).apply()
                 return session
             } catch (e: Exception) {
-                Log.w(TAG, "XNNPACK is not available (${e.message}), using the plain CPU path", e)
+                AppLog.w(TAG, "XNNPACK is not available (${e.message}), using the plain CPU path", e)
                 prefs.edit().putBoolean(KEY_XNNPACK_TRYING, false).apply()
             }
         }
@@ -297,12 +297,12 @@ class EmbeddingEngine(
         kindVideosKnown = 0
         clipTiming = ClipTiming()
         recentItems.clear()
-        BenchLog.log(context) {
+        BenchLog.log {
             "scan start: mode=$mode contentMode=$contentMode cpus=${Runtime.getRuntime().availableProcessors()} " +
                 "clip=$MODEL_LABEL chunk=$INFERENCE_BATCH_SIZE decodeThreads=$PREP_THREAD_COUNT | " +
                 BenchLog.device(context)
         }
-        Log.d(TAG, "embedImages: start — mode=$mode contentMode=$contentMode")
+        AppLog.d(TAG, "embedImages: start — mode=$mode contentMode=$contentMode")
 
         ensureModelsLoaded()
         val vision = visionSession!!
@@ -326,18 +326,18 @@ class EmbeddingEngine(
 
         if (mode == "device") {
 
-            Log.d(TAG, "embedImages: loading device images (scanImages=$scanImages)...")
+            AppLog.d(TAG, "embedImages: loading device images (scanImages=$scanImages)...")
             imageFiles = if (scanImages) {
                 getAllDeviceImages().also {
-                    Log.d(TAG, "embedImages: got ${it.size} images, mem=${
+                    AppLog.d(TAG, "embedImages: got ${it.size} images, mem=${
                         (runtime.totalMemory() - runtime.freeMemory()) / 1_048_576}MB")
                 }
             } else emptyList()
 
-            Log.d(TAG, "embedImages: loading device videos (scanVideos=$scanVideos)...")
+            AppLog.d(TAG, "embedImages: loading device videos (scanVideos=$scanVideos)...")
             videoFiles = if (scanVideos) {
                 getAllDeviceVideos().also {
-                    Log.d(TAG, "embedImages: got ${it.size} videos, mem=${
+                    AppLog.d(TAG, "embedImages: got ${it.size} videos, mem=${
                         (runtime.totalMemory() - runtime.freeMemory()) / 1_048_576}MB")
                 }
             } else emptyList()
@@ -384,16 +384,16 @@ class EmbeddingEngine(
         }
 
         val total = imageFiles.size + videoFiles.size
-        Log.d(TAG, "embedImages: total files to process = $total (${imageFiles.size} images + ${videoFiles.size} videos)")
+        AppLog.d(TAG, "embedImages: total files to process = $total (${imageFiles.size} images + ${videoFiles.size} videos)")
 
-        Log.d(TAG, "embedImages: reading existing hashes from store...")
+        AppLog.d(TAG, "embedImages: reading existing hashes from store...")
         val existingHashes = try {
             store.readAll().map { it.hash }.toHashSet().also {
-                Log.d(TAG, "embedImages: loaded ${it.size} existing hashes, mem=${
+                AppLog.d(TAG, "embedImages: loaded ${it.size} existing hashes, mem=${
                     (runtime.totalMemory() - runtime.freeMemory()) / 1_048_576}MB")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "embedImages: FAILED reading existing hashes — ${e.message}", e)
+            AppLog.e(TAG, "embedImages: FAILED reading existing hashes — ${e.message}", e)
             hashSetOf()
         }
 
@@ -603,8 +603,8 @@ class EmbeddingEngine(
 
         val elapsed = System.currentTimeMillis() - startTimeMs
         reportClip("scan end")
-        BenchLog.log(context) {
-            "scan end: $embedded embedded, $skipped skipped in ${"%.1f".format(elapsed / 1000.0)}s " +
+        BenchLog.log {
+            "scan end: $embedded embedded, $skipped skipped ($failed of them could not be read) in ${"%.1f".format(elapsed / 1000.0)}s " +
                 "(${"%.1f".format(pausedMs / 1000.0)}s of it waiting for faces) | " +
                 BenchLog.device(context)
         }
@@ -659,14 +659,14 @@ class EmbeddingEngine(
         try {
             consumer.onIndexed(photos) { isCancelled }
         } catch (e: Exception) {
-            Log.w(TAG, "handOver: the consumer failed (${e.message})", e)
+            AppLog.w(TAG, "handOver: the consumer failed (${e.message})", e)
         } catch (e: OutOfMemoryError) {
-            Log.w(TAG, "handOver: the consumer ran out of memory", e)
+            AppLog.w(TAG, "handOver: the consumer ran out of memory", e)
         }
         val tookMs = System.currentTimeMillis() - startedAt
         pausedMs += tookMs
         if (tookMs >= BENCH_BATCH_MIN_MS) {
-            BenchLog.log(context) { "handoff: indexing waited ${tookMs}ms for the faces of a batch" }
+            BenchLog.log { "handoff: indexing waited ${tookMs}ms for the faces of a batch" }
             reportClip("before faces")
         }
     }
@@ -713,7 +713,7 @@ class EmbeddingEngine(
 
         val inferStartedNs = System.nanoTime()
         val embeddings = runBatchedInference(vision, tensors)
-        BenchLog.log(context) {
+        BenchLog.log {
             "clip video: ${tensors.size} frames | extract ${extractNs / 1_000_000}ms, " +
                 "preprocess ${prepNs / 1_000_000}ms, infer ${(System.nanoTime() - inferStartedNs) / 1_000_000}ms"
         }
@@ -765,7 +765,7 @@ class EmbeddingEngine(
             val embeddingDim = output.size / tensors.size
             (0 until tensors.size).map { i -> output.copyOfRange(i * embeddingDim, (i + 1) * embeddingDim) }
         } catch (e: Exception) {
-            Log.w(TAG, "runBatchedInference: batched forward failed (${e.message}), falling back to one-by-one", e)
+            AppLog.w(TAG, "runBatchedInference: batched forward failed (${e.message}), falling back to one-by-one", e)
             null
         }
 
@@ -787,7 +787,7 @@ class EmbeddingEngine(
      */
     private fun onlyIfFinite(embedding: FloatArray?): FloatArray? {
         if (embedding == null || EmbeddingMath.isFinite(embedding)) return embedding
-        Log.w(TAG, "the image model gave NaN or infinite numbers; the image is skipped")
+        AppLog.w(TAG, "the image model gave NaN or infinite numbers; the image is skipped")
         return null
     }
 
@@ -906,18 +906,18 @@ class EmbeddingEngine(
     }
 
     private fun getAllDeviceVideos(): List<VideoSource> {
-        Log.d(TAG, "getAllDeviceVideos: starting")
+        AppLog.d(TAG, "getAllDeviceVideos: starting")
 
         val result = mutableListOf<VideoSource>()
 
         val collection =
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                Log.d(TAG, "getAllDeviceVideos: using VOLUME_EXTERNAL (API ${android.os.Build.VERSION.SDK_INT})")
+                AppLog.d(TAG, "getAllDeviceVideos: using VOLUME_EXTERNAL (API ${android.os.Build.VERSION.SDK_INT})")
                 android.provider.MediaStore.Video.Media.getContentUri(
                     android.provider.MediaStore.VOLUME_EXTERNAL
                 )
             } else {
-                Log.d(TAG, "getAllDeviceVideos: using EXTERNAL_CONTENT_URI (legacy)")
+                AppLog.d(TAG, "getAllDeviceVideos: using EXTERNAL_CONTENT_URI (legacy)")
                 android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI
             }
 
@@ -928,7 +928,7 @@ class EmbeddingEngine(
             android.provider.MediaStore.Video.Media.DISPLAY_NAME
         )
 
-        Log.d(TAG, "getAllDeviceVideos: querying MediaStore...")
+        AppLog.d(TAG, "getAllDeviceVideos: querying MediaStore...")
 
         val cursor = try {
             context.contentResolver.query(
@@ -939,21 +939,21 @@ class EmbeddingEngine(
                 "${android.provider.MediaStore.Video.Media.DATE_MODIFIED} DESC"
             )
         } catch (e: Exception) {
-            Log.e(TAG, "getAllDeviceVideos: query THREW EXCEPTION — ${e.javaClass.simpleName}: ${e.message}", e)
+            AppLog.e(TAG, "getAllDeviceVideos: query THREW EXCEPTION — ${e.javaClass.simpleName}: ${e.message}", e)
             return emptyList()
         }
 
         if (cursor == null) {
-            Log.e(TAG, "getAllDeviceVideos: cursor is NULL — permission likely denied")
+            AppLog.e(TAG, "getAllDeviceVideos: cursor is NULL — permission likely denied")
             return emptyList()
         }
 
-        Log.d(TAG, "getAllDeviceVideos: cursor obtained, count = ${cursor.count}")
+        AppLog.d(TAG, "getAllDeviceVideos: cursor obtained, count = ${cursor.count}")
 
         val runtime = Runtime.getRuntime()
         val usedMemMb = (runtime.totalMemory() - runtime.freeMemory()) / 1_048_576
         val maxMemMb  = runtime.maxMemory() / 1_048_576
-        Log.d(TAG, "getAllDeviceVideos: memory before list build — used=${usedMemMb}MB max=${maxMemMb}MB")
+        AppLog.d(TAG, "getAllDeviceVideos: memory before list build — used=${usedMemMb}MB max=${maxMemMb}MB")
 
         try {
             cursor.use { c ->
@@ -982,23 +982,23 @@ class EmbeddingEngine(
 
                         if (rowCount % 500 == 0) {
                             val usedNow = (runtime.totalMemory() - runtime.freeMemory()) / 1_048_576
-                            Log.d(TAG, "getAllDeviceVideos: processed $rowCount rows, used=${usedNow}MB")
+                            AppLog.d(TAG, "getAllDeviceVideos: processed $rowCount rows, used=${usedNow}MB")
                         }
 
                     } catch (e: Exception) {
-                        Log.w(TAG, "getAllDeviceVideos: skipped row $rowCount — ${e.message}")
+                        AppLog.w(TAG, "getAllDeviceVideos: skipped row $rowCount — ${e.message}")
                     }
                 }
 
-                Log.d(TAG, "getAllDeviceVideos: cursor loop complete, total rows = $rowCount")
+                AppLog.d(TAG, "getAllDeviceVideos: cursor loop complete, total rows = $rowCount")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "getAllDeviceVideos: CRASHED during cursor iteration at result.size=${result.size} — ${e.javaClass.simpleName}: ${e.message}", e)
+            AppLog.e(TAG, "getAllDeviceVideos: CRASHED during cursor iteration at result.size=${result.size} — ${e.javaClass.simpleName}: ${e.message}", e)
             return result
         }
 
         val usedAfter = (runtime.totalMemory() - runtime.freeMemory()) / 1_048_576
-        Log.d(TAG, "getAllDeviceVideos: done — ${result.size} videos, used=${usedAfter}MB")
+        AppLog.d(TAG, "getAllDeviceVideos: done — ${result.size} videos, used=${usedAfter}MB")
 
         return result
     }
@@ -1265,7 +1265,7 @@ class EmbeddingEngine(
             val relativePath = parts.getOrNull(1)
             if (relativePath.isNullOrEmpty()) storageName else "$storageName/$relativePath"
         } catch (e: Exception) {
-            Log.w(TAG, "getDisplayPath: couldn't parse $uriString, falling back to leaf name", e)
+            AppLog.w(TAG, "getDisplayPath: couldn't parse $uriString, falling back to leaf name", e)
             DocumentFile.fromTreeUri(context, uri)?.name ?: "Folder"
         }
     }

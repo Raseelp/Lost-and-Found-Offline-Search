@@ -1,5 +1,6 @@
 package dev.raseel.lostandfound.features.memories
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.content.Intent
 import dev.raseel.lostandfound.MainActivity
 import dev.raseel.lostandfound.core.native.FeatureChannel
@@ -85,7 +86,7 @@ class MemoriesChannel(activity: MainActivity) : FeatureChannel(activity) {
                     dates.sync(embeddingEngine)
                     dates.resolve(applicationContext, faces.store, 150L)
                 } catch (e: Exception) {
-                    android.util.Log.w("MainActivity", "dates for stories failed: ${e.message}")
+                    AppLog.w("MainActivity", "dates for stories failed: ${e.message}")
                 }
                 dates.datesFor(uris).map { mapOf("uri" to it.uri, "takenMs" to it.takenMs, "junk" to it.junk) }
             }
@@ -162,7 +163,7 @@ internal fun FeatureChannel.memoryTask(result: MethodChannel.Result, block: () -
             val value = block()
             runOnUiThread { result.success(value) }
         } catch (e: Throwable) {
-            android.util.Log.w("MainActivity", "memory call failed: ${e.message}", e)
+            AppLog.w("MainActivity", "memory call failed: ${e.message}", e)
             runOnUiThread { result.error("MEMORY_FAILED", e.message, null) }
         }
     }

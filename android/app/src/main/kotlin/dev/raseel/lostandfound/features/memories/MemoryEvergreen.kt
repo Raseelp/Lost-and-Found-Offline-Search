@@ -1,5 +1,6 @@
 package dev.raseel.lostandfound.features.memories
 
+import dev.raseel.lostandfound.core.log.AppLog
 import dev.raseel.lostandfound.features.people.FaceCrops
 import dev.raseel.lostandfound.features.people.FaceStore
 import java.util.TimeZone
@@ -36,7 +37,7 @@ class MemoryEvergreen(
             try {
                 make()?.let { out[kind] = it }
             } catch (e: Exception) {
-                android.util.Log.w("MemoryEvergreen", "$kind failed: ${e.message}")
+                AppLog.w("MemoryEvergreen", "$kind failed: ${e.message}")
             }
         }
         add(MemoryKind.PERSON_ANNIVERSARY) { personAnniversary(c, stats) }

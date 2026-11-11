@@ -1,5 +1,6 @@
 package dev.raseel.lostandfound.features.people
 
+import dev.raseel.lostandfound.core.log.AppLog
 import androidx.work.WorkManager
 import dev.raseel.lostandfound.MainActivity
 import dev.raseel.lostandfound.core.native.FeatureChannel
@@ -449,7 +450,7 @@ class PeopleChannel(activity: MainActivity) : FeatureChannel(activity) {
                     val scanned = try {
                         faces.scanner.scanVideoNow(uri)
                     } catch (e: Throwable) {
-                        android.util.Log.w("MainActivity", "scanning video $uri failed: ${e.message}")
+                        AppLog.w("MainActivity", "scanning video $uri failed: ${e.message}")
                         dev.raseel.lostandfound.features.people.FaceScanner.VideoScanResult(false, 0, 0)
                     }
                     runOnUiThread {
@@ -479,7 +480,7 @@ class PeopleChannel(activity: MainActivity) : FeatureChannel(activity) {
                     try {
                         faces.scanner.scanOne(uri)
                     } catch (e: Throwable) {
-                        android.util.Log.w("MainActivity", "scanning $uri failed: ${e.message}")
+                        AppLog.w("MainActivity", "scanning $uri failed: ${e.message}")
                     }
                     val summaries = HashMap<Long, dev.raseel.lostandfound.features.people.PersonSummary?>()
                     val found = faces.store.photoFaces(uri).mapNotNull { f ->

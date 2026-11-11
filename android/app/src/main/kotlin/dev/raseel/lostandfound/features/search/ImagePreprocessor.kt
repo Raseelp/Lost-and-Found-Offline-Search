@@ -1,11 +1,13 @@
 package dev.raseel.lostandfound.features.search
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.exifinterface.media.ExifInterface
 import dev.raseel.lostandfound.features.people.FaceImageLoader
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.ceil
 
 /**
@@ -16,19 +18,32 @@ import kotlin.math.ceil
 object ImagePreprocessor {
 
     private const val IMAGE_SIZE = 256
+    private const val TAG = "ImagePreprocessor"
+
+    /** Only the first few failures are logged, so a library of unreadable files does not fill the log. */
+    private const val MAX_FAILURES_LOGGED = 5
+    private val failuresLogged = AtomicInteger()
 
     fun loadAsFloatArray(
         context: Context,
         uri: Uri
     ): FloatArray? {
         return try {
-            val bitmap = loadAndResizeBitmap(context, uri) ?: return null
+            val bitmap = loadAndResizeBitmap(context, uri) ?: run {
+                logFailure("the photo could not be decoded")
+                return null
+            }
             val data = bitmapToFloatArray(bitmap)
             bitmap.recycle()
             data
         } catch (e: Exception) {
+            logFailure("${e.javaClass.simpleName}: ${e.message}")
             null
         }
+    }
+
+    private fun logFailure(reason: String) {
+        if (failuresLogged.incrementAndGet() <= MAX_FAILURES_LOGGED) AppLog.w(TAG, "could not prepare a photo: $reason")
     }
 
     /**

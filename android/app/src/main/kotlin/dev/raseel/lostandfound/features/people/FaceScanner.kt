@@ -1,5 +1,6 @@
 package dev.raseel.lostandfound.features.people
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
@@ -7,7 +8,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Process
 import android.os.SystemClock
-import android.util.Log
 import dev.raseel.lostandfound.features.settings.BenchLog
 import dev.raseel.lostandfound.features.library.IndexedImage
 import dev.raseel.lostandfound.features.library.ScanEngineHolder
@@ -197,7 +197,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
 
         fun report(context: Context, label: String) {
             if (photos == 0) return
-            BenchLog.log(context) {
+            BenchLog.log {
                 val wall = SystemClock.elapsedRealtime() - startedAt
                 fun ms(ns: Long, per: Int) = if (per == 0) 0 else (ns / 1_000_000 / per).toInt()
                 "faces [$label]: $photos photos in ${"%.1f".format(wall / 1000.0)}s = " +
@@ -332,7 +332,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
         } catch (e: Exception) {
             // Something odd about one face must not leak the ones already cut out.
             items.forEach { it.aligned.bitmap.recycle() }
-            Log.w(TAG, "preparing faces failed for $uri: ${e.message}")
+            AppLog.w(TAG, "preparing faces failed for $uri: ${e.message}")
             return false
         } finally {
             bitmap.recycle()
@@ -353,7 +353,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                 store.markPhotoComplete(hash)
             }
         } catch (e: Exception) {
-            Log.w(TAG, "finishing faces failed for $uri: ${e.message}")
+            AppLog.w(TAG, "finishing faces failed for $uri: ${e.message}")
             return false
         } finally {
             items.forEach { it.aligned.bitmap.recycle() }
@@ -445,7 +445,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
         val photo = try {
             FaceImageLoader.loadWithInfo(context, Uri.parse(uri), if (thorough) REF_SIDE else SCAN_SIDE, allowSlightlySmaller = true)
         } catch (e: Exception) {
-            Log.w(TAG, "could not read $uri: ${e.message}")
+            AppLog.w(TAG, "could not read $uri: ${e.message}")
             return false
         } catch (e: OutOfMemoryError) {
             return false
@@ -453,7 +453,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
         try {
             Run({ false }, {}).also { it.watch = progress }.single(Prepared(item, photo), thorough)
         } catch (e: Exception) {
-            Log.w(TAG, "single-photo scan failed for $uri: ${e.message}")
+            AppLog.w(TAG, "single-photo scan failed for $uri: ${e.message}")
             return false
         }
         return store.hasPhotoUri(uri)
@@ -571,7 +571,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                 if (sameModels(stored, key)) {
                     store.setMeta(META_MODEL_KEY, key)
                 } else {
-                    Log.i(TAG, "face model changed to $key - regrouping from scratch")
+                    AppLog.i(TAG, "face model changed to $key - regrouping from scratch")
                     store.wipeAll()
                     clusterer.invalidate()
                     store.setMeta(META_MODEL_KEY, key)
@@ -589,7 +589,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
         private fun logConfigOnce() {
             if (configLogged) return
             configLogged = true
-            BenchLog.log(context) {
+            BenchLog.log {
                 fun cfg(kind: FaceModelKind) = engine.store.selected(kind)?.let {
                     "${it.spec.id} on ${FaceTuner.configFor(context, it.spec).describe()}"
                 } ?: "none"
@@ -634,7 +634,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                 timing = Timing()
                 recentFaceEvents = emptyList()
                 logConfigOnce()
-                BenchLog.log(context) {
+                BenchLog.log {
                     "faces batch start: ${photos.size} just-indexed photos | ${BenchLog.device(context)}"
                 }
                 emit(force = true)
@@ -929,7 +929,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                     if (pendingFaces >= flushAt) flush()
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "face analysis failed for ${item.uri}: ${e.message}", e)
+                AppLog.e(TAG, "face analysis failed for ${item.uri}: ${e.message}", e)
                 bumpFailed(1)
                 built.forEach { it.aligned?.recycle() }
                 if (consecutiveFailures.incrementAndGet() >= MAX_CONSECUTIVE_FAILURES) throw e
@@ -970,7 +970,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                     timing.batches += (waiting.size + 7) / 8
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "recognition failed for ${batch.size} photos: ${e.message}", e)
+                AppLog.e(TAG, "recognition failed for ${batch.size} photos: ${e.message}", e)
                 bumpFailed(batch.size)
                 discardBatch(batch)
                 return if (consecutiveFailures.incrementAndGet() >= MAX_CONSECUTIVE_FAILURES) e else null
@@ -1106,7 +1106,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                     }
                 } catch (_: InterruptedException) {
                 } catch (e: Exception) {
-                    Log.e(TAG, "the recognition stage failed: ${e.message}", e)
+                    AppLog.e(TAG, "the recognition stage failed: ${e.message}", e)
                     failure = e
                 } finally {
                     discardQueued()
@@ -1270,7 +1270,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                     for (photo in batch) store.markPhotoComplete(photo.hash)
                     failures = 0
                 } catch (e: Exception) {
-                    Log.e(TAG, "refining faces failed: ${e.message}", e)
+                    AppLog.e(TAG, "refining faces failed: ${e.message}", e)
                     attempt.failed++
                     if (++failures >= MAX_CONSECUTIVE_FAILURES) throw e
                 } finally {
@@ -1308,10 +1308,10 @@ class FaceScanner(private val context: Context, private val services: FaceServic
                 val photo = try {
                     FaceImageLoader.loadWithInfo(context, Uri.parse(item.uri), side, allowSlightlySmaller = true)
                 } catch (e: Exception) {
-                    Log.w(TAG, "could not read ${item.uri}: ${e.message}")
+                    AppLog.w(TAG, "could not read ${item.uri}: ${e.message}")
                     null
                 } catch (e: OutOfMemoryError) {
-                    Log.w(TAG, "out of memory reading ${item.uri}")
+                    AppLog.w(TAG, "out of memory reading ${item.uri}")
                     null
                 }
                 val prepared = Prepared(item, photo, System.nanoTime() - decodeStartedNs)

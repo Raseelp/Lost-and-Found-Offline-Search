@@ -1,8 +1,10 @@
 package dev.raseel.lostandfound.features.settings
 
+import android.net.Uri
 import android.os.Build
 import dev.raseel.lostandfound.BuildConfig
 import dev.raseel.lostandfound.MainActivity
+import dev.raseel.lostandfound.core.log.AppLog
 import dev.raseel.lostandfound.core.native.FeatureChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -10,14 +12,42 @@ import io.flutter.plugin.common.MethodChannel
 
 class SettingsChannel(activity: MainActivity) : FeatureChannel(activity) {
 
+    private val reportAttachments = activity.reportAttachments
+
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {
         when (call.method) {
 
-            "getBenchLogs" -> result.success(BenchLog.enabled(applicationContext))
+            "pickReportFiles" -> reportAttachments.pick(result)
 
-            "setBenchLogs" -> {
-                BenchLog.setEnabled(applicationContext, call.argument<Boolean>("enabled") ?: true)
-                result.success(true)
+            "logLine" -> {
+                AppLog.w("Dart", call.argument<String>("message").orEmpty())
+                result.success(null)
+            }
+
+            "sendReport" -> {
+                val to = call.argument<String>("to").orEmpty()
+                val message = call.argument<String>("message").orEmpty()
+                val uris = (call.argument<List<String>>("uris") ?: emptyList()).map(Uri::parse)
+                val includeLogs = call.argument<Boolean>("includeLogs") ?: false
+                logExecutor.execute {
+                    try {
+                        val mail = ReportMail.build(applicationContext, to, message, uris, includeLogs)
+                        runOnUiThread {
+                            if (mail == null) {
+                                result.success("no_mail_app")
+                            } else {
+                                try {
+                                    ReportMail.open(activity, mail)
+                                    result.success("opened")
+                                } catch (e: Exception) {
+                                    result.error("REPORT_FAILED", e.message, null)
+                                }
+                            }
+                        }
+                    } catch (e: Throwable) {
+                        runOnUiThread { result.error("REPORT_FAILED", e.message, null) }
+                    }
+                }
             }
 
             "appLogs" -> logExecutor.execute {

@@ -38,6 +38,8 @@ flutter:
     - assets/licenses/
     # Fonts are bundled (google_fonts finds them here), so the app never fetches them from the internet.
     - assets/fonts/
+    # Buy Me a Coffee's own button, shown on the developer note.
+    - assets/support/
     # The first-run tour's sample photos.
     - assets/tour/photos/
     - assets/tour/videos/

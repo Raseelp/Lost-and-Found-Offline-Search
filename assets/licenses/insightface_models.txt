@@ -1,0 +1,10 @@
+The face detector and the face recognition model
+
+The face detector is SCRFD-2.5G (det_2.5g). The face recognition model is MobileFaceNet (w600k_mbf), trained on
+WebFace600K. Both come from InsightFace, https://github.com/deepinsight/insightface.
+
+InsightFace publishes its code under the MIT License. It says that its pretrained models, and the data they were
+trained on, are for non-commercial research use only.
+
+Lost & Found is free, has no ads and takes no payment. Anyone who builds a commercial product from its code must
+check the terms of these models first.

@@ -1,5 +1,6 @@
 package dev.raseel.lostandfound.features.people
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -9,7 +10,6 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.SystemClock
-import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
@@ -43,7 +43,7 @@ class FaceScanWorker(context: Context, params: WorkerParameters) : CoroutineWork
         try {
             setForeground(foregroundInfo(buildNotification(0, 0, paused = false)))
         } catch (e: Exception) {
-            Log.w(TAG, "setForeground failed, continuing anyway: ${e.message}")
+            AppLog.w(TAG, "setForeground failed, continuing anyway: ${e.message}")
         }
 
         return try {
@@ -74,7 +74,7 @@ class FaceScanWorker(context: Context, params: WorkerParameters) : CoroutineWork
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "face scan failed: ${e.message}", e)
+            AppLog.e(TAG, "face scan failed: ${e.message}", e)
             FaceScanHub.publish(
                 mapOf(
                     "running" to false, "paused" to false, "done" to true,
@@ -207,7 +207,7 @@ class FaceScanWorker(context: Context, params: WorkerParameters) : CoroutineWork
                 )
                 true
             } catch (e: Exception) {
-                Log.w(TAG, "could not start the face scan: ${e.message}")
+                AppLog.w(TAG, "could not start the face scan: ${e.message}")
                 false
             }
         }

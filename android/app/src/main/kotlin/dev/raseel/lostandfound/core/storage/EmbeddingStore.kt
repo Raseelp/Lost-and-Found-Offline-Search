@@ -1,7 +1,7 @@
 package dev.raseel.lostandfound.core.storage
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.content.Context
-import android.util.Log
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.DataInputStream
@@ -95,7 +95,7 @@ class EmbeddingStore(private val context: Context) {
             null
         }
         if (madeBy == null || madeBy == MODEL_ID) return
-        Log.i(TAG, "the index was made by model $madeBy, this app uses $MODEL_ID: starting a new one")
+        AppLog.i(TAG, "the index was made by model $madeBy, this app uses $MODEL_ID: starting a new one")
         storeFile.delete()
         createNewStore()
         prefs.edit().putInt(KEY_RESET_FROM, madeBy).apply()
@@ -237,13 +237,13 @@ class EmbeddingStore(private val context: Context) {
                             )
                         )
                     } catch (e: EOFException) {
-                        Log.w(TAG, "readAll: truncated trailing record, keeping ${records.size} good records")
+                        AppLog.w(TAG, "readAll: truncated trailing record, keeping ${records.size} good records")
                         break
                     }
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "readAll: store unreadable (${e.message}), resetting", e)
+            AppLog.e(TAG, "readAll: store unreadable (${e.message}), resetting", e)
             quarantineAndReset()
             return@synchronized emptyList()
         }
@@ -347,7 +347,7 @@ class EmbeddingStore(private val context: Context) {
                 EmbeddingMetaReader.read(input, pos, EMBEDDING_DIM, onRecord)
             }
         } catch (e: Exception) {
-            Log.w(TAG, "scanMeta failed: ${e.message}")
+            AppLog.w(TAG, "scanMeta failed: ${e.message}")
             -1L
         }
     }

@@ -1,5 +1,6 @@
 package dev.raseel.lostandfound.features.library
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.content.ContentUris
 import android.content.Context
 import android.net.Uri
@@ -7,7 +8,6 @@ import android.os.Build
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.MediaStore
-import android.util.Log
 
 /**
  * Lists the media in a picked folder from MediaStore instead of walking the folder. Every function returns null when
@@ -33,7 +33,7 @@ object FolderMediaStoreScan {
         val docId = try {
             DocumentsContract.getTreeDocumentId(folderUri)
         } catch (e: Exception) {
-            Log.w(TAG, "resolvePrimaryRelativePath: couldn't read tree document id: ${e.message}")
+            AppLog.w(TAG, "resolvePrimaryRelativePath: couldn't read tree document id: ${e.message}")
             return null
         }
 
@@ -90,7 +90,7 @@ object FolderMediaStoreScan {
             }
             result
         } catch (e: Exception) {
-            Log.w(TAG, "queryImages: failed, caller will fall back: ${e.message}")
+            AppLog.w(TAG, "queryImages: failed, caller will fall back: ${e.message}")
             null
         }
     }
@@ -138,7 +138,7 @@ object FolderMediaStoreScan {
             }
             result
         } catch (e: Exception) {
-            Log.w(TAG, "queryVideos: failed, caller will fall back: ${e.message}")
+            AppLog.w(TAG, "queryVideos: failed, caller will fall back: ${e.message}")
             null
         }
     }

@@ -68,7 +68,7 @@ class SearchChannel(activity: MainActivity) : FeatureChannel(activity) {
                         val rankedNs = System.nanoTime()
                         // Only numbers are logged, nothing searched for and no file names, since logs can end up
                         // in a shared bug report.
-                        BenchLog.log(applicationContext) {
+                        BenchLog.log {
                             "search: encode text ${(encodedNs - startedNs) / 1_000_000}ms, rank ${(rankedNs - encodedNs) / 1_000_000}ms, " +
                                 "${results.size} results | top scores ${results.take(5).map { "%.3f".format(it.score) }}"
                         }

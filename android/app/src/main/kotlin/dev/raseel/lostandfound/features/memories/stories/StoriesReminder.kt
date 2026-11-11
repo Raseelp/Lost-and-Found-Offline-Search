@@ -1,5 +1,6 @@
 package dev.raseel.lostandfound.features.memories.stories
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -226,7 +227,7 @@ class StoriesReminderWorker(context: Context, params: WorkerParameters) : Worker
         try {
             StoriesReminder.fire(applicationContext)
         } catch (e: Exception) {
-            android.util.Log.w("StoriesReminder", "failed: ${e.message}")
+            AppLog.w("StoriesReminder", "failed: ${e.message}")
         }
         return Result.success()
     }

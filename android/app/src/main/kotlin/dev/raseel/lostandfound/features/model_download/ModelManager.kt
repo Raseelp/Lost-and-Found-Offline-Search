@@ -1,8 +1,8 @@
 package dev.raseel.lostandfound.features.model_download
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.content.Context
 import android.os.StatFs
-import android.util.Log
 import dev.raseel.lostandfound.BuildConfig
 import java.io.File
 import java.io.FileOutputStream
@@ -266,7 +266,7 @@ class ModelManager(private val context: Context) {
                     input.copyTo(output, BUFFER_SIZE)
                 }
             }
-            Log.d("ModelManager", "Seeded ${model.fileName} from debug assets")
+            AppLog.d("ModelManager", "Seeded ${model.fileName} from debug assets")
         } catch (e: IOException) {
             // Not bundled for this build, which is the normal case.
         }

@@ -1,10 +1,10 @@
 package dev.raseel.lostandfound.features.library
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
 import android.provider.DocumentsContract
-import android.util.Log
 import java.util.concurrent.Callable
 import java.util.concurrent.ExecutorCompletionService
 import java.util.concurrent.Executors
@@ -84,7 +84,7 @@ object SafUtils {
         val rootDocId = try {
             DocumentsContract.getTreeDocumentId(treeUri)
         } catch (e: Exception) {
-            Log.w(TAG, "traverse: couldn't resolve tree document id: ${e.message}")
+            AppLog.w(TAG, "traverse: couldn't resolve tree document id: ${e.message}")
             return emptyList()
         }
 
@@ -112,7 +112,7 @@ object SafUtils {
                 val (files, subdirIds) = try {
                     future.get()
                 } catch (e: Exception) {
-                    Log.w(TAG, "traverse: a directory failed to list: ${e.message}")
+                    AppLog.w(TAG, "traverse: a directory failed to list: ${e.message}")
                     continue
                 }
 
@@ -157,7 +157,7 @@ object SafUtils {
 
         queryOneDirectory(context, treeUri, parentDocId, matches)?.let { return it }
 
-        Log.w(TAG, "listOneDirectory: giving up on $parentDocId after a retry")
+        AppLog.w(TAG, "listOneDirectory: giving up on $parentDocId after a retry")
         return emptyList<SafDocument>() to emptyList()
     }
 
@@ -201,7 +201,7 @@ object SafUtils {
                 }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "queryOneDirectory: query failed for $parentDocId: ${e.message}")
+            AppLog.w(TAG, "queryOneDirectory: query failed for $parentDocId: ${e.message}")
             return null
         } finally {
             try { cursor?.close() } catch (_: Exception) {}

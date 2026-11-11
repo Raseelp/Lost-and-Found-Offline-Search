@@ -1,9 +1,9 @@
 package dev.raseel.lostandfound.features.people
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
-import android.util.Log
 import dev.raseel.lostandfound.features.library.IndexedVideo
 import dev.raseel.lostandfound.features.library.ScanEngineHolder
 import kotlin.math.abs
@@ -145,7 +145,7 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
                 }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "video ${video.uri}: reading frames failed: ${e.message}")
+            AppLog.w(TAG, "video ${video.uri}: reading frames failed: ${e.message}")
             free(dets)
             return FAILED
         } finally {
@@ -169,7 +169,7 @@ class VideoFaceScanner(private val context: Context, private val services: FaceS
                 if (!background && kept >= 0) services.store.setMeta("video_relax_${video.hash}", level.toString())
             }
         } catch (e: Exception) {
-            Log.w(TAG, "video ${video.uri}: recognising failed: ${e.message}", e)
+            AppLog.w(TAG, "video ${video.uri}: recognising failed: ${e.message}", e)
             FAILED
         } finally {
             free(dets)

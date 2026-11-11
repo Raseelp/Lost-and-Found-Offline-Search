@@ -1,8 +1,8 @@
 package dev.raseel.lostandfound.features.people
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.content.Context
 import android.os.SystemClock
-import android.util.Log
 import kotlin.math.max
 import androidx.work.WorkManager
 import dev.raseel.lostandfound.features.settings.BenchLog
@@ -73,23 +73,23 @@ object FaceFollower {
             if (armed) return true
             val app = context.applicationContext
             if (!open || !ScanForegroundService.isScanActive) {
-                BenchLog.log(app) { "faces not in step with indexing: no indexing scan is open for it (open=$open)" }
+                BenchLog.log { "faces not in step with indexing: no indexing scan is open for it (open=$open)" }
                 return false
             }
             if (FaceSettings.paused(app)) {
-                BenchLog.log(app) { "faces not in step with indexing: face search is stopped (resume it in People)" }
+                BenchLog.log { "faces not in step with indexing: face search is stopped (resume it in People)" }
                 return false
             }
             val services = FaceServices.get(app)
             if (!services.engine.isReady()) {
-                BenchLog.log(app) { "faces not in step with indexing: the face models are not ready" }
+                BenchLog.log { "faces not in step with indexing: the face models are not ready" }
                 return false
             }
 
             try {
                 WorkManager.getInstance(app).cancelUniqueWork(FaceScanWorker.UNIQUE_WORK_NAME)
             } catch (e: Exception) {
-                Log.w(TAG, "could not stop the running face worker: ${e.message}")
+                AppLog.w(TAG, "could not stop the running face worker: ${e.message}")
             }
 
             waiting.clear()
@@ -98,7 +98,7 @@ object FaceFollower {
             session = services.scanner.openSession { status -> ScanForegroundService.updateFaceProgress(app, status) }
             ScanHandoff.consumer = ScanHandoff.Consumer { photos, shouldStop -> onIndexed(app, photos, shouldStop) }
             armed = true
-            BenchLog.log(app) {
+            BenchLog.log {
                 "faces in step with indexing: a batch every $BATCH_PHOTOS photos or ${BATCH_MS / 1000}s"
             }
             return true
@@ -136,7 +136,7 @@ object FaceFollower {
             ranMs = now - lastBatchAt
         }
 
-        BenchLog.log(app) {
+        BenchLog.log {
             "face batch #$number due: ${batch.size} photos (${if (byCount) "photo count" else "time"} reached); " +
                 "indexing ran ${ranMs}ms since the last one | ${BenchLog.device(app)}"
         }
@@ -148,7 +148,7 @@ object FaceFollower {
             FaceScanHub.running = false
             val endedAt = SystemClock.elapsedRealtime()
             synchronized(lock) { lastBatchAt = endedAt }
-            BenchLog.log(app) {
+            BenchLog.log {
                 "face batch #$number done: faces took ${endedAt - startedAt}ms for ${batch.size} photos; " +
                     "indexing had run ${ranMs}ms (indexing:faces = ${"%.2f".format(ranMs / max(endedAt - startedAt, 1L).toDouble())}) | " +
                     BenchLog.device(app)

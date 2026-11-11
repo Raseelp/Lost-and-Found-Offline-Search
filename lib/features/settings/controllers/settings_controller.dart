@@ -8,13 +8,11 @@ import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/widgets/confirm_dialog.dart';
 import 'package:lost_and_found/core/permissions/permission_prompt.dart';
 import 'package:lost_and_found/features/memories/services/memories_service.dart';
-import 'package:lost_and_found/features/settings/services/settings_service.dart';
 
 class SettingsController extends GetxController with WidgetsBindingObserver {
   @override
   onInit() async {
     WidgetsBinding.instance.addObserver(this);
-    unawaited(_loadBenchLogs());
     unawaited(_loadIndexNudge());
     super.onInit();
   }
@@ -95,25 +93,6 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
   /// both at once overwhelms people. The scanning UI offers its own "Enable" control instead. This only reflects the
   /// current answer of the system, checked when the app opens and whenever a scan starts.
   bool backgroundNotificationsGranted = false;
-
-  /// Timing logs for indexing and face finding (adb logcat -s LostFoundBench). The
-  /// switch itself lives natively, where the logs are written; this mirrors it.
-  bool benchLogsEnabled = true;
-
-  Future<void> _loadBenchLogs() async {
-    try {
-      benchLogsEnabled = await SettingsService().benchLogsEnabled();
-      update();
-    } catch (_) {
-      // Stays on, the default.
-    }
-  }
-
-  Future<void> setBenchLogsEnabled(bool value) async {
-    benchLogsEnabled = value;
-    update();
-    await SettingsService().setBenchLogsEnabled(value);
-  }
 
   /// The note that asks to finish indexing (see IndexNudge): on until turned off. The switch lives natively, where
   /// the note is made; this mirrors it.

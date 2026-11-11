@@ -1,7 +1,7 @@
 package dev.raseel.lostandfound.features.people
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.content.Context
-import android.util.Log
 import kotlin.math.sqrt
 
 /**
@@ -508,7 +508,7 @@ class FaceClusterer(private val context: Context, private val store: FaceStore) 
                 if (!strong) continue
 
                 val (keep, drop) = if (b.named || (b.pinned && !a.named)) b to a else a to b
-                Log.d(TAG, "merge person ${drop.id} into ${keep.id} (centroids $centroidSim)")
+                AppLog.d(TAG, "merge person ${drop.id} into ${keep.id} (centroids $centroidSim)")
                 store.mergeInto(drop.id, keep.id)
                 keep.absorb(drop)
                 for (photo in drop.photos) {

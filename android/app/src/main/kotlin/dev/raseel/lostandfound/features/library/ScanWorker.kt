@@ -1,9 +1,9 @@
 package dev.raseel.lostandfound.features.library
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.content.Context
 import android.content.pm.ServiceInfo
 import android.os.Build
-import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
@@ -60,7 +60,7 @@ class ScanWorker(
         try {
             setForeground(createForegroundInfo())
         } catch (e: Exception) {
-            Log.w(TAG, "doWork: setForeground failed, continuing anyway: ${e.message}")
+            AppLog.w(TAG, "doWork: setForeground failed, continuing anyway: ${e.message}")
         }
 
         return try {
@@ -124,7 +124,7 @@ class ScanWorker(
             if (!embeddingEngine.wasCancelled()) FaceScanWorker.enqueueIfNeeded(applicationContext)
             Result.success()
         } catch (e: Exception) {
-            Log.e(TAG, "doWork: embedImages failed: ${e.message}", e)
+            AppLog.e(TAG, "doWork: embedImages failed: ${e.message}", e)
             if (!isStopped) LatestScan.finish(applicationContext)
             if (thisRun == latestRun.get()) ScanForegroundService.pushProgress(
                 mapOf(

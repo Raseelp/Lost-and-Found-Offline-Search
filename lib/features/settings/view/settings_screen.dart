@@ -4,7 +4,6 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:lost_and_found/core/permissions/permission_prompt.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:lost_and_found/features/collections/controllers/collections_controller.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
 import 'package:lost_and_found/core/media/grid_video_controller.dart';
@@ -13,6 +12,7 @@ import 'package:lost_and_found/features/memories/features/stories/controllers/st
 import 'package:lost_and_found/features/model_download/models/model_status.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/app_links.dart';
+import 'package:lost_and_found/core/open_link.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/features/people/view/hidden_people_screen.dart';
@@ -23,7 +23,7 @@ import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
 import 'package:lost_and_found/core/widgets/app_toast.dart';
 import 'package:lost_and_found/core/native/device_service.dart';
 import 'package:lost_and_found/features/people/models/face_scan.dart';
-import 'package:lost_and_found/features/settings/services/settings_service.dart';
+import 'package:lost_and_found/features/settings/view/developer_note/developer_note_screen.dart';
 import 'package:lost_and_found/features/settings/controllers/settings_controller.dart';
 import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 import 'package:lost_and_found/features/model_download/controllers/model_download_controller.dart';
@@ -261,6 +261,7 @@ class SettingsScreen extends StatelessWidget {
                             title: 'Undo a merge',
                             subtitle:
                                 'Split two people you merged by mistake',
+                            chevron: true,
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => const MergeHistoryScreen(),
@@ -273,6 +274,7 @@ class SettingsScreen extends StatelessWidget {
                             subtitle: faces.hiddenPeople.isEmpty
                                 ? 'None'
                                 : '${faces.hiddenPeople.length} hidden',
+                            chevron: true,
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => const HiddenPeopleScreen(),
@@ -290,9 +292,9 @@ class SettingsScreen extends StatelessWidget {
                       children: [
                         _SettingsRow(
                           icon: Icons.play_circle_outline_rounded,
-                          title: 'Play videos in grids',
+                          title: 'Auto play videos in grids',
                           subtitle:
-                              'A silent preview of up to 15 seconds plays for the first video in view, then the next. Pauses while scanning and in battery saver.',
+                              'Plays a silent preview of the first video in view. Pauses while scanning and in battery saver.',
                           trailing: Switch(
                             value: videos.enabled,
                             onChanged: videos.setEnabled,
@@ -305,29 +307,6 @@ class SettingsScreen extends StatelessWidget {
                   const _GroupLabel('Notifications'),
                   const _NotificationsSection(),
                   const SizedBox(height: AppSpacing.xl),
-                  const _GroupLabel('Diagnostics'),
-                  _GroupCard(
-                    children: [
-                      _SettingsRow(
-                        icon: Icons.speed_rounded,
-                        title: 'Performance logs',
-                        subtitle:
-                            'Logs how long indexing and finding faces take. Read with: adb logcat -s LostFoundBench',
-                        trailing: Switch(
-                          value: settings.benchLogsEnabled,
-                          onChanged: settings.setBenchLogsEnabled,
-                        ),
-                      ),
-                      _TapRow(
-                        icon: Icons.content_copy_rounded,
-                        title: 'Copy logs',
-                        subtitle:
-                            'Copies the app\'s recent log, to paste into a bug report. It can contain photo file addresses.',
-                        onTap: () => _copyLogs(context),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
                   const _GroupLabel('About'),
                   _GroupCard(
                     children: [
@@ -335,11 +314,18 @@ class SettingsScreen extends StatelessWidget {
                         icon: Icons.help_outline_rounded,
                         title: 'Help',
                         subtitle: 'A short tour of what the app does.',
+                        chevron: true,
                         onTap: () => openHelpTour(context),
                       ),
-                      const _BuildRow(),
-                      const _SourceRow(),
                       const _LicenseRow(),
+                      const _BuildRow(),
+                      _TapRow(
+                        icon: Icons.waving_hand_outlined,
+                        title: 'Note from the developer',
+                        subtitle: "Why it's free, and how to report a problem.",
+                        chevron: true,
+                        onTap: () => Navigator.of(context).push(DeveloperNoteScreen.route()),
+                      ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.xl),
@@ -475,34 +461,6 @@ class _GroupLabel extends StatelessWidget {
   }
 }
 
-/// A link to the project's source code.
-class _SourceRow extends StatelessWidget {
-  const _SourceRow();
-
-  Future<void> _open(BuildContext context) async {
-    var opened = false;
-    try {
-      opened = await launchUrl(
-        Uri.parse(kRepoUrl),
-        mode: LaunchMode.externalApplication,
-      );
-    } catch (_) {
-      opened = false;
-    }
-    if (!opened) AppToast.show("Couldn't open the link.");
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _TapRow(
-      icon: Icons.code_rounded,
-      title: 'Source code on GitHub',
-      subtitle: 'Free, ad-free and fully open source.',
-      onTap: () => _open(context),
-    );
-  }
-}
-
 /// The app's license notice (the AGPL asks for one in the app), and the licenses of the packages
 /// it is built with.
 class _LicenseRow extends StatelessWidget {
@@ -522,6 +480,7 @@ class _LicenseRow extends StatelessWidget {
       icon: Icons.description_outlined,
       title: 'License',
       subtitle: 'GNU AGPL-3.0, with no warranty. Tap for details.',
+      chevron: true,
       onTap: () => showLicensePage(
         context: context,
         applicationName: 'Lost & Found',
@@ -529,20 +488,4 @@ class _LicenseRow extends StatelessWidget {
       ),
     );
   }
-}
-
-Future<void> _copyLogs(BuildContext context) async {
-  String message;
-  try {
-    final text = await SettingsService().appLogs();
-    if (text.isEmpty) {
-      message = 'There is no log to copy.';
-    } else {
-      await Clipboard.setData(ClipboardData(text: text));
-      message = 'Logs copied.';
-    }
-  } catch (_) {
-    message = "Couldn't read the log.";
-  }
-  AppToast.show(message);
 }

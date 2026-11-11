@@ -1,5 +1,6 @@
 package dev.raseel.lostandfound.features.library
 
+import dev.raseel.lostandfound.core.log.AppLog
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -11,7 +12,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
-import android.util.Log
 import dev.raseel.lostandfound.MainActivity
 import io.flutter.plugin.common.EventChannel
 import kotlin.math.roundToLong
@@ -249,7 +249,7 @@ object ScanForegroundService {
             lock.acquire(WAKE_LOCK_TIMEOUT_MS)
             wakeLock = lock
         } catch (e: Exception) {
-            Log.w(TAG, "acquireWakeLock: failed: ${e.message}")
+            AppLog.w(TAG, "acquireWakeLock: failed: ${e.message}")
         }
     }
 

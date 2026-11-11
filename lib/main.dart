@@ -4,7 +4,8 @@ import 'package:get/route_manager.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lost_and_found/app/init_bindings.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
-import 'package:lost_and_found/core/model_licenses.dart';
+import 'package:lost_and_found/core/app_log.dart';
+import 'package:lost_and_found/core/bundled_licenses.dart';
 import 'package:lost_and_found/app/app_gate.dart';
 import 'package:lost_and_found/features/home/features/splash/view/splash_overlay.dart';
 
@@ -26,7 +27,8 @@ const SystemUiOverlayStyle kAppOverlayStyle = SystemUiOverlayStyle(
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
-  registerModelLicenses();
+  installAppLog();
+  registerBundledLicenses();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(kAppOverlayStyle);
   runApp(const LostAndFoundApp());
