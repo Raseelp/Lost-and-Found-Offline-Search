@@ -1,21 +1,15 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/core/theme/floating_bar.dart';
-
-/// One round button of the fan: what a page offers besides looking at it.
-class FabAction {
-  const FabAction({required this.icon, required this.label, required this.onTap});
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-}
+part 'action_fab/bud.dart';
+part 'action_fab/buds_painter.dart';
+part 'action_fab/blob_geometry.dart';
+part 'action_fab/blob_painter.dart';
 
 /// The round bolt button above the search button, the same 58 dp circle. Tapping it dims the page and the page's
 /// actions bud out of it like drops of the same liquid, each on a neck that thins and pinches off before it wobbles
@@ -534,178 +528,13 @@ class ActionFabState extends State<ActionFab> with TickerProviderStateMixin {
   }
 }
 
-/// One action on its way out of the button, as a drop of the button's liquid: where it is, how big, how it
-/// is stretched, and how it hangs on to the button.
-///
-/// Its way out: it clings at first (swelling out of the button on a thick neck), then pulls away faster and
-/// faster, the neck thinning until it pinches off, and once free it runs a little past its place and wobbles
-/// back. Going back in plays the same way backwards: the neck reaches out, catches it and draws it in.
-class _Bud {
-  const _Bud({
-    required this.centre,
-    required this.radius,
-    required this.angle,
-    required this.stretch,
-    required this.waist,
-    required this.free,
-    required this.settled,
-    required this.shows,
-    required this.buttonRadius,
-  });
+/// One round button of the fan: what a page offers besides looking at it.
+class FabAction {
+  const FabAction({required this.icon, required this.label, required this.onTap});
 
-  /// Works out where one drop is along its way out. It is small while still mostly inside the button and plumps up to
-  /// full size as it comes out. The neck is as wide as the drop while they overlap, drawing out thinner until it
-  /// pinches off well clear of the button. Fast, the drop draws out long and thin; running past its place and turning
-  /// back, it squashes. With no motion wanted it simply fades in where it goes.
-  factory _Bud.at({
-    required Offset from,
-    required Offset to,
-    required double buttonRadius,
-    required double radius,
-    required double progress,
-    required bool calm,
-  }) {
-    final p = progress.clamp(0.0, 1.0);
-    final angle = (to - from).direction;
-    if (calm) {
-      return _Bud(
-        centre: to, radius: radius, angle: angle, stretch: 1, waist: 0, free: p, settled: p, shows: p,
-        buttonRadius: buttonRadius,
-      );
-    }
-    final along = _out(p);
-    final centre = Offset.lerp(from, to, along)!;
-    final gap = (centre - from).distance;
-    final size = radius * (0.55 + 0.45 * Curves.easeOut.transform((gap / (buttonRadius + radius)).clamp(0.0, 1.0)));
-    final near = buttonRadius, far = buttonRadius + size * 2.6;
-    final k = ((far - gap) / (far - near)).clamp(0.0, 1.0);
-    final waist = size * 0.9 * k * k * (3 - 2 * k);
-    final slope = (_out(math.min(1, p + 0.01)) - _out(math.max(0, p - 0.01))) / 0.02;
-    final stretch = (1 + 0.06 * slope + 0.12 * k * (1 - k) * 4).clamp(0.88, 1.18);
-    return _Bud(
-      centre: centre,
-      radius: size,
-      angle: angle,
-      stretch: stretch,
-      waist: waist,
-      free: Curves.easeOut.transform(((1 - k) * 1.25 - 0.25).clamp(0.0, 1.0)),
-      settled: const Interval(0.72, 1, curve: Curves.easeOut).transform(p),
-      shows: (p * 8).clamp(0.0, 1.0),
-      buttonRadius: buttonRadius,
-    );
-  }
-
-  /// Clings (slow, quadratic) for the first part, then springs out, runs about a tenth past and settles.
-  static double _out(double t) {
-    const cling = 0.34;
-    if (t <= cling) {
-      final u = t / cling;
-      return 0.2 * u * u;
-    }
-    final tau = (t - cling) / (1 - cling);
-    final base = 0.2 + 0.8 * (1 - math.pow(1 - tau, 3));
-    return base + 0.11 * math.sin(tau * math.pi * 2) * math.exp(-3.2 * tau) * (1 - tau);
-  }
-
-  final Offset centre;
-  final double radius;
-
-  /// The way from the button to where it settles.
-  final double angle;
-
-  /// Along [angle]: above 1 drawn out long, below 1 squashed (its area kept).
-  final double stretch;
-
-  /// The neck back to the button, 0 once it has pinched off.
-  final double waist;
-
-  /// 0 while it hangs on the neck, 1 once free (its icon shows).
-  final double free;
-
-  /// 1 once it has settled (its name shows).
-  final double settled;
-
-  /// The drop shows at all (a quick fade at the very start, so nothing pops into being).
-  final double shows;
-  final double buttonRadius;
-}
-
-/// Draws the drops and their necks, in the button's teal where they leave it, turning white as they come
-/// out. The button itself is drawn over the necks' roots, so they grow out of it.
-class _BudsPainter extends CustomPainter {
-  _BudsPainter({required this.buttonAt, required this.buds});
-
-  final Offset buttonAt;
-  final List<_Bud> buds;
-
-  /// Paints one drop in its own frame, with the button at the origin and the drop out along the x axis. Its sides bow
-  /// in to a waist halfway. The shadow comes from the drop alone, growing in as it comes free, with none under the
-  /// neck. The colour is teal at the button's edge and white from the drop on, the change spread over at least a dozen
-  /// pixels and S-shaped so there is no line across it.
-  @override
-  void paint(Canvas canvas, Size size) {
-    for (final bud in buds) {
-      if (bud.shows <= 0) continue;
-      final gap = (bud.centre - buttonAt).distance;
-      canvas.save();
-      canvas.translate(buttonAt.dx, buttonAt.dy);
-      canvas.rotate(bud.angle);
-      final rx = bud.radius * bud.stretch;
-      final ry = bud.radius / bud.stretch;
-      final drop = Path()..addOval(Rect.fromCenter(center: Offset(gap, 0), width: rx * 2, height: ry * 2));
-      var shape = drop;
-      if (bud.waist > 0.8) {
-        final x0 = bud.buttonRadius * 0.5;
-        final x1 = math.max(x0 + 1, gap - rx * 0.4);
-        final e0 = math.min(bud.buttonRadius, bud.radius) * 0.9;
-        final e1 = ry * 0.9;
-        final mid = (x0 + x1) / 2;
-        final bend = 2 * bud.waist - (e0 + e1) / 2;
-        final neck = Path()
-          ..moveTo(x0, -e0)
-          ..quadraticBezierTo(mid, -bend, x1, -e1)
-          ..lineTo(x1, e1)
-          ..quadraticBezierTo(mid, bend, x0, e0)
-          ..close();
-        shape = Path.combine(PathOperation.union, drop, neck);
-      }
-      final lifted = bud.free * bud.shows;
-      if (lifted > 0.01) {
-        canvas.save();
-        canvas.rotate(-bud.angle);
-        final c = Offset(gap * math.cos(bud.angle), gap * math.sin(bud.angle));
-        canvas.drawOval(
-          Rect.fromCenter(center: c + const Offset(0, 6), width: bud.radius * 2, height: bud.radius * 2),
-          Paint()
-            ..color = AppColors.shadow.withValues(alpha: 0.26 * lifted)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
-        );
-        canvas.restore();
-      }
-      var from = bud.buttonRadius * 0.95;
-      var to = gap - rx * 0.6;
-      if (to - from < 14) {
-        final m = (from + to) / 2;
-        from = m - 7;
-        to = m + 7;
-      }
-      const stops = [0.0, 0.25, 0.5, 0.75, 1.0];
-      final colors = [
-        for (final t in stops)
-          Color.lerp(AppColors.primary, AppColors.canvas, t * t * (3 - 2 * t))!.withValues(alpha: bud.shows),
-      ];
-      canvas.drawPath(
-        shape,
-        Paint()
-          ..isAntiAlias = true
-          ..shader = ui.Gradient.linear(Offset(from, 0), Offset(to, 0), colors, stops),
-      );
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _BudsPainter old) => true;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
 }
 
 /// Falling into the search button: constant acceleration from rest (gravity) until it hits, then the liquid
@@ -743,55 +572,6 @@ class _LiquidRise extends Curve {
   }
 }
 
-/// The button's liquid: an ellipse (the button, stretched when it moves fast), the search button's circle while they
-/// are running into each other, and a waist between them that is thick when they are close and snaps to nothing as
-/// they pull apart.
-class _BlobGeometry {
-  const _BlobGeometry({
-    required this.fab,
-    required this.rx,
-    required this.ry,
-    required this.search,
-    required this.r,
-    required this.withSearch,
-  });
-
-  final Offset fab;
-  final double rx;
-  final double ry;
-  final Offset search;
-  final double r;
-  final bool withSearch;
-
-  /// The outline of the liquid. The waist is none at the distance the button rests at and the whole width of the
-  /// circle once they overlap.
-  Path path() {
-    final fabOval = Path()..addOval(Rect.fromCenter(center: fab, width: rx * 2, height: ry * 2));
-    if (!withSearch) return fabOval;
-    final searchCircle = Path()..addOval(Rect.fromCircle(center: search, radius: r));
-    var result = Path.combine(PathOperation.union, fabOval, searchCircle);
-
-    final gap = (search.dy - fab.dy).abs();
-    final far = 2.4 * r, near = 0.9 * r;
-    final k = ((far - gap) / (far - near)).clamp(0.0, 1.0);
-    final waist = r * k * k * (3 - 2 * k);
-    if (waist > 1.5 && gap > 1) {
-      final cx = search.dx;
-      final mid = (search.dy + fab.dy) / 2;
-      final end = r * 0.9;
-      final bend = 2 * waist - end;
-      final neck = Path()
-        ..moveTo(cx - end, fab.dy)
-        ..quadraticBezierTo(cx - bend, mid, cx - end, search.dy)
-        ..lineTo(cx + end, search.dy)
-        ..quadraticBezierTo(cx + bend, mid, cx + end, fab.dy)
-        ..close();
-      result = Path.combine(PathOperation.union, result, neck);
-    }
-    return result;
-  }
-}
-
 class _PathClipper extends CustomClipper<Path> {
   _PathClipper(this.path);
 
@@ -802,73 +582,4 @@ class _PathClipper extends CustomClipper<Path> {
 
   @override
   bool shouldReclip(covariant _PathClipper oldClipper) => true;
-}
-
-class _BlobPainter extends CustomPainter {
-  _BlobPainter({
-    required this.path,
-    required this.fab,
-    required this.rx,
-    required this.ry,
-    required this.search,
-    required this.fabColor,
-    required this.searchColor,
-    required this.withSearch,
-    required this.merge,
-    required this.lift,
-  });
-
-  final Path path;
-  final Offset fab;
-  final double rx;
-  final double ry;
-  final Offset search;
-  final Color fabColor;
-  final Color searchColor;
-  final bool withSearch;
-
-  /// 0 apart, 1 run into each other.
-  final double merge;
-
-  /// 1 while the button floats, 0 once it has run into the search button: its shadow goes with it.
-  final double lift;
-
-  /// Paints the liquid. The button's shadow comes from the button alone, because the search part is glass and nothing
-  /// may show through it. The button and the search button keep their own colours and mix only in the stretch between
-  /// the two, at least a few pixels wide so a button sitting right on the search button still blends. Apart, the blend
-  /// sits in the gap. As they merge it widens up to about 40 px, S-shaped so the colours settle into each end instead
-  /// of ending in a visible edge.
-  @override
-  void paint(Canvas canvas, Size size) {
-    final own = Path()..addOval(Rect.fromCenter(center: fab, width: rx * 2, height: ry * 2));
-    canvas.drawPath(
-      own.shift(const Offset(0, 8)),
-      Paint()
-        ..color = AppColors.primary.withValues(alpha: 0.34 * lift)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
-    );
-    final paint = Paint()..isAntiAlias = true;
-    if (withSearch) {
-      final sign = search.dy >= fab.dy ? 1.0 : -1.0;
-      var from = fab.dy + sign * ry * 0.95;
-      var to = search.dy - sign * (kFloatingBarHeight / 2) * 0.95;
-      final wanted = 6 + 36 * Curves.easeInOut.transform(((merge - 0.25) / 0.45).clamp(0.0, 1.0));
-      if ((to - from) * sign < wanted) {
-        final mid = (from + to) / 2;
-        from = mid - sign * wanted / 2;
-        to = mid + sign * wanted / 2;
-      }
-      const stops = [0.0, 0.25, 0.5, 0.75, 1.0];
-      final colors = [
-        for (final t in stops) Color.lerp(fabColor, searchColor, t * t * (3 - 2 * t))!,
-      ];
-      paint.shader = ui.Gradient.linear(Offset(search.dx, from), Offset(search.dx, to), colors, stops);
-    } else {
-      paint.color = fabColor;
-    }
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _BlobPainter old) => true;
 }

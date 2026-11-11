@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
@@ -10,38 +9,11 @@ import 'package:lost_and_found/core/theme/motion.dart';
 import 'package:lost_and_found/features/tour/view/widgets/tour_download.dart';
 import 'package:lost_and_found/features/tour/view/widgets/tour_samples.dart';
 import 'package:lost_and_found/features/tour/view/widgets/tour_widgets.dart';
-
-/// What a page of the tour is told about the tour around it.
-class TourPageScope {
-  const TourPageScope({
-    required this.index,
-    required this.active,
-    required this.download,
-    required this.next,
-    required this.help,
-  });
-
-  final int index;
-
-  /// Whether this is the page on screen (a page starts its animation when it becomes so).
-  final bool active;
-  final TourDownload download;
-
-  /// Goes on to the next page.
-  final VoidCallback next;
-
-  /// Opened from Settings > Help rather than on a first run.
-  final bool help;
-}
-
-/// One page of a tour: whatever it draws, given where the tour is.
-class TourPage {
-  const TourPage(this.builder);
-
-  final Widget Function(BuildContext context, TourPageScope scope) builder;
-}
-
-enum TourMode { firstRun, help }
+part 'tour_screen/download_card.dart';
+part 'tour_screen/ring.dart';
+part 'tour_screen/download_chip.dart';
+part 'tour_screen/pause_button.dart';
+part 'tour_screen/main_button.dart';
 
 /// A tour: pages to swipe through, a download card that tucks into a small chip, a close button (when replayed from
 /// Help), and one button at the bottom whose words follow the page and the download. Built to take any list of
@@ -429,314 +401,37 @@ class _TourScreenState extends State<TourScreen> {
   }
 }
 
-String _size(int bytes) {
-  if (bytes <= 0) return '0 MB';
-  if (bytes >= 1024 * 1024 * 1024) {
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
-  }
-  return '${(bytes / (1024 * 1024)).round()} MB';
+/// One page of a tour: whatever it draws, given where the tour is.
+class TourPage {
+  const TourPage(this.builder);
+
+  final Widget Function(BuildContext context, TourPageScope scope) builder;
 }
 
-/// The progress as a ring: filling up, or going round while it is not a number yet.
-class _Ring extends StatelessWidget {
-  const _Ring({required this.value, this.size = 30});
-
-  /// 0 to 1, or null for "working".
-  final double? value;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: CircularProgressIndicator(
-        value: value,
-        strokeWidth: size > 22 ? 3 : 2.4,
-        valueColor: const AlwaysStoppedAnimation<Color>(TourPalette.teal),
-        backgroundColor: TourPalette.black.withValues(alpha: 0.09),
-        strokeCap: StrokeCap.round,
-      ),
-    );
-  }
-}
-
-/// Where the download is, small: a ring and the percentage, at the top of the tour.
-class _DownloadChip extends StatelessWidget {
-  const _DownloadChip({
-    super.key,
-    required this.state,
-    this.onTap,
-  });
-
-  final TourDownloadState state;
-
-  /// Brings the card back down.
-  final VoidCallback? onTap;
-
-  /// The tap reaches past the small chip, to the height of the bar it sits in.
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final String text;
-    switch (state.phase) {
-      case TourDownloadPhase.done:
-        text = 'Ready';
-      case TourDownloadPhase.verifying:
-        text = 'Checking';
-      case TourDownloadPhase.connecting:
-        text = 'Starting';
-      case TourDownloadPhase.paused:
-        text = 'Paused  ·  ${state.percent}%';
-      default:
-        text = '${state.percent}%';
-    }
-    final double? ring = switch (state.phase) {
-      TourDownloadPhase.connecting || TourDownloadPhase.verifying => null,
-      _ => state.fraction,
-    };
-    final chip = Semantics(
-      label: onTap == null
-          ? 'Download: $text'
-          : 'Download: $text. Tap to show details',
-      excludeSemantics: true,
-      child: Container(
-        height: 32,
-        padding: const EdgeInsets.only(left: 8, right: 12),
-        decoration: BoxDecoration(
-          color: TourPalette.white,
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-          border: Border.all(color: TourPalette.line),
-          boxShadow: kTourSoftShadow,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            if (state.done)
-              const Icon(
-                Icons.check_circle_rounded,
-                size: 18,
-                color: TourPalette.teal,
-              )
-            else if (state.paused)
-              const Icon(
-                Icons.pause_circle_filled_rounded,
-                size: 18,
-                color: TourPalette.teal,
-              )
-            else
-              _Ring(value: ring, size: 18),
-            const SizedBox(width: 7),
-            Text(
-              text,
-              style: textTheme.labelMedium?.copyWith(
-                color: TourPalette.text,
-                fontWeight: FontWeight.w700,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (onTap == null) return chip;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: SizedBox(
-        height: 48,
-        child: Align(
-          alignment: Alignment.centerLeft,
-          widthFactor: 1,
-          child: chip,
-        ),
-      ),
-    );
-  }
-}
-
-/// The download, with the details: it opens when the download starts and when it needs the person, tucks into the
-/// chip after a few seconds (tap the chip to bring it back), and has the button that pauses and resumes it. A tap on
-/// the rest of the card tucks it away.
-class _DownloadCard extends StatelessWidget {
-  const _DownloadCard({
+/// What a page of the tour is told about the tour around it.
+class TourPageScope {
+  const TourPageScope({
+    required this.index,
+    required this.active,
     required this.download,
-    required this.state,
-    required this.onMinimise,
+    required this.next,
+    required this.help,
   });
 
+  final int index;
+
+  /// Whether this is the page on screen (a page starts its animation when it becomes so).
+  final bool active;
   final TourDownload download;
-  final TourDownloadState state;
-  final VoidCallback onMinimise;
 
-  /// Pausing is offered while bytes are coming (or being asked for), and resuming while it is paused.
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final String title, detail;
-    String? action;
-    switch (state.phase) {
-      case TourDownloadPhase.error:
-        title = 'Download stopped';
-        detail = 'Check your connection';
-        action = 'Try again';
-      case TourDownloadPhase.connecting:
-        title = 'Starting the download';
-        detail = 'Connecting to the server';
-      case TourDownloadPhase.verifying:
-        title = 'Checking the download';
-        detail = 'Almost ready';
-      case TourDownloadPhase.paused:
-        title = 'Download paused';
-        detail =
-            '${state.percent}%  ·  ${_size(state.downloadedBytes)} of ${_size(state.totalBytes)}';
-      default:
-        title = 'Downloading search models';
-        detail =
-            '${state.percent}%  ·  ${_size(state.downloadedBytes)} of ${_size(state.totalBytes)}';
-    }
-    final Widget lead;
-    switch (state.phase) {
-      case TourDownloadPhase.error:
-        lead = const Icon(
-          Icons.error_outline_rounded,
-          size: 26,
-          color: TourPalette.red550,
-        );
-      case TourDownloadPhase.connecting || TourDownloadPhase.verifying:
-        lead = const _Ring(value: null);
-      default:
-        lead = _Ring(value: state.fraction);
-    }
-    final canPause =
-        state.phase == TourDownloadPhase.downloading ||
-        state.phase == TourDownloadPhase.connecting;
-    return Semantics(
-      liveRegion: true,
-      label: '$title. $detail',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onMinimise,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-          decoration: BoxDecoration(
-            color: TourPalette.white,
-            borderRadius: BorderRadius.circular(AppRadius.lg + 2),
-            border: Border.all(color: TourPalette.line),
-            boxShadow: kTourSoftShadow,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(width: 30, height: 30, child: Center(child: lead)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: textTheme.labelLarge?.copyWith(
-                        color: TourPalette.text,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      detail,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: textTheme.bodySmall?.copyWith(
-                        color: TourPalette.text60,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (canPause || state.paused) ...[
-                const SizedBox(width: 6),
-                _PauseButton(
-                  paused: state.paused,
-                  onTap: state.paused ? download.resume : download.pause,
-                ),
-              ],
-              if (action != null) ...[
-                const SizedBox(width: 6),
-                TextButton(
-                  onPressed: download.start,
-                  style: TextButton.styleFrom(
-                    foregroundColor: TourPalette.teal,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    minimumSize: const Size(0, 36),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    action,
-                    style: textTheme.labelLarge?.copyWith(
-                      color: TourPalette.teal,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  /// Goes on to the next page.
+  final VoidCallback next;
+
+  /// Opened from Settings > Help rather than on a first run.
+  final bool help;
 }
 
-/// A round button that pauses the download, or carries on with it when it is paused.
-class _PauseButton extends StatelessWidget {
-  const _PauseButton({required this.paused, required this.onTap});
-
-  final bool paused;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: paused ? 'Resume download' : 'Pause download',
-      excludeSemantics: true,
-      child: Tooltip(
-        message: paused ? 'Resume' : 'Pause',
-        child: Material(
-          color: paused
-              ? TourPalette.teal
-              : TourPalette.teal.withValues(alpha: 0.1),
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () {
-              HapticFeedback.selectionClick();
-              onTap();
-            },
-            child: SizedBox(
-              width: 44,
-              height: 44,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                child: Icon(
-                  paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-                  key: ValueKey(paused),
-                  size: 24,
-                  color: paused ? TourPalette.white : TourPalette.teal,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
+enum TourMode { firstRun, help }
 
 class _Dots extends StatelessWidget {
   const _Dots({required this.count, required this.index});
@@ -764,58 +459,6 @@ class _Dots extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _MainButton extends StatelessWidget {
-  const _MainButton({
-    required this.label,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: label,
-      excludeSemantics: true,
-      child: AnimatedOpacity(
-        duration: const Duration(milliseconds: 200),
-        opacity: enabled ? 1 : 0.55,
-        child: Material(
-          color: TourPalette.teal,
-          elevation: 0,
-          shadowColor: TourPalette.teal.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-          child: InkWell(
-            onTap: enabled ? onTap : null,
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-            child: Container(
-              height: 54,
-              alignment: Alignment.center,
-              width: double.infinity,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                child: Text(
-                  label,
-                  key: ValueKey(label),
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: TourPalette.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
