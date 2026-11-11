@@ -7,9 +7,6 @@ import dev.raseel.lostandfound.BuildConfig
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
-import java.io.RandomAccessFile
-import java.net.HttpURLConnection
-import java.net.URL
 import java.security.MessageDigest
 
 /**
@@ -20,6 +17,12 @@ class ModelManager(private val context: Context) {
 
     @Volatile
     private var isCancelled = false
+
+    /** Set when one of the downloads running side by side failed for good, so the others stop instead of carrying on. */
+    @Volatile
+    private var aborted = false
+
+    private val running = mutableSetOf<ResumableDownload>()
 
     private val prefs = context.getSharedPreferences("model_manager", Context.MODE_PRIVATE)
 
@@ -56,10 +59,6 @@ class ModelManager(private val context: Context) {
     }
 
     companion object {
-        private const val PROGRESS_INTERVAL_MS = 250L
-        private const val MAX_ATTEMPTS = 5
-        private const val CONNECT_TIMEOUT_MS = 15_000
-        private const val READ_TIMEOUT_MS = 30_000
         private const val BUFFER_SIZE = 64 * 1024
         private const val FREE_SPACE_MULTIPLIER = 1.3
         private const val REPLACED_REMOVED_KEY = "old_clip_models_removed_v2"
@@ -143,9 +142,18 @@ class ModelManager(private val context: Context) {
         return free > (needed * FREE_SPACE_MULTIPLIER).toLong()
     }
 
+    /** Stops the download at once, also while it is still connecting or waiting between two tries. */
     fun cancelDownload() {
         isCancelled = true
+        stopRunning()
     }
+
+    private fun stopRunning() {
+        val jobs = synchronized(running) { running.toList() }
+        jobs.forEach { it.stop() }
+    }
+
+    private fun shouldStop() = isCancelled || aborted
 
     /** Deletes the search models (search and indexing stop until they are downloaded again). */
     fun deleteModels() = delete(ModelCatalog.MODELS)
@@ -159,23 +167,41 @@ class ModelManager(private val context: Context) {
     }
 
     /**
-     * Downloads every not-yet-verified model of [models] in order. Put the ones that matter most first, so a failure
-     * later does not lose what is done. Safe to call again after a cancel or failure: verified models are skipped and
-     * partial downloads resume.
+     * Downloads every not-yet-verified model of [models], all at the same time, so the waiting to connect overlaps and
+     * the files use more than one stream. Safe to call again after a cancel or failure: verified models are skipped and
+     * partial downloads resume. When one fails for good the others are stopped, their partial files are kept, and the
+     * error is thrown.
      */
     fun download(models: List<RemoteModel>, onProgress: (ModelDownloadProgress) -> Unit) {
         isCancelled = false
+        aborted = false
 
         val pending = models.filterNot { isModelVerified(it) }
-        val overallTotal = models.sumOf { it.sizeBytes }
-        var overallDoneBeforeThisModel =
-            models.filter { isModelVerified(it) }.sumOf { it.sizeBytes }
+        if (pending.isEmpty()) return
+        val progress = DownloadProgressTracker(models, pending, onProgress)
 
-        for (model in pending) {
-            if (isCancelled) return
-            downloadOne(model, overallDoneBeforeThisModel, overallTotal, onProgress)
-            overallDoneBeforeThisModel += model.sizeBytes
+        if (pending.size == 1) {
+            downloadOne(pending.first(), progress)
+            return
         }
+
+        val failure = java.util.concurrent.atomic.AtomicReference<Throwable?>(null)
+        val threads = pending.map { model ->
+            Thread {
+                try {
+                    downloadOne(model, progress)
+                } catch (t: Throwable) {
+                    failure.compareAndSet(null, t)
+                    aborted = true
+                    stopRunning()
+                }
+            }.apply {
+                name = "model-download-${model.id}"
+                start()
+            }
+        }
+        threads.forEach { it.join() }
+        failure.get()?.let { throw it }
     }
 
     /**
@@ -183,101 +209,22 @@ class ModelManager(private val context: Context) {
      * file of the wrong size to start clean. When every byte is here it reports that before the size and checksum
      * check, which takes seconds on a big file, so the app shows "checking" and not a bar frozen near the end.
      */
-    private fun downloadOne(
-        model: RemoteModel,
-        overallDoneBeforeThisModel: Long,
-        overallTotal: Long,
-        onProgress: (ModelDownloadProgress) -> Unit
-    ) {
+    private fun downloadOne(model: RemoteModel, progress: DownloadProgressTracker) {
         val target = localFile(model)
         val part = partFile(model)
 
         if (target.exists() && target.length() != model.sizeBytes) target.delete()
 
-        var existingLength = if (part.exists()) part.length() else 0L
-        if (existingLength > model.sizeBytes) {
-            part.delete()
-            existingLength = 0L
+        val job = ResumableDownload(model.url, part, model.sizeBytes) { written -> progress.received(model, written) }
+        synchronized(running) { running.add(job) }
+        val complete = try {
+            if (shouldStop()) false else job.run()
+        } finally {
+            synchronized(running) { running.remove(job) }
         }
+        if (!complete || isCancelled) return
 
-        var attempt = 0
-        var lastEmit = 0L
-
-        while (true) {
-            try {
-                val connection = URL(model.url).openConnection() as HttpURLConnection
-                connection.connectTimeout = CONNECT_TIMEOUT_MS
-                connection.readTimeout = READ_TIMEOUT_MS
-                if (existingLength > 0) {
-                    connection.setRequestProperty("Range", "bytes=$existingLength-")
-                }
-                connection.connect()
-
-                val serverHonoredResume = connection.responseCode == HttpURLConnection.HTTP_PARTIAL
-                if (existingLength > 0 && !serverHonoredResume) {
-                    existingLength = 0L
-                    part.delete()
-                }
-
-                if (connection.responseCode !in 200..299) {
-                    val code = connection.responseCode
-                    connection.disconnect()
-                    throw IOException("HTTP $code for ${model.url}")
-                }
-
-                RandomAccessFile(part, "rw").use { raf ->
-                    raf.seek(existingLength)
-                    connection.inputStream.use { input ->
-                        val buffer = ByteArray(BUFFER_SIZE)
-                        var readBytes: Int
-                        var written = existingLength
-                        while (input.read(buffer).also { readBytes = it } != -1) {
-                            if (isCancelled) return
-                            raf.write(buffer, 0, readBytes)
-                            written += readBytes
-
-                            val now = System.currentTimeMillis()
-                            if (now - lastEmit > PROGRESS_INTERVAL_MS) {
-                                onProgress(
-                                    ModelDownloadProgress(
-                                        modelId = model.id,
-                                        modelFileName = model.fileName,
-                                        bytesForModel = written,
-                                        totalBytesForModel = model.sizeBytes,
-                                        overallBytesDownloaded = overallDoneBeforeThisModel + written,
-                                        overallTotalBytes = overallTotal,
-                                        done = false
-                                    )
-                                )
-                                lastEmit = now
-                            }
-                        }
-                    }
-                }
-                connection.disconnect()
-                break
-            } catch (e: Exception) {
-                if (isCancelled) return
-                attempt++
-                existingLength = if (part.exists()) part.length() else 0L
-                if (attempt >= MAX_ATTEMPTS) throw e
-                Thread.sleep(1000L * attempt)
-            }
-        }
-
-        if (isCancelled) return
-
-        onProgress(
-            ModelDownloadProgress(
-                modelId = model.id,
-                modelFileName = model.fileName,
-                bytesForModel = model.sizeBytes,
-                totalBytesForModel = model.sizeBytes,
-                overallBytesDownloaded = overallDoneBeforeThisModel + model.sizeBytes,
-                overallTotalBytes = overallTotal,
-                done = false
-            )
-        )
+        progress.allBytesReceived(model)
 
         if (part.length() != model.sizeBytes) {
             throw IOException(
@@ -299,17 +246,7 @@ class ModelManager(private val context: Context) {
 
         prefs.edit().putBoolean(verifiedKey(model), true).apply()
 
-        onProgress(
-            ModelDownloadProgress(
-                modelId = model.id,
-                modelFileName = model.fileName,
-                bytesForModel = model.sizeBytes,
-                totalBytesForModel = model.sizeBytes,
-                overallBytesDownloaded = overallDoneBeforeThisModel + model.sizeBytes,
-                overallTotalBytes = overallTotal,
-                done = true
-            )
-        )
+        progress.finished(model)
     }
 
     /**
