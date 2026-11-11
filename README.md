@@ -1,3 +1,18 @@
+
+<div align="center">
+
+  <h3>Support my work</h3>
+  <p>If you find my projects useful, you can support my work here.</p>
+
+  <a href="https://buymeacoffee.com/raseelp">
+    <img src="https://raw.githubusercontent.com/pachadotdev/buymeacoffee-badges/main/bmc-yellow.svg"
+         width="180"
+         alt="Buy Me a Coffee">
+  </a>
+
+</div>
+
+
 # Lost & Found: Offline Search
 
 Find your photos and videos by describing them, and by who is in them. Everything runs on your
