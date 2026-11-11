@@ -55,7 +55,8 @@ android {
         applicationId = "dev.raseel.lostandfound"
         // 24, not 23: ONNX Runtime needs at least Android 7.0.
         minSdk = 24
-        targetSdk = flutter.targetSdkVersion
+        // 36, not Flutter's default 35: Google Play requires it for new apps and updates since 31 August 2026.
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 

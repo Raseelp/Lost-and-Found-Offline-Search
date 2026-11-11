@@ -50,7 +50,11 @@
     <application
         android:label="Lost &amp; Found"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="false">
+
+        <!-- Keeps the back button as it was before Android 16, which turns the system back animation on by default for apps
+             that target it. Flutter's own back handling is untouched. -->
 
         <!-- Flutter Main Activity -->
         <activity
