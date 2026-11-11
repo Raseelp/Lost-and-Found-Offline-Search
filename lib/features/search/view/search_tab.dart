@@ -58,9 +58,11 @@ class SearchTab extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _SearchPill(controller: controller),
-                const SizedBox(height: AppSpacing.lg),
-                if (library.isScanning)
+                if (library.isScanning) ...[
+                  const SizedBox(height: AppSpacing.lg),
                   _BackgroundIndexingNote(library: library),
+                ] else if (showResults)
+                  const SizedBox(height: AppSpacing.sm),
               ],
             ),
           ),
