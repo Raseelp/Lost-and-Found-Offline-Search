@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/route_manager.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lost_and_found/bindings/init_bindings.dart';
-import 'package:lost_and_found/utils/app_colors.dart';
-import 'package:lost_and_found/utils/model_licenses.dart';
-import 'package:lost_and_found/view/app_gate.dart';
-import 'package:lost_and_found/view/splash/splash_overlay.dart';
+import 'package:lost_and_found/app/init_bindings.dart';
+import 'package:lost_and_found/core/theme/app_colors.dart';
+import 'package:lost_and_found/core/model_licenses.dart';
+import 'package:lost_and_found/app/app_gate.dart';
+import 'package:lost_and_found/features/home/features/splash/view/splash_overlay.dart';
 
 /// System bars for the app's light screens.
 ///

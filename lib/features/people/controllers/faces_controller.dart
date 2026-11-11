@@ -1,0 +1,950 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:lost_and_found/core/native/native_controller.dart';
+import 'package:lost_and_found/features/people/features/timeline/models/people_timeline.dart';
+import 'package:lost_and_found/core/native/native_services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lost_and_found/core/widgets/app_toast.dart';
+
+/// Everything about faces and people: the scan status, the list of people, and the one person currently open. The
+/// scan runs by itself in the background (see FaceScanner).
+///
+/// People appear while the scan is still running, because every progress tick schedules a throttled refresh of the
+/// list. Faces are found along with indexing or by "Update people", so opening the app never starts a scan.
+class FacesController extends GetxController {
+  final _native = NativeServices();
+
+  FaceStatus status = FaceStatus();
+  List<Person> people = [];
+  List<Person> hiddenPeople = [];
+  bool isLoadingPeople = true;
+
+  StreamSubscription<FaceStatus>? _progressSub;
+  Timer? _refreshTimer;
+  DateTime _lastRefresh = DateTime.fromMillisecondsSinceEpoch(0);
+
+  @override
+  void onInit() {
+    super.onInit();
+    _progressSub = _native.faceProgress().listen(_onProgress, onError: (_) {});
+    unawaited(_loadMomentPrefs());
+    refreshAll();
+  }
+
+  @override
+  void onClose() {
+    _progressSub?.cancel();
+    _refreshTimer?.cancel();
+    momentsRevision.dispose();
+    super.onClose();
+  }
+
+  /// Asks for the scan to run. It does nothing if the scan is already running, and only looks at photos not done
+  /// yet, so it is safe to call whenever it might help. Returns true if the scan is running now, false if there was
+  /// nothing for it to do.
+  Future<bool> startScan() async {
+    try {
+      return await _native.startFaceScan();
+    } catch (e) {
+      debugPrint('startFaceScan failed: $e');
+      return false;
+    }
+  }
+
+  /// Whether the People tab is showing a sync's progress. Faces are found by themselves along with indexing, so that
+  /// is only after "Update people".
+  bool syncing = false;
+
+  /// "Update people": catches up on whatever the automatic scan has not covered (the photos after the last batch,
+  /// small and blurry faces, videos) and shows its progress. Returns false if there was nothing for it to do.
+  ///
+  /// When the user stopped the scan with photos left, asking to sync is asking it to run.
+  Future<bool> syncFaces() async {
+    if (status.userPaused && status.remaining > 0) {
+      await resumeScan();
+    } else if (!status.running) {
+      final started = await startScan();
+      if (!started) return false;
+    }
+    syncing = true;
+    update();
+    return true;
+  }
+
+  /// The user's stop button. Stays stopped, across restarts, until [resumeScan].
+  Future<void> pauseScan() async {
+    status = status.withUserPaused(true);
+    _rate = null;
+    _rateAt = null;
+    update();
+    try {
+      await _native.pauseFaceScan();
+    } catch (e) {
+      debugPrint('pauseFaceScan failed: $e');
+    }
+  }
+
+  Future<void> resumeScan() async {
+    status = status.withUserPaused(false);
+    update();
+    try {
+      await _native.resumeFaceScan();
+    } catch (e) {
+      debugPrint('resumeFaceScan failed: $e');
+    }
+    await refreshStatus();
+  }
+
+  /// Photos per second over the last few ticks, smoothed. It is not the whole run's average, which would include the
+  /// time spent waiting and loading the models.
+  double? _rate;
+  DateTime? _rateAt;
+  int _rateProcessed = 0;
+
+  /// How fast the scan is going right now, in photos per second, or null until known.
+  double? get scanRate => _rate;
+
+  /// Time left at the current speed, or null while the speed is not known. It counts only the pass running now,
+  /// because the refining pass goes at a different pace.
+  Duration? get scanEta {
+    final rate = _rate;
+    if (rate == null || rate <= 0 || !status.running || status.paused || status.following) return null;
+    final remaining = status.phaseRemaining;
+    if (remaining <= 0) return null;
+    return Duration(seconds: (remaining / rate).round());
+  }
+
+  /// Updates [_rate] from a progress tick. The first tick of a run, or a counter starting over, sets the baseline.
+  void _updateRate(FaceStatus tick) {
+    if (!tick.running || tick.paused) {
+      _rate = null;
+      _rateAt = null;
+      return;
+    }
+    final now = DateTime.now();
+    final at = _rateAt;
+    if (at == null || tick.runProcessed < _rateProcessed) {
+      _rateAt = now;
+      _rateProcessed = tick.runProcessed;
+      return;
+    }
+    final seconds = now.difference(at).inMilliseconds / 1000.0;
+    if (seconds < 1.5) return;
+    final instant = (tick.runProcessed - _rateProcessed) / seconds;
+    _rate = _rate == null ? instant : _rate! * 0.6 + instant * 0.4;
+    _rateAt = now;
+    _rateProcessed = tick.runProcessed;
+  }
+
+  /// Takes a progress tick. A sync ends with the scan, and the progress card goes with it. The list is refreshed at
+  /// most every few seconds while running, and once when the scan ends. When the scan has just ended it is time to
+  /// look for people who may be one, and for new moments, so the dates are looked at again once.
+  void _onProgress(FaceStatus tick) {
+    final wasRunning = status.running;
+    status = tick.mergedOnto(status);
+    if (tick.done && !tick.batch) syncing = false;
+    _updateRate(tick);
+    update();
+
+    final due = DateTime.now().difference(_lastRefresh) > const Duration(seconds: 3);
+    if (tick.done || (wasRunning && !tick.running) || (tick.running && due)) {
+      _scheduleRefresh(immediate: tick.done);
+    }
+    if (wasRunning && !tick.running) {
+      refreshSuggestions();
+      _momentsLookedUp = false;
+    }
+  }
+
+  void _scheduleRefresh({bool immediate = false}) {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer(immediate ? Duration.zero : const Duration(milliseconds: 400), refreshPeople);
+  }
+
+  Future<void> refreshStatus() async {
+    try {
+      status = await _native.faceStatus();
+      update();
+    } catch (e) {
+      debugPrint('faceStatus failed: $e');
+    }
+  }
+
+  Future<void> refreshAll() async {
+    await refreshStatus();
+    await refreshPeople();
+    await refreshSuggestions();
+  }
+
+  List<MergeSuggestion> _suggestions = [];
+
+  /// Pairs of listed people who may be the same person, as (a, b, score) with both people known. The most likely
+  /// pair is first.
+  List<({Person a, Person b, double score})> get suggestions {
+    final byId = {for (final p in people) p.id: p};
+    return [
+      for (final s in _suggestions)
+        if (byId[s.aId] != null && byId[s.bId] != null) (a: byId[s.aId]!, b: byId[s.bId]!, score: s.score),
+    ];
+  }
+
+  /// How alike [other] looks to [person], if they were suggested as a pair.
+  double? suggestionScoreFor(Person person, Person other) {
+    for (final s in _suggestions) {
+      if ((s.aId == person.id && s.bId == other.id) || (s.aId == other.id && s.bId == person.id)) return s.score;
+    }
+    return null;
+  }
+
+  /// Looks for pairs of people who may be the same person. It does nothing while the scan runs, because the list
+  /// would change under it and it is extra work for the phone at the busiest time.
+  Future<void> refreshSuggestions() async {
+    if (status.running) return;
+    try {
+      _suggestions = await _native.suggestMerges();
+    } catch (e) {
+      debugPrint('suggestMerges failed: $e');
+    }
+    update();
+  }
+
+  /// What the phone knows about when everyone appears, and how far it has got with the dates.
+  TimelineData timeline = TimelineData.empty;
+  bool timelineLoaded = false;
+
+  /// Set while the People tab shows the timeline: new people and photos are then looked at too.
+  bool timelineWanted = false;
+
+  bool _timelineRunning = false;
+  bool _timelineAgain = false;
+
+  /// Set when some dates could not be found out because there was no headway. The rest is left, and the view does
+  /// not wait for it.
+  bool _timelineStuck = false;
+
+  /// Who was listed when the timeline was last worked out. Another list, because someone was merged or hidden, means
+  /// it is worked out again.
+  String _timelinePeopleKey = '';
+
+  /// Who is listed and how many photos each is in. A face taken out of someone changes it, and then the moments are
+  /// worked out again.
+  String _peopleKey() => people.map((p) => '${p.id}:${p.photoCount}').join(',');
+
+  /// Whether every date is in, or the rest could not be found out.
+  bool get timelineDone => timeline.done || _timelineStuck;
+
+  static const _momentsEveryoneKey = 'faces_timeline_moments_everyone';
+
+  /// Whose moments are pointed out: the inner circle (the named people photographed the most), or everyone.
+  bool momentsEveryone = false;
+
+  Map<String, PhotoMoment> _photoMoments = const {};
+
+  /// Counts the changes of which photos are moments. The tiles and the viewers listen to it, so they do not rebuild
+  /// with every scan tick.
+  final ValueNotifier<int> momentsRevision = ValueNotifier(0);
+  bool _momentPrefsLoaded = false;
+  bool _momentsLookedUp = false;
+
+  /// The moment this photo or video is, if it is one. A moment is the first photo of two people together, the whole
+  /// gang in one shot, or a reunion.
+  PhotoMoment? momentFor(String? uri) => uri == null ? null : _photoMoments[uri];
+
+  Future<void> setMomentsEveryone(bool value) async {
+    if (momentsEveryone == value) return;
+    momentsEveryone = value;
+    _rebuildMoments();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_momentsEveryoneKey, value);
+    } catch (_) {
+      // The choice is not saved, so it lasts for this visit only.
+    }
+  }
+
+  Future<void> _loadMomentPrefs() async {
+    if (_momentPrefsLoaded) return;
+    _momentPrefsLoaded = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final everyone = prefs.getBool(_momentsEveryoneKey) ?? false;
+      if (everyone != momentsEveryone) {
+        momentsEveryone = everyone;
+        _rebuildMoments();
+      }
+    } catch (_) {
+      // The setting keeps its default.
+    }
+  }
+
+  /// Works out which photos are moments. The tiles and viewers listen to [momentsRevision], so it changes only when a
+  /// moment really changed.
+  void _rebuildMoments() {
+    final next = timelineLoaded && people.isNotEmpty
+        ? TimelineLayout.build(people, timeline, DateTime.now(), everyone: momentsEveryone).photoMoments()
+        : const <String, PhotoMoment>{};
+    var same = next.length == _photoMoments.length;
+    if (same) {
+      for (final e in next.entries) {
+        final old = _photoMoments[e.key];
+        if (old == null ||
+            old.title != e.value.title ||
+            old.month != e.value.month ||
+            old.people.length != e.value.people.length ||
+            !old.people.every((p) => e.value.people.any((q) => q.id == p.id && q.name == p.name))) {
+          same = false;
+          break;
+        }
+      }
+    }
+    _photoMoments = next;
+    if (!same) momentsRevision.value++;
+  }
+
+  /// Looks up the dates, a bit at a time so the view can show how far it is, and keeps the result in [timeline].
+  /// Asking again while it runs makes it go round once more at the end.
+  ///
+  /// When the timeline is not open, it works in short turns with pauses, so what the person is doing with the faces
+  /// is not kept waiting. With no headway three times over, for a file that cannot be read say, the rest is left.
+  Future<void> loadTimeline() async {
+    if (_timelineRunning) {
+      _timelineAgain = true;
+      return;
+    }
+    _timelineRunning = true;
+    try {
+      var stuck = 0;
+      _timelineStuck = false;
+      do {
+        _timelineAgain = false;
+        while (true) {
+          final before = timeline.pending;
+          final gentle = !timelineWanted;
+          final data = await _native.peopleTimeline(budgetMs: gentle ? 250 : 800);
+          timeline = data;
+          timelineLoaded = true;
+          update();
+          if (data.done) break;
+          stuck = (before != 0 && data.pending >= before) ? stuck + 1 : 0;
+          if (stuck >= 3) {
+            _timelineStuck = true;
+            update();
+            break;
+          }
+          if (gentle) await Future<void>.delayed(const Duration(milliseconds: 300));
+        }
+      } while (_timelineAgain);
+      _timelinePeopleKey = _peopleKey();
+      _rebuildMoments();
+    } catch (e) {
+      debugPrint('peopleTimeline failed: $e');
+      timelineLoaded = true;
+      update();
+    } finally {
+      _timelineRunning = false;
+    }
+  }
+
+  /// Reloads the people and the hidden people, then brings the timeline and the moments up to date. Once, so the
+  /// photos can say which of them are moments, it looks up the dates of the photos with people in the background.
+  /// When someone was merged or hidden the list is different and the timeline is worked out again. When someone was
+  /// only named, the inner circle may be different now.
+  Future<void> refreshPeople() async {
+    _lastRefresh = DateTime.now();
+    try {
+      final results = await Future.wait([
+        _native.listPeople(),
+        _native.listPeople(hidden: true),
+      ]);
+      people = results[0];
+      hiddenPeople = results[1];
+      _prefetchCrops(people.map((p) => p.coverFaceId));
+    } catch (e) {
+      debugPrint('listPeople failed: $e');
+    }
+    isLoadingPeople = false;
+    update();
+    if (timelineWanted) {
+      unawaited(loadTimeline());
+    } else if (!_momentsLookedUp && !status.running && people.isNotEmpty) {
+      _momentsLookedUp = true;
+      unawaited(loadTimeline());
+    } else if (timelineLoaded) {
+      if (!status.running && _peopleKey() != _timelinePeopleKey) {
+        unawaited(loadTimeline());
+      } else {
+        _rebuildMoments();
+      }
+    }
+  }
+
+  /// At most this many pictures are made at once, as more just slow each other down.
+  ///
+  /// Each picture is cut from its photo on the phone, so how they are asked for matters. The newest request goes
+  /// first, because that is what is on screen now. A request nobody wants any more, because it was scrolled far
+  /// past, is dropped before it starts. Covers of the people list are made quietly in advance.
+  static const int _maxCropsInFlight = 3;
+  static const int _cropCacheLimit = 800;
+
+  final Map<int, Uint8List> _crops = {};
+  final Map<int, Completer<Uint8List?>> _cropWaiters = {};
+  final Map<int, int> _cropWanted = {};
+
+  /// The faces wanted now, newest last.
+  final List<int> _cropStack = [];
+
+  /// The faces to prefetch, oldest first.
+  final List<int> _cropLow = [];
+  final Set<int> _cropRunning = {};
+
+  Uint8List? cachedCrop(int faceId) => _crops[faceId];
+
+  /// The picture of a face; pair every call with [releaseCrop]. A face asked for again while it waits, or while it
+  /// is prefetched, now matters and moves to the front.
+  Future<Uint8List?> crop(int faceId) {
+    final cached = _crops[faceId];
+    if (cached != null) return Future.value(cached);
+
+    _cropWanted[faceId] = (_cropWanted[faceId] ?? 0) + 1;
+    final existing = _cropWaiters[faceId];
+    if (existing != null) {
+      if (_cropStack.remove(faceId) || _cropLow.remove(faceId)) _cropStack.add(faceId);
+      return existing.future;
+    }
+    final waiter = Completer<Uint8List?>();
+    _cropWaiters[faceId] = waiter;
+    _cropStack.add(faceId);
+    _pumpCrops();
+    return waiter.future;
+  }
+
+  /// Says a caller of [crop] no longer needs it (it got the picture, or went
+  /// off screen). A picture nobody wants that hasn't started is dropped.
+  void releaseCrop(int faceId) {
+    final left = (_cropWanted[faceId] ?? 1) - 1;
+    if (left > 0) {
+      _cropWanted[faceId] = left;
+      return;
+    }
+    _cropWanted.remove(faceId);
+    if (_cropStack.remove(faceId)) _cropWaiters.remove(faceId)?.complete(null);
+  }
+
+  /// Makes pictures ahead of time, without getting in the way of ones on screen.
+  void _prefetchCrops(Iterable<int> faceIds) {
+    for (final id in faceIds) {
+      if (_crops.containsKey(id) || _cropWaiters.containsKey(id)) continue;
+      _cropWaiters[id] = Completer<Uint8List?>();
+      _cropLow.add(id);
+    }
+    _pumpCrops();
+  }
+
+  void _pumpCrops() {
+    while (_cropRunning.length < _maxCropsInFlight) {
+      final int id;
+      if (_cropStack.isNotEmpty) {
+        id = _cropStack.removeLast();
+      } else if (_cropLow.isNotEmpty) {
+        id = _cropLow.removeAt(0);
+      } else {
+        return;
+      }
+      final waiter = _cropWaiters[id];
+      final ready = _crops[id];
+      if (ready != null) {
+        _cropWaiters.remove(id);
+        waiter?.complete(ready);
+        continue;
+      }
+
+      _cropRunning.add(id);
+      _native.faceCrop(id).then<Uint8List?>((b) => b).catchError((_) => null).then((bytes) {
+        _cropRunning.remove(id);
+        if (bytes != null) {
+          _crops[id] = bytes;
+          if (_crops.length > _cropCacheLimit) _crops.remove(_crops.keys.first);
+        }
+        _cropWaiters.remove(id)?.complete(bytes);
+        _pumpCrops();
+      });
+    }
+  }
+
+  Person? active;
+  List<Map<String, dynamic>> photos = [];
+  final Map<String, Uint8List> photoThumbs = {};
+  bool isLoadingPhotos = false;
+  bool isLoadingThumbs = false;
+  int _openToken = 0;
+
+  /// Recently shown photo thumbnails, so re-opening someone is instant.
+  final Map<String, Uint8List> _thumbCache = {};
+
+  /// The person pages that are open, oldest first. There can be several at once, such as a person, a photo, a face in
+  /// it and then that person. They all show the one [active] person, so when the top one closes the one beneath is
+  /// put back.
+  final List<Person> _openPeople = [];
+
+  /// What identifies a grid item's picture: a photo by its path, a video by path and moment.
+  static String thumbKey(Map<String, dynamic> item) {
+    final path = item['path'] as String;
+    if (item['isVideo'] as bool? ?? false) return '$path@${(item['timestampMs'] as num?)?.toInt() ?? 0}';
+    return path;
+  }
+
+  /// What the latest scan indexed, tagged New, shows first in a grid, so its thumbnails are fetched first too.
+  List<Map<String, dynamic>> _newFirst(List<Map<String, dynamic>> items) =>
+      Get.isRegistered<NativeController>() ? Get.find<NativeController>().newFirst(items) : items;
+
+  Future<Uint8List> _thumbFor(Map<String, dynamic> item) {
+    final path = item['path'] as String;
+    if (item['isVideo'] as bool? ?? false) {
+      return _native.loadVideoThumbnail(uri: path, timestampMs: (item['timestampMs'] as num?)?.toInt() ?? 0);
+    }
+    return _native.loadThumbnail(uri: path, isVideo: false, size: 420);
+  }
+
+  /// Shows [person]. [push] says a new person page has opened, as opposed to reloading the one already showing.
+  ///
+  /// The thumbnails are loaded as for a collection: the cached ones at once, and the rest a few at a time in list
+  /// order, so the top of the grid fills first.
+  Future<void> openPerson(Person person, {bool push = false}) async {
+    if (push) {
+      _openPeople.add(person);
+    } else if (_openPeople.isNotEmpty) {
+      _openPeople[_openPeople.length - 1] = person;
+    }
+    final token = ++_openToken;
+    active = person;
+    photos = [];
+    photoThumbs.clear();
+    isLoadingPhotos = true;
+    isLoadingThumbs = false;
+    update();
+
+    try {
+      final found = await _native.personPhotos(person.id);
+      if (token != _openToken) return;
+      photos = found;
+    } catch (e) {
+      debugPrint('personPhotos failed: $e');
+    }
+    isLoadingPhotos = false;
+    isLoadingThumbs = photos.isNotEmpty;
+    update();
+
+    final pending = <Map<String, dynamic>>[];
+    for (final item in _newFirst(photos)) {
+      final key = thumbKey(item);
+      final cached = _thumbCache.remove(key);
+      if (cached != null) {
+        _thumbCache[key] = cached;
+        photoThumbs[key] = cached;
+      } else {
+        pending.add(item);
+      }
+    }
+    if (photoThumbs.isNotEmpty) update();
+
+    var next = 0;
+    var sinceUpdate = 0;
+    Future<void> worker() async {
+      while (token == _openToken && next < pending.length) {
+        final item = pending[next++];
+        final key = thumbKey(item);
+        try {
+          final bytes = await _thumbFor(item);
+          _thumbCache.remove(key);
+          _thumbCache[key] = bytes;
+          if (_thumbCache.length > 500) _thumbCache.remove(_thumbCache.keys.first);
+          if (token != _openToken) return;
+          photoThumbs[key] = bytes;
+        } catch (_) {}
+        if (token == _openToken && ++sinceUpdate >= 6) {
+          sinceUpdate = 0;
+          update();
+        }
+      }
+    }
+
+    await Future.wait([for (var i = 0; i < 4; i++) worker()]);
+    if (token == _openToken) {
+      isLoadingThumbs = false;
+      update();
+    }
+  }
+
+  /// A person page has closed. If another is still open beneath it, that person is shown again, after the closing
+  /// page has been taken apart.
+  void closePerson() {
+    _openToken++;
+    if (_openPeople.isNotEmpty) _openPeople.removeLast();
+    if (_openPeople.isNotEmpty) {
+      final back = _openPeople.last;
+      active = back;
+      photos = [];
+      photoThumbs.clear();
+      isLoadingPhotos = true;
+      isLoadingThumbs = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (_openPeople.isEmpty || _openPeople.last.id != back.id) return;
+        final fresh = await _native.personSummary(back.id);
+        if (_openPeople.isEmpty || _openPeople.last.id != back.id) return;
+        await openPerson(fresh ?? back);
+      });
+      return;
+    }
+    _clearActive();
+  }
+
+  /// Clears the open person, which is hidden or merged away. The page closes itself.
+  void _clearActive() {
+    _openToken++;
+    active = null;
+    photos = [];
+    photoThumbs.clear();
+    isLoadingPhotos = false;
+    isLoadingThumbs = false;
+  }
+
+  /// Reloads the open person (name, counts, photos) after an edit. A person merged away, or with no faces left, is
+  /// cleared.
+  Future<void> _reloadActive() async {
+    final current = active;
+    if (current == null) return;
+    final fresh = await _native.personSummary(current.id);
+    if (fresh == null) {
+      _clearActive();
+      update();
+      return;
+    }
+    await openPerson(fresh);
+  }
+
+  bool selecting = false;
+  final Set<int> selectedIds = {};
+
+  /// The people ticked so far, in the order they are shown.
+  List<Person> get selectedPeople => people.where((p) => selectedIds.contains(p.id)).toList();
+
+  /// Starts picking (optionally with someone already ticked).
+  void startSelecting([Person? first]) {
+    selecting = true;
+    selectedIds
+      ..clear()
+      ..addAll(first == null ? const <int>[] : [first.id]);
+    update();
+  }
+
+  void toggleSelected(Person person) {
+    if (!selectedIds.remove(person.id)) selectedIds.add(person.id);
+    update();
+  }
+
+  void stopSelecting() {
+    selecting = false;
+    selectedIds.clear();
+    update();
+  }
+
+  List<Person> filterPeople = [];
+
+  /// True once the results screen has been opened, so that an empty [filterPeople] means everyone was taken off and
+  /// not that nothing is loaded yet.
+  bool filterOpened = false;
+  String filterMode = PeopleMode.together;
+  Map<String, int> filterCounts = {};
+  List<Map<String, dynamic>> filterPhotos = [];
+  final Map<String, Uint8List> filterThumbs = {};
+  bool isFilterLoading = false;
+  bool isFilterThumbs = false;
+  int _filterToken = 0;
+
+  /// Opens the photos of [chosen] together, in the way that suits how many there are.
+  Future<void> openPeopleFilter(List<Person> chosen) async {
+    filterOpened = true;
+    filterPeople = List.of(chosen);
+    filterMode = chosen.length == 1 ? PeopleMode.any : PeopleMode.together;
+    await _reloadFilter();
+  }
+
+  Future<void> setFilterMode(String mode) async {
+    if (mode == filterMode) return;
+    filterMode = mode;
+    await _reloadFilter();
+  }
+
+  /// Adds another person to the search, from the results screen's "+".
+  ///
+  /// The choices depend on how many people there are. With a second person "with anyone" becomes "plus others", and
+  /// from none to one the mode starts again.
+  Future<void> addToFilter(Person person) async {
+    if (filterPeople.any((p) => p.id == person.id)) return;
+    filterPeople = [...filterPeople, person];
+    if (filterPeople.length == 1) filterMode = PeopleMode.any;
+    if (filterPeople.length == 2 && filterMode == PeopleMode.any) filterMode = PeopleMode.together;
+    await _reloadFilter();
+  }
+
+  /// Takes a person off the search, even the last one. The results are then empty until someone is added again.
+  Future<void> removeFromFilter(Person person) async {
+    filterPeople = filterPeople.where((p) => p.id != person.id).toList();
+    if (filterPeople.length <= 1 && filterMode == PeopleMode.together) filterMode = PeopleMode.any;
+    await _reloadFilter();
+  }
+
+  void closePeopleFilter() {
+    _filterToken++;
+    filterOpened = false;
+    filterPeople = [];
+    filterPhotos = [];
+    filterThumbs.clear();
+    filterCounts = {};
+    isFilterLoading = false;
+    isFilterThumbs = false;
+  }
+
+  /// Loads the photos and counts for [filterPeople] and then their thumbnails, as [openPerson] does for one person:
+  /// the cached ones at once, and the rest a few at a time in list order. With nobody chosen there is nothing to look
+  /// for.
+  Future<void> _reloadFilter() async {
+    final token = ++_filterToken;
+    final ids = filterPeople.map((p) => p.id).toList();
+    filterPhotos = [];
+    filterThumbs.clear();
+    isFilterThumbs = false;
+
+    if (ids.isEmpty) {
+      filterCounts = {};
+      isFilterLoading = false;
+      update();
+      return;
+    }
+
+    isFilterLoading = true;
+    update();
+
+    try {
+      final results = await Future.wait([
+        _native.peoplePhotos(ids, filterMode),
+        _native.peopleCounts(ids),
+      ]);
+      if (token != _filterToken) return;
+      filterPhotos = results[0] as List<Map<String, dynamic>>;
+      filterCounts = results[1] as Map<String, int>;
+    } catch (e) {
+      debugPrint('peoplePhotos failed: $e');
+    }
+    isFilterLoading = false;
+    isFilterThumbs = filterPhotos.isNotEmpty;
+    update();
+
+    final pending = <Map<String, dynamic>>[];
+    for (final item in _newFirst(filterPhotos)) {
+      final key = thumbKey(item);
+      final cached = _thumbCache.remove(key);
+      if (cached != null) {
+        _thumbCache[key] = cached;
+        filterThumbs[key] = cached;
+      } else {
+        pending.add(item);
+      }
+    }
+    if (filterThumbs.isNotEmpty) update();
+
+    var next = 0;
+    var sinceUpdate = 0;
+    Future<void> worker() async {
+      while (token == _filterToken && next < pending.length) {
+        final item = pending[next++];
+        final key = thumbKey(item);
+        try {
+          final bytes = await _thumbFor(item);
+          _thumbCache.remove(key);
+          _thumbCache[key] = bytes;
+          if (_thumbCache.length > 500) _thumbCache.remove(_thumbCache.keys.first);
+          if (token != _filterToken) return;
+          filterThumbs[key] = bytes;
+        } catch (_) {}
+        if (token == _filterToken && ++sinceUpdate >= 6) {
+          sinceUpdate = 0;
+          update();
+        }
+      }
+    }
+
+    await Future.wait([for (var i = 0; i < 4; i++) worker()]);
+    if (token == _filterToken) {
+      isFilterThumbs = false;
+      update();
+    }
+  }
+
+  Future<void> rename(Person person, String? name) async {
+    await _native.renamePerson(person.id, name);
+    await refreshPeople();
+    if (active?.id == person.id) {
+      final fresh = await _native.personSummary(person.id);
+      if (fresh != null) {
+        active = fresh;
+        update();
+      }
+    }
+  }
+
+  Future<void> setHidden(Person person, bool hidden) async {
+    await _native.hidePerson(person.id, hidden);
+    if (hidden && active?.id == person.id) _clearActive();
+    await refreshPeople();
+  }
+
+  /// Joins [other] into [keep] (the one with the name, or the bigger one, is kept).
+  Future<void> merge({required Person keep, required Person other}) async {
+    final recordId = await _native.mergePeople(keepId: keep.id, otherId: other.id);
+    await refreshPeople();
+    if (active?.id == other.id) {
+      final fresh = await _native.personSummary(keep.id);
+      if (fresh != null) await openPerson(fresh);
+    } else if (active?.id == keep.id) {
+      await _reloadActive();
+    }
+    await refreshSuggestions();
+    _offerUndo(recordId);
+  }
+
+  /// Offers to undo a merge right after it, as a way out for a slip of the finger. Later, the same merge can still be
+  /// undone from Settings.
+  void _offerUndo(int recordId) {
+    if (recordId <= 0) return;
+    AppToast.show(
+      'Merged two people.',
+      actionLabel: 'Undo',
+      onAction: () => undoMerge(recordId),
+      duration: const Duration(seconds: 8),
+    );
+  }
+
+  /// Splits a merge back into two people (see MergeHistoryScreen).
+  Future<void> undoMerge(int recordId) async {
+    try {
+      await _native.undoMerge(recordId);
+    } catch (e) {
+      debugPrint('undoMerge failed: $e');
+    }
+    await refreshPeople();
+    await _reloadActive();
+    await refreshSuggestions();
+  }
+
+  Future<List<MergeRecord>> mergeHistory() => _native.mergeHistory();
+
+  Future<SplitPreview?> previewSplit(Person person) => _native.previewSplit(person.id);
+
+  /// Splits [faceIds] off [person] into a new person, then refreshes what is showing.
+  Future<void> splitPerson(Person person, List<int> faceIds) async {
+    await _native.splitPerson(person.id, faceIds);
+    await refreshPeople();
+    await _reloadActive();
+    await refreshSuggestions();
+  }
+
+  /// "These two are different people": the suggestion goes away for good.
+  Future<void> rejectSuggestion(Person a, Person b) async {
+    _suggestions = _suggestions
+        .where((s) => !((s.aId == a.id && s.bId == b.id) || (s.aId == b.id && s.bId == a.id)))
+        .toList();
+    update();
+    await _native.rejectMerge(a.id, b.id);
+  }
+
+  /// "Not this person" for one face.
+  Future<void> removeFace(PersonFace face) async {
+    await _native.removeFace(face.faceId);
+    await refreshPeople();
+    await _reloadActive();
+  }
+
+  Future<List<PersonFace>> facesOf(Person person) => _native.personFaces(person.id);
+
+  Future<void> setThorough(bool value) async {
+    await _native.setFaceSettings(thorough: value);
+    await refreshStatus();
+  }
+
+  Future<void> setScanVideos(bool value) async {
+    await _native.setFaceSettings(scanVideos: value);
+    await refreshStatus();
+  }
+
+  Future<void> setVideoDensity(String value) async {
+    await _native.setFaceSettings(videoDensity: value);
+    await refreshStatus();
+  }
+
+  Future<void> setRefine(bool value) async {
+    await _native.setFaceSettings(refine: value);
+    await refreshStatus();
+  }
+
+  /// Runs the one-off speed test for this phone again.
+  Future<void> retune() async {
+    await _native.retuneFaces();
+    await refreshStatus();
+  }
+
+  Future<void> setStrictness(String value) async {
+    await _native.setFaceSettings(strictness: value);
+    await refreshStatus();
+  }
+
+  /// Rebuilds the automatic groups (names and edits are kept).
+  Future<void> regroup() async {
+    isLoadingPeople = true;
+    update();
+    try {
+      await _native.regroupFaces();
+    } finally {
+      await refreshAll();
+    }
+  }
+
+  /// Forgets everything (names included) and searches all photos again.
+  Future<void> rescanEverything() async {
+    await _native.resetFaces();
+    _crops.clear();
+    _cropLow.clear();
+    people = [];
+    hiddenPeople = [];
+    update();
+    await startScan();
+    await refreshStatus();
+  }
+
+  Future<FaceModels> models() => _native.faceModels();
+
+  /// Switching the recognition model regroups everything from scratch.
+  Future<void> selectModel(FaceModelInfo model) async {
+    await _native.selectFaceModel(kind: model.kind, id: model.id);
+    _crops.clear();
+    await startScan();
+    await refreshStatus();
+  }
+}
+
+/// The ways of combining several people when looking for photos.
+class PeopleMode {
+  PeopleMode._();
+
+  /// At least one of them.
+  static const any = 'any';
+
+  /// All of them, with or without other people.
+  static const together = 'together';
+
+  /// All of them and nobody else.
+  static const only = 'only';
+}
