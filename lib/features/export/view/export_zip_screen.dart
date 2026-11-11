@@ -8,7 +8,6 @@ import 'package:get/get.dart';
 import 'package:lost_and_found/features/collections/controllers/collections_controller.dart';
 import 'package:lost_and_found/features/export/controllers/export_controller.dart';
 import 'package:lost_and_found/core/native/native_controller.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
@@ -17,7 +16,9 @@ import 'package:lost_and_found/core/widgets/confirm_dialog.dart';
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
 import 'package:lost_and_found/features/library/view/widgets/nothing_indexed.dart';
 import 'package:lost_and_found/features/export/view/widgets/zip_art.dart';
-import 'package:lost_and_found/features/export/view/widgets/zip_progress.dart';
+import 'package:lost_and_found/features/export/view/widgets/zip_progress.dart';
+import 'package:lost_and_found/features/export/models/export_models.dart';
+import 'package:lost_and_found/features/export/services/export_service.dart';
 
 /// Opens the zip export with [select] (see [ExportController.collectionKey] and
 /// [ExportController.personKey]) already ticked.
@@ -1731,7 +1732,7 @@ class _DoneView extends StatelessWidget {
             child: _PrimaryButton(
               label: s.results.length > 1 ? 'Share the zips' : 'Share',
               enabled: true,
-              onTap: () => NativeServices().shareZips([
+              onTap: () => ExportService().shareZips([
                 for (final r in s.results) r.uri,
               ]),
             ),
@@ -1742,7 +1743,7 @@ class _DoneView extends StatelessWidget {
             children: [
               if (inDownloads)
                 TextButton(
-                  onPressed: NativeServices().openDownloads,
+                  onPressed: ExportService().openDownloads,
                   child: const Text('Show in Downloads'),
                 ),
               TextButton(

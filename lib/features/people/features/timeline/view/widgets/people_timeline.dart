@@ -6,13 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 import 'package:lost_and_found/features/people/features/timeline/models/people_timeline.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/features/people/features/timeline/view/widgets/people_palette.dart';
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
-import 'package:lost_and_found/features/people/features/timeline/view/widgets/timeline_preview.dart';
+import 'package:lost_and_found/features/people/features/timeline/view/widgets/timeline_preview.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
 
 /// The People tab's timeline, built like the timeline of a video editor: a column of faces on the
 /// left that stays put, and the years sliding by beside it. Drag to move through the years (it

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
-import 'package:lost_and_found/core/theme/app_colors.dart';
+import 'package:lost_and_found/core/theme/app_colors.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
 
 typedef _Mention = ({TextRange range, Person person});
 

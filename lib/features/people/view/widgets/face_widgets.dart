@@ -4,11 +4,12 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
-import 'package:lost_and_found/core/widgets/confirm_dialog.dart';
+import 'package:lost_and_found/core/widgets/confirm_dialog.dart';
+import 'package:lost_and_found/features/people/models/face_scan.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
 
 /// A face picture, cut from its photo on demand by [FacesController.crop].
 /// It is round for avatars, or a rounded square for the review grid.

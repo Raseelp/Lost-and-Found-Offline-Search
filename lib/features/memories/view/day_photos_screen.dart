@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:lost_and_found/features/people/features/timeline/models/people_timeline.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/features/memories/view/widgets/memory_widgets.dart';
 import 'package:lost_and_found/features/people/features/timeline/view/widgets/timeline_preview.dart';
+import 'package:lost_and_found/features/memories/services/memories_service.dart';
 
 /// Every photo and video from one day of a past year, in the order they were taken.
 class DayPhotosScreen extends StatefulWidget {
@@ -47,7 +47,7 @@ class _DayPhotosScreenState extends State<DayPhotosScreen> {
         widget.from.month,
         widget.from.day + widget.days,
       );
-      final photos = await NativeServices().memoryDay(widget.from, next);
+      final photos = await MemoriesService().memoryDay(widget.from, next);
       if (!mounted) return;
       setState(() {
         _photos = photos;

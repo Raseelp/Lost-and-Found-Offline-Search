@@ -7,14 +7,14 @@ import 'package:get/get.dart';
 import 'package:lost_and_found/features/memories/controllers/memories_controller.dart';
 import 'package:lost_and_found/features/memories/models/memories.dart';
 import 'package:lost_and_found/features/people/features/timeline/models/people_timeline.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/core/theme/motion.dart';
 import 'package:lost_and_found/features/memories/view/widgets/memory_widgets.dart';
 import 'package:lost_and_found/features/people/features/then_now/view/widgets/then_now_card.dart';
-import 'package:lost_and_found/features/people/features/timeline/view/widgets/timeline_preview.dart';
+import 'package:lost_and_found/features/people/features/timeline/view/widgets/timeline_preview.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
 
 const _short = [
   'Jan',

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
-import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
+import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
 
 /// People who may be the same person, two at a time. Grouping cannot always tell, as with the same person in
 /// different light, with and without glasses, or years apart, so the ones it is not sure about are put here for a yes

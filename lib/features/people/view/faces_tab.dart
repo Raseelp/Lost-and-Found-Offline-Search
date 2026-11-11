@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
 import 'package:lost_and_found/core/native/native_controller.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
@@ -13,7 +12,9 @@ import 'package:lost_and_found/core/widgets/app_search_field.dart';
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
 import 'package:lost_and_found/features/library/view/widgets/nothing_indexed.dart';
 import 'package:lost_and_found/features/people/view/widgets/person_menu.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lost_and_found/features/people/models/face_scan.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
 
 /// How the grid of people is ordered once there are enough people to want that.
 enum _PeopleSort { mostPhotos, namedFirst, az }

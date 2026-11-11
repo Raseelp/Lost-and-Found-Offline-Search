@@ -11,7 +11,6 @@ import 'package:lost_and_found/features/export/controllers/export_controller.dar
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
 import 'package:lost_and_found/features/memories/controllers/memories_controller.dart';
 import 'package:lost_and_found/core/native/native_controller.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
@@ -28,7 +27,8 @@ import 'package:lost_and_found/features/people/view/faces_tab.dart';
 import 'package:lost_and_found/features/collections/view/widgets/new_collection_sheet.dart';
 import 'package:lost_and_found/features/library/view/library_tab.dart';
 import 'package:lost_and_found/features/search/view/search_tab.dart';
-import 'package:lost_and_found/core/widgets/app_toast.dart';
+import 'package:lost_and_found/core/widgets/app_toast.dart';
+import 'package:lost_and_found/features/memories/services/memories_service.dart';
 
 /// The values of NativeController.homeTab.
 const int _tabSearch = 0;
@@ -129,12 +129,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// are. "Index now" on the note that asks to finish indexing also starts the scan at once, over the whole phone.
   Future<void> _checkOpenTab() async {
     try {
-      final tab = await NativeServices().takeOpenTab();
+      final tab = await MemoriesService().takeOpenTab();
       if (tab == null || !mounted) return;
       Get.until((route) => route.isFirst);
       final native = Get.find<NativeController>();
       _showTab(native, tab == _tabLibrary ? _tabLibrary : _tabSearch, tapped: false);
-      if (await NativeServices().takeIndexNow() && mounted) {
+      if (await MemoriesService().takeIndexNow() && mounted) {
         native.setScanWholePhone(true);
         await startIndexing(context, native);
       }

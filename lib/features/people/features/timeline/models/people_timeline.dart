@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart' show IconData;
-import 'package:flutter/material.dart' show Icons;
+import 'package:flutter/material.dart' show Icons;
+import 'package:lost_and_found/features/people/models/person.dart';
 
-import 'package:lost_and_found/core/native/native_services.dart';
 
 /// The months one person appears in, as the phone counted them (see FaceStore.peopleTimeline).
 /// A month is year * 12 + the 0-based month, so January 2019 is 24228.

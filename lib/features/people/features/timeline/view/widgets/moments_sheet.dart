@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:lost_and_found/features/people/features/timeline/models/people_timeline.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
-import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
+import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
 
 /// "Your story": the good moments of the people on the timeline, year by year, the ones that matter
 /// most of each year. Tapping one goes there. By default it is the inner circle (the named people

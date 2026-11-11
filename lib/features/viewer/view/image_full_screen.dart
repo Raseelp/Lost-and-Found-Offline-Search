@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/core/media/meta_data_model.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/core/media/media_view_route.dart';
@@ -20,7 +19,11 @@ import 'package:lost_and_found/features/people/features/timeline/view/widgets/mo
 import 'package:lost_and_found/features/viewer/view/widgets/photo_faces_layer.dart';
 import 'package:lost_and_found/features/search/view/widgets/similar_items_bar.dart';
 import 'package:lost_and_found/features/viewer/view/widgets/video_people_strip.dart';
-import 'package:lost_and_found/features/viewer/view/widgets/zoomable_image.dart';
+import 'package:lost_and_found/features/viewer/view/widgets/zoomable_image.dart';
+import 'package:lost_and_found/core/media/media_service.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
+import 'package:lost_and_found/features/people/models/photo_face.dart';
+import 'package:lost_and_found/features/people/services/people_service.dart';
 
 class ImageViewScreen extends StatefulWidget {
   const ImageViewScreen({
@@ -174,7 +177,7 @@ class _ImageViewScreenState extends State<ImageViewScreen>
   void dispose() {
     _flightCtrl.dispose();
     _poll?.cancel();
-    NativeServices().cancelPhotoFaces(_token).catchError((_) {});
+    PeopleService().cancelPhotoFaces(_token).catchError((_) {});
     _dropSearchFocus();
     super.dispose();
   }
@@ -196,7 +199,7 @@ class _ImageViewScreenState extends State<ImageViewScreen>
       _poll?.cancel();
       _poll = Timer.periodic(const Duration(milliseconds: 250), (_) async {
         try {
-          final status = await NativeServices().photoScanStatus(uri);
+          final status = await PeopleService().photoScanStatus(uri);
           if (mounted &&
               _looking &&
               status != null &&
@@ -207,7 +210,7 @@ class _ImageViewScreenState extends State<ImageViewScreen>
       });
     });
     try {
-      final found = await NativeServices().photoFaces(uri, token: _token);
+      final found = await PeopleService().photoFaces(uri, token: _token);
       if (mounted && (found.isNotEmpty || _faces.isNotEmpty)) {
         final firstPeople = _faces.isEmpty && found.isNotEmpty;
         setState(() {
@@ -284,7 +287,7 @@ class _ImageViewScreenState extends State<ImageViewScreen>
 
   Future<void> _loadSharp() async {
     try {
-      final sharp = await NativeServices().loadImageBytes(
+      final sharp = await MediaService().loadImageBytes(
         uri: uri,
         isCompressed: true,
       );

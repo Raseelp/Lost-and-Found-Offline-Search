@@ -5,9 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/people/features/timeline/models/people_timeline.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:lost_and_found/core/widgets/app_toast.dart';
+import 'package:lost_and_found/core/widgets/app_toast.dart';
+import 'package:lost_and_found/core/media/media_service.dart';
+import 'package:lost_and_found/features/people/features/timeline/services/timeline_service.dart';
+import 'package:lost_and_found/features/people/models/face_scan.dart';
+import 'package:lost_and_found/features/people/models/merge.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
+import 'package:lost_and_found/features/people/services/face_scan_service.dart';
+import 'package:lost_and_found/features/people/services/people_service.dart';
 
 /// Everything about faces and people: the scan status, the list of people, and the one person currently open. The
 /// scan runs by itself in the background (see FaceScanner).
@@ -15,7 +21,10 @@ import 'package:lost_and_found/core/widgets/app_toast.dart';
 /// People appear while the scan is still running, because every progress tick schedules a throttled refresh of the
 /// list. Faces are found along with indexing or by "Update people", so opening the app never starts a scan.
 class FacesController extends GetxController {
-  final _native = NativeServices();
+  final _faceScanService = FaceScanService();
+  final _mediaService = MediaService();
+  final _peopleService = PeopleService();
+  final _timelineService = TimelineService();
 
   FaceStatus status = FaceStatus();
   List<Person> people = [];
@@ -29,7 +38,7 @@ class FacesController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _progressSub = _native.faceProgress().listen(_onProgress, onError: (_) {});
+    _progressSub = _faceScanService.faceProgress().listen(_onProgress, onError: (_) {});
     unawaited(_loadMomentPrefs());
     refreshAll();
   }
@@ -47,7 +56,7 @@ class FacesController extends GetxController {
   /// nothing for it to do.
   Future<bool> startScan() async {
     try {
-      return await _native.startFaceScan();
+      return await _faceScanService.startFaceScan();
     } catch (e) {
       debugPrint('startFaceScan failed: $e');
       return false;
@@ -81,7 +90,7 @@ class FacesController extends GetxController {
     _rateAt = null;
     update();
     try {
-      await _native.pauseFaceScan();
+      await _faceScanService.pauseFaceScan();
     } catch (e) {
       debugPrint('pauseFaceScan failed: $e');
     }
@@ -91,7 +100,7 @@ class FacesController extends GetxController {
     status = status.withUserPaused(false);
     update();
     try {
-      await _native.resumeFaceScan();
+      await _faceScanService.resumeFaceScan();
     } catch (e) {
       debugPrint('resumeFaceScan failed: $e');
     }
@@ -166,7 +175,7 @@ class FacesController extends GetxController {
 
   Future<void> refreshStatus() async {
     try {
-      status = await _native.faceStatus();
+      status = await _faceScanService.faceStatus();
       update();
     } catch (e) {
       debugPrint('faceStatus failed: $e');
@@ -204,7 +213,7 @@ class FacesController extends GetxController {
   Future<void> refreshSuggestions() async {
     if (status.running) return;
     try {
-      _suggestions = await _native.suggestMerges();
+      _suggestions = await _peopleService.suggestMerges();
     } catch (e) {
       debugPrint('suggestMerges failed: $e');
     }
@@ -323,7 +332,7 @@ class FacesController extends GetxController {
         while (true) {
           final before = timeline.pending;
           final gentle = !timelineWanted;
-          final data = await _native.peopleTimeline(budgetMs: gentle ? 250 : 800);
+          final data = await _timelineService.peopleTimeline(budgetMs: gentle ? 250 : 800);
           timeline = data;
           timelineLoaded = true;
           update();
@@ -356,8 +365,8 @@ class FacesController extends GetxController {
     _lastRefresh = DateTime.now();
     try {
       final results = await Future.wait([
-        _native.listPeople(),
-        _native.listPeople(hidden: true),
+        _peopleService.listPeople(),
+        _peopleService.listPeople(hidden: true),
       ]);
       people = results[0];
       hiddenPeople = results[1];
@@ -462,7 +471,7 @@ class FacesController extends GetxController {
       }
 
       _cropRunning.add(id);
-      _native.faceCrop(id).then<Uint8List?>((b) => b).catchError((_) => null).then((bytes) {
+      _peopleService.faceCrop(id).then<Uint8List?>((b) => b).catchError((_) => null).then((bytes) {
         _cropRunning.remove(id);
         if (bytes != null) {
           _crops[id] = bytes;
@@ -503,9 +512,9 @@ class FacesController extends GetxController {
   Future<Uint8List> _thumbFor(Map<String, dynamic> item) {
     final path = item['path'] as String;
     if (item['isVideo'] as bool? ?? false) {
-      return _native.loadVideoThumbnail(uri: path, timestampMs: (item['timestampMs'] as num?)?.toInt() ?? 0);
+      return _mediaService.loadVideoThumbnail(uri: path, timestampMs: (item['timestampMs'] as num?)?.toInt() ?? 0);
     }
-    return _native.loadThumbnail(uri: path, isVideo: false, size: 420);
+    return _mediaService.loadThumbnail(uri: path, isVideo: false, size: 420);
   }
 
   /// Shows [person]. [push] says a new person page has opened, as opposed to reloading the one already showing.
@@ -527,7 +536,7 @@ class FacesController extends GetxController {
     update();
 
     try {
-      final found = await _native.personPhotos(person.id);
+      final found = await _peopleService.personPhotos(person.id);
       if (token != _openToken) return;
       photos = found;
     } catch (e) {
@@ -592,7 +601,7 @@ class FacesController extends GetxController {
       isLoadingThumbs = false;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (_openPeople.isEmpty || _openPeople.last.id != back.id) return;
-        final fresh = await _native.personSummary(back.id);
+        final fresh = await _peopleService.personSummary(back.id);
         if (_openPeople.isEmpty || _openPeople.last.id != back.id) return;
         await openPerson(fresh ?? back);
       });
@@ -616,7 +625,7 @@ class FacesController extends GetxController {
   Future<void> _reloadActive() async {
     final current = active;
     if (current == null) return;
-    final fresh = await _native.personSummary(current.id);
+    final fresh = await _peopleService.personSummary(current.id);
     if (fresh == null) {
       _clearActive();
       update();
@@ -730,8 +739,8 @@ class FacesController extends GetxController {
 
     try {
       final results = await Future.wait([
-        _native.peoplePhotos(ids, filterMode),
-        _native.peopleCounts(ids),
+        _peopleService.peoplePhotos(ids, filterMode),
+        _peopleService.peopleCounts(ids),
       ]);
       if (token != _filterToken) return;
       filterPhotos = results[0] as List<Map<String, dynamic>>;
@@ -785,10 +794,10 @@ class FacesController extends GetxController {
   }
 
   Future<void> rename(Person person, String? name) async {
-    await _native.renamePerson(person.id, name);
+    await _peopleService.renamePerson(person.id, name);
     await refreshPeople();
     if (active?.id == person.id) {
-      final fresh = await _native.personSummary(person.id);
+      final fresh = await _peopleService.personSummary(person.id);
       if (fresh != null) {
         active = fresh;
         update();
@@ -797,17 +806,17 @@ class FacesController extends GetxController {
   }
 
   Future<void> setHidden(Person person, bool hidden) async {
-    await _native.hidePerson(person.id, hidden);
+    await _peopleService.hidePerson(person.id, hidden);
     if (hidden && active?.id == person.id) _clearActive();
     await refreshPeople();
   }
 
   /// Joins [other] into [keep] (the one with the name, or the bigger one, is kept).
   Future<void> merge({required Person keep, required Person other}) async {
-    final recordId = await _native.mergePeople(keepId: keep.id, otherId: other.id);
+    final recordId = await _peopleService.mergePeople(keepId: keep.id, otherId: other.id);
     await refreshPeople();
     if (active?.id == other.id) {
-      final fresh = await _native.personSummary(keep.id);
+      final fresh = await _peopleService.personSummary(keep.id);
       if (fresh != null) await openPerson(fresh);
     } else if (active?.id == keep.id) {
       await _reloadActive();
@@ -831,7 +840,7 @@ class FacesController extends GetxController {
   /// Splits a merge back into two people (see MergeHistoryScreen).
   Future<void> undoMerge(int recordId) async {
     try {
-      await _native.undoMerge(recordId);
+      await _peopleService.undoMerge(recordId);
     } catch (e) {
       debugPrint('undoMerge failed: $e');
     }
@@ -840,13 +849,13 @@ class FacesController extends GetxController {
     await refreshSuggestions();
   }
 
-  Future<List<MergeRecord>> mergeHistory() => _native.mergeHistory();
+  Future<List<MergeRecord>> mergeHistory() => _peopleService.mergeHistory();
 
-  Future<SplitPreview?> previewSplit(Person person) => _native.previewSplit(person.id);
+  Future<SplitPreview?> previewSplit(Person person) => _peopleService.previewSplit(person.id);
 
   /// Splits [faceIds] off [person] into a new person, then refreshes what is showing.
   Future<void> splitPerson(Person person, List<int> faceIds) async {
-    await _native.splitPerson(person.id, faceIds);
+    await _peopleService.splitPerson(person.id, faceIds);
     await refreshPeople();
     await _reloadActive();
     await refreshSuggestions();
@@ -858,46 +867,46 @@ class FacesController extends GetxController {
         .where((s) => !((s.aId == a.id && s.bId == b.id) || (s.aId == b.id && s.bId == a.id)))
         .toList();
     update();
-    await _native.rejectMerge(a.id, b.id);
+    await _peopleService.rejectMerge(a.id, b.id);
   }
 
   /// "Not this person" for one face.
   Future<void> removeFace(PersonFace face) async {
-    await _native.removeFace(face.faceId);
+    await _peopleService.removeFace(face.faceId);
     await refreshPeople();
     await _reloadActive();
   }
 
-  Future<List<PersonFace>> facesOf(Person person) => _native.personFaces(person.id);
+  Future<List<PersonFace>> facesOf(Person person) => _peopleService.personFaces(person.id);
 
   Future<void> setThorough(bool value) async {
-    await _native.setFaceSettings(thorough: value);
+    await _faceScanService.setFaceSettings(thorough: value);
     await refreshStatus();
   }
 
   Future<void> setScanVideos(bool value) async {
-    await _native.setFaceSettings(scanVideos: value);
+    await _faceScanService.setFaceSettings(scanVideos: value);
     await refreshStatus();
   }
 
   Future<void> setVideoDensity(String value) async {
-    await _native.setFaceSettings(videoDensity: value);
+    await _faceScanService.setFaceSettings(videoDensity: value);
     await refreshStatus();
   }
 
   Future<void> setRefine(bool value) async {
-    await _native.setFaceSettings(refine: value);
+    await _faceScanService.setFaceSettings(refine: value);
     await refreshStatus();
   }
 
   /// Runs the one-off speed test for this phone again.
   Future<void> retune() async {
-    await _native.retuneFaces();
+    await _faceScanService.retuneFaces();
     await refreshStatus();
   }
 
   Future<void> setStrictness(String value) async {
-    await _native.setFaceSettings(strictness: value);
+    await _faceScanService.setFaceSettings(strictness: value);
     await refreshStatus();
   }
 
@@ -906,7 +915,7 @@ class FacesController extends GetxController {
     isLoadingPeople = true;
     update();
     try {
-      await _native.regroupFaces();
+      await _faceScanService.regroupFaces();
     } finally {
       await refreshAll();
     }
@@ -914,7 +923,7 @@ class FacesController extends GetxController {
 
   /// Forgets everything (names included) and searches all photos again.
   Future<void> rescanEverything() async {
-    await _native.resetFaces();
+    await _faceScanService.resetFaces();
     _crops.clear();
     _cropLow.clear();
     people = [];
@@ -924,11 +933,11 @@ class FacesController extends GetxController {
     await refreshStatus();
   }
 
-  Future<FaceModels> models() => _native.faceModels();
+  Future<FaceModels> models() => _faceScanService.faceModels();
 
   /// Switching the recognition model regroups everything from scratch.
   Future<void> selectModel(FaceModelInfo model) async {
-    await _native.selectFaceModel(kind: model.kind, id: model.id);
+    await _faceScanService.selectFaceModel(kind: model.kind, id: model.id);
     _crops.clear();
     await startScan();
     await refreshStatus();

@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
 import 'package:lost_and_found/features/memories/models/memories.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/features/memories/view/on_this_day_screen.dart';
 import 'package:lost_and_found/features/people/view/person_screen.dart';
 import 'package:lost_and_found/core/permissions/permission_prompt.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lost_and_found/features/memories/services/memories_service.dart';
+import 'package:lost_and_found/features/people/features/then_now/services/then_now_service.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
 
 /// Memories: "on this day" (the card on the Library tab and its screen), "then and now" for a person, and the
 /// settings of the daily notification.
@@ -18,7 +20,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// pauses between slices. "On this day" is shown from whatever is dated as soon as there is anything, and again once
 /// the rest is in.
 class MemoriesController extends GetxController with WidgetsBindingObserver {
-  final _native = NativeServices();
+  final _memoriesService = MemoriesService();
+  final _thenNowService = ThenNowService();
 
   OnThisDay today = OnThisDay.empty;
   bool loaded = false;
@@ -105,8 +108,8 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
     if (_running || fresh) return;
     _running = true;
     try {
-      await _native.memoryPrepare(budgetMs: 300);
-      today = await _native.onThisDay();
+      await _memoriesService.memoryPrepare(budgetMs: 300);
+      today = await _memoriesService.onThisDay();
       loaded = true;
       update();
 
@@ -114,7 +117,7 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
       var before = -1;
       var progressed = false;
       while (!_closed) {
-        final p = await _native.memoryPrepare(budgetMs: 500);
+        final p = await _memoriesService.memoryPrepare(budgetMs: 500);
         if (before >= 0 && p.pending < before) progressed = true;
         if (p.pending == 0) break;
         stuck = (before >= 0 && p.pending >= before) ? stuck + 1 : 0;
@@ -123,7 +126,7 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
         await Future<void>.delayed(const Duration(milliseconds: 300));
       }
       if (progressed && !_closed) {
-        today = await _native.onThisDay();
+        today = await _memoriesService.onThisDay();
         update();
       }
       _loadedDay = _dayKey(now);
@@ -155,7 +158,7 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
   Future<void> checkLaunch() async {
     if (!homeReady) return;
     try {
-      final launch = await _native.takeLaunchMemory();
+      final launch = await _memoriesService.takeLaunchMemory();
       if (launch == null) return;
       if (launch.personId != 0 && Get.isRegistered<FacesController>()) {
         final faces = Get.find<FacesController>();
@@ -188,7 +191,7 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
     final known = _thenNow[key];
     if (known != null) return known;
     try {
-      final found = await _native.thenAndNow(person.id);
+      final found = await _thenNowService.thenAndNow(person.id);
       if (found != null) _thenNow[key] = found;
       return found;
     } catch (e) {
@@ -209,7 +212,7 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
       return kept;
     }
     try {
-      final bytes = await _native.portraitCrop(side);
+      final bytes = await _thenNowService.portraitCrop(side);
       if (bytes != null) {
         _portraits[key] = bytes;
         while (_portraits.length > 16) {
@@ -236,7 +239,7 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
       return kept;
     }
     try {
-      final bytes = await _native.portraitCrop(side, size: 200);
+      final bytes = await _thenNowService.portraitCrop(side, size: 200);
       if (bytes != null) {
         _thumbs[key] = bytes;
         while (_thumbs.length > 100) {
@@ -254,7 +257,7 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
 
   Future<void> loadSettings() async {
     try {
-      settings = await _native.memorySettings();
+      settings = await _memoriesService.memorySettings();
       update();
     } catch (e) {
       debugPrint('memorySettings failed: $e');
@@ -272,7 +275,7 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
         purpose: 'send your daily memory',
       );
     }
-    settings = await _native.setMemorySettings(enabled: on);
+    settings = await _memoriesService.setMemorySettings(enabled: on);
     update();
     return settings.enabled;
   }
@@ -280,7 +283,7 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
   /// Sends today's memory at once. Returns what happened, in words.
   Future<String> sendTest() async {
     try {
-      final message = await _native.memoryTest();
+      final message = await _memoriesService.memoryTest();
       return message;
     } catch (e) {
       return 'Could not make a memory: $e';

@@ -14,12 +14,20 @@ import 'package:lost_and_found/features/library/db/indexed_folder_db_helper.dart
 import 'package:lost_and_found/features/library/models/indexed_folder_model.dart';
 import 'package:lost_and_found/core/media/meta_data_model.dart';
 import 'package:lost_and_found/features/model_download/models/model_status.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/features/search/services/query_words.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/widgets/confirm_dialog.dart';
 import 'package:lost_and_found/features/search/view/widgets/mention_text_controller.dart';
 import 'package:lost_and_found/core/permissions/permission_prompt.dart';
+import 'package:lost_and_found/core/media/media_service.dart';
+import 'package:lost_and_found/core/native/native_channel.dart';
+import 'package:lost_and_found/features/library/services/library_service.dart';
+import 'package:lost_and_found/features/memories/services/memories_service.dart';
+import 'package:lost_and_found/features/model_download/services/model_service.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
+import 'package:lost_and_found/features/search/services/search_service.dart';
+import 'package:lost_and_found/features/settings/services/settings_service.dart';
+import 'package:lost_and_found/features/viewer/services/media_actions_service.dart';
 
 /// The state behind the Search, Collections and Library tabs: scans, searches, the search models and the permissions
 /// they need.
@@ -201,7 +209,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   }
 
   Future<void> refreshLatestScan() async {
-    final items = await NativeServices().takeLatestScan();
+    final items = await LibraryService().takeLatestScan();
     if (items.isEmpty) return;
     latestScanUris = items.toSet();
     update();
@@ -470,8 +478,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   Future<void> checkModelsReady() async {
     final wasReady = modelsReady;
     try {
-      modelsReady = await NativeServices().areModelsReady();
-      modelStatuses = await NativeServices().getModelInfo();
+      modelsReady = await ModelService().areModelsReady();
+      modelStatuses = await ModelService().getModelInfo();
     } finally {
       isCheckingModels = false;
       update();
@@ -492,7 +500,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     _speedBytes = 0;
     update();
 
-    _downloadSub = NativeServices().modelDownloadProgressStream().listen((
+    _downloadSub = ModelService().modelDownloadProgressStream().listen((
       progress,
     ) {
       downloadProgress = progress;
@@ -501,7 +509,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     });
 
     try {
-      await NativeServices().downloadModels();
+      await ModelService().downloadModels();
     } on PlatformException catch (e) {
       downloadError = e.message ?? e.code;
     } catch (e) {
@@ -511,8 +519,8 @@ class NativeController extends GetxController with WidgetsBindingObserver {
       _downloadSub = null;
       final wasReady = modelsReady;
       try {
-        modelsReady = await NativeServices().areModelsReady();
-        modelStatuses = await NativeServices().getModelInfo();
+        modelsReady = await ModelService().areModelsReady();
+        modelStatuses = await ModelService().getModelInfo();
       } catch (_) {}
       isDownloadingModels = false;
       update();
@@ -521,20 +529,20 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   }
 
   Future<void> cancelModelDownload() async {
-    await NativeServices().cancelModelDownload();
+    await ModelService().cancelModelDownload();
   }
 
   /// Deletes the downloaded (search) models. The app then falls back to the setup screen
   /// (see AppGate); the face models are part of the app and stay.
   Future<void> deleteModels() async {
-    await NativeServices().deleteModels();
+    await ModelService().deleteModels();
     downloadError = '';
     await checkModelsReady();
   }
 
   /// Picks an image and previews it without searching. As with typing text, nothing runs until the person submits.
   Future<void> pickSearchImage() async {
-    final uri = await NativeServices().pickImageForSearching();
+    final uri = await SearchService().pickImageForSearching();
     if (uri == null) return;
 
     pickedSearchImageUri = uri;
@@ -543,7 +551,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     update();
 
     try {
-      pickedSearchImageBytes = await NativeServices().loadImageBytes(
+      pickedSearchImageBytes = await MediaService().loadImageBytes(
         uri: uri,
         isCompressed: true,
       );
@@ -587,7 +595,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     update();
 
     try {
-      pickedSearchImageBytes = await NativeServices().loadVideoThumbnail(
+      pickedSearchImageBytes = await MediaService().loadVideoThumbnail(
         uri: uri,
         timestampMs: timestampMs,
       );
@@ -620,13 +628,13 @@ class NativeController extends GetxController with WidgetsBindingObserver {
 
     try {
       final raw = timestampMs != null
-          ? await NativeServices().searchByVideoFrame(
+          ? await SearchService().searchByVideoFrame(
               uri: uri,
               timestampMs: timestampMs,
               limit: 13,
               contentMode: ContentMode.both,
             )
-          : await NativeServices().searchByImage(
+          : await SearchService().searchByImage(
               uri: uri,
               limit: 13,
               contentMode: ContentMode.both,
@@ -651,7 +659,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
           if (i >= similarResults.length) return;
           final item = similarResults[i];
           try {
-            final bytes = await NativeServices().loadThumbnail(
+            final bytes = await MediaService().loadThumbnail(
               uri: item['path'] as String,
               isVideo: item['isVideo'] as bool? ?? false,
               timestampMs: (item['timestampMs'] as num?)?.toInt() ?? 0,
@@ -761,13 +769,13 @@ class NativeController extends GetxController with WidgetsBindingObserver {
         lastImageSeedUri = imageUri;
         lastImageSeedTimestampMs = frameMs;
         final found = frameMs != null
-            ? await NativeServices().searchByVideoFrame(
+            ? await SearchService().searchByVideoFrame(
                 uri: imageUri,
                 timestampMs: frameMs,
                 limit: sliderValue.round().toInt(),
                 contentMode: searchContentMode,
               )
-            : await NativeServices().searchByImage(
+            : await SearchService().searchByImage(
                 uri: imageUri,
                 limit: sliderValue.round().toInt(),
                 contentMode: searchContentMode,
@@ -785,7 +793,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
         lastMentionedPeopleNames = mentionedPeople.map((p) => p.name!).toList();
         lastImageSeedUri = null;
         lastImageSeedTimestampMs = null;
-        final found = await NativeServices().searchImages(
+        final found = await SearchService().searchImages(
           query: query,
           limitNumber: sliderValue.round().toInt(),
           contentMode: searchContentMode,
@@ -810,13 +818,13 @@ class NativeController extends GetxController with WidgetsBindingObserver {
           final timestampMs = (item['timestampMs'] as num?)?.toInt() ?? 0;
           try {
             if (isVideo) {
-              final bytes = await NativeServices().loadVideoThumbnail(
+              final bytes = await MediaService().loadVideoThumbnail(
                 uri: uri,
                 timestampMs: timestampMs,
               );
               imageCache[cacheKeyForResult(item)] = bytes;
             } else {
-              final bytes = await NativeServices().loadImageBytes(
+              final bytes = await MediaService().loadImageBytes(
                 uri: uri,
                 isCompressed: true,
               );
@@ -883,7 +891,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     String key,
   ) async {
     try {
-      final bytes = await NativeServices().loadThumbnail(
+      final bytes = await MediaService().loadThumbnail(
         uri: item.uri,
         isVideo: item.isVideo,
         timestampMs: item.timestampMs,
@@ -922,7 +930,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
       folderId = IndexedFolderIdentity.device;
       uri = '';
     } else {
-      final pickedUri = await NativeServices().pickFolderUri();
+      final pickedUri = await LibraryService().pickFolderUri();
       if (pickedUri == null) {
         return;
       }
@@ -1010,7 +1018,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
 
     bool? result;
     try {
-      result = await NativeServices().scan(
+      result = await LibraryService().scan(
         folderId: folderId,
         pickingMode: scanMode,
         uri: uri,
@@ -1044,7 +1052,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   /// speed. Only a scan that reached the end counts as completed, because a cancelled scan reports done too, with
   /// processed short of total.
   void _listenToScanProgress() {
-    _progressSub = NativeServices().scanProgressStream().listen((data) {
+    _progressSub = LibraryService().scanProgressStream().listen((data) {
       final newResult = IndexedFolder.fromMap(data);
 
       final prev = _previousProgress;
@@ -1111,7 +1119,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   /// engine. A scan started before that keeps running natively with nothing telling the fresh Dart layer about it.
   /// [onInit] calls this, and it reads the same cache that the notification reads from.
   Future<void> _resumeActiveScanIfAny() async {
-    final progress = await NativeServices().getActiveScanProgress();
+    final progress = await LibraryService().getActiveScanProgress();
     if (progress == null) return;
 
     final restored = IndexedFolder.fromMap(progress);
@@ -1190,7 +1198,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     modelResetFrom = 0;
     update();
     try {
-      await NativeServices().acknowledgeModelReset();
+      await LibraryService().acknowledgeModelReset();
     } catch (e) {
       debugPrint('Failed to acknowledge the model reset: $e');
     }
@@ -1200,7 +1208,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   /// a scan finishes and after clearing or deleting, it is called periodically while a scan runs (see
   /// [_listenToScanProgress]), so the numbers climb in real time.
   Future<void> refreshLibraryStats() async {
-    final stats = await NativeServices().getLibraryStats();
+    final stats = await LibraryService().getLibraryStats();
     totalEmbeddings = stats.totalEmbeddings;
     modelResetFrom = stats.modelResetFrom;
     totalImages = stats.images;
@@ -1226,7 +1234,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     required String uri,
     bool? isCompressed,
   }) async {
-    return await NativeServices().loadImageBytes(
+    return await MediaService().loadImageBytes(
       uri: uri,
       isCompressed: isCompressed ?? true,
     );
@@ -1242,7 +1250,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     selectedMetadata = ImageMetadata.empty();
     isFetchingMetadata = true;
     update();
-    final data = await NativeServices().loadMetadataByUri(
+    final data = await MediaService().loadMetadataByUri(
       uri: uri,
       isVideo: isVideo,
     );
@@ -1257,23 +1265,23 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   /// side, since the work (share intent, MediaStore copy, wallpaper, clipboard) only makes sense there. Feedback such as
   /// a snackbar is the job of the calling widget, because it needs a BuildContext that these do not have.
   Future<void> shareFile({required String uri, required bool isVideo}) {
-    return NativeServices().shareFile(uri: uri, isVideo: isVideo);
+    return MediaActionsService().shareFile(uri: uri, isVideo: isVideo);
   }
 
   Future<bool> saveFileCopy({required String uri, required bool isVideo}) {
-    return NativeServices().saveCopyToGallery(uri: uri, isVideo: isVideo);
+    return MediaActionsService().saveCopyToGallery(uri: uri, isVideo: isVideo);
   }
 
   Future<bool> setPhotoAsWallpaper({required String uri}) {
-    return NativeServices().setAsWallpaper(uri: uri);
+    return MediaActionsService().setAsWallpaper(uri: uri);
   }
 
   Future<bool> copyImageToClipboard({required String uri}) {
-    return NativeServices().copyImageToClipboard(uri: uri);
+    return MediaActionsService().copyImageToClipboard(uri: uri);
   }
 
   /// Loads "Why this matched" for a result. It is called when a result is opened and not for every result a search
-  /// returns (see [NativeServices.explainMatch] for why it is lazy). [matchExplanation] stays empty, with no loading
+  /// returns (see [SearchService.explainMatch] for why it is lazy). [matchExplanation] stays empty, with no loading
   /// state and no error, whenever there is nothing honest to show: after an image search, or for a query with no real
   /// content words such as just "photos of it". The section of the UI that it backs does not appear then. A [query] is
   /// set when the result was opened from somewhere other than a text search, such as a collection, and explains the
@@ -1298,7 +1306,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     }
     update();
 
-    final raw = await NativeServices().explainMatch(
+    final raw = await SearchService().explainMatch(
       path: path,
       isVideo: isVideo,
       timestampMs: timestampMs,
@@ -1327,7 +1335,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     isStopping = true;
     update();
     try {
-      final asked = await NativeServices().cancelScanning();
+      final asked = await LibraryService().cancelScanning();
       if (!asked && isScanning) {
         isStopping = false;
         update();
@@ -1347,7 +1355,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   }) async {
     if (indexedFolder.path.isEmpty) return;
 
-    final embeddedForFolder = await NativeServices().getEmbeddingCountForFolder(
+    final embeddedForFolder = await LibraryService().getEmbeddingCountForFolder(
       folderId: folderId,
     );
 
@@ -1367,7 +1375,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
 
   Future<void> _loadBenchLogs() async {
     try {
-      benchLogsEnabled = await NativeServices().benchLogsEnabled();
+      benchLogsEnabled = await SettingsService().benchLogsEnabled();
       update();
     } catch (_) {
       // Stays on, the default.
@@ -1377,7 +1385,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   Future<void> setBenchLogsEnabled(bool value) async {
     benchLogsEnabled = value;
     update();
-    await NativeServices().setBenchLogsEnabled(value);
+    await SettingsService().setBenchLogsEnabled(value);
   }
 
   /// The note that asks to finish indexing (see IndexNudge): on until turned off. The switch lives natively, where
@@ -1386,7 +1394,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
 
   Future<void> _loadIndexNudge() async {
     try {
-      indexNudgeEnabled = await NativeServices().indexNudgeEnabled();
+      indexNudgeEnabled = await MemoriesService().indexNudgeEnabled();
       update();
     } catch (_) {
       // Stays on, the default.
@@ -1405,7 +1413,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     }
     indexNudgeEnabled = on;
     update();
-    await NativeServices().setIndexNudgeEnabled(on);
+    await MemoriesService().setIndexNudgeEnabled(on);
     return on;
   }
 
@@ -1413,7 +1421,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
     _failedByFolder.clear();
     totalFailed = 0;
     unawaited(_persistFailedByFolder());
-    await NativeServices().clearEmbeddings();
+    await LibraryService().clearEmbeddings();
     await db.clearFolderList();
     await getAllFoldersList();
     await refreshLibraryStats();
@@ -1422,7 +1430,7 @@ class NativeController extends GetxController with WidgetsBindingObserver {
   }
 
   Future<void> deleteEmbeddingsByFolderid({required String folderId}) async {
-    await NativeServices().deleteEmbeddingsByFolderId(folderId: folderId);
+    await LibraryService().deleteEmbeddingsByFolderId(folderId: folderId);
   }
 
   Future<void> deleteFolderById({required String id}) async {

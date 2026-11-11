@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
-import 'package:lost_and_found/features/search/view/widgets/mention_text_controller.dart';
+import 'package:lost_and_found/features/search/view/widgets/mention_text_controller.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
 
 /// A text field with the search box's "@name" autocomplete, for any place where someone describes who is in a photo
 /// alongside free text. Typing "@" opens a dropdown of matching people below the field, and picking one inserts the

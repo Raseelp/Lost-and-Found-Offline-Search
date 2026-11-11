@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/features/model_download/view/model_download_screen.dart' show PillButton;
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
-import 'package:lost_and_found/core/widgets/app_toast.dart';
+import 'package:lost_and_found/core/widgets/app_toast.dart';
+import 'package:lost_and_found/features/people/models/merge.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
 
 /// For a person who is really two people. Shows the two groups their faces fall into, side by side, and splits them
 /// when the user agrees. The bigger group stays with the person and the smaller becomes a new person.

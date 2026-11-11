@@ -7,7 +7,7 @@ import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/features/tour/view/demos/search_demo.dart' show TourBestMatch;
 import 'package:lost_and_found/features/tour/view/widgets/tour_person_tile.dart';
 import 'package:lost_and_found/features/tour/view/widgets/tour_samples.dart';
-import 'package:lost_and_found/features/library/view/library_tab.dart' show startIndexing;
+import 'package:lost_and_found/features/library/view/library_tab.dart' show startIndexing;
 import 'package:lost_and_found/features/people/features/timeline/view/widgets/timeline_preview.dart'
     show bentoRects;
 

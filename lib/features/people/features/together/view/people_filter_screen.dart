@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
 import 'package:lost_and_found/core/native/native_controller.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
-import 'package:lost_and_found/features/search/view/widgets/search_results.dart';
+import 'package:lost_and_found/features/search/view/widgets/search_results.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
 
 /// Photos by several people at once. Pick who (and add more with the "+"), then how: any of them, all of them
 /// (other people welcome), or only them. The choices show how many photos each would give.

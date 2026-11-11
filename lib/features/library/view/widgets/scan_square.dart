@@ -6,9 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lost_and_found/features/library/view/widgets/scan_palette.dart';
 import 'package:sensors_plus/sensors_plus.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
-import 'package:lost_and_found/features/library/view/widgets/chip_art.dart';
+import 'package:lost_and_found/features/library/view/widgets/chip_art.dart';
+import 'package:lost_and_found/core/native/device_service.dart';
+import 'package:lost_and_found/features/people/models/face_scan.dart';
 
 /// What the chip is doing: waiting to be started, scanning, or showing that a scan is done.
 enum ScanChipMode { idle, scanning, complete }
@@ -645,7 +646,7 @@ class _SquareScanHeroState extends State<SquareScanHero>
   }
 
   Future<void> _loadMarks() async {
-    final chip = await NativeServices().deviceChip();
+    final chip = await DeviceService().deviceChip();
     if (chip == null || !mounted) return;
     String clean(Object? v) => (v as String? ?? '').trim();
     var maker = clean(chip['maker']).toUpperCase();

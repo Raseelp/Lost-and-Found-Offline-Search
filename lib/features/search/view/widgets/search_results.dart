@@ -5,7 +5,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:lost_and_found/core/native/native_controller.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
@@ -15,7 +14,8 @@ import 'package:lost_and_found/features/viewer/view/image_full_screen.dart';
 import 'package:lost_and_found/features/viewer/view/video_full_screen.dart';
 import 'package:lost_and_found/core/media/grid_video_layer.dart';
 import 'package:lost_and_found/features/people/features/timeline/view/widgets/moment_badge.dart';
-import 'package:lost_and_found/core/widgets/new_tag.dart';
+import 'package:lost_and_found/core/widgets/new_tag.dart';
+import 'package:lost_and_found/core/media/media_service.dart';
 
 /// Higher decode caps requested only for a bento tile big enough to need them (see _bentoUpgradeDimension), instead of
 /// raising the cap every tile shares. Three tiers: a 2-cell tile needs a small bump, the 4-cell hero more, the 8 and
@@ -697,12 +697,12 @@ class _ResultTileState extends State<_ResultTile>
     final requestId = ++_upgradeRequestId;
     try {
       final upgraded = widget.isVideo
-          ? await NativeServices().loadVideoThumbnail(
+          ? await MediaService().loadVideoThumbnail(
               uri: widget.uri!,
               timestampMs: widget.timestampMs,
               maxDimension: maxDimension,
             )
-          : await NativeServices().loadImageBytes(
+          : await MediaService().loadImageBytes(
               uri: widget.uri!,
               isCompressed: true,
               maxDimension: maxDimension,

@@ -12,9 +12,10 @@ import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/core/theme/floating_bar.dart';
 import 'package:lost_and_found/core/widgets/confirm_dialog.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/features/library/view/widgets/library_orbit.dart';
-import 'package:lost_and_found/features/library/view/widgets/scan_square.dart';
+import 'package:lost_and_found/features/library/view/widgets/scan_square.dart';
+import 'package:lost_and_found/core/media/media_service.dart';
+import 'package:lost_and_found/features/people/models/face_scan.dart';
 
 /// Whether the list of indexed folders is shown. It is switched off until per-folder actions exist, and the code for
 /// it is kept.
@@ -592,7 +593,7 @@ class _ChipHero extends StatelessWidget {
               windowMs: controller.faceBatchMs,
               at: controller.faceQueueAt,
             ),
-      loadPhoto: (uri) => NativeServices()
+      loadPhoto: (uri) => MediaService()
           .loadUprightPhoto(uri)
           .then<Uint8List?>((bytes) => bytes)
           .catchError((_) => null),

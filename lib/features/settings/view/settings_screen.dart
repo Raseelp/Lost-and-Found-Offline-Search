@@ -15,14 +15,16 @@ import 'package:lost_and_found/features/model_download/models/model_status.dart'
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/app_links.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/features/people/view/hidden_people_screen.dart';
 import 'package:lost_and_found/features/people/features/merge/view/merge_history_screen.dart';
 import 'package:lost_and_found/core/widgets/confirm_dialog.dart';
 import 'package:lost_and_found/features/tour/view/first_run_tour.dart';
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
-import 'package:lost_and_found/core/widgets/app_toast.dart';
+import 'package:lost_and_found/core/widgets/app_toast.dart';
+import 'package:lost_and_found/core/native/device_service.dart';
+import 'package:lost_and_found/features/people/models/face_scan.dart';
+import 'package:lost_and_found/features/settings/services/settings_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -750,7 +752,7 @@ class _BuildRowState extends State<_BuildRow> {
   @override
   void initState() {
     super.initState();
-    NativeServices().buildInfo().then((info) {
+    DeviceService().buildInfo().then((info) {
       if (!mounted || info == null) return;
       final parts = [
         'Version ${info['version']} (${info['build']})',
@@ -842,7 +844,7 @@ class _LicenseRow extends StatelessWidget {
 Future<void> _copyLogs(BuildContext context) async {
   String message;
   try {
-    final text = await NativeServices().appLogs();
+    final text = await SettingsService().appLogs();
     if (text.isEmpty) {
       message = 'There is no log to copy.';
     } else {

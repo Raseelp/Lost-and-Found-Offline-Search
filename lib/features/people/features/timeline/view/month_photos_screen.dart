@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/people/features/timeline/models/people_timeline.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
@@ -15,7 +14,8 @@ import 'package:lost_and_found/features/viewer/view/image_full_screen.dart';
 import 'package:lost_and_found/features/viewer/view/video_full_screen.dart';
 import 'package:lost_and_found/core/media/grid_video_layer.dart';
 import 'package:lost_and_found/features/people/features/timeline/view/widgets/moment_badge.dart';
-import 'package:lost_and_found/features/people/features/timeline/view/widgets/timeline_preview.dart';
+import 'package:lost_and_found/features/people/features/timeline/view/widgets/timeline_preview.dart';
+import 'package:lost_and_found/features/people/features/timeline/services/timeline_service.dart';
 
 /// Every photo and video with people in it from one month of the timeline, day by day. Tapping one
 /// opens it. [focusKey] is the photo that was tapped in the timeline's preview: the list scrolls to
@@ -63,7 +63,7 @@ class _MonthPhotosScreenState extends State<MonthPhotosScreen> {
     try {
       final from = DateTime(widget.month ~/ 12, widget.month % 12 + 1);
       final to = DateTime(widget.month ~/ 12, widget.month % 12 + 2);
-      final found = await NativeServices().timelineMonthMedia(from, to, limit: 2000, burstMs: 0);
+      final found = await TimelineService().timelineMonthMedia(from, to, limit: 2000, burstMs: 0);
       if (!mounted) return;
       setState(() {
         _photos = found.photos;

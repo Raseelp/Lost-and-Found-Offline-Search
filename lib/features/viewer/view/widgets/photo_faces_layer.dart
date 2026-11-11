@@ -5,13 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/core/theme/motion.dart';
 import 'package:lost_and_found/features/viewer/view/widgets/face_palette.dart';
-import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
+import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
+import 'package:lost_and_found/features/people/models/photo_face.dart';
 
 /// The colours of the selection outline: the app's teal (lightened so it glows on a
 /// photo) flowing into cool blue, violet, pink and warm gold, and back to teal.

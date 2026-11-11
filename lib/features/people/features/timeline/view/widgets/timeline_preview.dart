@@ -5,12 +5,14 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:lost_and_found/features/people/features/timeline/models/people_timeline.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
-import 'package:lost_and_found/features/people/features/timeline/view/widgets/people_timeline.dart';
+import 'package:lost_and_found/features/people/features/timeline/view/widgets/people_timeline.dart';
+import 'package:lost_and_found/core/media/media_service.dart';
+import 'package:lost_and_found/features/people/features/timeline/services/timeline_service.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
 
 class _Job {
   _Job(this.photo, this.large, [this.sharp = false]);
@@ -139,7 +141,7 @@ class PreviewLoader {
         continue;
       }
       _running++;
-      NativeServices()
+      MediaService()
           .loadThumbnail(
             uri: job.photo.uri,
             isVideo: job.photo.isVideo,
@@ -415,7 +417,7 @@ class TimelinePreview extends ChangeNotifier {
     try {
       do {
         _fetchAgain = false;
-        picks = await NativeServices().timelinePicks();
+        picks = await TimelineService().timelinePicks();
         if (_disposed) return;
         _byMonth.clear();
         _media.clear();
@@ -539,7 +541,7 @@ class TimelinePreview extends ChangeNotifier {
       try {
         final from = DateTime(month ~/ 12, month % 12 + 1);
         final to = DateTime(month ~/ 12, month % 12 + 2);
-        for (final photo in await NativeServices().timelineMonthPhotos(from, to, lit)) {
+        for (final photo in await TimelineService().timelineMonthPhotos(from, to, lit)) {
           found[photo.personId] = photo;
         }
       } catch (e) {
@@ -580,7 +582,7 @@ class TimelinePreview extends ChangeNotifier {
     try {
       final from = DateTime(month ~/ 12, month % 12 + 1);
       final to = DateTime(month ~/ 12, month % 12 + 2);
-      final found = await NativeServices().timelineMonthMedia(from, to, limit: 9);
+      final found = await TimelineService().timelineMonthMedia(from, to, limit: 9);
       _media[month] = MonthMedia(found.total, found.photos);
       while (_media.length > 12) {
         _media.remove(_media.keys.first);

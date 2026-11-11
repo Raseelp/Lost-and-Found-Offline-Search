@@ -1,11 +1,11 @@
 import 'dart:io';
 
 import 'package:get/get.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/widgets/confirm_dialog.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:lost_and_found/core/widgets/app_toast.dart';
+import 'package:lost_and_found/core/widgets/app_toast.dart';
+import 'package:lost_and_found/core/native/device_service.dart';
 
 /// What the app asks Android for, each with what it is for.
 enum AppPermission {
@@ -32,7 +32,7 @@ Future<bool> askPermission(
   String? purpose,
 }) async {
   if (!Platform.isAndroid) return true;
-  final sdk = await NativeServices().androidSdk();
+  final sdk = await DeviceService().androidSdk();
   if (what == AppPermission.storage && (sdk == 0 || sdk >= 29)) return true;
   final permissions = only ?? _permissionsFor(what);
   if (permissions.isEmpty) return true;

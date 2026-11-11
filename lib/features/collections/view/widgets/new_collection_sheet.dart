@@ -7,14 +7,16 @@ import 'package:lost_and_found/features/collections/controllers/collections_cont
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
 import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/collections/models/collection_model.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
 import 'package:lost_and_found/features/search/view/widgets/mention_input_field.dart';
 import 'package:lost_and_found/features/search/view/widgets/mention_text_controller.dart';
-import 'package:lost_and_found/core/widgets/app_toast.dart';
+import 'package:lost_and_found/core/widgets/app_toast.dart';
+import 'package:lost_and_found/core/media/media_service.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
+import 'package:lost_and_found/features/search/services/search_service.dart';
 
 /// The sheet that makes a new collection (from the action button, see ActionFab): what to find, in words (with
 /// other ways of saying it) or by a photo to look like, a preview of what that finds and who is in it, photos,
@@ -122,7 +124,7 @@ class _CollectionSheetState extends State<_CollectionSheet> {
       final uri = c.seedUri;
       if (uri != null) {
         unawaited(
-          NativeServices()
+          MediaService()
               .loadThumbnail(uri: uri, isVideo: c.seedTimestampMs != null, timestampMs: c.seedTimestampMs ?? 0, size: 240)
               .then((bytes) {
                 if (mounted) setState(() => _photoBytes = bytes);
@@ -234,7 +236,7 @@ class _CollectionSheetState extends State<_CollectionSheet> {
 
   Future<void> _loadThumb(CollectionCover item) async {
     try {
-      final bytes = await NativeServices().loadThumbnail(
+      final bytes = await MediaService().loadThumbnail(
         uri: item.uri,
         isVideo: item.isVideo,
         timestampMs: item.timestampMs,
@@ -257,7 +259,7 @@ class _CollectionSheetState extends State<_CollectionSheet> {
   }
 
   Future<void> _pickPhoto() async {
-    final uri = await NativeServices().pickImageForSearching() as String?;
+    final uri = await SearchService().pickImageForSearching() as String?;
     if (uri == null || !mounted) return;
     setState(() {
       _photoUri = uri;
@@ -265,7 +267,7 @@ class _CollectionSheetState extends State<_CollectionSheet> {
     });
     _changed();
     try {
-      final bytes = await NativeServices().loadThumbnail(uri: uri, isVideo: false, size: 240);
+      final bytes = await MediaService().loadThumbnail(uri: uri, isVideo: false, size: 240);
       if (mounted && _photoUri == uri) setState(() => _photoBytes = bytes);
     } catch (_) {
       // The thumbnail is optional, and the photo is still what the collection looks like.

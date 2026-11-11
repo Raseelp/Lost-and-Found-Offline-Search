@@ -10,9 +10,13 @@ import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/memories/features/stories/db/stories_store.dart';
 import 'package:lost_and_found/features/collections/models/collection_model.dart';
 import 'package:lost_and_found/features/memories/features/stories/models/story_state.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/features/memories/features/stories/models/story_planner.dart';
-import 'package:lost_and_found/core/permissions/permission_prompt.dart';
+import 'package:lost_and_found/core/permissions/permission_prompt.dart';
+import 'package:lost_and_found/core/media/media_service.dart';
+import 'package:lost_and_found/features/memories/features/stories/services/stories_service.dart';
+import 'package:lost_and_found/features/memories/services/memories_service.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
+import 'package:lost_and_found/features/people/services/people_service.dart';
 
 export 'package:lost_and_found/features/memories/features/stories/models/story_state.dart' show StoryFrame;
 
@@ -160,7 +164,7 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
   }
 
   Future<void> _loadReminder() async {
-    final r = await NativeServices().storiesReminder();
+    final r = await StoriesService().storiesReminder();
     reminderEnabled = r.enabled;
     reminderAllowed = r.allowed;
     update();
@@ -366,7 +370,7 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
     List<Map<String, dynamic>> raw;
     try {
       if (ring.kind == StoryKind.person) {
-        raw = await NativeServices().personPhotos(ring.person!.id);
+        raw = await PeopleService().personPhotos(ring.person!.id);
       } else {
         raw = await Get.find<CollectionsController>().membersForStory(ring.collection!, limit: 150);
       }
@@ -380,7 +384,7 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
       for (final m in raw)
         if (seen.add(m['path'] as String)) m,
     ];
-    final dates = await NativeServices().mediaDates([for (final m in unique) m['path'] as String]);
+    final dates = await MemoriesService().mediaDates([for (final m in unique) m['path'] as String]);
     return [
       for (final m in unique)
         if (dates[m['path']]?.junk != true)
@@ -487,10 +491,10 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
     final at = _now + _day;
     final rings = _reminderRings(at);
     if (rings == '[]') {
-      if (cancelIfNone) unawaited(NativeServices().storiesReminder(cancel: true));
+      if (cancelIfNone) unawaited(StoriesService().storiesReminder(cancel: true));
       return false;
     }
-    await NativeServices().storiesReminder(atMs: at, ringsJson: rings);
+    await StoriesService().storiesReminder(atMs: at, ringsJson: rings);
     return true;
   }
 
@@ -544,7 +548,7 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
   /// Shows the "stories have refreshed" note now, with the rings that are in the row, to see what it looks like.
   /// Returns what happened, in words.
   Future<String> sendTest() async {
-    final shown = await NativeServices().storiesReminderTest(_reminderRings(_now, litOnly: false));
+    final shown = await StoriesService().storiesReminderTest(_reminderRings(_now, litOnly: false));
     return shown ? 'Sent. Look in your notifications.' : 'Allow notifications for this app to see it.';
   }
 
@@ -600,7 +604,7 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
         purpose: 'tell you when your stories have refreshed',
       );
     }
-    final r = await NativeServices().storiesReminder(enabled: on);
+    final r = await StoriesService().storiesReminder(enabled: on);
     reminderEnabled = r.enabled;
     reminderAllowed = r.allowed;
     update();
@@ -611,13 +615,13 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
   Future<Uint8List?> frameBytes(StoryFrame frame) async {
     try {
       if (frame.isVideo) {
-        return await NativeServices().loadVideoThumbnail(
+        return await MediaService().loadVideoThumbnail(
           uri: frame.uri,
           timestampMs: frame.timestampMs,
           maxDimension: 1600,
         );
       }
-      return await NativeServices().loadThumbnail(uri: frame.uri, isVideo: false, size: 1280);
+      return await MediaService().loadThumbnail(uri: frame.uri, isVideo: false, size: 1280);
     } catch (_) {
       return null;
     }

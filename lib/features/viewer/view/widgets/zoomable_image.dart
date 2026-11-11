@@ -2,11 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
-import 'package:lost_and_found/features/viewer/view/widgets/photo_faces_layer.dart';
+import 'package:lost_and_found/features/viewer/view/widgets/photo_faces_layer.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
+import 'package:lost_and_found/features/people/models/photo_face.dart';
 
 const double _minScale = 1.0;
 const double _maxScale = 5.0;

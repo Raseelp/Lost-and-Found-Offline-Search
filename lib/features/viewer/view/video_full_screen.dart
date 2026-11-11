@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/core/media/meta_data_model.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
@@ -22,7 +21,11 @@ import 'package:lost_and_found/features/people/features/timeline/view/widgets/mo
 import 'package:lost_and_found/features/viewer/view/widgets/photo_faces_layer.dart';
 import 'package:lost_and_found/features/search/view/widgets/similar_items_bar.dart';
 import 'package:lost_and_found/features/viewer/view/widgets/video_people_strip.dart';
-import 'package:video_player/video_player.dart';
+import 'package:video_player/video_player.dart';
+import 'package:lost_and_found/features/people/models/face_scan.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
+import 'package:lost_and_found/features/people/models/photo_face.dart';
+import 'package:lost_and_found/features/people/services/people_service.dart';
 
 class VideoViewScreen extends StatefulWidget {
   const VideoViewScreen({
@@ -158,7 +161,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     _slowTimer?.cancel();
     _poll?.cancel();
     _videoPoll?.cancel();
-    NativeServices().cancelPhotoFaces(_scanToken).catchError((_) {});
+    PeopleService().cancelPhotoFaces(_scanToken).catchError((_) {});
     _cancelPending();
     _still.dispose();
     _controller.dispose();
@@ -174,7 +177,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
   /// scan or an earlier visit, shows the same glow and progress, and the people are picked up when it finishes.
   Future<void> _loadScanState() async {
     try {
-      final info = await NativeServices().videoScanState(widget.videoUri);
+      final info = await PeopleService().videoScanState(widget.videoUri);
       if (mounted) {
         setState(() {
           _scanState = info.state;
@@ -182,7 +185,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
           _lastFaces = info.lastFaces;
         });
       }
-      final running = await NativeServices().photoScanStatus(
+      final running = await PeopleService().photoScanStatus(
         'video:${widget.videoUri}',
       );
       if (running != null && mounted && !_scanningVideo) _watchRunningScan();
@@ -262,7 +265,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
       timer,
     ) async {
       try {
-        final status = await NativeServices().photoScanStatus(
+        final status = await PeopleService().photoScanStatus(
           'video:${widget.videoUri}',
         );
         if (!mounted) {
@@ -305,7 +308,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     _videoPoll?.cancel();
     _videoPoll = Timer.periodic(const Duration(milliseconds: 300), (_) async {
       try {
-        final status = await NativeServices().photoScanStatus(
+        final status = await PeopleService().photoScanStatus(
           'video:${widget.videoUri}',
         );
         if (mounted &&
@@ -319,7 +322,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
 
     var result = VideoScanResult(false, 0, 0);
     try {
-      result = await NativeServices().scanVideoFaces(
+      result = await PeopleService().scanVideoFaces(
         widget.videoUri,
         token: _scanToken,
       );
@@ -367,7 +370,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
 
   Future<void> _loadPeople() async {
     try {
-      final found = await NativeServices().videoPeople(widget.videoUri);
+      final found = await PeopleService().videoPeople(widget.videoUri);
       if (!mounted) return;
       final grew = _peopleLoadedOnce && found.length > _people.length;
       _peopleLoadedOnce = true;
@@ -456,7 +459,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     final token = _pendingToken;
     _pendingToken = null;
     if (token != null) {
-      NativeServices().cancelPhotoFaces(token).catchError((_) {});
+      PeopleService().cancelPhotoFaces(token).catchError((_) {});
     }
   }
 
@@ -482,7 +485,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
         _poll?.cancel();
         _poll = Timer.periodic(const Duration(milliseconds: 250), (_) async {
           try {
-            final status = await NativeServices().photoScanStatus(
+            final status = await PeopleService().photoScanStatus(
               '${widget.videoUri}#$pos',
             );
             if (mounted &&
@@ -499,7 +502,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
 
     var found = const <PhotoFace>[];
     try {
-      found = await NativeServices().videoFaces(
+      found = await PeopleService().videoFaces(
         widget.videoUri,
         pos,
         token: token,
@@ -600,7 +603,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
       PhotoFace? want;
       var fromScan = false;
       try {
-        final stored = await NativeServices().videoFrameFaces(
+        final stored = await PeopleService().videoFrameFaces(
           widget.videoUri,
           target,
         );
@@ -624,7 +627,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
           _scanMessage = 'Looking for faces';
         });
         try {
-          faces = await NativeServices().videoFaces(
+          faces = await PeopleService().videoFaces(
             widget.videoUri,
             target,
             token: _token + jump + 1000000,

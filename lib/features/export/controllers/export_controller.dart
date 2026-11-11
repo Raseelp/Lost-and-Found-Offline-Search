@@ -7,8 +7,13 @@ import 'package:lost_and_found/features/collections/controllers/collections_cont
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
 import 'package:lost_and_found/features/memories/controllers/memories_controller.dart';
 import 'package:lost_and_found/features/collections/models/collection_model.dart';
-import 'package:lost_and_found/features/memories/models/memories.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
+import 'package:lost_and_found/features/memories/models/memories.dart';
+import 'package:lost_and_found/core/media/media_service.dart';
+import 'package:lost_and_found/features/export/models/export_models.dart';
+import 'package:lost_and_found/features/export/services/export_service.dart';
+import 'package:lost_and_found/features/memories/services/memories_service.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
+import 'package:lost_and_found/features/people/services/people_service.dart';
 
 /// One photo or video of an album to be exported, and how big it is.
 class ExportItem {
@@ -253,13 +258,13 @@ class ExportController extends GetxController {
     await refreshStatus();
     _forgetSeen();
     unawaited(
-      NativeServices().exportDownloadsAvailable().then((ok) {
+      ExportService().exportDownloadsAvailable().then((ok) {
         downloadsAvailable = ok;
         update();
       }),
     );
     unawaited(
-      NativeServices().exportFreeSpace().then((free) {
+      ExportService().exportFreeSpace().then((free) {
         freeBytes = free;
         update();
       }),
@@ -433,13 +438,13 @@ class ExportController extends GetxController {
     try {
       final List<Map<String, dynamic>> raw;
       if (album.person != null) {
-        raw = await NativeServices().personPhotos(album.person!.id);
+        raw = await PeopleService().personPhotos(album.person!.id);
       } else if (album.memory != null) {
         final today = album.memory!;
         raw = [];
         for (final year in today.years) {
           final day = dayOf(year, today);
-          final photos = await NativeServices().memoryDay(
+          final photos = await MemoriesService().memoryDay(
             day.from,
             DateTime(day.from.year, day.from.month, day.from.day + day.days),
             limit: 100000,
@@ -467,7 +472,7 @@ class ExportController extends GetxController {
           from,
           (from + 300).clamp(0, entries.length),
         );
-        final infos = await NativeServices().exportItemInfo([
+        final infos = await ExportService().exportItemInfo([
           for (final e in chunk) e.uri,
         ]);
         for (var i = 0; i < chunk.length; i++) {
@@ -612,7 +617,7 @@ class ExportController extends GetxController {
       folderUri == null && freeBytes >= 0 && totalBytes > freeBytes * 0.98;
 
   Future<void> pickFolder() async {
-    final uri = await NativeServices().pickExportFolder();
+    final uri = await ExportService().pickExportFolder();
     if (uri == null) return;
     folderUri = uri;
     folderLabel = _labelOf(uri);
@@ -684,7 +689,7 @@ class ExportController extends GetxController {
     });
     bool started;
     try {
-      started = await NativeServices().startZipExport(job);
+      started = await ExportService().startZipExport(job);
     } catch (e) {
       debugPrint('Could not start the zip export: $e');
       started = false;
@@ -765,7 +770,7 @@ class ExportController extends GetxController {
         final item = wanted[next++];
         if (thumbs.containsKey(item.uri)) continue;
         try {
-          thumbs[item.uri] = await NativeServices().loadThumbnail(
+          thumbs[item.uri] = await MediaService().loadThumbnail(
             uri: item.uri,
             isVideo: item.isVideo,
             size: 160,
@@ -780,7 +785,7 @@ class ExportController extends GetxController {
   }
 
   Future<void> cancel() async {
-    await NativeServices().cancelZipExport();
+    await ExportService().cancelZipExport();
     await refreshStatus();
   }
 
@@ -801,7 +806,7 @@ class ExportController extends GetxController {
   /// Reads the status of the export from the native side. An end the user has already dismissed does not come back.
   Future<void> refreshStatus() async {
     try {
-      final fresh = await NativeServices().zipExportStatus();
+      final fresh = await ExportService().zipExportStatus();
       status = !fresh.running && fresh.id == _seenId
           ? ZipExportStatus.fromMap(const {})
           : fresh;

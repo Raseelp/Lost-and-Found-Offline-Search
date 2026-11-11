@@ -10,8 +10,12 @@ import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/library/db/indexed_folder_db_helper.dart';
 import 'package:lost_and_found/features/collections/models/collection_model.dart';
 import 'package:lost_and_found/features/collections/models/default_collections.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
-import 'package:lost_and_found/features/search/services/tokenizer/clip_tokenizer.dart';
+import 'package:lost_and_found/features/search/services/tokenizer/clip_tokenizer.dart';
+import 'package:lost_and_found/core/media/media_service.dart';
+import 'package:lost_and_found/core/native/native_channel.dart';
+import 'package:lost_and_found/features/collections/services/collections_service.dart';
+import 'package:lost_and_found/features/people/services/people_service.dart';
+import 'package:lost_and_found/features/search/services/search_service.dart';
 
 /// Owns the collections: the list the Collections tab and the Search tab chip row show, each one's count
 /// and cover from the last scoring pass, and the open collection.
@@ -183,7 +187,7 @@ class CollectionsController extends GetxController {
       final cover = selectedCover(c.id);
       if (cover == null || _heroBytes.containsKey(cover.cacheKey)) continue;
       try {
-        _heroBytes[cover.cacheKey] = await NativeServices().loadThumbnail(
+        _heroBytes[cover.cacheKey] = await MediaService().loadThumbnail(
           uri: cover.uri,
           isVideo: cover.isVideo,
           timestampMs: cover.timestampMs,
@@ -344,7 +348,7 @@ class CollectionsController extends GetxController {
     final tokenizer = await ClipTokenizer.load();
     List<double>? sum;
     for (final prompt in prompts) {
-      final e = _normalized(await NativeServices().encodeText(tokenizer.tokenize(prompt)));
+      final e = _normalized(await SearchService().encodeText(tokenizer.tokenize(prompt)));
       if (e.isEmpty) continue;
       sum = sum == null ? e : [for (var i = 0; i < sum.length; i++) sum[i] + e[i]];
     }
@@ -379,7 +383,7 @@ class CollectionsController extends GetxController {
       final key = seedUri != null ? 'photo|$seedUri@$seedTimestampMs' : 'words|${words.join('|')}';
       final embedding = _previewVectors[key] ??
           (seedUri != null
-              ? _normalized(await NativeServices().encodeImage(uri: seedUri, timestampMs: seedTimestampMs))
+              ? _normalized(await SearchService().encodeImage(uri: seedUri, timestampMs: seedTimestampMs))
               : await _embedPrompts(words) ?? const <double>[]);
       if (embedding.isEmpty) return null;
       _previewVectors[key] = embedding;
@@ -392,14 +396,14 @@ class CollectionsController extends GetxController {
         'k': sensitivity,
         if (personIds.isNotEmpty) 'personIds': personIds,
       };
-      final scored = await NativeServices().scoreCollections([spec]);
+      final scored = await CollectionsService().scoreCollections([spec]);
       final count = scored.isEmpty ? 0 : (scored.first['count'] as num? ?? 0).toInt();
       if (count == 0) return const CollectionPreview(count: 0, items: [], people: []);
-      final members = await NativeServices().collectionMembers(spec, limit: 400);
+      final members = await CollectionsService().collectionMembers(spec, limit: 400);
       final items = [for (final m in members.take(shown)) CollectionCover.fromMap(m)];
       List<({int personId, int count})> people = const [];
       try {
-        people = await NativeServices().peopleIn([
+        people = await PeopleService().peopleIn([
           for (final m in members)
             if ((m['videoUri'] as String? ?? '').isNotEmpty) m['videoUri'] as String else m['path'] as String,
         ]);
@@ -420,7 +424,7 @@ class CollectionsController extends GetxController {
     final uri = c.seedUri;
     if (uri == null) throw StateError('Collection ${c.id} has no photo to embed again');
     final fresh = _normalized(
-      await NativeServices().encodeImage(uri: uri, timestampMs: c.seedTimestampMs ?? 0),
+      await SearchService().encodeImage(uri: uri, timestampMs: c.seedTimestampMs ?? 0),
     );
     if (fresh.isEmpty) throw StateError('The photo of ${c.id} could not be embedded again');
     final updated = c.copyWith(seedEmbedding: fresh, seedModel: _modelVersion);
@@ -493,7 +497,7 @@ class CollectionsController extends GetxController {
         }
       }
 
-      final scored = await NativeServices().scoreCollections(specs);
+      final scored = await CollectionsService().scoreCollections(specs);
       stats.clear();
       for (final s in scored) {
         stats[s['id'] as String] = _statsFromMap(s);
@@ -531,7 +535,7 @@ class CollectionsController extends GetxController {
     try {
       final native = Get.find<NativeController>();
       if (native.modelsReady && native.totalEmbeddings > 0) {
-        final scored = await NativeServices().scoreCollections([await _specFor(c)]);
+        final scored = await CollectionsService().scoreCollections([await _specFor(c)]);
         if (scored.isNotEmpty) stats[c.id] = _statsFromMap(scored.first);
         _rebuildLists();
       } else if (native.totalEmbeddings == 0) {
@@ -615,7 +619,7 @@ class CollectionsController extends GetxController {
   /// Loads a thumbnail sized for tiles and cards, not for full screen. A video's is a bit larger because it is also
   /// the poster in the viewer for a moment.
   Future<Uint8List> _loadThumb(String uri, bool isVideo, int timestampMs, {int? size}) {
-    return NativeServices().loadThumbnail(
+    return MediaService().loadThumbnail(
       uri: uri,
       isVideo: isVideo,
       timestampMs: timestampMs,
@@ -667,7 +671,7 @@ class CollectionsController extends GetxController {
   }) async {
     final List<double> embedding;
     try {
-      embedding = _normalized(await NativeServices().encodeImage(uri: uri, timestampMs: timestampMs));
+      embedding = _normalized(await SearchService().encodeImage(uri: uri, timestampMs: timestampMs));
     } catch (e) {
       debugPrint('Could not embed the seed photo: $e');
       return null;
@@ -746,7 +750,7 @@ class CollectionsController extends GetxController {
   }) async {
     List<double> embedding = const [];
     try {
-      embedding = _normalized(await NativeServices().encodeImage(uri: uri));
+      embedding = _normalized(await SearchService().encodeImage(uri: uri));
     } catch (e) {
       debugPrint('Could not embed the new photo: $e');
     }
@@ -860,7 +864,7 @@ class CollectionsController extends GetxController {
   /// models are not ready.
   Future<List<Map<String, dynamic>>> allMembersOf(SmartCollection collection) async {
     try {
-      return await NativeServices().collectionMembers(await _specFor(collection), limit: 100000);
+      return await CollectionsService().collectionMembers(await _specFor(collection), limit: 100000);
     } on ModelsNotReadyError {
       return const [];
     }
@@ -870,7 +874,7 @@ class CollectionsController extends GetxController {
   /// if the models are not ready.
   Future<List<Map<String, dynamic>>> membersForStory(SmartCollection collection, {int limit = 30}) async {
     try {
-      return await NativeServices().collectionMembers(await _specFor(collection), limit: limit);
+      return await CollectionsService().collectionMembers(await _specFor(collection), limit: limit);
     } on ModelsNotReadyError {
       return const [];
     } catch (e) {
@@ -893,7 +897,7 @@ class CollectionsController extends GetxController {
     update();
 
     try {
-      final found = await NativeServices().collectionMembers(
+      final found = await CollectionsService().collectionMembers(
         await _specFor(collection),
         limit: _memberLimit,
       );

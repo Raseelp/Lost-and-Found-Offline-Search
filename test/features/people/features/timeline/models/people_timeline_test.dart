@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lost_and_found/features/people/features/timeline/models/people_timeline.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
+import 'package:lost_and_found/features/people/features/timeline/models/people_timeline.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
 
 Person person() => Person(id: 1, name: 'Maya', hidden: false, faceCount: 10, photoCount: 10, coverFaceId: 1);
 

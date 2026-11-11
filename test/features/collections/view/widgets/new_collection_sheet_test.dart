@@ -6,8 +6,8 @@ import 'package:lost_and_found/features/collections/controllers/collections_cont
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
 import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/collections/models/collection_model.dart';
-import 'package:lost_and_found/core/native/native_services.dart';
-import 'package:lost_and_found/features/collections/view/widgets/new_collection_sheet.dart';
+import 'package:lost_and_found/features/collections/view/widgets/new_collection_sheet.dart';
+import 'package:lost_and_found/features/people/models/person.dart';
 
 /// The people the fake library knows.
 final _maya = Person(id: 1, name: 'Maya', hidden: false, faceCount: 40, photoCount: 38, coverFaceId: 11);

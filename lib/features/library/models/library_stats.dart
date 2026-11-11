@@ -1,4 +1,4 @@
-/// Everything the Library tab's stat tiles show, read in one round trip by [NativeServices.getLibraryStats].
+/// Everything the Library tab's stat tiles show, read in one round trip by [LibraryService.getLibraryStats].
 class LibraryStats {
   final int totalEmbeddings;
   final int images;
