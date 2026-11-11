@@ -31,12 +31,12 @@ class LibraryService {
     required String uri,
     required ContentMode contentMode,
   }) async {
-    final LibraryController nativeController = Get.find();
+    final LibraryController library = Get.find();
     try {
-      final String pickingModeString = nativeController.getPickingModeString(
+      final String pickingModeString = library.getPickingModeString(
         pickingMode: pickingMode,
       );
-      final String contentModeString = nativeController.getContentModeString(
+      final String contentModeString = library.getContentModeString(
         contentMode: contentMode,
       );
       final result = await nativeChannel.invokeMethod('scanImagesAndOrVideos', {

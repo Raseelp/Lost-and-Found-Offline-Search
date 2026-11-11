@@ -19,7 +19,7 @@ class SearchService {
   }) async {
     final tokenizer = await ClipTokenizer.load();
     final tokens = tokenizer.tokenize(query);
-    final LibraryController nativeController = Get.find();
+    final LibraryController library = Get.find();
 
     debugPrint('tokens generated for the query $query ${tokens.toString()}');
     try {
@@ -27,7 +27,7 @@ class SearchService {
           .invokeMethod<List<dynamic>>('searchByText', {
             'tokens': tokens,
             'topK': limitNumber,
-            'contentMode': nativeController.getContentModeString(
+            'contentMode': library.getContentModeString(
               contentMode: contentMode,
             ),
             'personIds': personIds,
@@ -48,13 +48,13 @@ class SearchService {
     int limit = 20,
     required ContentMode contentMode,
   }) async {
-    final LibraryController nativeController = Get.find();
+    final LibraryController library = Get.find();
     try {
       final results = await nativeChannel
           .invokeMethod<List<dynamic>>("searchByImage", {
             "uri": uri,
             "topK": limit,
-            "contentMode": nativeController.getContentModeString(
+            "contentMode": library.getContentModeString(
               contentMode: contentMode,
             ),
           });
@@ -107,14 +107,14 @@ class SearchService {
     int limit = 20,
     required ContentMode contentMode,
   }) async {
-    final LibraryController nativeController = Get.find();
+    final LibraryController library = Get.find();
     try {
       final results = await nativeChannel
           .invokeMethod<List<dynamic>>('searchByVideoFrame', {
             'uri': uri,
             'timestampMs': timestampMs,
             'topK': limit,
-            'contentMode': nativeController.getContentModeString(
+            'contentMode': library.getContentModeString(
               contentMode: contentMode,
             ),
           });

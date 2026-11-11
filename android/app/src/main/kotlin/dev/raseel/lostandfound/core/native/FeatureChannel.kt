@@ -2,7 +2,6 @@ package dev.raseel.lostandfound.core.native
 
 import android.app.Activity
 import android.content.ContextWrapper
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
