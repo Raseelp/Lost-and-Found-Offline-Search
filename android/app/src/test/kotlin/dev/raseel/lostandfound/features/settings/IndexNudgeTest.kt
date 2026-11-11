@@ -38,9 +38,9 @@ class IndexNudgeTest {
 
     @Test
     fun theGapsGrowAndStopAfterThree() {
-        assertEquals(3, IndexNudge.nextGapDays(0))
-        assertEquals(7, IndexNudge.nextGapDays(1))
-        assertEquals(14, IndexNudge.nextGapDays(2))
+        assertEquals(1, IndexNudge.nextGapDays(0))
+        assertEquals(3, IndexNudge.nextGapDays(1))
+        assertEquals(7, IndexNudge.nextGapDays(2))
         assertNull(IndexNudge.nextGapDays(3))
     }
 
@@ -75,7 +75,7 @@ class IndexNudgeTest {
                 NudgeVerdict.STOP -> due = null
             }
         }
-        assertEquals(listOf(3, 10, 24), sentOn)
+        assertEquals(listOf(1, 4, 11), sentOn)
         assertEquals(3, sent)
     }
 

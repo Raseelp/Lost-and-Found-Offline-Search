@@ -89,12 +89,12 @@ class MainActivity : FlutterActivity() {
     }
 
     /**
-     * The app is left: the "finish indexing" note is set for a few days after, and comes only if the library is not
-     * all indexed then.
+     * The app is left: makes sure the "finish indexing" note is waiting. It comes only if the library is not all
+     * indexed then.
      */
     override fun onStop() {
         super.onStop()
-        try { IndexNudge.arm(applicationContext) } catch (_: Exception) {}
+        try { IndexNudge.ensureArmed(applicationContext) } catch (_: Exception) {}
     }
 
     /** The app is in use: unanswered stories notes stop counting. */

@@ -45,7 +45,7 @@ class NudgeStep(val verdict: NudgeVerdict, val sent: Int, val nextDays: Int?)
 
 /**
  * The note that asks to finish indexing, for someone whose photos and videos are not all in the search index. It comes
- * [GAP_DAYS] days after the app was last used, and again, further off each time, while unanswered, up to [MAX_NUDGES].
+ * [GAP_DAYS] days after the last indexing, and again, further off each time, while unanswered, up to [MAX_NUDGES].
  * Each note names one thing the person is missing (see [words]). It opens the Library tab, and its "Index now" button
  * also starts the scan. Never during a scan, on a day another note went out, or at night. On or off in Settings.
  */
@@ -58,8 +58,8 @@ object IndexNudge {
     private const val ACCENT = 0xFF165E59.toInt()
     private const val DAY_MS = 86_400_000L
 
-    /** Days from the app being used, or a note going out, to the next note, by how many have gone out. */
-    private val GAP_DAYS = intArrayOf(3, 7, 14)
+    /** Days from the last indexing, or a note going out, to the next note, by how many have gone out. */
+    private val GAP_DAYS = intArrayOf(1, 3, 7)
     const val MAX_NUDGES = 3
 
     /** A day with this few photos missing from the memories is not worth a note. */
@@ -149,8 +149,8 @@ object IndexNudge {
     fun postedToday(context: Context, today: Int): Boolean = prefs(context).getInt("last_post_day", -1) == today
 
     /**
-     * Sets the note for [GAP_DAYS] after now, in place of any waiting. Called whenever the app is left or a scan ends,
-     * so it always comes that long after the last time the app was used. What is true is only looked at when it is due.
+     * Sets the note for [GAP_DAYS] after now, in place of any waiting. Called when a scan ends, or the note is turned
+     * on, so it comes that long after the last indexing. What is true is only looked at when it is due.
      */
     fun arm(context: Context) {
         val app = context.applicationContext
@@ -159,14 +159,37 @@ object IndexNudge {
             WorkManager.getInstance(app).cancelUniqueWork(WORK)
             return
         }
-        schedule(app, System.currentTimeMillis() + gap * DAY_MS)
+        val now = System.currentTimeMillis()
+        prefs(app).edit().putLong("anchor_ms", now).apply()
+        schedule(app, now + gap * DAY_MS)
     }
 
-    private fun schedule(context: Context, atMs: Long) {
+    /**
+     * Makes sure a note is waiting, without moving one that is. Called when the app is left, so a phone where nothing
+     * has been indexed since the note was added still gets it, [GAP_DAYS] after the last indexing (or after the first
+     * time the app is left, when none is known).
+     */
+    fun ensureArmed(context: Context) {
+        val app = context.applicationContext
+        val gap = nextGapDays(prefs(app).getInt("sent", 0))
+        if (!enabled(app) || gap == null) return
+        val now = System.currentTimeMillis()
+        var anchor = prefs(app).getLong("anchor_ms", 0L)
+        if (anchor <= 0L) {
+            anchor = now
+            prefs(app).edit().putLong("anchor_ms", anchor).apply()
+        }
+        // A note waiting from before the gaps were counted from the last indexing is replaced once.
+        val fresh = prefs(app).getBoolean("gaps_from_indexing", false)
+        if (!fresh) prefs(app).edit().putBoolean("gaps_from_indexing", true).apply()
+        schedule(app, anchor + gap * DAY_MS, if (fresh) ExistingWorkPolicy.KEEP else ExistingWorkPolicy.REPLACE)
+    }
+
+    private fun schedule(context: Context, atMs: Long, policy: ExistingWorkPolicy = ExistingWorkPolicy.REPLACE) {
         val now = System.currentTimeMillis()
         val delay = (StoriesReminder.outOfTheNight(maxOf(atMs, now)) - now).coerceAtLeast(0L)
         val request = OneTimeWorkRequestBuilder<IndexNudgeWorker>().setInitialDelay(delay, TimeUnit.MILLISECONDS).build()
-        WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(WORK, ExistingWorkPolicy.REPLACE, request)
+        WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(WORK, policy, request)
     }
 
     fun cancel(context: Context) {
@@ -177,8 +200,9 @@ object IndexNudge {
 
     /**
      * The note is due: shown, put off a day, or dropped. Runs on a worker thread. Nothing is shown while the search
-     * model is not on the phone, or when the library cannot be measured because the photos cannot be read. The next
-     * note is set last, because it replaces the very work that is running.
+     * model is not on the phone, when the library cannot be measured because the photos cannot be read, or when
+     * notifications are not allowed; each of those tries again the next day, so the note is not lost. The next note is
+     * set last, because it replaces the very work that is running.
      */
     fun fire(context: Context) {
         val app = context.applicationContext
@@ -187,8 +211,15 @@ object IndexNudge {
         val now = System.currentTimeMillis()
         val today = MemoryDays.dayNumber(now)
         val sent = p.getInt("sent", 0)
-        if (!ScanEngineHolder.modelManager(app).areModelsReady()) return
-        val share = IndexGap.measure(app) ?: return
+        if (!ScanEngineHolder.modelManager(app).areModelsReady()) {
+            schedule(app, now + DAY_MS)
+            return
+        }
+        val share = IndexGap.measure(app)
+        if (share == null) {
+            schedule(app, now + DAY_MS)
+            return
+        }
         val memories = MemoryPrefs(app)
         val noteToday = (memories.enabled && Slot.entries.any { memories.lastDay(it) == today }) ||
             StoriesReminder.postedToday(app, today)
@@ -196,6 +227,7 @@ object IndexNudge {
         when (step.verdict) {
             NudgeVerdict.STOP -> {
                 if (step.sent != sent) p.edit().putInt("sent", step.sent).apply()
+                p.edit().putLong("anchor_ms", now).apply()
                 return
             }
             NudgeVerdict.WAIT -> {
@@ -228,8 +260,11 @@ object IndexNudge {
             )
             else -> null
         }
-        if (!post(app, title, body, picture)) return
-        p.edit().putInt("sent", step.sent).putInt("last_post_day", today).apply()
+        if (!post(app, title, body, picture)) {
+            schedule(app, now + DAY_MS)
+            return
+        }
+        p.edit().putInt("sent", step.sent).putInt("last_post_day", today).putLong("anchor_ms", now).apply()
         step.nextDays?.let { schedule(app, now + it * DAY_MS) }
     }
 

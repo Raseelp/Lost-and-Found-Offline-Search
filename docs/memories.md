@@ -78,8 +78,10 @@ When fewer than nine in ten of the photos and videos on the phone are in the sea
 asks to finish indexing. It says what is waiting (how many photos and videos) and what is missing because of
 it: how much can be searched, more of someone you know, photos of this day, or what search can see.
 
-- It comes three days after the app was last used, then 7 and 14 days later if unanswered, and then no more.
-  Each use of the app sets the first one again.
+- It comes one day after the last indexing, then 3 and 7 days later if unanswered, and then no more. A scan
+  ending sets the first one again. If nothing has been indexed since the note was added, the day is counted
+  from the first time the app is left. If the note cannot be shown (the search model, the permission to read
+  photos or the permission for notifications is missing), it tries again the next day.
 - It makes no sound. Its Index now button opens the Library and starts the scan over the whole phone.
 - It is not sent when the library is already indexed enough, or while a scan is running.
 - It can be turned off in Settings.
