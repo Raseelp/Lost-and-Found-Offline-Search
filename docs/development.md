@@ -42,7 +42,7 @@ cd android && ./gradlew :app:testDebugUnitTest
 
 Covers the zip writer (including that other zip tools can read its output), the search index
 header, the memories, timeline and date logic, the scan, stories and finish-indexing notifications, the face
-pictures, the face quality score and cluster settings, the embedding maths and the text of Copy logs.
+pictures, the face quality score and cluster settings, the embedding maths, the rolling log file and the text of the log.
 
 ```bash
 flutter test
@@ -119,8 +119,12 @@ adb logcat -s FaceScanner FaceTuner   # face scan timing and tuning
 adb logcat -s LostFoundBench          # performance logs for indexing, faces and search
 ```
 
-The performance logs are on unless turned off in Settings > Diagnostics. The same place has Copy
-logs, which copies the app's own recent log lines (the newest 4000) so a bug report can include them.
+The performance logs are always on. Every log line goes to Android's log and also to the app's own log file,
+two files of up to 512 KB in `files/logs/` (`AppLog` in `core/log/`), because some phones do not let an app read
+its log back. The Dart side's printed messages and uncaught errors are added to it, and so is an uncaught crash.
+Settings > About > Note from the developer shows the newest 4000 lines (with a Copy button) and attaches them to a
+problem report, which opens the person's own email app. The copies of the files of a report are made in
+`cache/report/` and deleted when the person is back from the mail app, and when the app next starts.
 
 ## The search model files
 

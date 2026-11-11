@@ -38,11 +38,14 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   searched, more of someone you know, photos of this day, or what search can see. It comes three days after you last
   used the app, then 7 and 14 days later if unanswered, and then no more. It makes no sound, and its Index now
   button opens the Library and starts the scan. It can be turned off in Settings.
-- A Copy logs button in Settings > Diagnostics, under Performance logs. It copies the app's recent log,
-  with the app, Android and phone details on top, to paste into a bug report. The log can contain photo
-  file addresses.
+- A Note from the developer page in Settings > About. It says who makes the app and why it is free, links to the code
+  on GitHub and to Buy Me a Coffee, and has a box for reporting a problem or a suggestion. Send opens the person's own
+  email app with the message, the app's log and any screenshots or recordings already attached, and nothing is sent until
+  they press Send there. The log can be left out, read and copied from that page. It can contain photo file addresses.
 
 ### Changed
+- The app keeps its own log file, because some phones do not let an app read its log back. The performance logs are
+  always on, and the Diagnostics section of Settings is gone.
 - Changing a collection opens the same sheet as making one, filled in, so the words, other ways of saying it, what is
   included and the name can all be changed with a preview, and a collection made from a photo can look like another.
 - The daily memory and the stories note are now on from the start. They go out only while Android allows
