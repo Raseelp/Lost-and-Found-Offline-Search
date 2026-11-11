@@ -9,7 +9,7 @@ part of '../library_tab.dart';
 class _ChipHero extends StatelessWidget {
   const _ChipHero({required this.controller});
 
-  final NativeController controller;
+  final LibraryController controller;
 
   /// The number in the "found N files so far" text that native reports through [IndexedFolder.path] while it is
   /// still walking the picked folder, before a total is known. A whole-device scan skips that phase. The number
@@ -128,7 +128,7 @@ class _ChipHero extends StatelessWidget {
 /// need be) or a folder to choose, as "Where to look" says. Nothing happens while a scan is already running.
 Future<void> startIndexing(
   BuildContext context,
-  NativeController controller,
+  LibraryController controller,
 ) async {
   if (controller.isScanning) return;
   if (controller.scanWholePhone) {

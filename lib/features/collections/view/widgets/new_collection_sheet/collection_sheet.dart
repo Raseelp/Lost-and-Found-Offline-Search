@@ -152,7 +152,7 @@ class _CollectionSheetState extends State<_CollectionSheet> {
   void _schedulePreview() {
     if (_isPhotoEdit && _photoUri == null) return;
     _previewTimer?.cancel();
-    final native = Get.find<NativeController>();
+    final native = Get.find<LibraryController>();
     if (!_hasInput || native.totalEmbeddings == 0) {
       _previewToken++;
       setState(() {

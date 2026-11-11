@@ -3,10 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/people/features/timeline/models/people_timeline.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:lost_and_found/core/widgets/app_toast.dart';
+import 'package:lost_and_found/core/widgets/app_toast.dart';
 import 'package:lost_and_found/core/media/media_service.dart';
 import 'package:lost_and_found/features/people/features/timeline/services/timeline_service.dart';
 import 'package:lost_and_found/features/people/models/face_scan.dart';
@@ -14,6 +13,7 @@ import 'package:lost_and_found/features/people/models/merge.dart';
 import 'package:lost_and_found/features/people/models/person.dart';
 import 'package:lost_and_found/features/people/services/face_scan_service.dart';
 import 'package:lost_and_found/features/people/services/people_service.dart';
+import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 
 /// Everything about faces and people: the scan status, the list of people, and the one person currently open. The
 /// scan runs by itself in the background (see FaceScanner).
@@ -507,7 +507,7 @@ class FacesController extends GetxController {
 
   /// What the latest scan indexed, tagged New, shows first in a grid, so its thumbnails are fetched first too.
   List<Map<String, dynamic>> _newFirst(List<Map<String, dynamic>> items) =>
-      Get.isRegistered<NativeController>() ? Get.find<NativeController>().newFirst(items) : items;
+      Get.isRegistered<LibraryController>() ? Get.find<LibraryController>().newFirst(items) : items;
 
   Future<Uint8List> _thumbFor(Map<String, dynamic> item) {
     final path = item['path'] as String;

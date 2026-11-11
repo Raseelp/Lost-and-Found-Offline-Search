@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/library/models/indexed_folder_model.dart';
 import 'package:lost_and_found/features/model_download/models/model_status.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
@@ -15,6 +14,9 @@ import 'package:lost_and_found/features/library/view/widgets/library_orbit.dart'
 import 'package:lost_and_found/features/library/view/widgets/scan_square.dart';
 import 'package:lost_and_found/core/media/media_service.dart';
 import 'package:lost_and_found/features/people/models/face_scan.dart';
+import 'package:lost_and_found/core/media/content_mode.dart';
+import 'package:lost_and_found/features/library/controllers/library_controller.dart';
+import 'package:lost_and_found/features/settings/controllers/settings_controller.dart';
 part 'library_tab/start_device_scan.dart';
 part 'library_tab/chip_hero.dart';
 part 'library_tab/idle_controls.dart';
@@ -32,7 +34,7 @@ part 'library_tab/folder_row.dart';
 class LibraryTab extends StatelessWidget {
   const LibraryTab({super.key, required this.controller});
 
-  final NativeController controller;
+  final LibraryController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +115,7 @@ class LibraryTab extends StatelessWidget {
 /// it is kept.
 const bool _showIndexedFolders = false;
 
-bool _hasLibrary(NativeController controller) =>
+bool _hasLibrary(LibraryController controller) =>
     controller.totalImages > 0 ||
     controller.totalVideos > 0 ||
     controller.totalEmbeddings > 0 ||
@@ -133,7 +135,7 @@ DateTime? _lastScanTime(List<IndexedFolder> folders) {
 class _ScanningControls extends StatelessWidget {
   const _ScanningControls({super.key, required this.controller});
 
-  final NativeController controller;
+  final LibraryController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -162,10 +164,14 @@ class _ScanningControls extends StatelessWidget {
             height: 1.4,
           ),
         ),
-        if (!controller.backgroundNotificationsGranted) ...[
-          const SizedBox(height: AppSpacing.base),
-          _BackgroundScanBanner(controller: controller),
-        ],
+        GetBuilder<SettingsController>(
+          builder: (settings) => settings.backgroundNotificationsGranted
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.only(top: AppSpacing.base),
+                  child: _BackgroundScanBanner(controller: settings),
+                ),
+        ),
       ],
     );
   }

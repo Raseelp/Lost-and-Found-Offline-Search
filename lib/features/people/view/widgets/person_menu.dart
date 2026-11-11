@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/export/controllers/export_controller.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
@@ -14,6 +13,7 @@ import 'package:lost_and_found/features/people/features/merge/view/split_person_
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
 import 'package:lost_and_found/features/people/view/widgets/person_demo.dart';
 import 'package:lost_and_found/features/people/models/person.dart';
+import 'package:lost_and_found/features/home/controllers/home_controller.dart';
 part 'person_menu/show_person_menu.dart';
 part 'person_menu/show_merge_picker.dart';
 part 'person_menu/orbit.dart';
@@ -268,7 +268,7 @@ class _PersonHeadActionsState extends State<PersonHeadActions> with TickerProvid
         demo: PersonDemoKind.together,
         onTap: () {
           Navigator.of(context).popUntil((route) => route.isFirst);
-          Get.find<NativeController>().setHomeTab(3);
+          Get.find<HomeController>().setHomeTab(3);
           widget.faces.startSelecting(widget.person);
         },
       ),

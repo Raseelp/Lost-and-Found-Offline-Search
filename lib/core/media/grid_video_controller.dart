@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:video_player/video_player.dart';
+import 'package:video_player/video_player.dart';
 import 'package:lost_and_found/core/media/media_service.dart';
+import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 
 /// Where a video tile is on the screen, as far as playing it is concerned.
 class GridVideoSpot {
@@ -239,8 +239,8 @@ class GridVideoController extends GetxController with WidgetsBindingObserver {
 
   bool get _allowed {
     if (!enabled || !_foreground || _powerSave) return false;
-    if (Get.isRegistered<NativeController>() &&
-        Get.find<NativeController>().isScanning) {
+    if (Get.isRegistered<LibraryController>() &&
+        Get.find<LibraryController>().isScanning) {
       return false;
     }
     return true;

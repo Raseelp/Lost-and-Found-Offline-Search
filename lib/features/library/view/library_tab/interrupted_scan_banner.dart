@@ -1,13 +1,13 @@
 part of '../library_tab.dart';
 
 /// Shown in place of the usual scan buttons when a scan was still going the last time the app process existed but
-/// is not any more. See NativeController._checkForInterruptedScan for how that is detected. Resuming picks up where
+/// is not any more. See LibraryController._checkForInterruptedScan for how that is detected. Resuming picks up where
 /// it left off, because embedImages skips whatever it already finished, by hash, so this is a one-tap fix rather
 /// than a full rescan.
 class _InterruptedScanBanner extends StatelessWidget {
   const _InterruptedScanBanner({required this.controller});
 
-  final NativeController controller;
+  final LibraryController controller;
 
   @override
   Widget build(BuildContext context) {

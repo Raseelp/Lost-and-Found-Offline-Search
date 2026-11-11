@@ -6,7 +6,7 @@ part of '../library_tab.dart';
 class _ModelUpdatedBanner extends StatelessWidget {
   const _ModelUpdatedBanner({required this.controller});
 
-  final NativeController controller;
+  final LibraryController controller;
 
   @override
   Widget build(BuildContext context) {

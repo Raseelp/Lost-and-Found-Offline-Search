@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/collections/controllers/collections_controller.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/memories/features/stories/controllers/stories_controller.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
@@ -13,6 +12,8 @@ import 'package:lost_and_found/core/theme/motion.dart';
 import 'package:lost_and_found/features/memories/features/stories/view/story_viewer_screen.dart';
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
 import 'package:lost_and_found/core/widgets/app_toast.dart';
+import 'package:lost_and_found/features/library/controllers/library_controller.dart';
+import 'package:lost_and_found/features/search/controllers/search_controller.dart';
 
 /// Opens the stories at ring [index] of [rings]. [origin] is where the ring was on screen: the
 /// story grows out of it, and closes back into it. A second tap while the first story is opening does nothing, so a
@@ -43,7 +44,7 @@ class _RingsBuilder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final native = Get.find<NativeController>();
+    final native = Get.find<LibraryController>();
 
     return GetBuilder<FacesController>(
       builder: (faces) => GetBuilder<CollectionsController>(
@@ -75,7 +76,7 @@ class _RingsBuilder extends StatelessWidget {
 class StoryRingsBar extends StatelessWidget {
   const StoryRingsBar({super.key, required this.controller, required this.compact});
 
-  final NativeController controller;
+  final AppSearchController controller;
   final bool compact;
 
   static const double _large = 68;

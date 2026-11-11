@@ -4,9 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/collections/controllers/collections_controller.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
+import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 import 'package:lost_and_found/features/collections/models/collection_model.dart';
-import 'package:lost_and_found/features/collections/view/widgets/new_collection_sheet.dart';
+import 'package:lost_and_found/features/collections/view/widgets/new_collection_sheet.dart';
 import 'package:lost_and_found/features/people/models/person.dart';
 
 /// The people the fake library knows.
@@ -22,7 +22,7 @@ class _FakeFaces extends FacesController {
   }
 }
 
-class _FakeNative extends NativeController {
+class _FakeLibrary extends LibraryController {
   /// The real setup loads from the phone, so it is skipped on purpose.
   @override
   // ignore: must_call_super
@@ -130,7 +130,7 @@ void main() {
     setUp(() {
       messenger.setMockMethodCallHandler(channel, (call) async => null);
       Get.put<FacesController>(_FakeFaces());
-      Get.put<NativeController>(_FakeNative()..totalEmbeddings = 5000);
+      Get.put<LibraryController>(_FakeLibrary()..totalEmbeddings = 5000);
       collections = _FakeCollections();
     });
 

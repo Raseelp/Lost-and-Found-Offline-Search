@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/tour/controllers/tour_controller.dart';
 import 'package:lost_and_found/core/theme/motion.dart';
 import 'package:lost_and_found/features/home/features/splash/view/splash_painter.dart';
 import 'package:lost_and_found/features/home/features/splash/view/splash_timeline.dart';
+import 'package:lost_and_found/features/model_download/controllers/model_download_controller.dart';
 
 /// Whether the app may build its screens yet. The splash keeps it back until the icon is whole, so the heavy work of
 /// building the first screen (and the loading that starts with it) does not land in the middle of the animation and
@@ -58,7 +58,7 @@ class _SplashLayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetBuilder<TourController>(
-      builder: (tour) => GetBuilder<NativeController>(
+      builder: (tour) => GetBuilder<ModelDownloadController>(
         builder: (native) => SplashStage(ready: tour.loaded && !native.isCheckingModels, onDone: onDone),
       ),
     );

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/core/media/meta_data_model.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
@@ -19,11 +18,13 @@ import 'package:lost_and_found/features/people/features/timeline/view/widgets/mo
 import 'package:lost_and_found/features/viewer/view/widgets/photo_faces_layer.dart';
 import 'package:lost_and_found/features/search/view/widgets/similar_items_bar.dart';
 import 'package:lost_and_found/features/viewer/view/widgets/video_people_strip.dart';
-import 'package:lost_and_found/features/viewer/view/widgets/zoomable_image.dart';
+import 'package:lost_and_found/features/viewer/view/widgets/zoomable_image.dart';
 import 'package:lost_and_found/core/media/media_service.dart';
 import 'package:lost_and_found/features/people/models/person.dart';
 import 'package:lost_and_found/features/people/models/photo_face.dart';
 import 'package:lost_and_found/features/people/services/people_service.dart';
+import 'package:lost_and_found/features/search/controllers/search_controller.dart';
+import 'package:lost_and_found/features/viewer/controllers/viewer_controller.dart';
 
 class ImageViewScreen extends StatefulWidget {
   const ImageViewScreen({
@@ -49,8 +50,8 @@ class ImageViewScreen extends StatefulWidget {
 /// keyboard up.
 void _dropSearchFocus() {
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (Get.isRegistered<NativeController>()) {
-      Get.find<NativeController>().searchFocusNode.unfocus();
+    if (Get.isRegistered<AppSearchController>()) {
+      Get.find<AppSearchController>().searchFocusNode.unfocus();
     }
   });
 }
@@ -299,14 +300,14 @@ class _ImageViewScreenState extends State<ImageViewScreen>
 
   @override
   Widget build(BuildContext context) {
-    return GetBuilder<NativeController>(
+    return GetBuilder<ViewerController>(
       builder: (controller) {
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: kMediaOverlayStyle,
           child: PopScope(
             onPopInvokedWithResult: (_, __) {
-              if (Get.isRegistered<NativeController>()) {
-                Get.find<NativeController>().searchFocusNode.unfocus();
+              if (Get.isRegistered<AppSearchController>()) {
+                Get.find<AppSearchController>().searchFocusNode.unfocus();
               }
             },
             child: Scaffold(
@@ -390,7 +391,7 @@ class _ImageViewScreenState extends State<ImageViewScreen>
                               key: const ValueKey('similar-open'),
                               items: controller.similarResults,
                               bytesFor: (item) =>
-                                  controller.similarThumbCache[controller
+                                  controller.similarThumbCache[Get.find<AppSearchController>()
                                       .cacheKeyForResult(item)],
                               loading: controller.isLoadingSimilar,
                               label: 'Similar to this photo',
@@ -399,7 +400,7 @@ class _ImageViewScreenState extends State<ImageViewScreen>
                               onSearchFull: () {
                                 setState(() => _similarOpen = false);
                                 Get.until((route) => route.isFirst);
-                                controller.searchWithImage(
+                                Get.find<AppSearchController>().searchWithImage(
                                   uri: uri,
                                   bytes: imageBytes,
                                 );

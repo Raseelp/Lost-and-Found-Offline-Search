@@ -4,7 +4,7 @@ class _FolderRow extends StatelessWidget {
   const _FolderRow({required this.folder, required this.controller});
 
   final IndexedFolder folder;
-  final NativeController controller;
+  final LibraryController controller;
 
   @override
   Widget build(BuildContext context) {

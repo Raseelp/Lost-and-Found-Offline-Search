@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/tour/controllers/tour_controller.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/features/home/view/home_screen.dart';
 import 'package:lost_and_found/features/model_download/view/model_download_screen.dart';
 import 'package:lost_and_found/features/home/features/splash/view/splash_overlay.dart';
 import 'package:lost_and_found/features/tour/view/first_run_tour.dart';
+import 'package:lost_and_found/features/model_download/controllers/model_download_controller.dart';
 
 /// On a fresh install: the tour (which starts the download), then the app. Otherwise the download screen until
 /// every model is on the device, then the app.
@@ -26,7 +26,7 @@ class AppGate extends StatelessWidget {
 
   Widget _screens() {
     return GetBuilder<TourController>(
-      builder: (tour) => GetBuilder<NativeController>(
+      builder: (tour) => GetBuilder<ModelDownloadController>(
         builder: (controller) {
           if (controller.isCheckingModels || !tour.loaded) {
             return const Scaffold(

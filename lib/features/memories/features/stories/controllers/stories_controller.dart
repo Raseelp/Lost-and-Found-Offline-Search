@@ -6,17 +6,17 @@ import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/collections/controllers/collections_controller.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/memories/features/stories/db/stories_store.dart';
 import 'package:lost_and_found/features/collections/models/collection_model.dart';
 import 'package:lost_and_found/features/memories/features/stories/models/story_state.dart';
 import 'package:lost_and_found/features/memories/features/stories/models/story_planner.dart';
-import 'package:lost_and_found/core/permissions/permission_prompt.dart';
+import 'package:lost_and_found/core/permissions/permission_prompt.dart';
 import 'package:lost_and_found/core/media/media_service.dart';
 import 'package:lost_and_found/features/memories/features/stories/services/stories_service.dart';
 import 'package:lost_and_found/features/memories/services/memories_service.dart';
 import 'package:lost_and_found/features/people/models/person.dart';
 import 'package:lost_and_found/features/people/services/people_service.dart';
+import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 
 export 'package:lost_and_found/features/memories/features/stories/models/story_state.dart' show StoryFrame;
 
@@ -231,7 +231,7 @@ class StoriesController extends GetxController with WidgetsBindingObserver {
   bool _dataReady(CollectionsController collections) {
     if (Get.isRegistered<FacesController>() && Get.find<FacesController>().isLoadingPeople) return false;
     if (collections.isScoring) return false;
-    final indexed = Get.isRegistered<NativeController>() && Get.find<NativeController>().totalEmbeddings > 0;
+    final indexed = Get.isRegistered<LibraryController>() && Get.find<LibraryController>().totalEmbeddings > 0;
     return !indexed || collections.hasScored;
   }
 

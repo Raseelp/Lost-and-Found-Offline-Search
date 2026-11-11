@@ -71,7 +71,6 @@ IconData _layoutIcon(ResultsLayout layout) {
 /// The results grid for something other than the live search, such as a collection or a person: same tiles and
 /// viewers, its own list and thumbnails. What the latest scan indexed comes first, and the rest keep their order.
 Widget collectionResultsGrid({
-  required NativeController controller,
   required List<Map<String, dynamic>> results,
   required Uint8List? Function(Map<String, dynamic> item) bytesFor,
   required String matchQuery,
@@ -79,8 +78,7 @@ Widget collectionResultsGrid({
 }) {
   return _ResultsSliverGrid(
     loading: loading,
-    controller: controller,
-    results: controller.newFirst(results),
+    results: Get.find<LibraryController>().newFirst(results),
     bytesFor: bytesFor,
     matchQuery: matchQuery,
   );

@@ -5,11 +5,11 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:lost_and_found/features/collections/controllers/collections_controller.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/collections/models/collection_model.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
+import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 
 /// The shapes of a tile in the Collections tab's mosaic. It is the same bento idea as the search results, with
 /// fewer, bigger tiles, because a collection is a place to go to, not a thumbnail. The grid is four cells across. A
@@ -209,7 +209,7 @@ class CollectionsHero extends StatefulWidget {
   });
 
   final CollectionsController controller;
-  final NativeController native;
+  final LibraryController native;
   final ValueChanged<SmartCollection> onOpen;
   final ValueChanged<SmartCollection> onMenu;
 

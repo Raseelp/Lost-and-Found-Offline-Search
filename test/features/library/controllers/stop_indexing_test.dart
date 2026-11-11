@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
+import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 import 'package:lost_and_found/features/library/view/widgets/library_orbit.dart';
 
 /// Stopping a scan takes a few seconds, because the work in hand is finished first. The app shows "Stopping" at once
@@ -16,7 +16,7 @@ void main() {
 
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
-  group('NativeController.stopScanning', () {
+  group('LibraryController.stopScanning', () {
     test(
       'shows stopping at once and sends one cancel for repeated taps',
       () async {
@@ -29,7 +29,7 @@ void main() {
           }
           return null;
         });
-        final controller = NativeController()..isScanning = true;
+        final controller = LibraryController()..isScanning = true;
 
         final first = controller.stopScanning();
         expect(
@@ -58,7 +58,7 @@ void main() {
         if (call.method == 'cancelEmbedding') cancels++;
         return true;
       });
-      final controller = NativeController();
+      final controller = LibraryController();
 
       await controller.stopScanning();
 
@@ -70,7 +70,7 @@ void main() {
       messenger.setMockMethodCallHandler(channel, (call) async {
         throw PlatformException(code: 'ERROR');
       });
-      final controller = NativeController()..isScanning = true;
+      final controller = LibraryController()..isScanning = true;
 
       await controller.stopScanning();
 

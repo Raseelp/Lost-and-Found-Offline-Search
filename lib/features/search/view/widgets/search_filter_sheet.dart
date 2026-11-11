@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
+import 'package:lost_and_found/core/media/content_mode.dart';
+import 'package:lost_and_found/features/search/controllers/search_controller.dart';
 
-void showSearchFilterSheet(BuildContext context, NativeController controller) {
+void showSearchFilterSheet(BuildContext context, AppSearchController controller) {
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.transparent,
@@ -20,7 +21,7 @@ void showSearchFilterSheet(BuildContext context, NativeController controller) {
 class _SearchFilterSheet extends StatefulWidget {
   const _SearchFilterSheet({required this.controller});
 
-  final NativeController controller;
+  final AppSearchController controller;
 
   @override
   State<_SearchFilterSheet> createState() => _SearchFilterSheetState();

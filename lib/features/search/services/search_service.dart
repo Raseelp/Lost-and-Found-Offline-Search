@@ -1,9 +1,10 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/search/services/tokenizer/clip_tokenizer.dart';
 import 'package:lost_and_found/core/native/native_channel.dart';
+import 'package:lost_and_found/core/media/content_mode.dart';
+import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 
 /// Searching by words, by a photo or by a video frame, and why a result matched.
 class SearchService {
@@ -18,7 +19,7 @@ class SearchService {
   }) async {
     final tokenizer = await ClipTokenizer.load();
     final tokens = tokenizer.tokenize(query);
-    final NativeController nativeController = Get.find();
+    final LibraryController nativeController = Get.find();
 
     debugPrint('tokens generated for the query $query ${tokens.toString()}');
     try {
@@ -47,7 +48,7 @@ class SearchService {
     int limit = 20,
     required ContentMode contentMode,
   }) async {
-    final NativeController nativeController = Get.find();
+    final LibraryController nativeController = Get.find();
     try {
       final results = await nativeChannel
           .invokeMethod<List<dynamic>>("searchByImage", {
@@ -106,7 +107,7 @@ class SearchService {
     int limit = 20,
     required ContentMode contentMode,
   }) async {
-    final NativeController nativeController = Get.find();
+    final LibraryController nativeController = Get.find();
     try {
       final results = await nativeChannel
           .invokeMethod<List<dynamic>>('searchByVideoFrame', {

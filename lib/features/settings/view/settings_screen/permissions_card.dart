@@ -2,14 +2,14 @@ part of '../settings_screen.dart';
 
 /// Every permission the app asks for, one row each. It is the one place that shows the app's whole permission
 /// footprint, so a permission added anywhere else gets its row here too. Photos and videos are required for scanning
-/// ([NativeController.requestMediaPermission]). Notifications are optional: they keep a scan going in the background
-/// and show its progress, and [NativeController] refreshes `backgroundNotificationsGranted` on every resume. The rows
+/// ([LibraryController.requestMediaPermission]). Notifications are optional: they keep a scan going in the background
+/// and show its progress, and [SettingsController] refreshes `backgroundNotificationsGranted` on every resume. The rows
 /// always show, because hiding the card once everything is granted would leave the Permissions label above nothing.
 /// The check runs when the card opens and on resume, to catch a change made in system Settings.
 class _PermissionsCard extends StatefulWidget {
   const _PermissionsCard({required this.controller});
 
-  final NativeController controller;
+  final SettingsController controller;
 
   @override
   State<_PermissionsCard> createState() => _PermissionsCardState();

@@ -1,9 +1,11 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/library/models/library_stats.dart';
 import 'package:lost_and_found/core/native/native_channel.dart';
+import 'package:lost_and_found/core/media/content_mode.dart';
+import 'package:lost_and_found/features/library/models/scan_models.dart';
+import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 
 /// Scanning folders, the index size and the library's statistics.
 class LibraryService {
@@ -29,7 +31,7 @@ class LibraryService {
     required String uri,
     required ContentMode contentMode,
   }) async {
-    final NativeController nativeController = Get.find();
+    final LibraryController nativeController = Get.find();
     try {
       final String pickingModeString = nativeController.getPickingModeString(
         pickingMode: pickingMode,

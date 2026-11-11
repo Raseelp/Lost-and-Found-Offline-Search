@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/collections/controllers/collections_controller.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
@@ -35,7 +34,6 @@ class _CollectionScreenState extends State<CollectionScreen> {
     return GetBuilder<CollectionsController>(
       builder: (collections) {
         final collection = collections.active;
-        final native = Get.find<NativeController>();
         final textTheme = Theme.of(context).textTheme;
 
         if (collection == null) {
@@ -203,7 +201,6 @@ class _CollectionScreenState extends State<CollectionScreen> {
                       horizontal: AppSpacing.xl,
                     ),
                     sliver: collectionResultsGrid(
-                      controller: native,
                       results: members,
                       bytesFor: (item) =>
                           collections.memberThumbs[collections.memberKey(item)],

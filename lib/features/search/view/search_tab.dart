@@ -8,7 +8,6 @@ import 'package:lost_and_found/features/collections/controllers/collections_cont
 import 'package:lost_and_found/features/collections/view/widgets/collection_widgets.dart';
 import 'package:lost_and_found/features/memories/features/stories/view/widgets/story_rings.dart';
 import 'package:lost_and_found/features/collections/view/collections_tab.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
@@ -18,6 +17,8 @@ import 'package:lost_and_found/features/search/view/widgets/mention_text_control
 import 'package:lost_and_found/features/search/view/widgets/search_filter_sheet.dart';
 import 'package:lost_and_found/features/search/view/widgets/search_results.dart';
 import 'package:lost_and_found/core/widgets/app_toast.dart';
+import 'package:lost_and_found/features/library/controllers/library_controller.dart';
+import 'package:lost_and_found/features/search/controllers/search_controller.dart';
 
 /// The Search tab: the search bar, the story rings and the results.
 ///
@@ -26,12 +27,18 @@ import 'package:lost_and_found/core/widgets/app_toast.dart';
 /// plain boxed sliver. The rings are one bar that is large before a search, shrinks into a strip above the results and
 /// grows back when "Stories" is tapped.
 class SearchTab extends StatelessWidget {
-  const SearchTab({super.key, required this.controller});
-
-  final NativeController controller;
+  const SearchTab({super.key});
 
   @override
   Widget build(BuildContext context) {
+    return GetBuilder<AppSearchController>(
+      builder: (controller) => GetBuilder<LibraryController>(
+        builder: (library) => _content(context, controller, library),
+      ),
+    );
+  }
+
+  Widget _content(BuildContext context, AppSearchController controller, LibraryController library) {
     final showResults =
         controller.isSearching ||
         controller.searchResults.isNotEmpty ||
@@ -52,8 +59,8 @@ class SearchTab extends StatelessWidget {
               children: [
                 _SearchPill(controller: controller),
                 const SizedBox(height: AppSpacing.lg),
-                if (controller.isScanning)
-                  _BackgroundIndexingNote(controller: controller),
+                if (library.isScanning)
+                  _BackgroundIndexingNote(library: library),
               ],
             ),
           ),
@@ -65,11 +72,11 @@ class SearchTab extends StatelessWidget {
           ),
         ),
         if (showResults)
-          ...searchResultsSlivers(controller: controller)
+          ...searchResultsSlivers(search: controller, library: library)
         else
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-            sliver: SliverToBoxAdapter(child: _SearchIdlePrompt(controller: controller)),
+            sliver: SliverToBoxAdapter(child: _SearchIdlePrompt(library: library)),
           ),
         SliverToBoxAdapter(child: SizedBox(height: floatingBarClearance(context))),
       ],
@@ -85,7 +92,7 @@ class SearchTab extends StatelessWidget {
 class _SearchPill extends StatefulWidget {
   const _SearchPill({required this.controller});
 
-  final NativeController controller;
+  final AppSearchController controller;
 
   @override
   State<_SearchPill> createState() => _SearchPillState();
@@ -390,7 +397,7 @@ class _RotatingHintState extends State<_RotatingHint> {
 class _FilterButton extends StatelessWidget {
   const _FilterButton({required this.controller});
 
-  final NativeController controller;
+  final AppSearchController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -417,7 +424,7 @@ class _FilterButton extends StatelessWidget {
 class _AttachedImageChip extends StatelessWidget {
   const _AttachedImageChip({required this.controller});
 
-  final NativeController controller;
+  final AppSearchController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -470,7 +477,7 @@ class _AttachedImageChip extends StatelessWidget {
 class _SearchSubmitButton extends StatelessWidget {
   const _SearchSubmitButton({required this.controller});
 
-  final NativeController controller;
+  final AppSearchController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -510,9 +517,9 @@ class _SearchSubmitButton extends StatelessWidget {
 
 /// A note that indexing runs in the background. Tapping it opens the Library, where the progress is.
 class _BackgroundIndexingNote extends StatelessWidget {
-  const _BackgroundIndexingNote({required this.controller});
+  const _BackgroundIndexingNote({required this.library});
 
-  final NativeController controller;
+  final LibraryController library;
 
   @override
   Widget build(BuildContext context) {
@@ -536,7 +543,7 @@ class _BackgroundIndexingNote extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  'Indexing continues in the background - ${controller.totalEmbeddings} indexed so far.',
+                  'Indexing continues in the background - ${library.totalEmbeddings} indexed so far.',
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(color: AppColors.ink48),
@@ -558,13 +565,13 @@ class _BackgroundIndexingNote extends StatelessWidget {
 /// What the tab shows before a search. With nothing indexed yet it shows example searches and the way to the Library
 /// (see [NothingIndexed]).
 class _SearchIdlePrompt extends StatelessWidget {
-  const _SearchIdlePrompt({required this.controller});
+  const _SearchIdlePrompt({required this.library});
 
-  final NativeController controller;
+  final LibraryController library;
 
   @override
   Widget build(BuildContext context) {
-    if (controller.totalEmbeddings == 0) {
+    if (library.totalEmbeddings == 0) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: AppSpacing.xxl),
         child: NothingIndexed(place: NothingIndexedPlace.search),
@@ -614,7 +621,7 @@ class _SearchIdlePrompt extends StatelessWidget {
 class _SaveCollectionButton extends StatelessWidget {
   const _SaveCollectionButton({required this.controller});
 
-  final NativeController controller;
+  final AppSearchController controller;
 
   @override
   Widget build(BuildContext context) {

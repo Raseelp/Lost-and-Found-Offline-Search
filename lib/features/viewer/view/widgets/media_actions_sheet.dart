@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/core/permissions/permission_prompt.dart';
 import 'package:lost_and_found/core/widgets/app_toast.dart';
+import 'package:lost_and_found/features/viewer/controllers/viewer_controller.dart';
 
 /// Shared by both viewers. The action list differs (wallpaper and clipboard only make sense for a still image), and
 /// everything else about the sheet is identical.
@@ -12,7 +12,7 @@ void showMediaActionsSheet(
   BuildContext context, {
   required String uri,
   required bool isVideo,
-  required NativeController controller,
+  required ViewerController controller,
 }) {
   showModalBottomSheet<void>(
     context: context,
@@ -36,7 +36,7 @@ class _MediaActionsSheet extends StatelessWidget {
 
   final String uri;
   final bool isVideo;
-  final NativeController controller;
+  final ViewerController controller;
   /// The screen behind the sheet, not the sheet's own builder context. The sheet is popped before its action finishes,
   /// so its own context is gone by the time there is a result to report.
   final BuildContext feedbackContext;

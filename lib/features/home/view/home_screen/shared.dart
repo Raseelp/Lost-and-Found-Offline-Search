@@ -1,6 +1,6 @@
 part of '../home_screen.dart';
 
-/// The values of NativeController.homeTab.
+/// The values of HomeController.homeTab.
 const int _tabSearch = 0;
 
 const int _tabCollections = 1;

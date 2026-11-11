@@ -5,7 +5,7 @@ part of '../search_results.dart';
 class _LayoutPickerButton extends StatelessWidget {
   const _LayoutPickerButton({required this.controller});
 
-  final NativeController controller;
+  final AppSearchController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +46,7 @@ class _LayoutPickerButton extends StatelessWidget {
   }
 }
 
-void _showLayoutPicker(BuildContext context, NativeController controller) {
+void _showLayoutPicker(BuildContext context, AppSearchController controller) {
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.transparent,

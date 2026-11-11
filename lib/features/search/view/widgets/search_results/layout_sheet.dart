@@ -3,7 +3,7 @@ part of '../search_results.dart';
 class _LayoutSheet extends StatelessWidget {
   const _LayoutSheet({required this.controller});
 
-  final NativeController controller;
+  final AppSearchController controller;
 
   @override
   Widget build(BuildContext context) {

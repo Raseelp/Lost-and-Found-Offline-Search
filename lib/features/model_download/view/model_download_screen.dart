@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/model_download/models/model_status.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
+import 'package:lost_and_found/features/model_download/controllers/model_download_controller.dart';
 
 /// A model's file name in words a person would use.
 String friendlyModelName(String fileName) {
@@ -24,7 +24,7 @@ class ModelDownloadScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GetBuilder<NativeController>(
+    return GetBuilder<ModelDownloadController>(
       builder: (controller) {
         final textTheme = Theme.of(context).textTheme;
 
@@ -194,7 +194,7 @@ class _ModelRow extends StatelessWidget {
 class _ActionArea extends StatelessWidget {
   const _ActionArea({required this.controller});
 
-  final NativeController controller;
+  final ModelDownloadController controller;
 
   @override
   Widget build(BuildContext context) {

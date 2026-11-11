@@ -52,7 +52,7 @@ class _NotificationsSection extends StatelessWidget {
                     ),
                   ),
                 ),
-                GetBuilder<NativeController>(
+                GetBuilder<SettingsController>(
                   builder: (native) => _SettingsRow(
                     icon: Icons.manage_search_rounded,
                     title: 'Finish indexing reminder',

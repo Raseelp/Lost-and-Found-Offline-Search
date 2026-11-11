@@ -156,8 +156,8 @@ class _BuilderView extends StatelessWidget {
 
 /// Whether nothing has been indexed, so there is nothing to export.
 bool _nothingIndexed() =>
-    !Get.isRegistered<NativeController>() ||
-    Get.find<NativeController>().totalEmbeddings == 0;
+    !Get.isRegistered<LibraryController>() ||
+    Get.find<LibraryController>().totalEmbeddings == 0;
 
 /// The search box, pinned above the list so it stays in reach while scrolling.
 class _SearchHeader extends SliverPersistentHeaderDelegate {

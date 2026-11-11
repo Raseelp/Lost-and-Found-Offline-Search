@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
-import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
+import 'package:lost_and_found/features/search/controllers/search_controller.dart';
+import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
 import 'package:lost_and_found/features/people/models/person.dart';
 
 /// A [FacesController] whose setup is skipped on purpose, because the real one starts a face scan and calls the
@@ -24,7 +24,7 @@ void main() {
   final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 
   test('search shows 20 results until the user picks another number', () {
-    expect(NativeController().sliderValue, 20);
+    expect(AppSearchController().sliderValue, 20);
   });
 
   group('PersonTile', () {

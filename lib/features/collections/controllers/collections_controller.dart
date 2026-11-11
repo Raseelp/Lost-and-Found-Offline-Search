@@ -6,16 +6,18 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/library/db/indexed_folder_db_helper.dart';
 import 'package:lost_and_found/features/collections/models/collection_model.dart';
 import 'package:lost_and_found/features/collections/models/default_collections.dart';
-import 'package:lost_and_found/features/search/services/tokenizer/clip_tokenizer.dart';
+import 'package:lost_and_found/features/search/services/tokenizer/clip_tokenizer.dart';
 import 'package:lost_and_found/core/media/media_service.dart';
 import 'package:lost_and_found/core/native/native_channel.dart';
 import 'package:lost_and_found/features/collections/services/collections_service.dart';
 import 'package:lost_and_found/features/people/services/people_service.dart';
 import 'package:lost_and_found/features/search/services/search_service.dart';
+import 'package:lost_and_found/features/library/controllers/library_controller.dart';
+import 'package:lost_and_found/features/model_download/controllers/model_download_controller.dart';
+import 'package:lost_and_found/features/search/controllers/search_controller.dart';
 
 /// Owns the collections: the list the Collections tab and the Search tab chip row show, each one's count
 /// and cover from the last scoring pass, and the open collection.
@@ -181,8 +183,8 @@ class CollectionsController extends GetxController {
   }
 
   Future<void> _loadHeroImagesOnce() async {
-    final native = Get.isRegistered<NativeController>() ? Get.find<NativeController>() : null;
-    final list = heroCandidates(isNew: native?.isInLatestScan ?? (_) => false);
+    final library = Get.isRegistered<LibraryController>() ? Get.find<LibraryController>() : null;
+    final list = heroCandidates(isNew: library?.isInLatestScan ?? (_) => false);
     for (final c in list) {
       final cover = selectedCover(c.id);
       if (cover == null || _heroBytes.containsKey(cover.cacheKey)) continue;
@@ -464,15 +466,14 @@ class CollectionsController extends GetxController {
       _refreshAgain = true;
       return;
     }
-    final native = Get.find<NativeController>();
-    if (native.totalEmbeddings == 0) {
+    if (Get.find<LibraryController>().totalEmbeddings == 0) {
       stats.clear();
       coverBytes.clear();
       _coverSize.clear();
       _heroBytes.clear();
       _rebuildLists();
     }
-    if (!native.modelsReady || native.totalEmbeddings == 0) {
+    if (!Get.find<ModelDownloadController>().modelsReady || Get.find<LibraryController>().totalEmbeddings == 0) {
       _statsLoadedOnce = true;
       update();
       return;
@@ -533,12 +534,11 @@ class CollectionsController extends GetxController {
     syncing.add(c.id);
     update();
     try {
-      final native = Get.find<NativeController>();
-      if (native.modelsReady && native.totalEmbeddings > 0) {
+      if (Get.find<ModelDownloadController>().modelsReady && Get.find<LibraryController>().totalEmbeddings > 0) {
         final scored = await CollectionsService().scoreCollections([await _specFor(c)]);
         if (scored.isNotEmpty) stats[c.id] = _statsFromMap(scored.first);
         _rebuildLists();
-      } else if (native.totalEmbeddings == 0) {
+      } else if (Get.find<LibraryController>().totalEmbeddings == 0) {
         stats.remove(c.id);
         _rebuildLists();
       }
@@ -636,14 +636,13 @@ class CollectionsController extends GetxController {
     required String name,
     List<int>? personIds,
   }) async {
-    final native = Get.find<NativeController>();
-    final query = native.lastTextQuery;
-    final ids = personIds ?? native.lastMentionedPersonIds;
+    final query = Get.find<AppSearchController>().lastTextQuery;
+    final ids = personIds ?? Get.find<AppSearchController>().lastMentionedPersonIds;
     if ((query == null || query.trim().isEmpty) && ids.isEmpty) return null;
     return createCollection(
       name: name,
       query: query?.trim() ?? '',
-      contentMode: native.getContentModeString(contentMode: native.searchContentMode),
+      contentMode: Get.find<LibraryController>().getContentModeString(contentMode: Get.find<AppSearchController>().searchContentMode),
       personIds: ids,
     );
   }
@@ -651,14 +650,13 @@ class CollectionsController extends GetxController {
   /// Turns the image search that is showing (a picked photo, a photo from the viewer, or a video frame) into a
   /// photo-seeded collection.
   Future<SmartCollection?> saveImageSearchAsCollection({required String name}) async {
-    final native = Get.find<NativeController>();
-    final uri = native.lastImageSeedUri;
+    final uri = Get.find<AppSearchController>().lastImageSeedUri;
     if (uri == null) return null;
     return createPhotoCollection(
       name: name,
       uri: uri,
-      timestampMs: native.lastImageSeedTimestampMs,
-      contentMode: native.getContentModeString(contentMode: native.searchContentMode),
+      timestampMs: Get.find<AppSearchController>().lastImageSeedTimestampMs,
+      contentMode: Get.find<LibraryController>().getContentModeString(contentMode: Get.find<AppSearchController>().searchContentMode),
     );
   }
 
@@ -915,7 +913,7 @@ class CollectionsController extends GetxController {
 
     var sinceUpdate = 0;
     final pending = <Map<String, dynamic>>[];
-    for (final item in Get.find<NativeController>().newFirst(members)) {
+    for (final item in Get.find<LibraryController>().newFirst(members)) {
       final key = memberKey(item);
       final cached = _thumbCache.remove(key);
       if (cached != null) {

@@ -42,7 +42,7 @@ void showPersonMenu(
           onTap: () {
             Navigator.of(sheet).pop();
             Navigator.of(context).popUntil((route) => route.isFirst);
-            Get.find<NativeController>().setHomeTab(3);
+            Get.find<HomeController>().setHomeTab(3);
             faces.startSelecting(person);
           },
         ),

@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/model_download/models/model_status.dart';
+import 'package:lost_and_found/features/model_download/controllers/model_download_controller.dart';
 
 /// Where the search-model download is, as the tour shows it.
 enum TourDownloadPhase {
@@ -63,13 +63,13 @@ abstract class TourDownload extends ChangeNotifier {
   void resume();
 }
 
-/// The app's real model download, taken from [NativeController].
+/// The app's real model download, taken from [ModelDownloadController].
 class RealTourDownload extends TourDownload {
-  RealTourDownload() : _native = Get.find<NativeController>() {
+  RealTourDownload() : _native = Get.find<ModelDownloadController>() {
     _disposeListener = _native.addListener(_changed);
   }
 
-  final NativeController _native;
+  final ModelDownloadController _native;
   VoidCallback? _disposeListener;
   TourDownloadState _state = const TourDownloadState();
 

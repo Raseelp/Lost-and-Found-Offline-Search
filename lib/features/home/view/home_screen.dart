@@ -9,7 +9,6 @@ import 'package:lost_and_found/features/collections/controllers/collections_cont
 import 'package:lost_and_found/features/export/controllers/export_controller.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
 import 'package:lost_and_found/features/memories/controllers/memories_controller.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
@@ -28,6 +27,9 @@ import 'package:lost_and_found/features/library/view/library_tab.dart';
 import 'package:lost_and_found/features/search/view/search_tab.dart';
 import 'package:lost_and_found/core/widgets/app_toast.dart';
 import 'package:lost_and_found/features/memories/services/memories_service.dart';
+import 'package:lost_and_found/features/home/controllers/home_controller.dart';
+import 'package:lost_and_found/features/library/controllers/library_controller.dart';
+import 'package:lost_and_found/features/search/controllers/search_controller.dart';
 part 'home_screen/shared.dart';
 part 'home_screen/tab_pill.dart';
 part 'home_screen/floating_nav_bar.dart';
@@ -92,12 +94,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// collections to the Collections tab, so leaving either ends it. Opening Faces refreshes it, as looking never
   /// starts a scan. Search opens without the keyboard, which comes up when the box is tapped, so the suggestions and
   /// results under it are not covered straight away.
-  void _showTab(NativeController controller, int i, {bool tapped = true}) {
-    if (i != controller.homeTab) {
+  void _showTab(HomeController home, int i, {bool tapped = true}) {
+    if (i != home.homeTab) {
       if (tapped) HapticFeedback.selectionClick();
       _shrunk = false;
     }
-    controller.setHomeTab(i);
+    home.setHomeTab(i);
     if (i != _tabFaces && Get.isRegistered<FacesController>()) {
       final faces = Get.find<FacesController>();
       if (faces.selecting) faces.stopSelecting();
@@ -112,7 +114,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (i != _tabSearch) {
       // The IndexedStack keeps the search box alive, and a stale focus on it would come back when a pushed screen
       // pops, putting the keyboard up over a different tab.
-      controller.searchFocusNode.unfocus();
+      Get.find<AppSearchController>().searchFocusNode.unfocus();
     }
   }
 
@@ -124,11 +126,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final tab = await MemoriesService().takeOpenTab();
       if (tab == null || !mounted) return;
       Get.until((route) => route.isFirst);
-      final native = Get.find<NativeController>();
-      _showTab(native, tab == _tabLibrary ? _tabLibrary : _tabSearch, tapped: false);
+      _showTab(Get.find<HomeController>(), tab == _tabLibrary ? _tabLibrary : _tabSearch, tapped: false);
       if (await MemoriesService().takeIndexNow() && mounted) {
-        native.setScanWholePhone(true);
-        await startIndexing(context, native);
+        final library = Get.find<LibraryController>();
+        library.setScanWholePhone(true);
+        await startIndexing(context, library);
       }
     } catch (e) {
       debugPrint('takeOpenTab failed: $e');
@@ -143,11 +145,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// are none on the other tabs, and none while choosing. While a catch-up scan runs the People tab shows its
   /// progress instead of the update action. Choosing people, or seeing them over the years, needs at least two.
   List<FabAction> _fabActions(
-    NativeController native,
+    HomeController home,
+    LibraryController library,
     FacesController faces,
     CollectionsController collections,
   ) {
-    if (native.homeTab == _tabCollections) {
+    if (home.homeTab == _tabCollections) {
       if (collections.selecting) return const [];
       return [
         FabAction(
@@ -155,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           label: 'New collection',
           onTap: () => showNewCollectionSheet(context, collections),
         ),
-        if (native.totalEmbeddings != 0 && collections.visible.isNotEmpty)
+        if (library.totalEmbeddings != 0 && collections.visible.isNotEmpty)
           FabAction(
             icon: Icons.collections_bookmark_outlined,
             label: 'Select collections',
@@ -163,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
       ];
     }
-    if (native.homeTab == _tabFaces) {
+    if (home.homeTab == _tabFaces) {
       if (faces.selecting) return const [];
       final status = faces.status;
       final noModel = !status.ready || status.error == 'no_model';
@@ -228,182 +231,186 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// read out.
   @override
   Widget build(BuildContext context) {
-    return GetBuilder<NativeController>(
-      builder: (controller) {
-        final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+    return GetBuilder<HomeController>(
+      builder: (home) => GetBuilder<LibraryController>(
+        builder: (library) => _content(context, home, library),
+      ),
+    );
+  }
 
-        return PopScope(
-          canPop: controller.homeTab == _tabSearch,
-          onPopInvokedWithResult: (didPop, _) {
-            if (didPop) return;
-            if (_fabKey.currentState?.isOpen == true) {
-              _fabKey.currentState!.close();
-              return;
-            }
-            if (Get.isRegistered<FacesController>()) {
-              final faces = Get.find<FacesController>();
-              if (faces.selecting) {
-                faces.stopSelecting();
-                return;
-              }
-            }
-            if (Get.isRegistered<CollectionsController>()) {
-              final collections = Get.find<CollectionsController>();
-              if (collections.selecting) {
-                collections.stopSelecting();
-                return;
-              }
-            }
-            controller.setHomeTab(_tabSearch);
-          },
-          child: Scaffold(
-            backgroundColor: AppColors.canvas,
-            body: SafeArea(
-              bottom: false,
-              child: Stack(
+  Widget _content(BuildContext context, HomeController home, LibraryController library) {
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+
+    return PopScope(
+      canPop: home.homeTab == _tabSearch,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_fabKey.currentState?.isOpen == true) {
+          _fabKey.currentState!.close();
+          return;
+        }
+        if (Get.isRegistered<FacesController>()) {
+          final faces = Get.find<FacesController>();
+          if (faces.selecting) {
+            faces.stopSelecting();
+            return;
+          }
+        }
+        if (Get.isRegistered<CollectionsController>()) {
+          final collections = Get.find<CollectionsController>();
+          if (collections.selecting) {
+            collections.stopSelecting();
+            return;
+          }
+        }
+        home.setHomeTab(_tabSearch);
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.canvas,
+        body: SafeArea(
+          bottom: false,
+          child: Stack(
+            children: [
+              Column(
                 children: [
-                  Column(
-                    children: [
-                      const _HomeTopBar(),
-                      const SizedBox(height: AppSpacing.sm),
-                      Expanded(
-                        child: NotificationListener<ScrollNotification>(
-                          onNotification: _onScroll,
-                          child: IndexedStack(
-                            index: controller.homeTab,
-                            children: [
-                              SearchTab(controller: controller),
-                              GetBuilder<CollectionsController>(
-                                builder: (collections) => CollectionsTab(
-                                  controller: collections,
-                                  native: controller,
-                                ),
-                              ),
-                              LibraryTab(controller: controller),
-                              const FacesTab(),
-                            ],
+                  const _HomeTopBar(),
+                  const SizedBox(height: AppSpacing.sm),
+                  Expanded(
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: _onScroll,
+                      child: IndexedStack(
+                        index: home.homeTab,
+                        children: [
+                          const SearchTab(),
+                          GetBuilder<CollectionsController>(
+                            builder: (collections) => CollectionsTab(
+                              controller: collections,
+                              native: library,
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: _KeyboardHide(
-                      hidden: keyboardOpen,
-                      child: GetBuilder<FacesController>(
-                        builder: (faces) => GetBuilder<CollectionsController>(
-                          builder: (collections) => _FloatingNavBar(
-                          selection:
-                              faces.selecting && controller.homeTab == _tabFaces
-                              ? _BarSelection(
-                                  chosen: faces.selectedPeople.length,
-                                  onCancel: faces.stopSelecting,
-                                  emptyLabel: 'Choose people',
-                                  faceIds: [
-                                    for (final p in faces.selectedPeople)
-                                      p.coverFaceId,
-                                  ],
-                                  summaryFor: (n) => n == 1
-                                      ? '1 person chosen'
-                                      : '$n people chosen',
-                                  actions: [
-                                    _BarAction(
-                                      icon: Icons.folder_zip_outlined,
-                                      labelFor: (n) => 'Export as zip',
-                                      onTap: () {
-                                        final people = faces.selectedPeople;
-                                        if (people.isEmpty) return;
-                                        faces.stopSelecting();
-                                        openExportZip(
-                                          context,
-                                          select: {
-                                            for (final p in people)
-                                              ExportController.personKey(p.id),
-                                          },
-                                        );
-                                      },
-                                    ),
-                                    _BarAction(
-                                      icon: Icons.photo_library_outlined,
-                                      labelFor: (n) => n == 1
-                                          ? 'Their photos'
-                                          : 'Photos together',
-                                      onTap: () {
-                                        final people = faces.selectedPeople;
-                                        if (people.isEmpty) return;
-                                        faces.stopSelecting();
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => PeopleFilterScreen(
-                                              people: people,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                )
-                              : collections.selecting &&
-                                    controller.homeTab == _tabCollections
-                              ? _BarSelection(
-                                  chosen: collections.selectedIds.length,
-                                  onCancel: collections.stopSelecting,
-                                  emptyLabel: 'Choose collections',
-                                  actions: [
-                                    _BarAction(
-                                      icon: Icons.folder_zip_outlined,
-                                      labelFor: (n) => n == 1
-                                          ? 'Export as zip'
-                                          : 'Export $n as zip',
-                                      onTap: () {
-                                        final ids = {
-                                          for (final id
-                                              in collections.selectedIds)
-                                            id == MemoriesController.selectionId
-                                                ? ExportController.memoryKey
-                                                : ExportController.collectionKey(
-                                                    id,
-                                                  ),
-                                        };
-                                        if (ids.isEmpty) return;
-                                        collections.stopSelecting();
-                                        openExportZip(context, select: ids);
-                                      },
-                                    ),
-                                  ],
-                                )
-                              : null,
-                          index: controller.homeTab,
-                          shrunk: _shrunk,
-                          showActivityDot: controller.isScanning,
-                          onChanged: (i) => _showTab(controller, i),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: GetBuilder<FacesController>(
-                      builder: (faces) => GetBuilder<CollectionsController>(
-                        builder: (collections) => ActionFab(
-                          key: _fabKey,
-                          actions: _fabActions(controller, faces, collections),
-                          visible: !keyboardOpen,
-                          shrunk: _shrunk,
-                          searchActive: controller.homeTab == _tabSearch,
-                        ),
+                          LibraryTab(controller: library),
+                          const FacesTab(),
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
-            ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _KeyboardHide(
+                  hidden: keyboardOpen,
+                  child: GetBuilder<FacesController>(
+                    builder: (faces) => GetBuilder<CollectionsController>(
+                      builder: (collections) => _FloatingNavBar(
+                      selection:
+                          faces.selecting && home.homeTab == _tabFaces
+                          ? _BarSelection(
+                              chosen: faces.selectedPeople.length,
+                              onCancel: faces.stopSelecting,
+                              emptyLabel: 'Choose people',
+                              faceIds: [
+                                for (final p in faces.selectedPeople)
+                                  p.coverFaceId,
+                              ],
+                              summaryFor: (n) => n == 1
+                                  ? '1 person chosen'
+                                  : '$n people chosen',
+                              actions: [
+                                _BarAction(
+                                  icon: Icons.folder_zip_outlined,
+                                  labelFor: (n) => 'Export as zip',
+                                  onTap: () {
+                                    final people = faces.selectedPeople;
+                                    if (people.isEmpty) return;
+                                    faces.stopSelecting();
+                                    openExportZip(
+                                      context,
+                                      select: {
+                                        for (final p in people)
+                                          ExportController.personKey(p.id),
+                                      },
+                                    );
+                                  },
+                                ),
+                                _BarAction(
+                                  icon: Icons.photo_library_outlined,
+                                  labelFor: (n) => n == 1
+                                      ? 'Their photos'
+                                      : 'Photos together',
+                                  onTap: () {
+                                    final people = faces.selectedPeople;
+                                    if (people.isEmpty) return;
+                                    faces.stopSelecting();
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => PeopleFilterScreen(
+                                          people: people,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            )
+                          : collections.selecting &&
+                                home.homeTab == _tabCollections
+                          ? _BarSelection(
+                              chosen: collections.selectedIds.length,
+                              onCancel: collections.stopSelecting,
+                              emptyLabel: 'Choose collections',
+                              actions: [
+                                _BarAction(
+                                  icon: Icons.folder_zip_outlined,
+                                  labelFor: (n) => n == 1
+                                      ? 'Export as zip'
+                                      : 'Export $n as zip',
+                                  onTap: () {
+                                    final ids = {
+                                      for (final id
+                                          in collections.selectedIds)
+                                        id == MemoriesController.selectionId
+                                            ? ExportController.memoryKey
+                                            : ExportController.collectionKey(
+                                                id,
+                                              ),
+                                    };
+                                    if (ids.isEmpty) return;
+                                    collections.stopSelecting();
+                                    openExportZip(context, select: ids);
+                                  },
+                                ),
+                              ],
+                            )
+                          : null,
+                      index: home.homeTab,
+                      shrunk: _shrunk,
+                      showActivityDot: library.isScanning,
+                      onChanged: (i) => _showTab(home, i),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: GetBuilder<FacesController>(
+                  builder: (faces) => GetBuilder<CollectionsController>(
+                    builder: (collections) => ActionFab(
+                      key: _fabKey,
+                      actions: _fabActions(home, library, faces, collections),
+                      visible: !keyboardOpen,
+                      shrunk: _shrunk,
+                      searchActive: home.homeTab == _tabSearch,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

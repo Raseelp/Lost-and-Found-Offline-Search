@@ -1,22 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/features/tour/view/demos/search_demo.dart' show TourBestMatch;
 import 'package:lost_and_found/features/tour/view/widgets/tour_person_tile.dart';
 import 'package:lost_and_found/features/tour/view/widgets/tour_samples.dart';
-import 'package:lost_and_found/features/library/view/library_tab.dart' show startIndexing;
+import 'package:lost_and_found/features/home/controllers/home_controller.dart';
+import 'package:lost_and_found/features/library/controllers/library_controller.dart';
+import 'package:lost_and_found/features/search/controllers/search_controller.dart';
+import 'package:lost_and_found/features/library/view/library_tab.dart' show startIndexing;
 import 'package:lost_and_found/features/people/features/timeline/view/widgets/timeline_preview.dart'
     show bentoRects;
 
 /// Takes the person to the Library tab (closing whatever is open on top of the tabs first).
 void goToLibrary(BuildContext context) {
-  final native = Get.find<NativeController>();
   Navigator.of(context).popUntil((route) => route.isFirst);
-  native.setHomeTab(2);
-  native.searchFocusNode.unfocus();
+  Get.find<HomeController>().setHomeTab(2);
+  Get.find<AppSearchController>().searchFocusNode.unfocus();
 }
 
 /// Where [NothingIndexed] is shown: each place has its own picture of what it will hold.
@@ -86,9 +87,8 @@ class NothingIndexed extends StatelessWidget {
         const SizedBox(height: AppSpacing.base),
         FilledButton(
           onPressed: () {
-            final native = Get.find<NativeController>();
             goToLibrary(context);
-            startIndexing(context, native);
+            startIndexing(context, Get.find<LibraryController>());
           },
           style: FilledButton.styleFrom(
             minimumSize: const Size(0, 48),

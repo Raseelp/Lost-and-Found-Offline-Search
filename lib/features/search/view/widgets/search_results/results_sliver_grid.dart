@@ -5,14 +5,11 @@ part of '../search_results.dart';
 /// offscreen tile's decoded image from being discarded and redecoded every time it scrolls back into view.
 class _ResultsSliverGrid extends StatelessWidget {
   const _ResultsSliverGrid({
-    required this.controller,
     this.results,
     this.bytesFor,
     this.matchQuery,
     this.loading = false,
   });
-
-  final NativeController controller;
 
   /// Defaults to the live search. A collection passes its own list, its own thumbnail cache, and the phrase to explain
   /// matches by.
@@ -25,13 +22,17 @@ class _ResultsSliverGrid extends StatelessWidget {
   /// the "couldn't load" icon, which is only for one that really failed.
   final bool loading;
 
+  AppSearchController get _search => Get.find<AppSearchController>();
+  LibraryController get _library => Get.find<LibraryController>();
+  ViewerController get _viewer => Get.find<ViewerController>();
+
   List<Map<String, dynamic>> get _results =>
-      results ?? controller.searchResults;
+      results ?? _search.searchResults;
 
   /// Unused for bento, which builds its own SliverQuiltedGridDelegate instead of the fixed cross-axis count this
   /// getter feeds.
   int get _crossAxisCount {
-    switch (controller.resultsLayout) {
+    switch (_search.resultsLayout) {
       case ResultsLayout.list:
         return 1;
       case ResultsLayout.grid2:
@@ -55,10 +56,10 @@ class _ResultsSliverGrid extends StatelessWidget {
     final uri = item['path'] as String;
     final isVideo = item['isVideo'] as bool? ?? false;
     final timestampMs = (item['timestampMs'] as num?)?.toInt() ?? 0;
-    final cacheKey = controller.cacheKeyForResult(item);
+    final cacheKey = _search.cacheKeyForResult(item);
     final bytes = bytesFor != null
         ? bytesFor!(item)
-        : controller.imageCache[cacheKey];
+        : _viewer.imageCache[cacheKey];
 
     if (bytes == null && !loading) {
       return AnimatedSwitcher(
@@ -98,16 +99,16 @@ class _ResultsSliverGrid extends StatelessWidget {
               upgradeMaxDimension: upgradeMaxDimension,
               uri: uri,
               timestampMs: timestampMs,
-              isNew: controller.isInLatestScan(uri),
+              isNew: _library.isInLatestScan(uri),
               onTap: () {
                 if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
-                controller.loadMatchExplanation(
+                _viewer.loadMatchExplanation(
                   path: uri,
                   isVideo: isVideo,
                   timestampMs: timestampMs,
                   query: matchQuery,
                 );
-                controller.loadMetaDataByUri(uri: uri, isVideo: isVideo);
+                _viewer.loadMetaDataByUri(uri: uri, isVideo: isVideo);
                 if (isVideo) {
                   Navigator.of(context).push(
                     mediaViewRoute(
@@ -138,8 +139,14 @@ class _ResultsSliverGrid extends StatelessWidget {
   /// hand.
   @override
   Widget build(BuildContext context) {
-    final isList = controller.resultsLayout == ResultsLayout.list;
-    final isBento = controller.resultsLayout == ResultsLayout.bento;
+    return GetBuilder<AppSearchController>(
+      builder: (_) => GetBuilder<LibraryController>(builder: (_) => _buildGrid(context)),
+    );
+  }
+
+  Widget _buildGrid(BuildContext context) {
+    final isList = _search.resultsLayout == ResultsLayout.list;
+    final isBento = _search.resultsLayout == ResultsLayout.bento;
 
     if (!isBento) {
       return SliverGrid(

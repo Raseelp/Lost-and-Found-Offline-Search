@@ -5,7 +5,7 @@ part of '../library_tab.dart';
 class _IdleControls extends StatelessWidget {
   const _IdleControls({super.key, required this.controller});
 
-  final NativeController controller;
+  final LibraryController controller;
 
   @override
   Widget build(BuildContext context) {

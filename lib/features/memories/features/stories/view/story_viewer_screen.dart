@@ -9,7 +9,6 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/collections/controllers/collections_controller.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/memories/features/stories/controllers/stories_controller.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
@@ -21,6 +20,7 @@ import 'package:lost_and_found/features/viewer/view/widgets/media_chrome_button.
 import 'package:lost_and_found/core/widgets/new_tag.dart';
 import 'package:lost_and_found/features/memories/features/stories/view/widgets/story_rings.dart';
 import 'package:video_player/video_player.dart';
+import 'package:lost_and_found/features/search/controllers/search_controller.dart';
 part 'story_viewer_screen/story_page.dart';
 part 'story_viewer_screen/story_route.dart';
 part 'story_viewer_screen/cube_face.dart';
@@ -248,7 +248,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> with TickerProvid
   /// understood as either, so their own page is the way then.
   void _act(StoryRing ring) {
     final navigator = Navigator.of(context);
-    final native = Get.find<NativeController>();
+    final native = Get.find<AppSearchController>();
 
     if (ring.kind == StoryKind.collection) {
       Get.find<CollectionsController>().openCollection(ring.collection!);

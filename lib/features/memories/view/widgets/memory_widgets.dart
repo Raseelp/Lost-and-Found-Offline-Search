@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/people/features/timeline/models/people_timeline.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/media/media_view_route.dart';
@@ -10,6 +9,7 @@ import 'package:lost_and_found/features/viewer/view/image_full_screen.dart';
 import 'package:lost_and_found/features/viewer/view/video_full_screen.dart';
 import 'package:lost_and_found/core/media/grid_video_layer.dart';
 import 'package:lost_and_found/features/people/features/timeline/view/widgets/timeline_preview.dart';
+import 'package:lost_and_found/features/viewer/controllers/viewer_controller.dart';
 
 /// Opens [photo] in the viewer for its kind, from the small picture [loader] already has (so it opens
 /// at once and sharpens as the full photo loads).
@@ -19,7 +19,7 @@ Future<void> openMemoryPhoto(
   PreviewPhoto photo,
 ) async {
   if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
-  final native = Get.find<NativeController>();
+  final native = Get.find<ViewerController>();
   final bytes =
       loader.peek(photo, large: true, sharp: true) ??
       loader.peek(photo, large: true) ??

@@ -9,7 +9,7 @@ class _NotificationsOffBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    return GetBuilder<NativeController>(
+    return GetBuilder<SettingsController>(
       builder: (native) => GetBuilder<MemoriesController>(
         builder: (memories) => GetBuilder<StoriesController>(
           builder: (stories) {

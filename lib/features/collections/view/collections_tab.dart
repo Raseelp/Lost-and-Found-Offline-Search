@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/collections/controllers/collections_controller.dart';
 import 'package:lost_and_found/features/memories/controllers/memories_controller.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/collections/models/collection_model.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
@@ -13,6 +12,7 @@ import 'package:lost_and_found/features/collections/view/widgets/collection_widg
 import 'package:lost_and_found/features/collections/view/widgets/collections_bento.dart';
 import 'package:lost_and_found/features/library/view/widgets/nothing_indexed.dart';
 import 'package:lost_and_found/features/memories/view/widgets/on_this_day_card.dart';
+import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 
 /// Opens [collection]. The tab's cards and the Search tab's chips share it.
 void openCollectionScreen(
@@ -38,7 +38,7 @@ class CollectionsTab extends StatelessWidget {
   });
 
   final CollectionsController controller;
-  final NativeController native;
+  final LibraryController native;
 
   Widget _tile(BuildContext context, SmartCollection collection) {
     return CollectionCard(

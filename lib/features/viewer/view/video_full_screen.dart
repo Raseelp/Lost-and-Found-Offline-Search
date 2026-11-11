@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/core/media/meta_data_model.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
@@ -25,6 +24,8 @@ import 'package:lost_and_found/features/people/models/face_scan.dart';
 import 'package:lost_and_found/features/people/models/person.dart';
 import 'package:lost_and_found/features/people/models/photo_face.dart';
 import 'package:lost_and_found/features/people/services/people_service.dart';
+import 'package:lost_and_found/features/search/controllers/search_controller.dart';
+import 'package:lost_and_found/features/viewer/controllers/viewer_controller.dart';
 part 'video_full_screen/frame_pick_bar.dart';
 part 'video_full_screen/video_metadata_content.dart';
 part 'video_full_screen/toast_data.dart';
@@ -172,8 +173,8 @@ class _VideoViewScreenState extends State<VideoViewScreen>
     _still.dispose();
     _controller.dispose();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (Get.isRegistered<NativeController>()) {
-        Get.find<NativeController>().searchFocusNode.unfocus();
+      if (Get.isRegistered<AppSearchController>()) {
+        Get.find<AppSearchController>().searchFocusNode.unfocus();
       }
     });
     super.dispose();
@@ -757,8 +758,8 @@ class _VideoViewScreenState extends State<VideoViewScreen>
 
   /// Search with this for video: there is no single image to use, so this pauses and turns the playback bar into a
   /// scrubber where the user picks a moment and then confirms. See _showSimilarForFrame.
-  void _enterFramePicking(NativeController nativeController) {
-    nativeController.hideMetadata();
+  void _enterFramePicking(ViewerController viewer) {
+    viewer.hideMetadata();
     _controller.pause();
     setState(() {
       _pickingFrame = true;
@@ -766,7 +767,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
       _peopleOpen = false;
       if (_similarOpen) {
         _similarOpen = false;
-        nativeController.clearSimilar();
+        viewer.clearSimilar();
       }
     });
   }
@@ -777,28 +778,28 @@ class _VideoViewScreenState extends State<VideoViewScreen>
 
   /// The frame is picked: shows the strip of similar items for it instead of jumping to the full results. The strip's
   /// own search button, _confirmFrameSearch, is still there for the full results.
-  void _showSimilarForFrame(NativeController nativeController) {
+  void _showSimilarForFrame(ViewerController viewer) {
     final positionMs = _controller.value.position.inMilliseconds;
     setState(() {
       _pickingFrame = false;
       _similarOpen = true;
       _similarFrameMs = positionMs;
     });
-    nativeController.loadSimilar(uri: widget.videoUri, timestampMs: positionMs);
+    viewer.loadSimilar(uri: widget.videoUri, timestampMs: positionMs);
   }
 
-  void _closeSimilar(NativeController nativeController) {
+  void _closeSimilar(ViewerController viewer) {
     setState(() => _similarOpen = false);
-    nativeController.clearSimilar();
+    viewer.clearSimilar();
   }
 
   /// Goes back to the home screen on the Search tab, because the video may have been opened from inside a collection,
   /// and searches with the frame. The search is not awaited, because the results grid shows its own loading state.
-  void _confirmFrameSearch(NativeController nativeController) {
+  void _confirmFrameSearch(ViewerController viewer) {
     final positionMs =
         _similarFrameMs ?? _controller.value.position.inMilliseconds;
     Navigator.of(context).popUntil((route) => route.isFirst);
-    nativeController.searchWithVideoFrame(
+    Get.find<AppSearchController>().searchWithVideoFrame(
       uri: widget.videoUri,
       timestampMs: positionMs,
     );
@@ -867,8 +868,8 @@ class _VideoViewScreenState extends State<VideoViewScreen>
   Widget build(BuildContext context) {
     final ready = _initialized && _initError == null;
 
-    return GetBuilder<NativeController>(
-      builder: (nativeController) => AnnotatedRegion<SystemUiOverlayStyle>(
+    return GetBuilder<ViewerController>(
+      builder: (viewer) => AnnotatedRegion<SystemUiOverlayStyle>(
         value: kMediaOverlayStyle,
         child: Scaffold(
           backgroundColor: AppColors.mediaBackdrop,
@@ -880,7 +881,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                   if (_peopleOpen) {
                     setState(() => _peopleOpen = false);
                   } else if (_similarOpen) {
-                    _closeSimilar(nativeController);
+                    _closeSimilar(viewer);
                   } else if (_selectedFace != null) {
                     setState(() => _selectedFace = null);
                   } else {
@@ -1047,11 +1048,11 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                                                   _cancelFramePicking();
                                                 } else if (_similarOpen) {
                                                   _closeSimilar(
-                                                    nativeController,
+                                                    viewer,
                                                   );
                                                 } else {
                                                   _enterFramePicking(
-                                                    nativeController,
+                                                    viewer,
                                                   );
                                                 }
                                               },
@@ -1068,7 +1069,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                                                     uri: widget.videoUri,
                                                     isVideo: true,
                                                     controller:
-                                                        nativeController,
+                                                        viewer,
                                                   ),
                                             ),
                                             const SizedBox(
@@ -1076,11 +1077,11 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                                             ),
                                             MediaChromeButton(
                                               icon:
-                                                  nativeController.showMetadata
+                                                  viewer.showMetadata
                                                   ? Icons.info
                                                   : Icons.info_outline,
                                               tooltip: 'Details',
-                                              onTap: nativeController
+                                              onTap: viewer
                                                   .toggleMetadata,
                                             ),
                                           ],
@@ -1110,7 +1111,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                                     formatDuration: _formatDuration,
                                     onCancel: _cancelFramePicking,
                                     onSearch: () =>
-                                        _showSimilarForFrame(nativeController),
+                                        _showSimilarForFrame(viewer),
                                   ),
 
                                 if (ready && !_pickingFrame)
@@ -1139,7 +1140,7 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                                       _peopleOpen = !_peopleOpen;
                                       if (_peopleOpen && _similarOpen) {
                                         _similarOpen = false;
-                                        nativeController.clearSimilar();
+                                        viewer.clearSimilar();
                                       }
                                     }),
                                   ),
@@ -1185,17 +1186,17 @@ class _VideoViewScreenState extends State<VideoViewScreen>
                           child: _similarOpen
                               ? SimilarItemsBar(
                                   key: const ValueKey('similar-open'),
-                                  items: nativeController.similarResults,
+                                  items: viewer.similarResults,
                                   bytesFor: (item) =>
-                                      nativeController
-                                          .similarThumbCache[nativeController
+                                      viewer
+                                          .similarThumbCache[Get.find<AppSearchController>()
                                           .cacheKeyForResult(item)],
-                                  loading: nativeController.isLoadingSimilar,
+                                  loading: viewer.isLoadingSimilar,
                                   label: 'Similar to this frame',
                                   onTapItem: (item, bytes) =>
                                       _openSimilarItem(item, bytes),
                                   onSearchFull: () =>
-                                      _confirmFrameSearch(nativeController),
+                                      _confirmFrameSearch(viewer),
                                 )
                               : const SizedBox.shrink(
                                   key: ValueKey('similar-closed'),
@@ -1264,13 +1265,13 @@ class _VideoViewScreenState extends State<VideoViewScreen>
               ),
 
               DraggableMetadataSheet(
-                visible: nativeController.showMetadata,
-                onDismissed: nativeController.hideMetadata,
+                visible: viewer.showMetadata,
+                onDismissed: viewer.hideMetadata,
                 heightFactor: 0.5,
                 child: _VideoMetadataContent(
-                  metadata: nativeController.selectedMetadata,
-                  isLoading: nativeController.isFetchingMetadata,
-                  matchExplanation: nativeController.matchExplanation,
+                  metadata: viewer.selectedMetadata,
+                  isLoading: viewer.isFetchingMetadata,
+                  matchExplanation: viewer.matchExplanation,
                   matchedFrameBytes: widget.thumbnailBytes,
                   matchedTimestampMs: widget.timestampMs,
                 ),

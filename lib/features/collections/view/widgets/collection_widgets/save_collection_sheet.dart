@@ -26,7 +26,7 @@ class _SaveCollectionSheetState extends State<_SaveCollectionSheet> {
     text: widget.initialName,
   );
   /// The same "@name" recognition the search box uses, so a collection made from the Collections page, and not only
-  /// one saved from an existing search, can filter by person too. The people provider mirrors how NativeController
+  /// one saved from an existing search, can filter by person too. The people provider mirrors how AppSearchController
   /// builds its searchTextController.
   late final MentionTextEditingController _query = MentionTextEditingController(
     peopleProvider: () =>

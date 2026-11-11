@@ -3,7 +3,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/people/features/timeline/models/people_timeline.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
@@ -14,8 +13,9 @@ import 'package:lost_and_found/features/viewer/view/image_full_screen.dart';
 import 'package:lost_and_found/features/viewer/view/video_full_screen.dart';
 import 'package:lost_and_found/core/media/grid_video_layer.dart';
 import 'package:lost_and_found/features/people/features/timeline/view/widgets/moment_badge.dart';
-import 'package:lost_and_found/features/people/features/timeline/view/widgets/timeline_preview.dart';
+import 'package:lost_and_found/features/people/features/timeline/view/widgets/timeline_preview.dart';
 import 'package:lost_and_found/features/people/features/timeline/services/timeline_service.dart';
+import 'package:lost_and_found/features/viewer/controllers/viewer_controller.dart';
 
 /// Every photo and video with people in it from one month of the timeline, day by day. Tapping one
 /// opens it. [focusKey] is the photo that was tapped in the timeline's preview: the list scrolls to
@@ -135,7 +135,7 @@ class _MonthPhotosScreenState extends State<MonthPhotosScreen> {
 
   Future<void> _open(PreviewPhoto photo) async {
     if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
-    final native = Get.find<NativeController>();
+    final native = Get.find<ViewerController>();
     final bytes = _loader.peek(photo, large: true, sharp: true) ??
         _loader.peek(photo, large: true) ??
         _loader.peek(photo, large: false) ??

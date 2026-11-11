@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/collections/controllers/collections_controller.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
-import 'package:lost_and_found/core/native/native_controller.dart';
 import 'package:lost_and_found/features/collections/models/collection_model.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
@@ -16,6 +15,7 @@ import 'package:lost_and_found/core/widgets/app_toast.dart';
 import 'package:lost_and_found/core/media/media_service.dart';
 import 'package:lost_and_found/features/people/models/person.dart';
 import 'package:lost_and_found/features/search/services/search_service.dart';
+import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 part 'new_collection_sheet/shared.dart';
 part 'new_collection_sheet/collection_sheet.dart';
 

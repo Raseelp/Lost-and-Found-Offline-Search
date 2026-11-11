@@ -6,7 +6,7 @@ part of '../library_tab.dart';
 class _BackgroundScanBanner extends StatelessWidget {
   const _BackgroundScanBanner({required this.controller});
 
-  final NativeController controller;
+  final SettingsController controller;
 
   @override
   Widget build(BuildContext context) {
