@@ -18,7 +18,7 @@ import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/core/theme/motion.dart';
 import 'package:lost_and_found/features/collections/view/collection_screen.dart';
 import 'package:lost_and_found/features/people/view/person_screen.dart';
-import 'package:lost_and_found/core/widgets/media_chrome_button.dart';
+import 'package:lost_and_found/features/viewer/view/widgets/media_chrome_button.dart';
 import 'package:lost_and_found/core/widgets/new_tag.dart';
 import 'package:lost_and_found/features/memories/features/stories/view/widgets/story_rings.dart';
 import 'package:video_player/video_player.dart';

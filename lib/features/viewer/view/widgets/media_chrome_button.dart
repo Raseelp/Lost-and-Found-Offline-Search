@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
-import 'package:lost_and_found/core/theme/palettes/viewer_palette.dart';
+import 'package:lost_and_found/features/viewer/view/widgets/viewer_palette.dart';
 
 /// For the photo and video viewers, whose background is black. It has light status and navigation icons (the
 /// app-wide style has dark ones for the light theme), and the navigation bar is painted black to match.

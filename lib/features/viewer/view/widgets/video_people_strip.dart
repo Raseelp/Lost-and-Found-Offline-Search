@@ -6,7 +6,7 @@ import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
-import 'package:lost_and_found/core/widgets/media_tray.dart';
+import 'package:lost_and_found/features/viewer/view/widgets/media_tray.dart';
 
 /// The small button in the video's controls: a face and how many people are in the video. Tapping it opens the
 /// [VideoPeoplePanel]. When [pulse] changes (a scan just finished, or someone new turned up) it draws the eye: the

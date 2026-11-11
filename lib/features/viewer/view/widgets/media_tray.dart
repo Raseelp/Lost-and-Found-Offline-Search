@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
-import 'package:lost_and_found/core/theme/palettes/viewer_palette.dart';
+import 'package:lost_and_found/features/viewer/view/widgets/viewer_palette.dart';
 
 /// The shared shell for a floating panel over the photo and video viewer. The people strip and the "similar to this"
 /// strip both live in one, so they read as one family of trays. It is frosted glass: [BackdropFilter] blurs the

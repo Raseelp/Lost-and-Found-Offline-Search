@@ -5,7 +5,7 @@ import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/core/theme/motion.dart';
-import 'package:lost_and_found/core/widgets/media_tray.dart';
+import 'package:lost_and_found/features/viewer/view/widgets/media_tray.dart';
 
 /// The strip opened from the "search with this" button, in place of a full results screen.
 ///
