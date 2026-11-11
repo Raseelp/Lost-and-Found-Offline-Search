@@ -10,7 +10,7 @@ object VideoFrameExtractor {
 
     /**
      * The lock that keeps two [MediaMetadataRetriever] sessions from running at once. A phone has few hardware video
-     * decoder sessions, and a scan and the loadVideoThumbnail handler in [MainActivity] can both hit the limit. The
+     * decoder sessions, and a scan and the loadVideoThumbnail handler in [MediaChannel] can both hit the limit. The
      * failure is caught silently: a thumbnail is missing or the video is skipped until the next scan. The handler
      * takes this lock too.
      */

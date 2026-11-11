@@ -4,7 +4,7 @@ Why a few of the less obvious parts are built the way they are. The code carries
 
 ## The dates catalog
 
-`LibraryDates` (`embedder/memories/`) is the catalog of when every photo and video in the search index was taken. It
+`LibraryDates` (`features/memories/`) is the catalog of when every photo and video in the search index was taken. It
 backs On this day, the memories and the timeline, and it is built to stay cheap however big the library is.
 
 - It follows the index instead of reading it again. The embedding file only grows, until a folder is removed, so

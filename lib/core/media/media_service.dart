@@ -6,7 +6,7 @@ import 'package:lost_and_found/core/native/native_channel.dart';
 /// Photo and video pictures, their file details and the phone's video limits.
 class MediaService {
   /// [maxDimension] overrides the native default cap on compressed decodes (see MAX_COMPRESSED_DIMENSION in
-  /// MainActivity.kt) for this one call. It is for the rare, much larger showcase tiles of a bento grid, which need
+  /// MediaChannel.kt) for this one call. It is for the rare, much larger showcase tiles of a bento grid, which need
   /// more source resolution to look sharp. Null keeps the cheaper default cap.
   Future<Uint8List> loadImageBytes({
     required String uri,

@@ -48,11 +48,11 @@ pictures, the face quality score and cluster settings, the embedding maths and t
 flutter test
 ```
 
-Dart tests in `test/`. The folders follow `lib/`: `models/`, `utils/`, `tokanizer/` and `view/`.
+Dart tests in `test/`. The folders follow `lib/`, for example `test/features/search/services/`.
 They cover the search tokenizer, the story planner, the toast, the Remove animations helpers, the
 splash timeline and its lifecycle, the memory and timeline models, and stopping a scan.
 
-To run one file, pass its path, for example `flutter test test/utils/app_toast_test.dart`.
+To run one file, pass its path, for example `flutter test test/core/widgets/app_toast_test.dart`.
 To run one Kotlin class, use `./gradlew :app:testDebugUnitTest --tests "*EmbeddingMathTest"`.
 
 The face clusterer, face aligner, memory planner and image preprocessing need Android classes
@@ -76,7 +76,7 @@ layers at 108, 162, 216, 324 and 432 px (mdpi to xxxhdpi).
 
 With "Remove animations" on, Flutter runs every one-off animation 20 times faster, so it is over in a
 frame or two. Page transitions, dialogs, sheets and animated widgets need nothing more. The rest is in
-`lib/utils/motion.dart`:
+`lib/core/theme/motion.dart`:
 
 - A controller that keeps time rather than moving anything, such as a story's progress, is made with
   `AnimationBehavior.preserve`, or it would run 20 times faster too.
@@ -88,7 +88,7 @@ frame or two. Page transitions, dialogs, sheets and animated widgets need nothin
 
 ## Start animation
 
-The start animation is drawn in Flutter over the app (`lib/view/splash/`, mounted in `main.dart`), not by Android's own
+The start animation is drawn in Flutter over the app (`lib/features/home/features/splash/`, mounted in `main.dart`), not by Android's own
 splash screen. Android 12 and newer show a plain white splash with no icon (`res/values-v31/styles.xml`) and the
 launch window is white in dark mode too, so nothing jumps when the first Flutter frame comes.
 
@@ -106,7 +106,7 @@ launch window is white in dark mode too, so nothing jumps when the first Flutter
 
 ## Messages
 
-Every short message ("Copied.", "Merged two people." with Undo) goes through `AppToast` in `lib/utils/app_toast.dart`,
+Every short message ("Copied.", "Merged two people." with Undo) goes through `AppToast` in `lib/core/widgets/app_toast.dart`,
 so they all look the same. It sits above the floating bar on the home screen and near the bottom of the screen
 anywhere else, above the keyboard when it is up. A message with a button shows the time left as a line that shrinks.
 A new message replaces the one on screen. Write them as a short sentence that ends with a full stop. The video viewer
@@ -131,7 +131,7 @@ logs, which copies the app's own recent log lines (the newest 4000) so a bug rep
 - `export_clip/MOBILECLIP_SOURCE.md` records where the weights came from (address, date, size,
   hashes) and what was measured. The 2024 licence texts are in `export_clip/licenses/`.
 - The files are hosted in the `models-v1` GitHub release. The app checks their SHA-256 hashes
-  after downloading (`embedder/models/`). Steps and checksums: [model_host/README.md](../model_host/README.md).
+  after downloading (`features/model_download/`). Steps and checksums: [model_host/README.md](../model_host/README.md).
 
 ## Face models
 

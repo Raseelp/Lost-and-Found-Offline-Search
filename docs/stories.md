@@ -76,8 +76,8 @@ A note that says your stories have refreshed comes a day after you last used the
 
 ## In the code
 
-- `lib/utils/story_planner.dart`: the lenses, the choice of pictures, the row and the batch.
-- `lib/controllers/stories_controller.dart`: the rings, the stories, the saved state and the note.
-- `lib/db/stories_store.dart`: `stories.db`.
-- `lib/view/story_viewer_screen.dart` and `lib/view/widget/story_rings.dart`: the viewer and the rings.
+- `lib/features/memories/features/stories/models/story_planner.dart`: the lenses, the choice of pictures, the row and the batch.
+- `lib/features/memories/features/stories/controllers/stories_controller.dart`: the rings, the stories, the saved state and the note.
+- `lib/features/memories/features/stories/db/stories_store.dart`: `stories.db`.
+- `story_viewer_screen.dart` and `widgets/story_rings.dart` in `lib/features/memories/features/stories/view/`: the viewer and the rings.
 - `android/.../memories/StoriesReminder.kt` and `StoriesRingRow.kt`: the note.

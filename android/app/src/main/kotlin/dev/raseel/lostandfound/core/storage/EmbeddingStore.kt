@@ -20,7 +20,7 @@ class EmbeddingStore(private val context: Context) {
     private var cachedRecords: List<EmbeddingRecord>? = null
 
     /**
-     * Guards every read and write below. Search runs on its own thread (see MainActivity) at the same time as a scan,
+     * Guards every read and write below. Search runs on its own thread (see SearchChannel) at the same time as a scan,
      * and a search's readAll() racing a scan's appendBatch() on the same file could corrupt data without throwing. One
      * lock is simple and enough, because reads and writes are fast.
      */

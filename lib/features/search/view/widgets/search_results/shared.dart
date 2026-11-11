@@ -31,7 +31,7 @@ const List<QuiltedGridTile> _movementHeroRight = [
   QuiltedGridTile(1, 2),
 ];
 
-/// The normal grid-tile thumbnail cap (MainActivity.kt's MAX_COMPRESSED_DIMENSION) is tuned for a small tile, so a
+/// The normal grid-tile thumbnail cap (MediaChannel.kt's MAX_COMPRESSED_DIMENSION) is tuned for a small tile, so a
 /// bento tile bigger than that needs more source resolution to look sharp, scaling with the tile's size. Returns null
 /// for 1 and 2 cell tiles, the hero cap for the 4-cell hero and the showcase cap for the 8 and 16 slot tiles. See
 /// _ResultTile.upgradeMaxDimension.
@@ -45,7 +45,7 @@ int? _bentoUpgradeDimension(QuiltedGridTile tile) {
 
 /// Higher decode caps requested only for a bento tile big enough to need them (see _bentoUpgradeDimension), instead of
 /// raising the cap every tile shares. Three tiers: a 2-cell tile needs a small bump, the 4-cell hero more, the 8 and
-/// 16 slot showcases a lot more. They are the "maxDimension" channel argument. MainActivity.kt accepts any value, but
+/// 16 slot showcases a lot more. They are the "maxDimension" channel argument. MediaChannel.kt accepts any value, but
 /// its MAX_COMPRESSED_DIMENSION_WIDE, _HERO and _SHOWCASE constants document what to expect, so keep them in sync.
 const int _wideThumbnailMaxDimension = 1900;
 

@@ -5,7 +5,7 @@ How search and face recognition work, how they fit together, and where the data 
 ## Overview
 
 ```
-Flutter UI (lib/)  ── method channel ──>  Native Android layer (Kotlin, embedder/)
+Flutter UI (lib/)  ── method channel ──>  Native Android layer (Kotlin, features/)
                                            │
               ┌────────────────────────────┼─────────────────────────────┐
               │                            │                             │
@@ -18,7 +18,8 @@ Flutter UI (lib/)  ── method channel ──>  Native Android layer (Kotlin, 
 The Flutter app (`lib/`) holds the screens and state (GetX controllers). Everything heavy runs in
 native Kotlin (`android/app/src/main/kotlin/dev/raseel/lostandfound/`): model inference, scanning,
 storage, notifications and the zip writer. The two talk over a Flutter method channel
-(`lib/services/native_services.dart` and `MainActivity.kt`).
+(`lib/core/native/native_channel.dart` and the `*Channel` classes in Kotlin, see
+[structure.md](structure.md)).
 
 ## Models
 
@@ -49,7 +50,7 @@ in fp32 because an fp16 build returned NaN on a real phone.
    the file format and which model made the vectors (model id 3 = MobileCLIP-S0). An index from
    another model is dropped when the app starts, and the Library tab offers to scan again; faces
    and people are kept. NaN or infinite vectors are never stored.
-5. **Searching.** The text is tokenised in Dart (`lib/tokanizer/`, CLIP's own word pattern, 77
+5. **Searching.** The text is tokenised in Dart (`lib/features/search/services/tokenizer/`, CLIP's own word pattern, 77
    tokens), turned into a vector by the text model, and compared with every stored vector (dot
    product of length-1 vectors = cosine similarity). Frames of the same video collapse into the
    best one. Search by photo runs the image model on the chosen photo and uses that vector
@@ -120,7 +121,7 @@ counts as one item however many frames someone is in, and opens at the moment th
 | Search vectors | `EmbeddingStore` | Binary file with a header (format version, model id, vector size 512) |
 | Faces, people, merges, rejections | `FaceStore` | SQLite |
 | Photo dates for memories | `LibraryDates` (`library_dates.db`) | SQLite, follows the search index |
-| Collections and indexed folders | Flutter side (`lib/db/`) | SQLite; collection search vectors cached in shared preferences |
+| Collections and indexed folders | Flutter side (`lib/features/*/db/`) | SQLite; collection search vectors cached in shared preferences |
 
 Everything stays in the app's private storage. Clearing the search index, the face data or the
 search model is in Settings > Danger zone.
@@ -140,18 +141,21 @@ search model is in Settings > Danger zone.
   16 it is the system's own progress notification, asking to be a live update so a chip with the
   percentage shows in the status bar (Android never promotes a notification with its own layout).
   A tap opens the app on the Library tab (`MainActivity.ACTION_OPEN_LIBRARY`, picked up by the home
-  screen through `takeOpenLibrary`).
-- **Daily memories**: `memories/DailyMemoryWorker`, two slots a day.
-- **Finish-indexing note**: `memories/IndexNudge`, a worker set a few days after the app was last used
+  screen through `takeOpenTab`).
+- **Daily memories**: `features/memories/DailyMemoryWorker`, two slots a day.
+- **Finish-indexing note**: `features/settings/IndexNudge`, a worker set a few days after the app was last used
   (see [Memories](memories.md)).
-- **Zip export**: `export/ZipExportWorker`.
+- **Zip export**: `features/export/ZipExportWorker`.
 
 ## Project layout
 
-- `lib/`: the Flutter app (`controllers/` with GetX, `view/`, `services/` for the channel to the
-  native side, `models/`, `tokanizer/`, `db/`).
-- `android/app/src/main/kotlin/dev/raseel/lostandfound/`: the native side. `embedder/` (search model,
-  scanning, the stores), `embedder/faces/` (detection, recognition, grouping, video faces),
-  `embedder/memories/` (dates, notifications), `export/` (the zip writer).
+- `lib/`: the Flutter app, one folder per feature under `lib/features/`, with the shared code in
+  `lib/core/`.
+- `android/app/src/main/kotlin/dev/raseel/lostandfound/`: the native side, also one folder per feature.
+  `features/search/` (the search model), `features/library/` (scanning), `features/people/` (detection,
+  recognition, grouping, video faces), `features/memories/` (dates, notifications), `features/export/`
+  (the zip writer), `core/storage/` (the embedding store).
+
+How the folders are laid out and where new code goes: [structure.md](structure.md).
 - `export_clip/`: scripts that make and check the search model files, and the model's licence texts.
 - `model_host/`: how the search model files are published, with their checksums.

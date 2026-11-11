@@ -1333,7 +1333,7 @@ class EmbeddingEngine(
 
     /**
      * Everything the Library tab's stats need, from one pass over the store. readAll() is not free for a large library
-     * and the stats are refreshed on a timer during a scan (see NativeController).
+     * and the stats are refreshed on a timer during a scan (see LibraryController).
      */
     data class LibraryStats(
         val totalEmbeddings: Int,
