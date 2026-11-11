@@ -79,12 +79,12 @@
 
         <!-- Hears that a scan's notification was swiped away, so it is not put back. -->
         <receiver
-            android:name=".embedder.NotificationDismissReceiver"
+            android:name=".features.library.NotificationDismissReceiver"
             android:exported="false" />
 
         <!-- SAF Folder Picker Activity (NOT launcher) -->
         <activity
-            android:name=".SafPickerActivity"
+            android:name=".features.library.SafPickerActivity"
             android:exported="false" />
 
         <!-- The scan itself now runs as WorkManager work (see ScanWorker),

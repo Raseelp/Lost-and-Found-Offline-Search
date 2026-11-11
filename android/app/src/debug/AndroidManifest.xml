@@ -12,10 +12,10 @@
         android:label="L&amp;F debug"
         tools:replace="android:label">
         <activity
-            android:name="dev.raseel.lostandfound.embedder.ModelBenchActivity"
+            android:name="dev.raseel.lostandfound.features.library.ModelBenchActivity"
             android:exported="true" />
         <activity
-            android:name="dev.raseel.lostandfound.embedder.ScanBenchActivity"
+            android:name="dev.raseel.lostandfound.features.library.ScanBenchActivity"
             android:exported="true" />
     </application>
 </manifest>

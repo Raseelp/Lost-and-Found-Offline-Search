@@ -11,7 +11,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.media.MediaMetadataRetriever
-import dev.raseel.lostandfound.embedder.faces.FaceImageLoader
+import dev.raseel.lostandfound.features.people.FaceImageLoader
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 
@@ -26,39 +26,40 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 
-import dev.raseel.lostandfound.embedder.EmbeddingEngine
-import dev.raseel.lostandfound.embedder.ScanEngineHolder
-import dev.raseel.lostandfound.embedder.ScanForegroundService
-import dev.raseel.lostandfound.embedder.ScanWorker
-import dev.raseel.lostandfound.embedder.VideoFrameExtractor
-import dev.raseel.lostandfound.embedder.BenchLog
-import dev.raseel.lostandfound.embedder.LogDump
-import dev.raseel.lostandfound.embedder.faces.FaceClusterConfig
-import dev.raseel.lostandfound.embedder.faces.FaceFollower
-import dev.raseel.lostandfound.embedder.faces.FaceModelKind
-import dev.raseel.lostandfound.embedder.faces.FaceScanHub
-import dev.raseel.lostandfound.embedder.faces.FaceScanWorker
-import dev.raseel.lostandfound.embedder.faces.FaceServices
-import dev.raseel.lostandfound.embedder.faces.PhotoScanProgress
-import dev.raseel.lostandfound.embedder.faces.FaceTuner
-import dev.raseel.lostandfound.embedder.faces.FaceSettings
-import dev.raseel.lostandfound.embedder.memories.IndexNudge
-import dev.raseel.lostandfound.embedder.memories.LibraryDates
-import dev.raseel.lostandfound.embedder.memories.MemoryDay
-import dev.raseel.lostandfound.embedder.memories.MemoryDays
-import dev.raseel.lostandfound.embedder.memories.MemoryEvergreen
-import dev.raseel.lostandfound.embedder.memories.MemoryNotifier
-import dev.raseel.lostandfound.embedder.memories.MemoryPlanner
-import dev.raseel.lostandfound.embedder.memories.MemoryPrefs
-import dev.raseel.lostandfound.embedder.memories.MemoryScheduler
-import dev.raseel.lostandfound.embedder.memories.ThenNow
-import dev.raseel.lostandfound.embedder.memories.DayYear
-import dev.raseel.lostandfound.embedder.memories.Plan
-import dev.raseel.lostandfound.embedder.memories.PlanPhoto
-import dev.raseel.lostandfound.embedder.memories.StoriesReminder
-import dev.raseel.lostandfound.embedder.models.ModelCatalog
-import dev.raseel.lostandfound.embedder.models.ModelManager
-import dev.raseel.lostandfound.embedder.models.ModelsNotReadyException
+import dev.raseel.lostandfound.features.search.EmbeddingEngine
+import dev.raseel.lostandfound.features.library.ScanEngineHolder
+import dev.raseel.lostandfound.features.library.ScanForegroundService
+import dev.raseel.lostandfound.features.library.ScanWorker
+import dev.raseel.lostandfound.features.library.VideoFrameExtractor
+import dev.raseel.lostandfound.features.settings.BenchLog
+import dev.raseel.lostandfound.features.settings.LogDump
+import dev.raseel.lostandfound.features.people.FaceClusterConfig
+import dev.raseel.lostandfound.features.people.FaceFollower
+import dev.raseel.lostandfound.features.people.FaceModelKind
+import dev.raseel.lostandfound.features.people.FaceScanHub
+import dev.raseel.lostandfound.features.people.FaceScanWorker
+import dev.raseel.lostandfound.features.people.FaceServices
+import dev.raseel.lostandfound.features.people.PhotoScanProgress
+import dev.raseel.lostandfound.features.people.FaceTuner
+import dev.raseel.lostandfound.features.people.FaceSettings
+import dev.raseel.lostandfound.features.settings.IndexNudge
+import dev.raseel.lostandfound.features.memories.LibraryDates
+import dev.raseel.lostandfound.features.memories.MemoryDay
+import dev.raseel.lostandfound.features.memories.MemoryDays
+import dev.raseel.lostandfound.features.memories.MemoryEvergreen
+import dev.raseel.lostandfound.features.memories.MemoryNotifier
+import dev.raseel.lostandfound.features.memories.MemoryPlanner
+import dev.raseel.lostandfound.features.memories.MemoryPrefs
+import dev.raseel.lostandfound.features.memories.MemoryScheduler
+import dev.raseel.lostandfound.features.people.thennow.ThenNow
+import dev.raseel.lostandfound.features.memories.DayYear
+import dev.raseel.lostandfound.features.memories.Plan
+import dev.raseel.lostandfound.features.memories.PlanPhoto
+import dev.raseel.lostandfound.features.memories.stories.StoriesReminder
+import dev.raseel.lostandfound.features.model_download.ModelCatalog
+import dev.raseel.lostandfound.features.model_download.ModelManager
+import dev.raseel.lostandfound.features.model_download.ModelsNotReadyException
+import dev.raseel.lostandfound.features.library.SafPickerActivity
 
 class MainActivity : FlutterActivity() {
 
@@ -179,7 +180,7 @@ class MainActivity : FlutterActivity() {
     private val faces by lazy { FaceServices.get(applicationContext) }
 
     /** A photo or video standing for a moment of several people, as the timeline wants it. */
-    private fun groupMap(g: dev.raseel.lostandfound.embedder.faces.FaceStore.GroupMedia) = mapOf(
+    private fun groupMap(g: dev.raseel.lostandfound.features.people.FaceStore.GroupMedia) = mapOf(
         "key" to g.key,
         "takenMs" to g.ms,
         "people" to g.people,
@@ -1041,7 +1042,7 @@ class MainActivity : FlutterActivity() {
                     while (android.os.SystemClock.elapsedRealtime() < deadline) {
                         val batch = faces.store.mediaMissingDates(300)
                         if (batch.isEmpty()) break
-                        val found = dev.raseel.lostandfound.embedder.faces.MediaDates.resolve(applicationContext, batch, now, deadline)
+                        val found = dev.raseel.lostandfound.features.people.timeline.MediaDates.resolve(applicationContext, batch, now, deadline)
                         if (found.isEmpty()) break
                         faces.store.putDates(found)
                     }
@@ -1343,7 +1344,7 @@ class MainActivity : FlutterActivity() {
                     val uri = call.argument<String>("uri") ?: ""
                     val tsMs = (call.argument<Number>("tsMs") ?: 0).toLong()
                     val (exact, stored) = faces.store.videoFrameFaces(uri, tsMs)
-                    val summaries = HashMap<Long, dev.raseel.lostandfound.embedder.faces.PersonSummary?>()
+                    val summaries = HashMap<Long, dev.raseel.lostandfound.features.people.PersonSummary?>()
                     val list = stored.mapNotNull { f ->
                         val p = summaries.getOrPut(f.personId) { faces.store.personSummary(f.personId) }
                         if (p == null || p.hidden) {
@@ -1385,7 +1386,7 @@ class MainActivity : FlutterActivity() {
                         // Someone known elsewhere, or seen in at least two moments of this video: one stray frame is
                         // more likely a bystander.
                         val enough = p != null &&
-                            (p.photoCount >= dev.raseel.lostandfound.embedder.faces.FaceStore.MIN_PHOTOS_TO_SHOW ||
+                            (p.photoCount >= dev.raseel.lostandfound.features.people.FaceStore.MIN_PHOTOS_TO_SHOW ||
                                 list.distinct().size >= 2 || personId in looked)
                         if (p == null || p.hidden || !enough) {
                             null
@@ -1423,7 +1424,7 @@ class MainActivity : FlutterActivity() {
                             faces.scanner.scanVideoNow(uri)
                         } catch (e: Throwable) {
                             android.util.Log.w("MainActivity", "scanning video $uri failed: ${e.message}")
-                            dev.raseel.lostandfound.embedder.faces.FaceScanner.VideoScanResult(false, 0, 0)
+                            dev.raseel.lostandfound.features.people.FaceScanner.VideoScanResult(false, 0, 0)
                         }
                         runOnUiThread {
                             result.success(mapOf("scanned" to scanned.scanned, "level" to scanned.level, "faces" to scanned.faces))
@@ -1454,7 +1455,7 @@ class MainActivity : FlutterActivity() {
                         } catch (e: Throwable) {
                             android.util.Log.w("MainActivity", "scanning $uri failed: ${e.message}")
                         }
-                        val summaries = HashMap<Long, dev.raseel.lostandfound.embedder.faces.PersonSummary?>()
+                        val summaries = HashMap<Long, dev.raseel.lostandfound.features.people.PersonSummary?>()
                         val found = faces.store.photoFaces(uri).mapNotNull { f ->
                             val p = summaries.getOrPut(f.personId) { faces.store.personSummary(f.personId) }
                             if (p == null || p.hidden) {
@@ -1994,7 +1995,7 @@ class MainActivity : FlutterActivity() {
                     exportExecutor.execute {
                         try {
                             val infos = uris.map {
-                                val info = dev.raseel.lostandfound.export.ExportItems.resolve(applicationContext, it)
+                                val info = dev.raseel.lostandfound.features.export.ExportItems.resolve(applicationContext, it)
                                 mapOf(
                                     "name" to info.name,
                                     "size" to info.size,
@@ -2029,7 +2030,7 @@ class MainActivity : FlutterActivity() {
                     }
                     exportExecutor.execute {
                         val started = try {
-                            dev.raseel.lostandfound.export.ZipExport.start(applicationContext, job)
+                            dev.raseel.lostandfound.features.export.ZipExport.start(applicationContext, job)
                         } catch (e: Throwable) {
                             null
                         }
@@ -2040,10 +2041,10 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
-                "zipExportStatus" -> result.success(dev.raseel.lostandfound.export.ZipExportState.toMap())
+                "zipExportStatus" -> result.success(dev.raseel.lostandfound.features.export.ZipExportState.toMap())
 
                 "cancelZipExport" -> {
-                    dev.raseel.lostandfound.export.ZipExport.cancel()
+                    dev.raseel.lostandfound.features.export.ZipExport.cancel()
                     result.success(true)
                 }
 
@@ -2075,7 +2076,7 @@ class MainActivity : FlutterActivity() {
                 "takeLatestScan" -> {
                     faceCropExecutor.execute {
                         val items = try {
-                            dev.raseel.lostandfound.embedder.LatestScan.take(applicationContext)
+                            dev.raseel.lostandfound.features.library.LatestScan.take(applicationContext)
                         } catch (e: Throwable) {
                             emptyList()
                         }
