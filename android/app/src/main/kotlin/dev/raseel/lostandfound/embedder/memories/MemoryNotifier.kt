@@ -122,7 +122,7 @@ object MemoryNotifier {
         )
 
         val publicVersion = NotificationCompat.Builder(app, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_memory)
+            .setSmallIcon(R.drawable.ic_stat_app)
             .setContentTitle("A memory from this day")
             .build()
 
@@ -141,7 +141,7 @@ object MemoryNotifier {
         }
 
         val builder = NotificationCompat.Builder(app, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_memory)
+            .setSmallIcon(R.drawable.ic_stat_app)
             .setColor(ACCENT)
             .setContentTitle(notice.title)
             .setContentText(notice.body)

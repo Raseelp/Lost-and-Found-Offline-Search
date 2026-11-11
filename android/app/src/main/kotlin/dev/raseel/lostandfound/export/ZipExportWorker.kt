@@ -22,6 +22,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import dev.raseel.lostandfound.MainActivity
+import dev.raseel.lostandfound.R
 import java.io.BufferedOutputStream
 import java.io.File
 import java.io.IOException
@@ -433,7 +434,7 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 NotificationCompat.Builder(applicationContext, CHANNEL_ID)
                     .setContentTitle("Your zip is ready")
                     .setContentText(text)
-                    .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                    .setSmallIcon(R.drawable.ic_stat_app)
                     .setColor(Color.parseColor("#165E59"))
                     .setAutoCancel(true)
                     .setContentIntent(contentIntent())
@@ -453,7 +454,7 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
                     .setContentTitle("Your zip could not be made")
                     .setContentText(message)
                     .setStyle(NotificationCompat.BigTextStyle().bigText(message))
-                    .setSmallIcon(android.R.drawable.stat_notify_error)
+                    .setSmallIcon(R.drawable.ic_stat_app)
                     .setColor(Color.parseColor("#165E59"))
                     .setAutoCancel(true)
                     .setContentIntent(contentIntent())
@@ -468,7 +469,7 @@ class ZipExportWorker(context: Context, params: WorkerParameters) : CoroutineWor
         return NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(text)
-            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setSmallIcon(R.drawable.ic_stat_app)
             .setColor(Color.parseColor("#165E59"))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
