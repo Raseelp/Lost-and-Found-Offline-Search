@@ -11,7 +11,7 @@ import 'package:lost_and_found/features/people/features/merge/view/merge_suggest
 import 'package:lost_and_found/features/people/view/person_screen.dart';
 import 'package:lost_and_found/core/widgets/app_search_field.dart';
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
-import 'package:lost_and_found/core/widgets/nothing_indexed.dart';
+import 'package:lost_and_found/features/library/view/widgets/nothing_indexed.dart';
 import 'package:lost_and_found/features/people/view/widgets/person_menu.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/core/widgets/app_search_field.dart';
-import 'package:lost_and_found/core/widgets/nothing_indexed.dart';
+import 'package:lost_and_found/features/library/view/widgets/nothing_indexed.dart';
 import 'package:lost_and_found/features/collections/controllers/collections_controller.dart';
 import 'package:lost_and_found/features/collections/view/widgets/collection_widgets.dart';
 import 'package:lost_and_found/features/memories/features/stories/view/widgets/story_rings.dart';

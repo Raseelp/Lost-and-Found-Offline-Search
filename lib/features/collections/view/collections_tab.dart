@@ -11,7 +11,7 @@ import 'package:lost_and_found/core/theme/floating_bar.dart';
 import 'package:lost_and_found/features/collections/view/collection_screen.dart';
 import 'package:lost_and_found/features/collections/view/widgets/collection_widgets.dart';
 import 'package:lost_and_found/features/collections/view/widgets/collections_bento.dart';
-import 'package:lost_and_found/core/widgets/nothing_indexed.dart';
+import 'package:lost_and_found/features/library/view/widgets/nothing_indexed.dart';
 import 'package:lost_and_found/features/memories/view/widgets/on_this_day_card.dart';
 
 /// Opens [collection]. The tab's cards and the Search tab's chips share it.

@@ -16,7 +16,7 @@ import 'package:lost_and_found/core/widgets/match_strength_bars.dart';
 import 'package:lost_and_found/features/viewer/view/widgets/media_actions_sheet.dart';
 import 'package:lost_and_found/core/widgets/media_chrome_button.dart';
 import 'package:lost_and_found/features/viewer/view/widgets/media_info_widgets.dart';
-import 'package:lost_and_found/core/widgets/moment_badge.dart';
+import 'package:lost_and_found/features/people/features/timeline/view/widgets/moment_badge.dart';
 import 'package:lost_and_found/features/viewer/view/widgets/photo_faces_layer.dart';
 import 'package:lost_and_found/features/search/view/widgets/similar_items_bar.dart';
 import 'package:lost_and_found/features/viewer/view/widgets/video_people_strip.dart';

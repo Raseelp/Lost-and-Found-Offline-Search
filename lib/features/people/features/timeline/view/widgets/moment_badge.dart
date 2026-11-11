@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
 import 'package:lost_and_found/features/people/features/timeline/models/people_timeline.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
-import 'package:lost_and_found/core/theme/palettes/moment_palette.dart';
+import 'package:lost_and_found/features/people/features/timeline/view/widgets/moment_palette.dart';
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
 
 /// The paper of the moment marks: a warm cream, readable on a bright or a dark photo.

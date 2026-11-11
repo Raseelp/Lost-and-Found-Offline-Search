@@ -14,7 +14,7 @@ import 'package:lost_and_found/core/theme/motion.dart';
 import 'package:lost_and_found/features/viewer/view/image_full_screen.dart';
 import 'package:lost_and_found/features/viewer/view/video_full_screen.dart';
 import 'package:lost_and_found/core/media/grid_video_layer.dart';
-import 'package:lost_and_found/core/widgets/moment_badge.dart';
+import 'package:lost_and_found/features/people/features/timeline/view/widgets/moment_badge.dart';
 import 'package:lost_and_found/core/widgets/new_tag.dart';
 
 /// Higher decode caps requested only for a bento tile big enough to need them (see _bentoUpgradeDimension), instead of

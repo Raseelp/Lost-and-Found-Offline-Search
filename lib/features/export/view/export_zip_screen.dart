@@ -15,7 +15,7 @@ import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/core/widgets/app_search_field.dart';
 import 'package:lost_and_found/core/widgets/confirm_dialog.dart';
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
-import 'package:lost_and_found/core/widgets/nothing_indexed.dart';
+import 'package:lost_and_found/features/library/view/widgets/nothing_indexed.dart';
 import 'package:lost_and_found/features/export/view/widgets/zip_art.dart';
 import 'package:lost_and_found/features/export/view/widgets/zip_progress.dart';
 
