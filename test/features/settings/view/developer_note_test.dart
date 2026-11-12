@@ -77,6 +77,35 @@ void main() {
     expect(find.textContaining('effort. Your support'), findsOneWidget);
   });
 
+  testWidgets('the short page is only the way to report an issue', (tester) async {
+    await open(tester, const DeveloperNoteScreen(full: false));
+
+    expect(find.text('Report an issue'), findsOneWidget);
+    expect(find.textContaining("Hi, I'm Raseel"), findsNothing);
+    expect(find.textContaining('Your support buys me'), findsNothing);
+    expect(
+      find.byWidgetPredicate((w) => w is Image && w.image is AssetImage && (w.image as AssetImage).assetName.contains('buy_me_a_coffee')),
+      findsNothing,
+    );
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.text('Logs attached'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Something is wrong.');
+    await tester.pump();
+    await tester.tap(send());
+    await tester.pumpAndSettle();
+    expect(calls.where((c) => c.method == 'sendReport'), hasLength(1));
+  });
+
+  testWidgets('the full page has the note, the coffee button and the report', (tester) async {
+    await open(tester, const DeveloperNoteScreen());
+
+    expect(find.text('Report a problem'), findsOneWidget);
+    expect(find.text('Report an issue'), findsNothing);
+    expect(find.textContaining('Your support buys me'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+  });
+
   testWidgets('Send waits for a message, then hands the report to the mail app', (tester) async {
     await open(tester, const DeveloperNoteScreen());
     expect(tester.widget<FilledButton>(send()).onPressed, isNull);

@@ -18,6 +18,8 @@ import 'package:lost_and_found/features/export/view/export_zip_screen.dart';
 import 'package:lost_and_found/features/people/features/together/view/people_filter_screen.dart';
 import 'package:lost_and_found/features/people/features/timeline/view/people_timeline_screen.dart';
 import 'package:lost_and_found/features/settings/view/settings_screen.dart';
+import 'package:lost_and_found/features/settings/controllers/developer_note_controller.dart';
+import 'package:lost_and_found/core/widgets/new_tag.dart';
 import 'package:lost_and_found/features/home/view/widgets/action_fab.dart';
 import 'package:lost_and_found/features/collections/view/collections_tab.dart';
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
@@ -473,10 +475,29 @@ class _HomeTopBar extends StatelessWidget {
         children: [
           Text('Lost & Found', style: Theme.of(context).textTheme.titleLarge),
           IconButton(
-            icon: const Icon(
-              Icons.settings_outlined,
-              color: AppColors.ink,
-              size: 22,
+            tooltip: 'Settings',
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(
+                  Icons.settings_outlined,
+                  color: AppColors.ink,
+                  size: 22,
+                ),
+                if (Get.isRegistered<DeveloperNoteController>())
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: GetBuilder<DeveloperNoteController>(
+                      builder: (note) => note.showDot
+                          ? const NewTag(
+                              compact: true,
+                              label: 'New: a note from the developer in Settings',
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ),
+              ],
             ),
             onPressed: () => Navigator.of(
               context,

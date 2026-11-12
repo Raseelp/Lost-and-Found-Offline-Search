@@ -23,13 +23,17 @@ import 'package:lost_and_found/features/settings/view/developer_note/report_card
 /// place one after another. All of that stands still when the phone asks for no animations.
 /// Send opens the person's mail app with the report filled in. Nothing is sent from the app itself.
 class DeveloperNoteScreen extends StatefulWidget {
-  const DeveloperNoteScreen({super.key});
+  const DeveloperNoteScreen({super.key, this.full = true});
+
+  /// The whole page, or only the way to report a problem. The whole page is for people who have used the app for a
+  /// while (see DeveloperNoteController).
+  final bool full;
 
   /// The page fades in and rises a little, instead of sliding over Settings.
-  static Route<void> route() => PageRouteBuilder<void>(
+  static Route<void> route({bool full = true}) => PageRouteBuilder<void>(
     transitionDuration: const Duration(milliseconds: 380),
     reverseTransitionDuration: const Duration(milliseconds: 260),
-    pageBuilder: (_, _, _) => const DeveloperNoteScreen(),
+    pageBuilder: (_, _, _) => DeveloperNoteScreen(full: full),
     transitionsBuilder: (_, animation, _, child) {
       final curved = CurveTween(curve: Curves.easeOutCubic).animate(animation);
       return FadeTransition(
@@ -49,13 +53,20 @@ class DeveloperNoteScreen extends StatefulWidget {
 class _DeveloperNoteScreenState extends State<DeveloperNoteScreen> with TickerProviderStateMixin {
   static const _issueBodyLimit = 1500;
 
-  /// How many parts settle into place, one after another.
-  static const _parts = 7;
+  /// How many parts settle into place, one after another: the greeting and the note, then the heading of the report
+  /// and the box.
+  int get _parts => widget.full ? 7 : 2;
+
+  /// Where in that order the heading of the report comes.
+  int get _reportAt => widget.full ? 5 : 0;
 
   /// How long "Your email app is open" stays on the Send button.
   static const _openedFor = Duration(milliseconds: 2800);
 
-  late final AnimationController _enter = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500));
+  late final AnimationController _enter = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1500),
+  );
   late final AnimationController _drift = AnimationController(vsync: this, duration: const Duration(seconds: 16));
   final _message = TextEditingController();
   final _focus = FocusNode();
@@ -188,79 +199,88 @@ class _DeveloperNoteScreenState extends State<DeveloperNoteScreen> with TickerPr
                   keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.sm, AppSpacing.xl, AppSpacing.xxl),
                   children: [
-                    _part(
-                      0,
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ExcludeSemantics(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(AppRadius.xl),
-                              child: Image.asset('assets/tour/logos/lost_and_found.png', width: 72, height: 72),
+                    if (widget.full) ...[
+                      _part(
+                        0,
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ExcludeSemantics(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(AppRadius.xl),
+                                child: Image.asset('assets/tour/logos/lost_and_found.png', width: 72, height: 72),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: AppSpacing.lg),
-                          Text(
-                            "Hi, I'm Raseel",
-                            style: text.headlineMedium?.copyWith(fontSize: 34, height: 1.1, letterSpacing: -0.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    _part(
-                      1,
-                      Text.rich(
-                        TextSpan(
-                          style: lead,
-                          children: [
-                            const TextSpan(text: 'Lost & Found is a side project of mine. It is '),
-                            TextSpan(text: 'free', style: strong),
-                            const TextSpan(text: ' and '),
-                            TextSpan(text: 'open source', style: strong),
-                            const TextSpan(text: ', it has '),
-                            TextSpan(text: 'no ads', style: strong),
-                            const TextSpan(text: ', and there will be '),
-                            TextSpan(text: 'no subscription, ever', style: strong),
-                            const TextSpan(text: '.'),
+                            const SizedBox(height: AppSpacing.lg),
+                            Text(
+                              "Hi, I'm Raseel",
+                              style: text.headlineMedium?.copyWith(fontSize: 34, height: 1.1, letterSpacing: -0.5),
+                            ),
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    _part(
-                      2,
-                      Text(
-                        'That is possible because everything runs on your device itself: the searching, the face '
-                        'recognition, all of it. So I have no server to run. The only thing the app downloads, the '
-                        'search model, is hosted for free. It costs me nothing except my time and effort. '
-                        'Your support buys me more of that time to improve them and keep them free.',
-                        style: body,
+                      const SizedBox(height: AppSpacing.lg),
+                      _part(
+                        1,
+                        Text.rich(
+                          TextSpan(
+                            style: lead,
+                            children: [
+                              const TextSpan(text: 'Lost & Found is a side project of mine. It is '),
+                              TextSpan(text: 'free', style: strong),
+                              const TextSpan(text: ' and '),
+                              TextSpan(text: 'open source', style: strong),
+                              const TextSpan(text: ', it has '),
+                              TextSpan(text: 'no ads', style: strong),
+                              const TextSpan(text: ', and there will be '),
+                              TextSpan(text: 'no subscription, ever', style: strong),
+                              const TextSpan(text: '.'),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.base),
-                    _part(3, const Align(alignment: Alignment.centerLeft, child: _CoffeeButton()), pop: true),
-                    const SizedBox(height: AppSpacing.lg),
-                    _part(
-                      4,
-                      Text.rich(
-                        TextSpan(
+                      const SizedBox(height: AppSpacing.lg),
+                      _part(
+                        2,
+                        Text(
+                          'That is possible because everything runs on your device itself: the searching, the face '
+                          'recognition, all of it. So I have no server to run. The only thing the app downloads, the '
+                          'search model, is hosted for free. It costs me nothing except my time and effort. '
+                          'Your support buys me more of that time to improve them and keep them free.',
                           style: body,
-                          children: [
-                            const TextSpan(text: 'The code is open. You are welcome to read it, and to '),
-                            TextSpan(text: 'contribute on GitHub', style: link, recognizer: _contribute),
-                            const TextSpan(text: '.'),
-                          ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.xxl),
+                      const SizedBox(height: AppSpacing.base),
+                      _part(3, const Align(alignment: Alignment.centerLeft, child: _CoffeeButton()), pop: true),
+                      const SizedBox(height: AppSpacing.lg),
+                      _part(
+                        4,
+                        Text.rich(
+                          TextSpan(
+                            style: body,
+                            children: [
+                              const TextSpan(text: 'The code is open. You are welcome to read it, and to '),
+                              TextSpan(text: 'contribute on GitHub', style: link, recognizer: _contribute),
+                              const TextSpan(text: '.'),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xxl),
+                    ] else
+                      const SizedBox(height: AppSpacing.lg),
                     _part(
-                      5,
+                      _reportAt,
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Report a problem', style: text.titleLarge),
+                          if (widget.full)
+                            Text('Report a problem', style: text.titleLarge)
+                          else
+                            Text(
+                              'Report an issue',
+                              style: text.headlineMedium?.copyWith(fontSize: 34, height: 1.1, letterSpacing: -0.5),
+                            ),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
                             'If something is not working, or you have a suggestion, you can tell me here.',
@@ -271,7 +291,7 @@ class _DeveloperNoteScreenState extends State<DeveloperNoteScreen> with TickerPr
                     ),
                     const SizedBox(height: AppSpacing.base),
                     _part(
-                      6,
+                      _reportAt + 1,
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -288,9 +308,8 @@ class _DeveloperNoteScreenState extends State<DeveloperNoteScreen> with TickerPr
                               _tick();
                               setState(() => _includeLogs = value);
                             },
-                            onViewLogs: () => Navigator.of(
-                              context,
-                            ).push(MaterialPageRoute(builder: (_) => const LogViewerScreen())),
+                            onViewLogs: () =>
+                                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LogViewerScreen())),
                             canSend: _canSend,
                             sendState: _sendState,
                             onSend: _send,

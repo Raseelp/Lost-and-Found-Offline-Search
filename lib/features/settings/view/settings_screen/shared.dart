@@ -46,6 +46,7 @@ class _TapRow extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     this.chevron = false,
+    this.dot = false,
   });
 
   final IconData icon;
@@ -55,6 +56,9 @@ class _TapRow extends StatelessWidget {
 
   /// Shows an arrow on the right, for a row that opens another screen or app.
   final bool chevron;
+
+  /// Shows the small green dot that says there is something new behind the row.
+  final bool dot;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +70,16 @@ class _TapRow extends StatelessWidget {
           icon: icon,
           title: title,
           subtitle: subtitle,
-          trailing: chevron ? const _RowChevron() : null,
+          trailing: chevron || dot
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (dot) const NewTag(compact: true, label: 'New'),
+                    if (dot && chevron) const SizedBox(width: AppSpacing.sm),
+                    if (chevron) const _RowChevron(),
+                  ],
+                )
+              : null,
         ),
       ),
     );

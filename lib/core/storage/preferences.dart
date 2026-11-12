@@ -20,3 +20,13 @@ Future<void> persistDouble(String key, double value) async {
     debugPrint('Failed to persist "$key": $e');
   }
 }
+
+/// Saves a yes-or-no setting, the same way as [persistString].
+Future<void> persistBool(String key, bool value) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
+  } catch (e) {
+    debugPrint('Failed to persist "$key": $e');
+  }
+}

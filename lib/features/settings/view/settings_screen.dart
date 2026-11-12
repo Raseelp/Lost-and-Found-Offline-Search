@@ -24,6 +24,8 @@ import 'package:lost_and_found/core/widgets/app_toast.dart';
 import 'package:lost_and_found/core/native/device_service.dart';
 import 'package:lost_and_found/features/people/models/face_scan.dart';
 import 'package:lost_and_found/features/settings/view/developer_note/developer_note_screen.dart';
+import 'package:lost_and_found/features/settings/controllers/developer_note_controller.dart';
+import 'package:lost_and_found/core/widgets/new_tag.dart';
 import 'package:lost_and_found/features/settings/controllers/settings_controller.dart';
 import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 import 'package:lost_and_found/features/model_download/controllers/model_download_controller.dart';
@@ -60,8 +62,7 @@ class SettingsScreen extends StatelessWidget {
     final modelBytes = models.searchModelBytes;
     final modelsVerified = models.searchModelsVerified;
     final hasEmbeddings =
-        library.totalEmbeddings > 0 ||
-        library.allIndexedFoldersList.isNotEmpty;
+        library.totalEmbeddings > 0 || library.allIndexedFoldersList.isNotEmpty;
     final deletableBytes = models.searchModelsVerified
         ? models.searchModelBytes
         : 0;
@@ -139,8 +140,10 @@ class SettingsScreen extends StatelessWidget {
                     child: Text(
                       'All the models run only on this device. Your photos, faces and names are never uploaded, '
                       'and nothing needs the internet once they are downloaded.',
-                      style: Theme.of(context).textTheme.bodySmall
-                          ?.copyWith(color: AppColors.ink48, height: 1.4),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.ink48,
+                        height: 1.4,
+                      ),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xl),
@@ -177,8 +180,7 @@ class SettingsScreen extends StatelessWidget {
                                       if (memories.hidden) {
                                         memories.setHidden(false);
                                       }
-                                      if (collections
-                                          .hasCustomizedBuiltIns) {
+                                      if (collections.hasCustomizedBuiltIns) {
                                         collections.restoreDefaults();
                                       }
                                     }
@@ -215,8 +217,7 @@ class SettingsScreen extends StatelessWidget {
                                 AppSpacing.md,
                               ),
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   SizedBox(
                                     width: double.infinity,
@@ -245,9 +246,7 @@ class SettingsScreen extends StatelessWidget {
                                   Text(
                                     'How many frames of each video are checked. Applies to videos not scanned yet - '
                                     '"Clear face data" below redoes the rest.',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
+                                    style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(
                                           color: AppColors.ink48,
                                           height: 1.4,
@@ -259,8 +258,7 @@ class SettingsScreen extends StatelessWidget {
                           _TapRow(
                             icon: Icons.undo_rounded,
                             title: 'Undo a merge',
-                            subtitle:
-                                'Split two people you merged by mistake',
+                            subtitle: 'Split two people you merged by mistake',
                             chevron: true,
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
@@ -319,13 +317,7 @@ class SettingsScreen extends StatelessWidget {
                       ),
                       const _LicenseRow(),
                       const _BuildRow(),
-                      _TapRow(
-                        icon: Icons.waving_hand_outlined,
-                        title: 'Note from the developer',
-                        subtitle: "Why it's free, and how to report a problem.",
-                        chevron: true,
-                        onTap: () => Navigator.of(context).push(DeveloperNoteScreen.route()),
-                      ),
+                      const _DeveloperNoteRow(),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.xl),
@@ -374,9 +366,7 @@ class SettingsScreen extends StatelessWidget {
                         builder: (faces) {
                           final st = faces.status;
                           final hasFaceData =
-                              st.faces > 0 ||
-                              st.people > 0 ||
-                              st.processed > 0;
+                              st.faces > 0 || st.people > 0 || st.processed > 0;
                           return _DangerRow(
                             title: 'Clear face data',
                             subtitle: hasFaceData
@@ -456,6 +446,37 @@ class _GroupLabel extends StatelessWidget {
           color: AppColors.ink48,
           letterSpacing: 0.5,
         ),
+      ),
+    );
+  }
+}
+
+/// The way to the developer's page. Until enough photos and videos are indexed it is only a way to report a problem. Then
+/// it becomes the developer's note, with a green dot until the person has opened it.
+class _DeveloperNoteRow extends StatelessWidget {
+  const _DeveloperNoteRow();
+
+  @override
+  Widget build(BuildContext context) {
+    if (!Get.isRegistered<DeveloperNoteController>()) {
+      return const SizedBox.shrink();
+    }
+    return GetBuilder<DeveloperNoteController>(
+      builder: (note) => _TapRow(
+        icon: note.unlocked
+            ? Icons.waving_hand_outlined
+            : Icons.feedback_outlined,
+        title: note.unlocked ? 'Note from the developer' : 'Report an issue',
+        subtitle: note.unlocked
+            ? "Why it's free, and how to report a problem."
+            : 'Tell me what is not working, or suggest something.',
+        chevron: true,
+        dot: note.showDot,
+        onTap: () {
+          final full = note.unlocked;
+          note.markSeen();
+          Navigator.of(context).push(DeveloperNoteScreen.route(full: full));
+        },
       ),
     );
   }

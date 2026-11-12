@@ -10,6 +10,7 @@ import 'package:lost_and_found/features/library/controllers/library_controller.d
 import 'package:lost_and_found/features/model_download/controllers/model_download_controller.dart';
 import 'package:lost_and_found/features/search/controllers/search_controller.dart';
 import 'package:lost_and_found/features/settings/controllers/settings_controller.dart';
+import 'package:lost_and_found/features/settings/controllers/developer_note_controller.dart';
 import 'package:lost_and_found/features/viewer/controllers/viewer_controller.dart';
 
 class InitBindings extends Bindings {
@@ -21,6 +22,7 @@ class InitBindings extends Bindings {
     Get.put(SettingsController());
     Get.put(ModelDownloadController());
     Get.put(LibraryController());
+    Get.put(DeveloperNoteController(Get.find<LibraryController>()));
     Get.put(CollectionsController());
     Get.put(FacesController());
     Get.put(MemoriesController());

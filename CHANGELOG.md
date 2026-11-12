@@ -38,10 +38,13 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   searched, more of someone you know, photos of this day, or what search can see. It comes three days after you last
   used the app, then 7 and 14 days later if unanswered, and then no more. It makes no sound, and its Index now
   button opens the Library and starts the scan. It can be turned off in Settings.
-- A Note from the developer page in Settings > About. It says who makes the app and why it is free, links to the code
-  on GitHub and to Buy Me a Coffee, and has a box for reporting a problem or a suggestion. Send opens the person's own
-  email app with the message, the app's log and any screenshots or recordings already attached, and nothing is sent until
+- A way to report a problem or send a suggestion, in Settings > About, for everyone. Send opens the person's own email
+  app with the message, the app's log and any screenshots or recordings already attached, and nothing is sent until
   they press Send there. The log can be left out, read and copied from that page. It can contain photo file addresses.
+- A Note from the developer. Once 1000 photos and videos have been indexed, the report tile becomes the developer's
+  note: who makes the app and why it is free, a link to the code on GitHub, a Buy Me a Coffee button and the same
+  report box. A green dot on the settings button and on the tile points to it until it has been opened. It stays
+  unlocked if the index is cleared later.
 
 ### Changed
 - The app keeps its own log file, because some phones do not let an app read its log back. The performance logs are
