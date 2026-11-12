@@ -202,8 +202,7 @@ class _FacesTabState extends State<FacesTab> {
         final searchable = count > _searchFrom;
         final unnamed = faces.people.where((p) => p.name == null).length;
 
-        final progressPill =
-            faces.syncing && !status.userPaused && status.error == null
+        final progressPill = faces.showsProgress
             ? FaceSyncPill(
                 key: const ValueKey('pill'),
                 status: status,

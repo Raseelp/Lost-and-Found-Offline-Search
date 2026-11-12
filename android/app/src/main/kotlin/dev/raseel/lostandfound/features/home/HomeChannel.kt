@@ -19,6 +19,7 @@ class HomeChannel(activity: MainActivity) : FeatureChannel(activity) {
     fun noteTap(intent: Intent?) {
         when (intent?.action) {
             MainActivity.ACTION_OPEN_LIBRARY -> openTab = TAB_LIBRARY
+            MainActivity.ACTION_OPEN_FACES -> openTab = TAB_FACES
             MainActivity.ACTION_OPEN_STORIES -> openTab = TAB_SEARCH
             IndexNudge.ACTION_INDEX_NOW -> {
                 openTab = TAB_LIBRARY
@@ -30,6 +31,7 @@ class HomeChannel(activity: MainActivity) : FeatureChannel(activity) {
         /** The home tabs a notification can open (as the app numbers them). */
         const val TAB_SEARCH = 0
         const val TAB_LIBRARY = 2
+        const val TAB_FACES = 3
     }
 
     override fun handle(call: MethodCall, result: MethodChannel.Result): Boolean {

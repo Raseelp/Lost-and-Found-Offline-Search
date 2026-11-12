@@ -123,14 +123,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   /// A tap on a notification that belongs to a tab shows that tab, closing whatever was open on top of it. The scan's
-  /// notification shows the Library tab, where the scan is, and the stories note shows the Search tab, where the rings
-  /// are. "Index now" on the note that asks to finish indexing also starts the scan at once, over the whole phone.
+  /// notification shows the Library tab, where the scan is, the notification of the face scan catching up on its own
+  /// shows the Faces tab, where its progress is, and the stories note shows the Search tab, where the rings are. "Index
+  /// now" on the note that asks to finish indexing also starts the scan at once, over the whole phone.
   Future<void> _checkOpenTab() async {
     try {
       final tab = await MemoriesService().takeOpenTab();
       if (tab == null || !mounted) return;
       Get.until((route) => route.isFirst);
-      _showTab(Get.find<HomeController>(), tab == _tabLibrary ? _tabLibrary : _tabSearch, tapped: false);
+      _showTab(Get.find<HomeController>(), tab == _tabLibrary || tab == _tabFaces ? tab : _tabSearch, tapped: false);
       if (await MemoriesService().takeIndexNow() && mounted) {
         final library = Get.find<LibraryController>();
         library.setScanWholePhone(true);
@@ -174,8 +175,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (faces.selecting) return const [];
       final status = faces.status;
       final noModel = !status.ready || status.error == 'no_model';
-      final catchingUp =
-          faces.syncing && !status.userPaused && status.error == null;
+      final catchingUp = faces.showsProgress;
       final several = faces.people.length >= 2;
       return [
         if (several)

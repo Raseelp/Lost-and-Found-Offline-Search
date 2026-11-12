@@ -148,7 +148,7 @@ class FaceScanWorker(context: Context, params: WorkerParameters) : CoroutineWork
             )
         }
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
-            action = MainActivity.ACTION_OPEN_LIBRARY
+            action = if (paused) MainActivity.ACTION_OPEN_LIBRARY else MainActivity.ACTION_OPEN_FACES
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val pending = PendingIntent.getActivity(

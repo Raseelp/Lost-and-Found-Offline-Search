@@ -31,6 +31,40 @@ class FacesController extends GetxController {
   List<Person> hiddenPeople = [];
   bool isLoadingPeople = true;
 
+  /// The newest face the scan found, from this run of the app or the one before, so the Library can show it after the
+  /// app is opened again.
+  int? lastFaceId;
+
+  static const _lastFaceKey = 'last_scan_face';
+  DateTime? _lastFaceSavedAt;
+  int? _savedFaceId;
+
+  Future<void> _loadLastFace() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getInt(_lastFaceKey);
+      if (saved != null && lastFaceId == null) {
+        lastFaceId = saved;
+        _savedFaceId = saved;
+        update();
+      }
+    } catch (_) {}
+  }
+
+  /// Keeps the newest face of a progress tick, and saves it unless it is saved already, at most every few seconds unless
+  /// [force] is set. The tick that ends the scan forces it, so the last face is never left unsaved by that wait.
+  void _noteLastFace(FaceStatus tick, {bool force = false}) {
+    if (tick.recentFaceEvents.isNotEmpty) lastFaceId = tick.recentFaceEvents.first.id;
+    final id = lastFaceId;
+    if (id == null || id == _savedFaceId) return;
+    final now = DateTime.now();
+    final saved = _lastFaceSavedAt;
+    if (!force && saved != null && now.difference(saved) < const Duration(seconds: 4)) return;
+    _lastFaceSavedAt = now;
+    _savedFaceId = id;
+    SharedPreferences.getInstance().then((prefs) => prefs.setInt(_lastFaceKey, id)).catchError((_) => false);
+  }
+
   StreamSubscription<FaceStatus>? _progressSub;
   Timer? _refreshTimer;
   DateTime _lastRefresh = DateTime.fromMillisecondsSinceEpoch(0);
@@ -40,6 +74,7 @@ class FacesController extends GetxController {
     super.onInit();
     _progressSub = _faceScanService.faceProgress().listen(_onProgress, onError: (_) {});
     unawaited(_loadMomentPrefs());
+    unawaited(_loadLastFace());
     refreshAll();
   }
 
@@ -66,6 +101,10 @@ class FacesController extends GetxController {
   /// Whether the People tab is showing a sync's progress. Faces are found by themselves along with indexing, so that
   /// is only after "Update people".
   bool syncing = false;
+
+  /// Whether the People tab shows the progress of the scan: after "Update people", and also when the scan is catching up
+  /// on its own with no indexing scan to follow. It is not shown while the person has stopped it or it has failed.
+  bool get showsProgress => (syncing || (status.running && !status.following)) && !status.userPaused && status.error == null;
 
   /// "Update people": catches up on whatever the automatic scan has not covered (the photos after the last batch,
   /// small and blurry faces, videos) and shows its progress. Returns false if there was nothing for it to do.
@@ -154,6 +193,7 @@ class FacesController extends GetxController {
   void _onProgress(FaceStatus tick) {
     final wasRunning = status.running;
     status = tick.mergedOnto(status);
+    _noteLastFace(tick, force: tick.done);
     if (tick.done && !tick.batch) syncing = false;
     _updateRate(tick);
     update();

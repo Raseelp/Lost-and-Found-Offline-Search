@@ -39,6 +39,9 @@ class MainActivity : FlutterActivity() {
         /** What a tap on the scan's notification (indexing or faces) opens with: the Library tab, where the scan is. */
         const val ACTION_OPEN_LIBRARY = "dev.raseel.lostandfound.OPEN_LIBRARY"
 
+        /** What a tap on the notification of the face scan catching up on its own opens with: the Faces tab, where its progress is. */
+        const val ACTION_OPEN_FACES = "dev.raseel.lostandfound.OPEN_FACES"
+
         /** What a tap on the stories note opens with: the Search tab, where the rings are. */
         const val ACTION_OPEN_STORIES = "dev.raseel.lostandfound.OPEN_STORIES"
 
