@@ -10,6 +10,7 @@ import 'package:lost_and_found/features/home/controllers/home_controller.dart';
 import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 import 'package:lost_and_found/features/search/controllers/search_controller.dart';
 import 'package:lost_and_found/features/library/view/library_tab.dart' show startIndexing;
+import 'package:lost_and_found/features/library/view/widgets/start_indexing_button.dart';
 import 'package:lost_and_found/features/people/features/timeline/view/widgets/timeline_preview.dart'
     show bentoRects;
 
@@ -85,36 +86,11 @@ class NothingIndexed extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.base),
-        FilledButton(
+        StartIndexingButton(
           onPressed: () {
             goToLibrary(context);
             startIndexing(context, Get.find<LibraryController>());
           },
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(0, 48),
-            padding: const EdgeInsets.fromLTRB(7, 0, 22, 0),
-            shape: const StadiumBorder(),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: const BoxDecoration(
-                  color: AppColors.primaryFocus,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.memory_rounded,
-                  size: 20,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              const Text('Start indexing'),
-            ],
-          ),
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(

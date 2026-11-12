@@ -52,6 +52,7 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   unlocked if the index is cleared later.
 
 ### Changed
+- The Library scan is now three plain steps (reading photos and videos, finding people, search ready) with real numbers, replacing the chip that cut photos into patches and lifted faces out of them, which a tester found alarming after allowing photo access. The chip code is kept, commented out.
 - The app keeps its own log file, because some phones do not let an app read its log back. The performance logs are
   always on, and the Diagnostics section of Settings is gone.
 - Changing a collection opens the same sheet as making one, filled in, so the words, other ways of saying it, what is

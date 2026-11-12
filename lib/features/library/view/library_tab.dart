@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
@@ -12,14 +11,15 @@ import 'package:lost_and_found/core/theme/floating_bar.dart';
 import 'package:lost_and_found/core/widgets/confirm_dialog.dart';
 import 'package:lost_and_found/features/library/view/widgets/library_orbit.dart';
 import 'package:lost_and_found/features/library/view/widgets/media_access_sheet.dart';
-import 'package:lost_and_found/features/library/view/widgets/scan_square.dart';
-import 'package:lost_and_found/core/media/media_service.dart';
+import 'package:lost_and_found/features/library/view/widgets/scan_steps.dart';
+import 'package:lost_and_found/features/library/view/widgets/start_indexing_button.dart';
 import 'package:lost_and_found/features/people/models/face_scan.dart';
 import 'package:lost_and_found/core/media/content_mode.dart';
 import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 import 'package:lost_and_found/features/settings/controllers/settings_controller.dart';
 part 'library_tab/start_device_scan.dart';
 part 'library_tab/chip_hero.dart';
+part 'library_tab/scan_card.dart';
 part 'library_tab/idle_controls.dart';
 part 'library_tab/segmented.dart';
 part 'library_tab/library_card.dart';
@@ -28,10 +28,11 @@ part 'library_tab/model_updated_banner.dart';
 part 'library_tab/interrupted_scan_banner.dart';
 part 'library_tab/folder_row.dart';
 
-/// The Library page: the chip at the top, the controls under it and a card of what is indexed so far.
+/// The Library page: the scan card at the top, the controls under it and a card of what is indexed so far.
 ///
-/// The chip stays where it is through idle, scanning and done, and only what is on it changes. The card is not there
-/// while a scan runs, as the chip shows the progress, nor at all until something is indexed.
+/// The scan card stays where it is through idle, scanning and done, and only what is on it changes. The card of what
+/// is indexed is not there while a scan runs, as the scan card shows the progress, nor at all until something is
+/// indexed.
 class LibraryTab extends StatelessWidget {
   const LibraryTab({super.key, required this.controller});
 
@@ -50,7 +51,8 @@ class LibraryTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _ChipHero(controller: controller),
+          const SizedBox(height: AppSpacing.sm),
+          _ScanCard(controller: controller),
           AnimatedSize(
             duration: const Duration(milliseconds: 340),
             curve: Curves.easeOutCubic,
@@ -131,7 +133,7 @@ DateTime? _lastScanTime(List<IndexedFolder> folders) {
   return DateTime.fromMillisecondsSinceEpoch(latest);
 }
 
-/// The controls under the chip while a scan runs. The banner about notifications shows only until the permission is
+/// The controls under the scan card while a scan runs. The banner about notifications shows only until the permission is
 /// given.
 class _ScanningControls extends StatelessWidget {
   const _ScanningControls({super.key, required this.controller});

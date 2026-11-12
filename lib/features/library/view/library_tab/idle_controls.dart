@@ -1,6 +1,6 @@
 part of '../library_tab.dart';
 
-/// The controls under the chip before a scan and after one: what to include, and the way to index one folder instead
+/// The controls under the scan card before a scan and after one: what to include, and the way to index one folder instead
 /// of the whole phone.
 class _IdleControls extends StatelessWidget {
   const _IdleControls({super.key, required this.controller});
@@ -57,7 +57,7 @@ class _IdleControls extends StatelessWidget {
           child: Text(
             controller.scanWholePhone
                 ? 'Everything on your phone, in one go.'
-                : 'Tap the chip, then pick the folder.',
+                : 'Choose the folder to index.',
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: AppColors.ink48),

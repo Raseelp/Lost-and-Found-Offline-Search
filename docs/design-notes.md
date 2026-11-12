@@ -50,3 +50,7 @@ until the neck pinches off, runs a little past its place and settles. Closing pl
 the tab has no actions the button runs down into the search button and the two merge, and it lets go again with a
 stretch when the actions come back. With "Remove animations" on the actions fade in where they belong and the button
 jumps between its places.
+
+## The old scan chip
+
+The Library page used to show a scan as a chip: photos cut into patches that lit as they were read, and faces lifted out of their photos and carried to the people they matched (`scan_square.dart`, kept for the tour, and the commented `_ChipHero` in `chip_hero.dart`). A tester who allowed photo access watched his photos split into patches and numbers and worried about his data, so the page now shows three plain steps instead (`scan_steps.dart`).

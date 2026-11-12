@@ -64,11 +64,14 @@ class OrbitPill extends StatelessWidget {
                 Icon(icon, size: 18, color: accent),
                 const SizedBox(width: AppSpacing.sm),
               ],
-              Text(
-                label,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(color: fg),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(color: fg),
+                ),
               ),
             ],
           ),

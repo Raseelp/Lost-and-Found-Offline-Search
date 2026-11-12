@@ -1,5 +1,7 @@
 part of '../library_tab.dart';
 
+// TODO(raseel): The old chip hero, kept in case it comes back. The scan card replaced it (see scan_card.dart).
+/*
 /// The chip at the top of the page: waiting to be started, scanning, or done.
 ///
 /// While scanning it shows indexing's progress, the photos being read and the queue of those waiting for their
@@ -123,8 +125,9 @@ class _ChipHero extends StatelessWidget {
     );
   }
 }
+*/
 
-/// Starts indexing the way the Library's chip does when it is tapped: the whole phone (asking for the photos first if
+/// Starts indexing the way the Library's scan card does when its button is tapped: the whole phone (asking for the photos first if
 /// need be) or a folder to choose, as "Where to look" says. Nothing happens while a scan is already running.
 Future<void> startIndexing(
   BuildContext context,

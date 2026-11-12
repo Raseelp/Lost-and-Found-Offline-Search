@@ -65,6 +65,16 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
         );
       }
 
+      final lastRaw = prefs.getString(_lastPhotoKey);
+      if (lastRaw != null) {
+        final map = jsonDecode(lastRaw) as Map;
+        lastPhoto = RecentEmbeddedItem(
+          uri: map['uri'] as String? ?? '',
+          isVideo: map['isVideo'] as bool? ?? false,
+          timestampMs: (map['timestampMs'] as num?)?.toInt() ?? 0,
+        );
+      }
+
       final failedRaw = prefs.getString(_failedByFolderKey);
       if (failedRaw != null) {
         final decoded = jsonDecode(failedRaw) as Map;
@@ -99,6 +109,9 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
   static const _contentModeKey = 'scan_content_mode';
 
   static const _interruptedScanKey = 'interrupted_scan';
+
+  /// The newest photo or video the scan indexed, kept so the Library can show it after the app is opened again.
+  static const _lastPhotoKey = 'last_scan_photo';
 
   /// Holds, for each folder id, how many files could not be embedded the last time that location finished scanning.
   static const _failedByFolderKey = 'failed_by_folder';
@@ -250,6 +263,39 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
 
   List<RecentEmbeddedItem> recentThumbnails = [];
 
+  /// The newest item the scan indexed, from this run of the app or the one before.
+  RecentEmbeddedItem? lastPhoto;
+
+  DateTime? _lastPhotoSavedAt;
+
+  /// Saves [lastPhoto], at most every few seconds unless [force] is set, so a fast scan does not write all the time.
+  Future<void> _saveLastPhoto({bool force = false}) async {
+    final item = lastPhoto;
+    if (item == null || item.uri.isEmpty) return;
+    final now = DateTime.now();
+    final saved = _lastPhotoSavedAt;
+    if (!force && saved != null && now.difference(saved) < const Duration(seconds: 4)) return;
+    _lastPhotoSavedAt = now;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _lastPhotoKey,
+        jsonEncode({'uri': item.uri, 'isVideo': item.isVideo, 'timestampMs': item.timestampMs}),
+      );
+    } catch (e) {
+      debugPrint('Failed to save the last photo: $e');
+    }
+  }
+
+  /// The picture for a key of [recentThumbBytes], or for the saved [lastPhoto] when it is not among them.
+  Future<Uint8List> thumbnailFor(String key) async {
+    final cached = recentThumbBytes[key];
+    if (cached != null) return cached;
+    final item = lastPhoto;
+    if (item == null || _recentThumbKey(item) != key) throw StateError('No picture for $key');
+    return MediaService().loadThumbnail(uri: item.uri, isVideo: item.isVideo, timestampMs: item.timestampMs);
+  }
+
   final Map<String, Uint8List> recentThumbBytes = {};
 
   final Set<String> _recentThumbInFlight = {};
@@ -311,6 +357,8 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
 
       recentThumbBytes[key] = bytes;
       recentThumbnails.insert(0, item);
+      lastPhoto = item;
+      unawaited(_saveLastPhoto());
       if (recentThumbnails.length > _maxRecentThumbnails) {
         final removed = recentThumbnails.removeLast();
         if (!recentThumbnails.any(
@@ -496,6 +544,7 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
         isScanning = false;
         isStopping = false;
         _progressSub.cancel();
+        unawaited(_saveLastPhoto(force: true));
         unawaited(_clearInterruptedScanMarker());
         final completed =
             scanResult.total > 0 && scanResult.processed >= scanResult.total;
