@@ -139,6 +139,8 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
     implementation("androidx.work:work-runtime-ktx:2.11.2")
+    // Asks Google Play for a newer version of the app and starts the update (see features/update/UpdateChannel.kt).
+    implementation("com.google.android.play:app-update:2.1.0")
     // CLIP (search/indexing) and face detection/recognition all run through
     // this - PyTorch Mobile (and the soloader it needed) was dropped once
     // CLIP moved to ONNX too, since nothing else in the app still used it.

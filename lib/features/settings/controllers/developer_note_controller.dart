@@ -14,7 +14,7 @@ class DeveloperNoteController extends GetxController {
   DeveloperNoteController(this._library);
 
   /// How many photos and videos have to be indexed before the note shows in full.
-  static const int unlockAt = 1000;
+  static const int unlockAt = 600;
 
   static const _unlockedKey = 'developer_note_unlocked';
   static const _seenKey = 'developer_note_seen';

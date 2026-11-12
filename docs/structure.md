@@ -18,7 +18,7 @@ lib/
     widgets/     shared widgets (search field, toast, buttons)
   features/
     collections/ home/ library/ memories/ model_download/ people/
-    search/ settings/ tour/ viewer/ export/
+    search/ settings/ tour/ update/ viewer/ export/
 ```
 
 A feature folder holds only the folders it needs:
@@ -59,7 +59,7 @@ core/
   storage/        the embedding store and its record and hash helpers
 features/
   collections/ export/ home/ library/ memories/ model_download/
-  people/ search/ settings/ viewer/
+  people/ search/ settings/ update/ viewer/
 ```
 
 Each feature that answers calls from Flutter has a `<Feature>Channel` class. It extends `FeatureChannel`,

@@ -12,6 +12,8 @@ import 'package:lost_and_found/features/search/controllers/search_controller.dar
 import 'package:lost_and_found/features/settings/controllers/settings_controller.dart';
 import 'package:lost_and_found/features/settings/controllers/developer_note_controller.dart';
 import 'package:lost_and_found/features/viewer/controllers/viewer_controller.dart';
+import 'package:lost_and_found/features/update/controllers/update_controller.dart';
+import 'package:lost_and_found/features/update/services/update_service.dart';
 
 class InitBindings extends Bindings {
   @override
@@ -29,5 +31,6 @@ class InitBindings extends Bindings {
     Get.put(StoriesController());
     Get.put(GridVideoController(), permanent: true);
     Get.put(TourController());
+    Get.put(UpdateController(UpdateService()));
   }
 }

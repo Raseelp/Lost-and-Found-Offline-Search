@@ -30,22 +30,22 @@ void main() {
     expect(note.showDot, isFalse);
   });
 
-  test('it stays locked just under 1000 photos and videos', () async {
+  test('it stays locked just under the threshold', () async {
     await start();
-    index(images: 700, videos: 299);
+    index(images: DeveloperNoteController.unlockAt - 301, videos: 300);
     expect(note.unlocked, isFalse);
   });
 
   test('photos and videos count together, and the dot comes with the unlock', () async {
     await start();
-    index(images: 900, videos: 100);
+    index(images: DeveloperNoteController.unlockAt - 100, videos: 100);
     expect(note.unlocked, isTrue);
     expect(note.showDot, isTrue);
   });
 
   test('opening the note takes the dot away for good', () async {
     await start();
-    index(images: 1000);
+    index(images: DeveloperNoteController.unlockAt);
     note.markSeen();
     expect(note.showDot, isFalse);
     expect(note.unlocked, isTrue);
@@ -58,13 +58,13 @@ void main() {
   test('opening it while it is locked does nothing', () async {
     await start();
     note.markSeen();
-    index(images: 1000);
+    index(images: DeveloperNoteController.unlockAt);
     expect(note.showDot, isTrue);
   });
 
   test('it stays unlocked when the index is cleared', () async {
     await start();
-    index(images: 1000);
+    index(images: DeveloperNoteController.unlockAt);
     index();
     expect(note.unlocked, isTrue);
   });
@@ -78,7 +78,7 @@ void main() {
 
   test('the unlock is saved', () async {
     await start();
-    index(images: 1200);
+    index(images: DeveloperNoteController.unlockAt + 200);
     await pumpEventQueue();
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool('developer_note_unlocked'), isTrue);

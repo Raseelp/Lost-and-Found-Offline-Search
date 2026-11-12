@@ -23,6 +23,7 @@ import dev.raseel.lostandfound.features.settings.IndexNudge
 import dev.raseel.lostandfound.features.settings.ReportAttachmentPicker
 import dev.raseel.lostandfound.features.settings.ReportMail
 import dev.raseel.lostandfound.features.settings.SettingsChannel
+import dev.raseel.lostandfound.features.update.UpdateChannel
 import dev.raseel.lostandfound.features.viewer.ViewerChannel
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -49,6 +50,7 @@ class MainActivity : FlutterActivity() {
 
     private val home = HomeChannel(this)
     private val memories = MemoriesChannel(this)
+    private val update = UpdateChannel(this)
 
     /** In the order calls are offered to them. Every call belongs to exactly one. */
     private val channels: List<FeatureChannel> = listOf(
@@ -63,6 +65,7 @@ class MainActivity : FlutterActivity() {
         memories,
         PeopleChannel(this),
         ExportChannel(this),
+        update,
     )
 
     /**
@@ -126,6 +129,11 @@ class MainActivity : FlutterActivity() {
         }
 
         channels.forEach { it.registerStreams(messenger) }
+    }
+
+    override fun onDestroy() {
+        update.release()
+        super.onDestroy()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

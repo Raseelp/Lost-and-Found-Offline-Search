@@ -26,6 +26,8 @@ import 'package:lost_and_found/features/people/models/face_scan.dart';
 import 'package:lost_and_found/features/settings/view/developer_note/developer_note_screen.dart';
 import 'package:lost_and_found/features/settings/controllers/developer_note_controller.dart';
 import 'package:lost_and_found/core/widgets/new_tag.dart';
+import 'package:lost_and_found/features/update/controllers/update_controller.dart';
+import 'package:lost_and_found/features/update/models/update_info.dart';
 import 'package:lost_and_found/features/settings/controllers/settings_controller.dart';
 import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 import 'package:lost_and_found/features/model_download/controllers/model_download_controller.dart';
@@ -35,6 +37,7 @@ part 'settings_screen/danger_row.dart';
 part 'settings_screen/permissions_card.dart';
 part 'settings_screen/permission_row.dart';
 part 'settings_screen/build_row.dart';
+part 'settings_screen/update_section.dart';
 part 'settings_screen/expert_face_rows.dart';
 part 'settings_screen/notifications_off_banner.dart';
 part 'settings_screen/notifications_section.dart';
@@ -82,6 +85,7 @@ class SettingsScreen extends StatelessWidget {
                   AppSpacing.xxl,
                 ),
                 children: [
+                  const _UpdateSection(),
                   const _GroupLabel('Models'),
                   _GroupCard(
                     children: [

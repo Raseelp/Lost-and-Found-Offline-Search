@@ -41,7 +41,12 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
 - A way to report a problem or send a suggestion, in Settings > About, for everyone. Send opens the person's own email
   app with the message, the app's log and any screenshots or recordings already attached, and nothing is sent until
   they press Send there. The log can be left out, read and copied from that page. It can contain photo file addresses.
-- A Note from the developer. Once 1000 photos and videos have been indexed, the report tile becomes the developer's
+- A card under the title of the home screen when a newer version of the app is waiting in Google Play. It offers
+  Update and Not now, shows a progress line while the update downloads, and asks to restart once it is ready.
+  Not now hides the card until the app is opened again, and it comes back each time until the app is updated.
+  Until the app is updated, the settings gear has a dot and Settings has an Update section at the top, also after Not
+  now. A copy of the app that did not come from Google Play never shows any of this.
+- A Note from the developer. Once 600 photos and videos have been indexed, the report tile becomes the developer's
   note: who makes the app and why it is free, a link to the code on GitHub, a Buy Me a Coffee button and the same
   report box. A green dot on the settings button and on the tile points to it until it has been opened. It stays
   unlocked if the index is cleared later.

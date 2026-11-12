@@ -110,24 +110,3 @@ class Pop extends StatelessWidget {
     );
   }
 }
-
-/// [child] that glides to its new size when it changes, and with motion off is just [child]. An AnimatedSize with no
-/// duration asks for a layout while it is laid out, which Flutter reports as an error, so it is left out then.
-class SmoothSize extends StatelessWidget {
-  const SmoothSize({
-    super.key,
-    required this.child,
-    this.alignment = Alignment.topLeft,
-    this.duration = const Duration(milliseconds: 220),
-  });
-
-  final Widget child;
-  final Alignment alignment;
-  final Duration duration;
-
-  @override
-  Widget build(BuildContext context) {
-    if (calm(context)) return child;
-    return AnimatedSize(duration: duration, curve: Curves.easeOutCubic, alignment: alignment, child: child);
-  }
-}

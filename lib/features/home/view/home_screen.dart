@@ -18,6 +18,8 @@ import 'package:lost_and_found/features/export/view/export_zip_screen.dart';
 import 'package:lost_and_found/features/people/features/together/view/people_filter_screen.dart';
 import 'package:lost_and_found/features/people/features/timeline/view/people_timeline_screen.dart';
 import 'package:lost_and_found/features/settings/view/settings_screen.dart';
+import 'package:lost_and_found/features/update/controllers/update_controller.dart';
+import 'package:lost_and_found/features/update/view/update_banner.dart';
 import 'package:lost_and_found/features/settings/controllers/developer_note_controller.dart';
 import 'package:lost_and_found/core/widgets/new_tag.dart';
 import 'package:lost_and_found/features/home/view/widgets/action_fab.dart';
@@ -276,6 +278,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               Column(
                 children: [
                   const _HomeTopBar(),
+                  const UpdateBanner(),
                   const SizedBox(height: AppSpacing.sm),
                   Expanded(
                     child: NotificationListener<ScrollNotification>(
@@ -484,19 +487,7 @@ class _HomeTopBar extends StatelessWidget {
                   color: AppColors.ink,
                   size: 22,
                 ),
-                if (Get.isRegistered<DeveloperNoteController>())
-                  Positioned(
-                    top: -2,
-                    right: -2,
-                    child: GetBuilder<DeveloperNoteController>(
-                      builder: (note) => note.showDot
-                          ? const NewTag(
-                              compact: true,
-                              label: 'New: a note from the developer in Settings',
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                  ),
+                Positioned(top: -2, right: -2, child: _SettingsDot()),
               ],
             ),
             onPressed: () => Navigator.of(
@@ -505,6 +496,29 @@ class _HomeTopBar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The dot on the settings gear. It says an update is waiting, which stays until the app is updated, or that the
+/// developer's note is new.
+class _SettingsDot extends StatelessWidget {
+  const _SettingsDot();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget note() => Get.isRegistered<DeveloperNoteController>()
+        ? GetBuilder<DeveloperNoteController>(
+            builder: (note) => note.showDot
+                ? const NewTag(compact: true, label: 'New: a note from the developer in Settings')
+                : const SizedBox.shrink(),
+          )
+        : const SizedBox.shrink();
+    if (!Get.isRegistered<UpdateController>()) return note();
+    return GetBuilder<UpdateController>(
+      builder: (update) => update.pending
+          ? const NewTag(compact: true, label: 'New: an update is ready')
+          : note(),
     );
   }
 }
