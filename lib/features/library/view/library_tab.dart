@@ -11,6 +11,7 @@ import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/core/theme/floating_bar.dart';
 import 'package:lost_and_found/core/widgets/confirm_dialog.dart';
 import 'package:lost_and_found/features/library/view/widgets/library_orbit.dart';
+import 'package:lost_and_found/features/library/view/widgets/media_access_sheet.dart';
 import 'package:lost_and_found/features/library/view/widgets/scan_square.dart';
 import 'package:lost_and_found/core/media/media_service.dart';
 import 'package:lost_and_found/features/people/models/face_scan.dart';

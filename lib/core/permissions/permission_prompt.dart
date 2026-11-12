@@ -24,12 +24,14 @@ enum AppPermission {
 /// When Android has stopped asking, a dialog says what is off and opens App info. Notifications before Android 13 have
 /// no prompt at all, so the same dialog is the only way to turn them on. When it was turned down in the system prompt,
 /// a short message says what it is needed for. [only] narrows [AppPermission.media] to photos or
-/// videos, and [purpose] finishes "... so Lost & Found can't ...". Storage only matters before Android 10, and an
+/// videos, and [purpose] finishes "... so Lost & Found can't ...". [explain] runs right before Android's own prompt
+/// would appear, and returning false stops the request without a message. Storage only matters before Android 10, and an
 /// unknown version (0) is let through, because asking on a newer phone is always refused and would stop every save.
 Future<bool> askPermission(
   AppPermission what, {
   List<Permission>? only,
   String? purpose,
+  Future<bool> Function()? explain,
 }) async {
   if (!Platform.isAndroid) return true;
   final sdk = await DeviceService().androidSdk();
@@ -44,6 +46,7 @@ Future<bool> askPermission(
     await _showBlocked(what, sdk, purpose);
     return false;
   }
+  if (explain != null && !await explain()) return false;
   final after = await permissions.request();
   if (after.values.every(_allowed)) return true;
   _say(_turnedDown(what, purpose));

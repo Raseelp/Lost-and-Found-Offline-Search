@@ -766,6 +766,7 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
 
   Future<bool> requestMediaPermission({
     required ContentMode contentMode,
+    Future<bool> Function()? explain,
   }) async {
     if (!Platform.isAndroid) return true;
 
@@ -781,7 +782,7 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
 
     if (required.isEmpty) return true;
 
-    return askPermission(AppPermission.media, only: required);
+    return askPermission(AppPermission.media, only: required, explain: explain);
   }
 
   getPickingModeString({required PickingMode pickingMode}) {
