@@ -373,7 +373,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
     fun videoScanPlan(uri: String): VideoScanPlan {
         val engine = services.engine
         val store = services.store
-        if (!engine.isReady() || !sameModels(store.getMeta(META_MODEL_KEY), engine.modelKey())) {
+        if (!engine.isReady() || !usableModels()) {
             return VideoScanPlan("unavailable", 0, null)
         }
         val video = ScanEngineHolder.embeddingEngine(context).indexedVideos().firstOrNull { it.uri == uri }
@@ -393,7 +393,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
         val store = services.store
         val none = VideoScanResult(false, 0, 0)
         if (!engine.isReady()) return none
-        if (!sameModels(store.getMeta(META_MODEL_KEY), engine.modelKey())) return none
+        if (!usableModels()) return none
         val video = ScanEngineHolder.embeddingEngine(context).indexedVideos().firstOrNull { it.uri == uri } ?: return none
 
         /**
@@ -437,7 +437,7 @@ class FaceScanner(private val context: Context, private val services: FaceServic
         val engine = services.engine
         val store = services.store
         if (!engine.isReady()) return false
-        if (!sameModels(store.getMeta(META_MODEL_KEY), engine.modelKey())) return false
+        if (!usableModels()) return false
         if (known != null) return completeDeferred(uri, known, progress)
         val item = ScanEngineHolder.embeddingEngine(context).indexedImages().firstOrNull { it.uri == uri } ?: return false
 
@@ -463,8 +463,20 @@ class FaceScanner(private val context: Context, private val services: FaceServic
      * Whether two stored model keys name the same models. A key with the ".bundled_" prefix is the same model as
      * without it, which is not a reason to throw the people away.
      */
-    private fun sameModels(stored: String?, current: String?): Boolean =
-        stored != null && current != null && stored.replace(".bundled_", "") == current
+    private fun sameModels(stored: String?, current: String?): Boolean = ModelKeys.same(stored, current)
+
+    /**
+     * Whether the viewer may look for faces with the models in use. A scan that has not got as far as saving the key
+     * (stopped before its first batch of faces) leaves none, and then there are no people to clash with, so the key is
+     * saved here and the models are used.
+     */
+    private fun usableModels(): Boolean {
+        val key = services.engine.modelKey()
+        val stored = services.store.getMeta(META_MODEL_KEY)
+        if (!ModelKeys.usable(stored, key)) return false
+        if (stored == null) services.store.setMeta(META_MODEL_KEY, key!!)
+        return true
+    }
 
     private inner class Run(val shouldStop: () -> Boolean, val onTick: (Map<String, Any?>) -> Unit) {
         val engine = services.engine
@@ -562,13 +574,14 @@ class FaceScanner(private val context: Context, private val services: FaceServic
 
         /**
          * Starts the grouping over when the models changed, because vectors from a different model pair cannot be
-         * compared. A key that differs only in the internal name (see [sameModels]) changes nothing.
+         * compared. A key that differs only in the internal name (see [sameModels]) changes nothing, and a first key is
+         * saved with nothing to start over, since people are only stored after a key.
          */
         private fun adoptModels() {
             val key = engine.modelKey()!!
             val stored = store.getMeta(META_MODEL_KEY)
             if (stored != key) {
-                if (sameModels(stored, key)) {
+                if (stored == null || sameModels(stored, key)) {
                     store.setMeta(META_MODEL_KEY, key)
                 } else {
                     AppLog.i(TAG, "face model changed to $key - regrouping from scratch")
