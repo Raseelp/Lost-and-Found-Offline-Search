@@ -72,12 +72,16 @@ class _TabPillState extends State<_TabPill> with SingleTickerProviderStateMixin 
     _wake();
   }
 
-  /// The tabs resize as the selected one gains its icon, and the chip follows them.
+  /// The tabs resize as the selected one gains its icon, or the Library tab gains or loses its activity dot, and the
+  /// chip follows them. Without waking the springs for the dot, the chip kept its old width, and the dot sat against its
+  /// edge until a tap woke them.
   @override
   void didUpdateWidget(covariant _TabPill old) {
     super.didUpdateWidget(old);
     if (old.index != widget.index || old.compact != widget.compact) {
       _going = null;
+      _wake();
+    } else if (old.showActivityDot != widget.showActivityDot) {
       _wake();
     }
   }
