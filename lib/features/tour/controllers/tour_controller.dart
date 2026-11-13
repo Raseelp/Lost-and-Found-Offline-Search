@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Whether the first-run tour is showing, and which version of the introduction this phone has seen.
 ///
 /// The tour is for fresh installs and shows before the models are downloaded. Somebody who updates with the models
-/// already on the phone never sees it, unless they open it from Settings > Help. A "What's new" introduction can use
+/// already on the phone never sees it, unless they open it from Settings > App tour. A "What's new" introduction can use
 /// the same screens ([TourScreen] takes its pages) and compare [seenVersion] with its own version.
 class TourController extends GetxController {
   static const _seenKey = 'tour_seen_version';

@@ -427,7 +427,7 @@ class TourPageScope {
   /// Goes on to the next page.
   final VoidCallback next;
 
-  /// Opened from Settings > Help rather than on a first run.
+  /// Opened from Settings > App tour rather than on a first run.
   final bool help;
 }
 

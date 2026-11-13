@@ -1,18 +1,21 @@
 part of '../library_tab.dart';
 
-/// A row of choices, all in view, one tap to pick. It is used for what to index and where to look.
+/// A row of choices, all in view, one tap to pick. It is used for what to index and where to look. [tinted] is for
+/// putting it on a parchment background, where it is white with a thin edge so it still stands out.
 class _Segmented<T> extends StatelessWidget {
   const _Segmented({
     required this.options,
     required this.value,
     required this.labelOf,
     required this.onChanged,
+    this.tinted = false,
   });
 
   final List<T> options;
   final T value;
   final String Function(T option) labelOf;
   final ValueChanged<T> onChanged;
+  final bool tinted;
 
   @override
   Widget build(BuildContext context) {
@@ -20,8 +23,9 @@ class _Segmented<T> extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: AppColors.parchment,
+        color: tinted ? AppColors.canvas : AppColors.parchment,
         borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: tinted ? Border.all(color: AppColors.hairline) : null,
       ),
       child: Row(
         children: [
@@ -47,7 +51,7 @@ class _Segmented<T> extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: option == value
-                          ? AppColors.canvas
+                          ? (tinted ? AppColors.parchment : AppColors.canvas)
                           : AppColors.transparent,
                       borderRadius: BorderRadius.circular(AppRadius.pill),
                       border: Border.all(

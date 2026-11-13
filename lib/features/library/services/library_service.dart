@@ -106,6 +106,40 @@ class LibraryService {
     return result != null ? LibraryStats.fromMap(result) : LibraryStats.empty();
   }
 
+  /// How many photos and videos the phone's gallery holds, or null when the app may not read it.
+  Future<({int photos, int videos})?> getPhoneMediaCounts() async {
+    final result = await nativeChannel.invokeMethod<Map<dynamic, dynamic>>(
+      'getPhoneMediaCounts',
+    );
+    if (result == null) return null;
+    return (
+      photos: (result['photos'] as num?)?.toInt() ?? 0,
+      videos: (result['videos'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  /// A few of the most recently indexed photos and videos, newest first, to show as pictures. A video comes with the moment
+  /// of one of its frames.
+  Future<({List<String> photos, List<({String uri, int timestampMs})> videos})> getIndexedSamples({
+    required int photos,
+    required int videos,
+  }) async {
+    final result = await nativeChannel.invokeMethod<Map<dynamic, dynamic>>(
+      'getIndexedSamples',
+      {'photos': photos, 'videos': videos},
+    );
+    return (
+      photos: [for (final uri in (result?['photos'] as List? ?? const [])) uri as String],
+      videos: [
+        for (final v in (result?['videos'] as List? ?? const []))
+          (
+            uri: (v as Map)['uri'] as String,
+            timestampMs: (v['timestampMs'] as num?)?.toInt() ?? 0,
+          ),
+      ],
+    );
+  }
+
   Future<int> getEmbeddingCountForFolder({required String folderId}) async {
     return await nativeChannel.invokeMethod<int>('getEmbeddingCountForFolder', {
           'folderId': folderId,

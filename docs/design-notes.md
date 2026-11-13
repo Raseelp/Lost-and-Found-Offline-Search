@@ -53,4 +53,4 @@ jumps between its places.
 
 ## The old scan chip
 
-The Library page used to show a scan as a chip: photos cut into patches that lit as they were read, and faces lifted out of their photos and carried to the people they matched (`scan_square.dart`, kept for the tour, and the commented `_ChipHero` in `chip_hero.dart`). A tester who allowed photo access watched his photos split into patches and numbers and worried about his data, so the page now shows three plain steps instead (`scan_steps.dart`).
+The Library page used to show a scan as a chip: photos cut into patches that lit as they were read, and faces lifted out of their photos and carried to the people they matched (`scan_square.dart` and the commented `_ChipHero` in `chip_hero.dart`, both kept but no longer shown). A tester who allowed photo access watched his photos split into patches and numbers and worried about his data, so the page now shows three plain steps instead (`scan_steps.dart`), and the tour's search film starts with the same card.

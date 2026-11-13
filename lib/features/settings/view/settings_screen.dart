@@ -19,6 +19,7 @@ import 'package:lost_and_found/features/people/view/hidden_people_screen.dart';
 import 'package:lost_and_found/features/people/features/merge/view/merge_history_screen.dart';
 import 'package:lost_and_found/core/widgets/confirm_dialog.dart';
 import 'package:lost_and_found/features/tour/view/first_run_tour.dart';
+import 'package:lost_and_found/features/library/view/your_data_screen.dart';
 import 'package:lost_and_found/features/people/view/widgets/face_widgets.dart';
 import 'package:lost_and_found/core/widgets/app_toast.dart';
 import 'package:lost_and_found/core/native/device_service.dart';
@@ -314,10 +315,17 @@ class SettingsScreen extends StatelessWidget {
                     children: [
                       _TapRow(
                         icon: Icons.help_outline_rounded,
-                        title: 'Help',
+                        title: 'App tour',
                         subtitle: 'A short tour of what the app does.',
                         chevron: true,
                         onTap: () => openHelpTour(context),
+                      ),
+                      _TapRow(
+                        icon: Icons.verified_user_outlined,
+                        title: 'Your data',
+                        subtitle: 'What the app has made, and how it works.',
+                        chevron: true,
+                        onTap: () => Navigator.of(context).push(YourDataScreen.route()),
                       ),
                       const _LicenseRow(),
                       const _BuildRow(),
@@ -352,10 +360,12 @@ class SettingsScreen extends StatelessWidget {
                         ),
                       _DangerRow(
                         title: 'Clear all embeddings',
-                        subtitle: hasEmbeddings
+                        subtitle: library.isScanning
+                            ? 'Stop indexing first'
+                            : hasEmbeddings
                             ? 'Forgets everything indexed for search'
                             : 'Nothing indexed yet',
-                        onTap: !hasEmbeddings
+                        onTap: library.isScanning || !hasEmbeddings
                             ? null
                             : () => showConfirmDialog(
                                 context,
@@ -373,10 +383,12 @@ class SettingsScreen extends StatelessWidget {
                               st.faces > 0 || st.people > 0 || st.processed > 0;
                           return _DangerRow(
                             title: 'Clear face data',
-                            subtitle: hasFaceData
+                            subtitle: library.isScanning
+                                ? 'Stop indexing first'
+                                : hasFaceData
                                 ? 'Forgets every group and name, then finds faces again'
                                 : 'No face data yet',
-                            onTap: !hasFaceData
+                            onTap: library.isScanning || !hasFaceData
                                 ? null
                                 : () => showConfirmDialog(
                                     context,

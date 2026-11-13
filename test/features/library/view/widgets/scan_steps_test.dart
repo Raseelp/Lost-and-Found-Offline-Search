@@ -111,7 +111,7 @@ void main() {
     expect(find.text('Getting ready'), findsOneWidget);
     expect(find.text('Finding people'), findsOneWidget);
     expect(find.text('Starts once the first photos are read'), findsOneWidget);
-    expect(find.text('Search'), findsOneWidget);
+    expect(find.text('Search'), findsNWidgets(2));
     expect(find.text('Ready after the first photos'), findsOneWidget);
   });
 

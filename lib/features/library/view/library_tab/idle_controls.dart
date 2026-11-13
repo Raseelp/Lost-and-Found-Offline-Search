@@ -1,7 +1,7 @@
 part of '../library_tab.dart';
 
-/// The controls under the scan card before a scan and after one: what to include, and the way to index one folder instead
-/// of the whole phone.
+/// What shows under the scan button before a scan and after one: the banners about an interrupted scan and a model that
+/// was updated. The settings of the scan are in the button.
 class _IdleControls extends StatelessWidget {
   const _IdleControls({super.key, required this.controller});
 
@@ -12,71 +12,15 @@ class _IdleControls extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: AppSpacing.base),
         if (controller.interruptedScan != null) ...[
-          _InterruptedScanBanner(controller: controller),
           const SizedBox(height: AppSpacing.base),
+          _InterruptedScanBanner(controller: controller),
         ],
         if (controller.modelResetFrom != 0) ...[
-          _ModelUpdatedBanner(controller: controller),
           const SizedBox(height: AppSpacing.base),
+          _ModelUpdatedBanner(controller: controller),
         ],
-        Text(
-          'WHAT TO INDEX',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: AppColors.ink48,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        _Segmented<ContentMode>(
-          options: _scopeOrder,
-          value: controller.selectedContentMode,
-          labelOf: _scopeLabel,
-          onChanged: (mode) =>
-              controller.toggleSelectedContentMode(contentMode: mode),
-        ),
-        const SizedBox(height: AppSpacing.base),
-        Text(
-          'WHERE TO LOOK',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: AppColors.ink48,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        _Segmented<bool>(
-          options: const [true, false],
-          value: controller.scanWholePhone,
-          labelOf: (wholePhone) => wholePhone ? 'Whole phone' : 'One folder',
-          onChanged: controller.setScanWholePhone,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-          child: Text(
-            controller.scanWholePhone
-                ? 'Everything on your phone, in one go.'
-                : 'Choose the folder to index.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.ink48),
-          ),
-        ),
       ],
     );
-  }
-}
-
-const _scopeOrder = [ContentMode.images, ContentMode.both, ContentMode.videos];
-
-String _scopeLabel(ContentMode mode) {
-  switch (mode) {
-    case ContentMode.images:
-      return 'Photos';
-    case ContentMode.videos:
-      return 'Videos';
-    case ContentMode.both:
-      return 'Photos & videos';
   }
 }

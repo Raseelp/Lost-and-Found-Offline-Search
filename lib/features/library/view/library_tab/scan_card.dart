@@ -37,6 +37,15 @@ class _ScanCard extends StatelessWidget {
     return latest ?? scan;
   }
 
+  /// How far the faces have got through the library, from 0 to 1. While faces follow indexing they are as far as the
+  /// photos are. Otherwise it is the pass the face scan reports.
+  double _facesProgress(FaceStatus status, IndexedFolder scan) {
+    if (status.batch || status.following) {
+      return scan.total == 0 ? 0 : (scan.processed / scan.total).clamp(0.0, 1.0);
+    }
+    return status.total <= 0 ? 0 : (status.processed / status.total).clamp(0.0, 1.0);
+  }
+
   Widget _body(BuildContext context, FacesController? faces) {
     final faceStatus = faces?.status ?? FaceStatus();
     final running = controller.isScanning;
@@ -62,7 +71,11 @@ class _ScanCard extends StatelessWidget {
     final label = !hasScan && !running
         ? 'Not started'
         : paused
-        ? (complete ? 'Indexing finished, ${scan.total} indexed' : 'Indexing paused, ${scan.processed} of ${scan.total}')
+        ? (complete
+              ? 'Indexing finished, ${scan.total} indexed'
+              : controller.isStopping
+              ? 'Stopping indexing, ${scan.processed} of ${scan.total}'
+              : 'Indexing paused, ${scan.processed} of ${scan.total}')
         : tuning
         ? 'Preparing face search for this phone'
         : findingFaces
@@ -84,9 +97,11 @@ class _ScanCard extends StatelessWidget {
       faceWork: live && faceStatus.running,
       findingFaces: findingFaces,
       tuning: tuning,
+      facesProgress: _facesProgress(faceStatus, scan),
       faceFraction: faceStatus.total <= 0 ? 0 : faceStatus.processed / faceStatus.total,
       batchPhotos: faceStatus.total,
       paused: paused,
+      stopping: controller.isStopping,
       idle: !hasScan && !running,
       celebrate: !running && controller.scanSummary != null,
       photoIds: photoIds,
@@ -110,9 +125,7 @@ class _ScanCard extends StatelessWidget {
         if (!running)
           Padding(
             padding: const EdgeInsets.only(top: AppSpacing.base),
-            child: Center(
-              child: StartIndexingButton(label: button, onPressed: () => startIndexing(context, controller)),
-            ),
+            child: _StartPanel(label: button, controller: controller, onStart: () => startIndexing(context, controller)),
           ),
       ],
     );

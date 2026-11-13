@@ -8,6 +8,7 @@ import dev.raseel.lostandfound.MainActivity
 import dev.raseel.lostandfound.core.native.FeatureChannel
 import dev.raseel.lostandfound.features.model_download.ModelManager
 import dev.raseel.lostandfound.features.search.EmbeddingEngine
+import dev.raseel.lostandfound.features.settings.IndexGap
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
@@ -88,6 +89,31 @@ class LibraryChannel(activity: MainActivity) : FeatureChannel(activity) {
                                 "videos" to stats.videos,
                                 "sizeBytes" to stats.sizeBytes,
                                 "modelResetFrom" to stats.modelResetFrom
+                            )
+                        )
+                    }
+                }
+            }
+
+            "getPhoneMediaCounts" -> {
+                searchExecutor.execute {
+                    val counts = IndexGap.onPhone(this)
+                    runOnUiThread {
+                        result.success(counts?.let { mapOf("photos" to it.first, "videos" to it.second) })
+                    }
+                }
+            }
+
+            "getIndexedSamples" -> {
+                val photos = call.argument<Int>("photos") ?: 0
+                val videos = call.argument<Int>("videos") ?: 0
+                searchExecutor.execute {
+                    val (recentPhotos, recentVideos) = embeddingEngine.recentIndexed(photos, videos)
+                    runOnUiThread {
+                        result.success(
+                            mapOf(
+                                "photos" to recentPhotos,
+                                "videos" to recentVideos.map { mapOf("uri" to it.first, "timestampMs" to it.second) }
                             )
                         )
                     }

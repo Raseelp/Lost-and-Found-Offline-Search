@@ -50,6 +50,11 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   note: who makes the app and why it is free, a link to the code on GitHub, a Buy Me a Coffee button and the same
   report box. A green dot on the settings button and on the tile points to it until it has been opened. It stays
   unlocked if the index is cleared later.
+- A Your data page, opened from the note above the scan or from Settings > Your data. It shows real pictures of what is
+  indexed, the faces and the collections, and what the app has made, has the two Clear data buttons and the questions
+  about how the app works, and links to the source code. The note above the scan has a first point about indexing first.
+  The scan settings are folded into the Start button, and a stopped scan folds into a Paused row with a ring for each
+  step. The tour's search film now starts with the scan card and its Start button. Settings > Help is now App tour.
 
 ### Changed
 - The Library scan is now three plain steps (reading photos and videos, finding people, search ready) with real numbers, replacing the chip that cut photos into patches and lifted faces out of them, which a tester found alarming after allowing photo access. The chip code is kept, commented out.
@@ -64,10 +69,10 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
 - The round action button on the People and Collections tabs reacts faster: it moves into and out of the search
   button, and its actions come out and go back, in about two thirds of the time. The motion itself is the same.
 - Every short message in the app (Copied, Merged with Undo, Saved with View and so on) now looks the same and is
-  worded the same way: a short sentence ending in a full stop, on a light frosted card that sits clear of the bottom
+  worded the same way: a short sentence ending in a full stop, on a dark frosted card that sits clear of the bottom
   bar. A new one replaces the one on screen, and it can be swiped away. A message with a button, such as the Undo
   after a merge, shows the time left as a line that shrinks. With Remove animations on, nothing slides or shrinks.
-- The tour replayed from Settings > Help no longer pretends to download the search model: it has no
+- The tour replayed from Settings > App tour no longer pretends to download the search model: it has no
   download card and no note about downloading.
 - A milestone notification ("Naveen is in 250 of your photos") shows a collage: five photos of the
   person from across their years, the latest good one big, and how many more there are on the last.
@@ -119,7 +124,7 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   a scan runs.
 
 ### Removed
-- The Skip button on the first-run tour. The tour replayed from Help can still be closed.
+- The Skip button on the first-run tour. The tour replayed from App tour can still be closed.
 - The local model server for debug builds (`model_host/serve.py`). Debug builds now download the
   search model from the GitHub release, like release builds.
 

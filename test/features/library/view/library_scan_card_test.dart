@@ -120,10 +120,10 @@ void main() {
     faces.status = FaceStatus(people: 3);
     await show(tester);
 
-    expect(find.textContaining('400 of 1,000'), findsOneWidget);
-    expect(find.textContaining('paused'), findsOneWidget);
+    expect(find.text('Paused'), findsOneWidget);
+    expect(find.text('400 of 1,000 indexed.'), findsOneWidget);
+    expect(find.text('400 read'), findsOneWidget);
     expect(find.text('Continue indexing'), findsOneWidget);
-    expect(find.byIcon(Icons.pause_rounded), findsNWidgets(2));
     await done(tester);
   });
 
@@ -133,9 +133,9 @@ void main() {
     faces.status = FaceStatus(people: 3);
     await show(tester);
 
-    expect(find.textContaining('400 of 1,000'), findsOneWidget);
+    expect(find.text('Paused'), findsOneWidget);
+    expect(find.text('400 of 1,000 indexed.'), findsOneWidget);
     expect(find.text('Continue indexing'), findsOneWidget);
-    expect(find.byIcon(Icons.pause_rounded), findsNWidgets(2));
     await done(tester);
   });
 

@@ -1367,6 +1367,28 @@ class EmbeddingEngine(
         )
     }
 
+    /**
+     * A few of the most recently indexed photos and videos, newest first, up to [photos] and [videos] of them. A video is
+     * listed once, with the moment of one of its frames.
+     */
+    fun recentIndexed(photos: Int, videos: Int): Pair<List<String>, List<Pair<String, Long>>> {
+        val records = store.readAll()
+        val seen = HashSet<String>()
+        val recentPhotos = ArrayList<String>()
+        val recentVideos = ArrayList<Pair<String, Long>>()
+        for (i in records.indices.reversed()) {
+            if (recentPhotos.size >= photos && recentVideos.size >= videos) break
+            val record = records[i]
+            val video = record.videoUri
+            if (video == null) {
+                if (recentPhotos.size < photos && seen.add(record.imagePath)) recentPhotos.add(record.imagePath)
+            } else if (recentVideos.size < videos && seen.add(video)) {
+                recentVideos.add(video to record.timestampMs)
+            }
+        }
+        return recentPhotos to recentVideos
+    }
+
     fun clearAll() = store.clear()
 
     /** The person has been told that the index was dropped for a new model. */

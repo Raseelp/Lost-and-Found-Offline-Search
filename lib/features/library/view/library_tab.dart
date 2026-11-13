@@ -1,18 +1,20 @@
 import 'dart:async';
+import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lost_and_found/features/people/controllers/faces_controller.dart';
 import 'package:lost_and_found/features/library/models/indexed_folder_model.dart';
-import 'package:lost_and_found/features/model_download/models/model_status.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/core/theme/floating_bar.dart';
+import 'package:lost_and_found/core/theme/motion.dart';
 import 'package:lost_and_found/core/widgets/confirm_dialog.dart';
 import 'package:lost_and_found/features/library/view/widgets/library_orbit.dart';
 import 'package:lost_and_found/features/library/view/widgets/media_access_sheet.dart';
+import 'package:lost_and_found/features/library/view/widgets/offline_note.dart';
+import 'package:lost_and_found/features/library/view/your_data_screen.dart';
 import 'package:lost_and_found/features/library/view/widgets/scan_steps.dart';
-import 'package:lost_and_found/features/library/view/widgets/start_indexing_button.dart';
 import 'package:lost_and_found/features/people/models/face_scan.dart';
 import 'package:lost_and_found/core/media/content_mode.dart';
 import 'package:lost_and_found/features/library/controllers/library_controller.dart';
@@ -22,17 +24,16 @@ part 'library_tab/chip_hero.dart';
 part 'library_tab/scan_card.dart';
 part 'library_tab/idle_controls.dart';
 part 'library_tab/segmented.dart';
-part 'library_tab/library_card.dart';
+part 'library_tab/start_panel.dart';
 part 'library_tab/background_scan_banner.dart';
 part 'library_tab/model_updated_banner.dart';
 part 'library_tab/interrupted_scan_banner.dart';
 part 'library_tab/folder_row.dart';
 
-/// The Library page: the scan card at the top, the controls under it and a card of what is indexed so far.
+/// The Library page: the note about what the scan is for, the scan card, and the controls under it.
 ///
-/// The scan card stays where it is through idle, scanning and done, and only what is on it changes. The card of what
-/// is indexed is not there while a scan runs, as the scan card shows the progress, nor at all until something is
-/// indexed.
+/// The scan card stays where it is through idle, scanning and done, and only what is on it changes. What is indexed so
+/// far is on the Your data page.
 class LibraryTab extends StatelessWidget {
   const LibraryTab({super.key, required this.controller});
 
@@ -52,6 +53,8 @@ class LibraryTab extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: AppSpacing.sm),
+          OfflineNote(compact: scanning, onOpen: () => Navigator.of(context).push(YourDataScreen.route())),
+          const SizedBox(height: AppSpacing.md),
           _ScanCard(controller: controller),
           AnimatedSize(
             duration: const Duration(milliseconds: 340),
@@ -67,29 +70,6 @@ class LibraryTab extends StatelessWidget {
                   : _IdleControls(
                       key: const ValueKey('idle'),
                       controller: controller,
-                    ),
-            ),
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 320),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 320),
-              child: !_hasLibrary(controller) || scanning
-                  ? const SizedBox(
-                      key: ValueKey('none'),
-                      width: double.infinity,
-                    )
-                  : _LibraryCard(
-                      key: const ValueKey('card'),
-                      images: controller.totalImages,
-                      videos: controller.totalVideos,
-                      folders: controller.allIndexedFoldersList.length,
-                      embeddings: controller.totalEmbeddings,
-                      sizeBytes: controller.indexSizeBytes,
-                      lastScan: _lastScanTime(controller.allIndexedFoldersList),
-                      failed: controller.totalFailed,
                     ),
             ),
           ),
@@ -118,21 +98,6 @@ class LibraryTab extends StatelessWidget {
 /// it is kept.
 const bool _showIndexedFolders = false;
 
-bool _hasLibrary(LibraryController controller) =>
-    controller.totalImages > 0 ||
-    controller.totalVideos > 0 ||
-    controller.totalEmbeddings > 0 ||
-    controller.allIndexedFoldersList.isNotEmpty;
-
-DateTime? _lastScanTime(List<IndexedFolder> folders) {
-  if (folders.isEmpty) return null;
-  final latest = folders
-      .map((f) => f.updatedAt)
-      .reduce((a, b) => a > b ? a : b);
-  if (latest <= 0) return null;
-  return DateTime.fromMillisecondsSinceEpoch(latest);
-}
-
 /// The controls under the scan card while a scan runs. The banner about notifications shows only until the permission is
 /// given.
 class _ScanningControls extends StatelessWidget {
@@ -160,7 +125,7 @@ class _ScanningControls extends StatelessWidget {
         Text(
           stopping
               ? 'Finishing the photos in progress and saving them. This takes a few seconds.'
-              : "Search already works on what's finished. This keeps going if you switch apps.",
+              : 'Search already works on what is indexed. As indexing goes on, faces start to appear in the Faces tab and your collections start to fill.',
           textAlign: TextAlign.center,
           style: textTheme.bodySmall?.copyWith(
             color: AppColors.ink48,

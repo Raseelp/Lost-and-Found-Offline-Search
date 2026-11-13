@@ -53,6 +53,17 @@ object IndexGap {
         }
     }
 
+    /** How many photos and how many videos the gallery holds, or null when the app may not read them. Call off the main thread. */
+    fun onPhone(context: Context): Pair<Int, Int>? {
+        val app = context.applicationContext
+        if (!canReadMedia(app)) return null
+        return try {
+            count(app, images = true) to count(app, images = false)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     /**
      * About how many photos and videos taken on today's date in earlier years are not in the index. Screenshots are left
      * out, as they are from the memories. Null when the dates of the index are not all known yet (the number would be

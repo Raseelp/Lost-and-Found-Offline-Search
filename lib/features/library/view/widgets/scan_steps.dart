@@ -7,6 +7,7 @@ import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/core/theme/motion.dart';
+import 'package:lost_and_found/features/library/view/widgets/steps_morph.dart';
 import 'package:lost_and_found/features/people/services/people_service.dart';
 
 /// 12345 as "12,345".
@@ -49,10 +50,6 @@ enum _Role { none, from, to }
 
 const _barHeight = 8.0;
 
-/// How tall each step is at least. Equal heights keep the circles evenly spaced, and a step only grows when its words
-/// need more room, as at a large text size.
-const _stepHeight = 86.0;
-
 /// The ending of a scan, as fractions of [duration]. A bright dot runs down the rail and turns the first two circles
 /// into checks as it passes. At the last circle the check pops, a ring spreads from it, the card's edge flashes and a teal
 /// tint floods the card from that circle and drains away. Then the first two circles go back to how they were.
@@ -82,9 +79,12 @@ double _seg(double t, double a, double b) => ((t - a) / (b - a)).clamp(0.0, 1.0)
 /// showing inside it, and ends as a ring around a teal check.
 ///
 /// Indexing and finding faces take turns. While one works, the other's circle is held: its last picture fades and a
-/// pause sign pulses over it. With [paused] set, because the scan was stopped, both are held. When the turn passes from
-/// one to the other, the work is handed over along the rail. A soft glow breathes behind the circle that is working, and
-/// slides to the other with the turn.
+/// pause sign pulses over it. When the turn passes from one to the other, the work is handed over along the rail. A soft
+/// glow breathes behind the circle that is working, and slides to the other with the turn.
+///
+/// With [paused] set, a scan that was stopped part of the way folds into a row (see [StepsMorph]): "Paused" and how far it
+/// got on top, and the three circles side by side as rings that show how far each step reached. Nothing moves then. A
+/// scan that ran to the end keeps the rail.
 class ScanStepsCard extends StatefulWidget {
   const ScanStepsCard({
     super.key,
@@ -98,6 +98,8 @@ class ScanStepsCard extends StatefulWidget {
     required this.faceFraction,
     required this.batchPhotos,
     required this.semanticsLabel,
+    this.facesProgress = 0,
+    this.stopping = false,
     this.paused = false,
     this.idle = false,
     this.celebrate = false,
@@ -136,11 +138,18 @@ class ScanStepsCard extends StatefulWidget {
   /// Whether the scan was stopped, so nothing moves.
   final bool paused;
 
+  /// Whether the scan has been told to stop and is still finishing the photos in progress. The stopped card then says so.
+  final bool stopping;
+
   /// Whether no scan has run yet, so the steps wait with nothing to show.
   final bool idle;
 
   /// Set when the scan has just run to the end: the ending then plays once.
   final bool celebrate;
+
+  /// How far the faces have got through the whole library, from 0 to 1. A stopped scan shows it on the ring of the
+  /// People step.
+  final double facesProgress;
 
   /// How far through the batch of faces it is, and how many photos the batch has.
   final double faceFraction;
@@ -166,6 +175,12 @@ class _ScanStepsCardState extends State<ScanStepsCard> with TickerProviderStateM
   late final AnimationController _finish = AnimationController(vsync: this, duration: _Finish.duration);
   late final AnimationController _breath = AnimationController(vsync: this, duration: const Duration(milliseconds: 3200));
 
+  /// 0 while the steps go down a rail, 1 once they have moved into the row of a stopped scan.
+  late final AnimationController _morph = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+
+  /// Whether the steps are on the rail and the circles have been measured there, which is when the glow can sit behind one.
+  bool _onRail = true;
+
   final _cardKey = GlobalKey();
   final _nodeKeys = [GlobalKey(), GlobalKey(), GlobalKey()];
   List<Offset?> _centers = const [null, null, null];
@@ -184,10 +199,41 @@ class _ScanStepsCardState extends State<ScanStepsCard> with TickerProviderStateM
   /// The circle the glow sits behind.
   int? get _glowAt => _handing ? _to : _shown;
 
+  /// Whether the scan was stopped part of the way. One that ran to the end, or is ending now, keeps the rail.
+  bool get _stopped => _stoppedBy(widget);
+
+  static bool _stoppedBy(ScanStepsCard w) => w.paused && !w.idle && !w.celebrate && !(w.total > 0 && w.processed >= w.total);
+
   @override
   void initState() {
     super.initState();
     _shown = _target;
+    _morph.value = _stopped ? 1 : 0;
+    _onRail = !_stopped;
+    _morph.addStatusListener(_followMorph);
+  }
+
+  void _followMorph(AnimationStatus status) {
+    if (status == AnimationStatus.dismissed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_morph.isDismissed) return;
+        _measure();
+        setState(() => _onRail = true);
+      });
+    } else if (_onRail) {
+      setState(() => _onRail = false);
+    }
+  }
+
+  void _followStopped(bool was) {
+    if (_stopped == was) return;
+    if (calm(context)) {
+      _morph.value = _stopped ? 1 : 0;
+    } else if (_stopped) {
+      _morph.forward();
+    } else {
+      _morph.reverse();
+    }
   }
 
   @override
@@ -199,6 +245,7 @@ class _ScanStepsCardState extends State<ScanStepsCard> with TickerProviderStateM
   @override
   void didUpdateWidget(covariant ScanStepsCard old) {
     super.didUpdateWidget(old);
+    _followStopped(_stoppedBy(old));
     _followTarget();
     if (!old.celebrate && widget.celebrate) _startFinish();
     if (old.celebrate && !widget.celebrate) _finish.value = 0;
@@ -280,6 +327,7 @@ class _ScanStepsCardState extends State<ScanStepsCard> with TickerProviderStateM
     _hand.dispose();
     _finish.dispose();
     _breath.dispose();
+    _morph.dispose();
     super.dispose();
   }
 
@@ -313,85 +361,131 @@ class _ScanStepsCardState extends State<ScanStepsCard> with TickerProviderStateM
         ? 'Starts once the first photos are read'
         : 'Looking for faces';
 
+    final text = Theme.of(context).textTheme;
+    final stopped = _stopped;
+    final indexed = w.total > 0 ? '${groupedCount(w.processed)} of ${groupedCount(w.total)} indexed.' : 'Nothing is indexed yet.';
+    final states = [photosState, peopleState, searchState];
+    final reached = w.total == 0 ? 0.0 : (w.processed / w.total).clamp(0.0, 1.0);
+    final arcs = [reached, w.facesProgress, reached];
+    final railTitle = [
+      for (final state in states) text.titleSmall?.copyWith(color: state == _StepState.wait ? AppColors.ink48 : AppColors.ink),
+    ];
+    final railDetail = text.bodySmall?.copyWith(color: AppColors.ink48, height: 1.35);
+    final rowTitle = text.titleSmall?.copyWith(color: AppColors.ink, fontSize: 13);
+    final rowDetail = text.bodySmall?.copyWith(color: AppColors.ink48, height: 1.35);
+
+    final titles = ['Reading photos and videos', 'Finding people', searchState == _StepState.done ? 'Search is ready' : 'Search'];
+    final details = [
+      photoDetail,
+      peopleDetail,
+      searchState == _StepState.done ? '${groupedCount(w.searchable)} searchable now' : 'Ready after the first photos',
+    ];
+    final rowTitles = ['Media', 'People', 'Search'];
+    final rowDetails = [
+      '${groupedCount(w.processed)} read',
+      w.people > 0 ? '${groupedCount(w.people)} found' : 'None yet',
+      searchState == _StepState.done ? 'Ready' : 'Not yet',
+    ];
+    final extras = <Widget?>[
+      _Extra(
+        bar: _Bar(value: preparing ? null : (w.total == 0 ? 0 : w.processed / w.total), color: AppColors.primary, height: _barHeight),
+        text: !w.paused && w.photoRate != null && w.photoRate! > 0.02 ? speedText(w.photoRate!) : null,
+      ),
+      w.paused
+          ? null
+          : w.tuning
+          ? const _Extra(
+              bar: _Bar(value: null, color: AppColors.faceAccent, height: _barHeight),
+              text: 'One time only, about a minute',
+            )
+          : faceBatch && w.batchPhotos > 0
+          ? _Extra(
+              bar: _Bar(value: w.faceFraction.clamp(0.0, 1.0), color: AppColors.faceAccent, height: _barHeight),
+              text: [
+                'Looking at the last ${groupedCount(w.batchPhotos)} photos',
+                if (w.faceRate != null && w.faceRate! > 0.02) speedText(w.faceRate!),
+              ].join('  ·  '),
+            )
+          : null,
+      null,
+    ];
+    final icons = [Icons.photo_library_outlined, Icons.person_outline_rounded, Icons.search_rounded];
+    final inside = <Widget?>[
+      photosState == _StepState.wait
+          ? null
+          : _FlipNew<String>(
+              ids: w.photoIds,
+              load: w.loadPhoto ?? (_) => Future<Uint8List>.error('no pictures'),
+              held: photosHeld,
+              stopped: stopped,
+              fallback: Icons.photo_library_outlined,
+            ),
+      peopleState == _StepState.wait
+          ? null
+          : _FlipNew<int>(
+              ids: w.faceIds,
+              load: w.loadFace ?? ScanStepsCard._loadFaceFromPhone,
+              held: peopleHeld,
+              stopped: stopped,
+              fallback: Icons.person_outline_rounded,
+            ),
+      null,
+    ];
+    final spinning = [!photosHeld, !peopleHeld, false];
+    final lineOn = [peopleState != _StepState.wait, searchState == _StepState.done];
+
     final steps = Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.base, AppSpacing.lg, AppSpacing.base, AppSpacing.lg),
-      child: Column(
-        children: [
-          _Step(
-            nodeKey: _nodeKeys[0],
-            index: 0,
-            state: photosState,
-            spinning: !photosHeld,
-            icon: Icons.photo_library_outlined,
-            inside: photosState == _StepState.wait
-                ? null
-                : _FlipNew<String>(
-                    ids: w.photoIds,
-                    load: w.loadPhoto ?? (_) => Future<Uint8List>.error('no pictures'),
-                    held: photosHeld,
-                    fallback: Icons.photo_library_outlined,
-                  ),
-            title: 'Reading photos and videos',
-            detail: photoDetail,
-            lineOn: peopleState != _StepState.wait,
-            finish: _finish,
-            hand: _hand,
-            role: _roleOf(0),
-            flow: _handing ? _hand : null,
-            flowUp: _shown == 1,
-            extra: _Extra(
-              bar: _Bar(value: preparing ? null : (w.total == 0 ? 0 : w.processed / w.total), color: AppColors.primary, height: _barHeight),
-              text: !w.paused && w.photoRate != null && w.photoRate! > 0.02 ? speedText(w.photoRate!) : null,
+      child: StepsMorph(
+        progress: _morph,
+        header: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(w.stopping ? 'Stopping…' : 'Paused', style: text.headlineMedium?.copyWith(color: AppColors.ink, fontWeight: FontWeight.w700, height: 1.1)),
+            const SizedBox(height: AppSpacing.sm - 2),
+            Text(indexed, style: text.bodyMedium?.copyWith(color: AppColors.ink80)),
+          ],
+        ),
+        nodes: [
+          for (var i = 0; i < 3; i++)
+            _Node(
+              key: _nodeKeys[i],
+              finishIndex: i,
+              state: states[i],
+              spinning: spinning[i],
+              still: stopped,
+              arc: arcs[i],
+              arcColor: i == 1 ? AppColors.faceAccent : AppColors.primary,
+              arcShow: _morph,
+              icon: icons[i],
+              inside: inside[i],
+              finish: _finish,
+              hand: _hand,
+              role: _roleOf(i),
             ),
-          ),
-          _Step(
-            nodeKey: _nodeKeys[1],
-            index: 1,
-            state: peopleState,
-            spinning: !peopleHeld,
-            icon: Icons.person_outline_rounded,
-            inside: peopleState == _StepState.wait
-                ? null
-                : _FlipNew<int>(
-                    ids: w.faceIds,
-                    load: w.loadFace ?? ScanStepsCard._loadFaceFromPhone,
-                    held: peopleHeld,
-                    fallback: Icons.person_outline_rounded,
-                  ),
-            title: 'Finding people',
-            detail: peopleDetail,
-            lineOn: searchState == _StepState.done,
-            finish: _finish,
-            hand: _hand,
-            role: _roleOf(1),
-            extra: w.paused
-                ? null
-                : w.tuning
-                ? const _Extra(
-                    bar: _Bar(value: null, color: AppColors.faceAccent, height: _barHeight),
-                    text: 'One time only, about a minute',
-                  )
-                : faceBatch && w.batchPhotos > 0
-                ? _Extra(
-                    bar: _Bar(value: w.faceFraction.clamp(0.0, 1.0), color: AppColors.faceAccent, height: _barHeight),
-                    text: [
-                      'Looking at the last ${groupedCount(w.batchPhotos)} photos',
-                      if (w.faceRate != null && w.faceRate! > 0.02) speedText(w.faceRate!),
-                    ].join('  ·  '),
-                  )
-                : null,
-          ),
-          _Step(
-            nodeKey: _nodeKeys[2],
-            index: 2,
-            state: searchState,
-            spinning: false,
-            icon: Icons.search_rounded,
-            title: searchState == _StepState.done ? 'Search is ready' : 'Search',
-            detail: searchState == _StepState.done ? '${groupedCount(w.searchable)} searchable now' : 'Ready after the first photos',
-            finish: _finish,
-            last: true,
-          ),
+        ],
+        titles: [for (var i = 0; i < 3; i++) Text(titles[i], style: railTitle[i])],
+        details: [for (var i = 0; i < 3; i++) Text(details[i], style: railDetail)],
+        extras: [
+          for (var i = 0; i < 3; i++)
+            SmoothSize(
+              child: extras[i] == null
+                  ? const SizedBox(width: double.infinity)
+                  : Padding(padding: const EdgeInsets.only(top: AppSpacing.sm), child: extras[i]),
+            ),
+        ],
+        rowTitles: [
+          for (final t in rowTitles)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+              child: FittedBox(fit: BoxFit.scaleDown, child: Text(t, style: rowTitle, maxLines: 1)),
+            ),
+        ],
+        rowDetails: [for (final d in rowDetails) Text(d, style: rowDetail, textAlign: TextAlign.center)],
+        edges: [
+          for (var i = 0; i < 2; i++)
+            _Rail(on: lineOn[i], segment: i, finish: _finish, flow: i == 0 && _handing ? _hand : null, flowUp: _shown == 1),
         ],
       ),
     );
@@ -406,9 +500,9 @@ class _ScanStepsCardState extends State<ScanStepsCard> with TickerProviderStateM
             child: IgnorePointer(
               child: RepaintBoundary(
                 child: AnimatedOpacity(
-                  opacity: _glowAt == null ? 0 : 1,
+                  opacity: _glowAt == null || !_onRail ? 0 : 1,
                   duration: const Duration(milliseconds: 600),
-                  child: glowAt == null
+                  child: glowAt == null || !_onRail
                       ? const SizedBox.shrink()
                       : TweenAnimationBuilder<Offset>(
                           tween: Tween(end: glowAt),
@@ -511,105 +605,6 @@ class _Bar extends StatelessWidget {
   }
 }
 
-class _Step extends StatelessWidget {
-  const _Step({
-    required this.nodeKey,
-    required this.index,
-    required this.state,
-    required this.spinning,
-    required this.icon,
-    required this.title,
-    required this.detail,
-    required this.finish,
-    this.inside,
-    this.extra,
-    this.lineOn = false,
-    this.last = false,
-    this.hand,
-    this.role = _Role.none,
-    this.flow,
-    this.flowUp = false,
-  });
-
-  final GlobalKey nodeKey;
-
-  /// Which step this is, from the top.
-  final int index;
-  final _StepState state;
-  final bool spinning;
-  final IconData icon;
-  final Widget? inside;
-  final String title, detail;
-  final Widget? extra;
-
-  /// Whether the rail to the next step is filled.
-  final bool lineOn;
-  final bool last;
-  final Animation<double> finish;
-  final Animation<double>? hand;
-  final _Role role;
-
-  /// Set while the work is being handed along the rail under this step, and whether it goes up.
-  final Animation<double>? flow;
-  final bool flowUp;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final waiting = state == _StepState.wait;
-    return Stack(
-      children: [
-        ConstrainedBox(
-          constraints: BoxConstraints(minHeight: last ? 0 : _stepHeight),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _Node(
-                key: nodeKey,
-                finishIndex: index,
-                state: state,
-                spinning: spinning,
-                icon: icon,
-                inside: inside,
-                finish: finish,
-                hand: hand,
-                role: role,
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: AppSpacing.sm),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: text.titleSmall?.copyWith(color: waiting ? AppColors.ink48 : AppColors.ink)),
-                      const SizedBox(height: 2),
-                      Text(detail, style: text.bodySmall?.copyWith(color: AppColors.ink48, height: 1.35)),
-                      SmoothSize(
-                        child: extra == null
-                            ? const SizedBox(width: double.infinity)
-                            : Padding(padding: const EdgeInsets.only(top: AppSpacing.sm), child: extra),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (!last)
-          Positioned(
-            left: (_Node.size - 2) / 2,
-            top: _Node.size + AppSpacing.xs,
-            bottom: AppSpacing.xs,
-            width: 2,
-            child: _Rail(on: lineOn, segment: index, finish: finish, flow: flow, flowUp: flowUp),
-          ),
-      ],
-    );
-  }
-}
-
 /// The edge between two steps: grey, filled with teal once the next step has begun. While the work is handed along it,
 /// bright dashes flow towards the next step, and at the end of a scan a bright dot runs down it.
 class _Rail extends StatelessWidget {
@@ -682,9 +677,13 @@ class _Node extends StatefulWidget {
     this.finish,
     this.hand,
     this.role = _Role.none,
+    this.still = false,
+    this.arc,
+    this.arcColor = AppColors.primary,
+    this.arcShow,
   });
 
-  static const size = 46.0;
+  static const size = StepsMorph.nodeSize;
 
   /// The room inside the ring for the picture or the check.
   static const inner = 34.0;
@@ -697,6 +696,15 @@ class _Node extends StatefulWidget {
   final Animation<double>? finish;
   final Animation<double>? hand;
   final _Role role;
+
+  /// Set while the scan is stopped, so the ring does not breathe.
+  final bool still;
+
+  /// How much of the ring to fill in [arcColor], from 0 to 1, once [arcShow] has run towards 1. The ring is then a track
+  /// that the arc fills round from the top.
+  final double? arc;
+  final Color arcColor;
+  final Animation<double>? arcShow;
 
   @override
   State<_Node> createState() => _NodeState();
@@ -733,7 +741,7 @@ class _NodeState extends State<_Node> with TickerProviderStateMixin {
     } else {
       _turn.stop();
     }
-    if (widget.state == _StepState.busy && !widget.spinning) {
+    if (widget.state == _StepState.busy && !widget.spinning && !widget.still) {
       loopUnlessCalm(context, _hold, reverse: true);
     } else {
       _hold.stop();
@@ -754,7 +762,7 @@ class _NodeState extends State<_Node> with TickerProviderStateMixin {
     final finish = widget.finish;
     final hand = widget.hand;
     return AnimatedBuilder(
-      animation: Listenable.merge([_hold, _bump, if (finish != null) finish, if (hand != null) hand]),
+      animation: Listenable.merge([_hold, _bump, if (finish != null) finish, if (hand != null) hand, if (widget.arcShow != null) widget.arcShow!]),
       builder: (context, _) => _node(),
     );
   }
@@ -771,9 +779,14 @@ class _NodeState extends State<_Node> with TickerProviderStateMixin {
     final done = state == _StepState.done && !beforeCheck;
     final pop = last && played ? _seg(fv, _Finish.lastCheck, _Finish.lastCheck + 0.17) : 1.0;
     final breath = Curves.easeInOut.transform(_hold.value);
-    final ringColor = done
-        ? Color.lerp(AppColors.hairline, AppColors.primary, last && played ? pop : 1)!
-        : Color.lerp(AppColors.hairline, AppColors.primary.withValues(alpha: 0.5), breath * 0.7)!;
+    final arcAmount = widget.arc == null ? 0.0 : Curves.easeOut.transform(_seg(widget.arcShow?.value ?? 0, 0.5, 1));
+    final ringColor = Color.lerp(
+      done
+          ? Color.lerp(AppColors.hairline, AppColors.primary, last && played ? pop : 1)!
+          : Color.lerp(AppColors.hairline, AppColors.primary.withValues(alpha: 0.5), breath * 0.7)!,
+      AppColors.hairline,
+      arcAmount,
+    )!;
 
     final checkAt = index == 0 ? _Finish.firstCheck : _Finish.secondCheck;
     final checkProgress = finishing && !last ? _seg(fv, checkAt, checkAt + 0.12) : 0.0;
@@ -802,6 +815,11 @@ class _NodeState extends State<_Node> with TickerProviderStateMixin {
               ),
               child: const SizedBox.expand(),
             ),
+            if (arcAmount > 0 && widget.arc! > 0)
+              CustomPaint(
+                size: Size.square(_Node.size),
+                painter: _ArcPainter(widget.arcColor, sweep: math.pi * 2 * widget.arc!.clamp(0.0, 1.0) * arcAmount, from: -math.pi / 2),
+              ),
             if (state == _StepState.busy && widget.spinning)
               RepaintBoundary(
                 child: RotationTransition(
@@ -1026,17 +1044,20 @@ class _CheckDisc extends StatelessWidget {
 }
 
 class _ArcPainter extends CustomPainter {
-  const _ArcPainter(this.color);
+  const _ArcPainter(this.color, {this.sweep = math.pi * 0.7, this.from = 0});
 
   final Color color;
+
+  /// Where the arc starts and how far it runs, in radians.
+  final double sweep, from;
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = (Offset.zero & size).deflate(1.25);
     canvas.drawArc(
       rect,
-      0,
-      math.pi * 0.7,
+      from,
+      sweep,
       false,
       Paint()
         ..style = PaintingStyle.stroke
@@ -1047,7 +1068,7 @@ class _ArcPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_ArcPainter old) => old.color != color;
+  bool shouldRepaint(_ArcPainter old) => old.color != color || old.sweep != sweep || old.from != from;
 }
 
 class _CheckPainter extends CustomPainter {
@@ -1089,11 +1110,14 @@ class _CheckPainter extends CustomPainter {
 /// While [held] the circle does not change. The picture fades and a pause sign pulses over it, and with nothing to show
 /// yet the sign is alone. With motion off a new item appears at once, and the sign does not pulse.
 class _FlipNew<K extends Object> extends StatefulWidget {
-  const _FlipNew({required this.ids, required this.load, required this.held, required this.fallback});
+  const _FlipNew({required this.ids, required this.load, required this.held, required this.fallback, this.stopped = false});
 
   final List<K> ids;
   final Future<Uint8List> Function(K id) load;
   final bool held;
+
+  /// Set while the scan is stopped: the pause sign fades away and the picture is simply dimmed.
+  final bool stopped;
 
   /// Shown until the first picture has been read.
   final IconData fallback;
@@ -1198,7 +1222,7 @@ class _FlipNewState<K extends Object> extends State<_FlipNew<K>> with SingleTick
       _timer?.cancel();
       _timer = null;
     }
-    if (widget.held) {
+    if (widget.held && !widget.stopped) {
       loopUnlessCalm(context, _pulse, reverse: true, rest: 1);
     } else {
       _pulse.stop();
@@ -1270,7 +1294,12 @@ class _FlipNewState<K extends Object> extends State<_FlipNew<K>> with SingleTick
       alignment: Alignment.center,
       children: [
         if (bytes != null) Positioned.fill(child: Opacity(opacity: 0.4, child: _Picture(bytes))),
-        sign,
+        if (bytes == null && widget.stopped) Icon(widget.fallback, size: 20, color: AppColors.ink48),
+        AnimatedOpacity(
+          opacity: widget.stopped ? 0 : 1,
+          duration: calm(context) ? Duration.zero : const Duration(milliseconds: 300),
+          child: sign,
+        ),
       ],
     );
   }
