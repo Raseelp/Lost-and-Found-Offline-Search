@@ -11,7 +11,9 @@ import 'package:lost_and_found/features/tour/view/widgets/tour_palette.dart';
 import 'package:lost_and_found/features/tour/view/demos/search_demo.dart';
 import 'package:lost_and_found/features/tour/view/widgets/tour_scores.dart';
 import 'package:lost_and_found/features/tour/view/widgets/tour_samples.dart';
-import 'package:lost_and_found/features/library/view/widgets/scan_square.dart';
+import 'package:lost_and_found/features/library/view/widgets/library_orbit.dart';
+import 'package:lost_and_found/features/library/view/widgets/scan_steps.dart';
+import 'package:lost_and_found/features/library/view/widgets/start_indexing_button.dart';
 import 'package:lost_and_found/features/people/features/timeline/view/widgets/timeline_preview.dart'
     show bentoRects;
 part 'embed_film/shared.dart';
@@ -19,8 +21,8 @@ part 'embed_film/time.dart';
 part 'embed_film/geo.dart';
 part 'embed_film/film_painter.dart';
 
-/// Page 4's film: the chip reads one photo (the app's own chip), the camera pulls back to a wall of photos that are all
-/// read the same way, and the photos sort themselves into heaps of ones that are alike, as prints would on a table. A
+/// Page 4's film: a finger starts a scan and the app's own scan card reads one photo, the camera pulls back to a wall of
+/// photos that are all read the same way, and the photos sort themselves into heaps of ones that are alike, as prints would on a table. A
 /// search is typed, its words land among the photos, and the photos nearest to them are the answer: they come out of
 /// their heaps into the result. It is the app's real animation in a few places and drawn in the app's look everywhere
 /// else; nothing in it is touched, and nothing goes out of the phone.
@@ -122,10 +124,10 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
   bool _loading = false;
   bool _gone = false;
 
-  /// The chip's state. The real chip is fed these by the film's clock.
+  /// The scan card's state. The real card is fed these by the film's clock.
   bool _heroOn = false;
-  ScanChipMode _mode = ScanChipMode.idle;
-  List<OrbitPhoto> _photos = const [];
+  bool _running = false;
+  List<String> _photoIds = const [];
   int _indexed = 0;
   bool _fedFirst = false, _fedMore = false;
 
@@ -213,8 +215,8 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
     } else {
       _ticker?.stop();
       _heroOn = false;
-      _mode = ScanChipMode.idle;
-      _photos = const [];
+      _running = false;
+      _photoIds = const [];
       _indexed = 0;
       _t.value = 0;
     }
@@ -225,15 +227,15 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
     _origin = _ticker?.isActive == true ? _lastElapsed : Duration.zero;
     _t.value = 0;
     _heroOn = true;
-    _mode = ScanChipMode.idle;
-    _photos = const [];
+    _running = false;
+    _photoIds = const [];
     _indexed = 0;
     _fedFirst = false;
     _fedMore = false;
     if (mounted) setState(() {});
   }
 
-  /// Moves the film to [elapsed]. The chip has to be told something only at a few moments, and they are handled here.
+  /// Moves the film to [elapsed]. The card has to be told something only at a few moments, and they are handled here.
   void _tick(Duration elapsed) {
     _lastElapsed = elapsed;
     final t = (elapsed - _origin).inMicroseconds / 1e6;
@@ -243,20 +245,20 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
     }
     _t.value = t;
     if (_heroOn) {
-      if (_mode == ScanChipMode.idle && t >= _Time.scan) {
-        setState(() => _mode = ScanChipMode.scanning);
+      if (!_running && t >= _Time.scan) {
+        setState(() => _running = true);
       }
       if (!_fedFirst && t >= _Time.firstPhoto) {
         _fedFirst = true;
         setState(() {
-          _photos = _feed(_firstFeed);
+          _photoIds = _feed(_firstFeed);
           _indexed = 1;
         });
       }
       if (!_fedMore && t >= _Time.moreFeed) {
         _fedMore = true;
         setState(() {
-          _photos = [..._feed(_moreFeed), ..._photos];
+          _photoIds = [..._feed(_moreFeed), ..._photoIds];
           _indexed = 3;
         });
       }
@@ -264,9 +266,9 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
     }
   }
 
-  List<OrbitPhoto> _feed(List<String> ids) => [
+  List<String> _feed(List<String> ids) => [
     for (final id in ids.reversed)
-      if (_bytes[id] != null) OrbitPhoto(id: 'tour_$id', bytes: _bytes[id]),
+      if (_bytes[id] != null) id,
   ];
 
   static int _hash(int a, int b) {
@@ -386,7 +388,7 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
         return ClipRect(
           child: Semantics(
             label:
-                'Film: the chip reads a photo into numbers, the camera pulls back to all the photos read the same way, they sort themselves into heaps of photos that are alike, a search is turned into a place among them, and the nearest photos come first. It all happens on the phone.',
+                'Film: a scan reads a photo into numbers, the camera pulls back to all the photos read the same way, they sort themselves into heaps of photos that are alike, a search is turned into a place among them, and the nearest photos come first. It all happens on the phone.',
             child: ExcludeSemantics(
               child: Stack(
                 clipBehavior: Clip.none,
@@ -407,6 +409,21 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
                   ),
                   if (_heroOn) _hero(geo),
                   _bar(geo),
+                  Positioned.fill(
+                    child: RepaintBoundary(
+                      child: CustomPaint(
+                        painter: _FilmPainter(
+                          geo: geo,
+                          cells: const [],
+                          spots: const [],
+                          small: const {},
+                          big: const {},
+                          clock: _t,
+                          fingerOnly: true,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -416,9 +433,10 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
     );
   }
 
-  /// The chip, moved and scaled by the camera. It is always wrapped in an [Opacity]. Switching to one only when the
-  /// fade begins replaces the chip's whole subtree (fresh state, built and started from scratch) in the middle of the
-  /// pull-back, which shows as a hitch. At full opacity it paints the child directly, with no layer.
+  /// The scan card with its button under it, moved and scaled by the camera. It is always wrapped in an [Opacity].
+  /// Switching to one only when the fade begins replaces the card's whole subtree (fresh state, built and started from
+  /// scratch) in the middle of the pull-back, which shows as a hitch. At full opacity it paints the child directly, with
+  /// no layer.
   Widget _hero(_Geo geo) {
     final chip = SizedBox(
       key: ValueKey('hero$_epoch'),
@@ -430,14 +448,33 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
           alignment: Alignment.topCenter,
           minHeight: 0,
           maxHeight: double.infinity,
-          child: SquareScanHero(
-            mode: _mode,
-            progress: _mode == ScanChipMode.idle ? null : _indexed / 36,
-            photos: _photos,
-            rate: 2.5,
-            stats: ScanChipStats(indexed: _indexed, total: 36),
-            loadPhoto: (_) async => null,
-            semanticsLabel: 'The chip reads a photo',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ScanStepsCard(
+                processed: _indexed,
+                total: 36,
+                searchable: _indexed,
+                people: 0,
+                faceWork: false,
+                findingFaces: false,
+                tuning: false,
+                faceFraction: 0,
+                batchPhotos: 0,
+                idle: !_running,
+                photoRate: _running ? 2.5 : null,
+                photoIds: _photoIds,
+                loadPhoto: (id) async => _bytes[id] ?? Uint8List(0),
+                semanticsLabel: 'A scan reads a photo',
+              ),
+              const SizedBox(height: _Geo.buttonGap),
+              Center(
+                child: _running
+                    ? OrbitPill(label: 'Stop indexing', icon: Icons.stop_rounded, onTap: () {})
+                    : StartIndexingButton(onPressed: () {}),
+              ),
+            ],
           ),
         ),
       ),
@@ -456,7 +493,7 @@ class _TourEmbedFilmState extends State<TourEmbedFilm>
             transform: Matrix4.identity()
               ..translate(geo.w / 2, cam.anchorY)
               ..scale(cam.scale, cam.scale, 1)
-              ..translate(-geo.side / 2, -geo.side / 2),
+              ..translate(-geo.side / 2, -geo.heroHeight / 2),
             child: child,
           );
           return Opacity(opacity: alpha.clamp(0.0, 1.0), child: moved);

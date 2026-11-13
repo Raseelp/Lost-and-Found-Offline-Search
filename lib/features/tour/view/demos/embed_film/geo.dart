@@ -4,12 +4,13 @@ part of '../embed_film.dart';
 class _Geo {
   _Geo(Size size) : w = size.width, h = size.height {
     side = math.min(w, 320.0);
-    heroHeight = side + 100;
+    heroHeight = cardHeight + buttonGap + buttonHeight;
     startScale = math.min(
       1.0,
       math.min((h - bottomGap - 8) / heroHeight, w / side),
     );
-    startY = 8 + side * startScale / 2;
+    startY = 8 + heroHeight * startScale / 2;
+    buttonY = startY + (cardHeight + buttonGap + buttonHeight / 2 - heroHeight / 2) * startScale;
     endY = (h - bottomGap) / 2 + 24;
     map = Rect.fromLTRB(
       14,
@@ -26,6 +27,9 @@ class _Geo {
   final double w, h;
   late final double side, heroHeight, startScale, startY, endY;
 
+  /// Where the middle of the Start button is when the film begins.
+  late final double buttonY;
+
   /// The part of the room the photos are placed in.
   late final Rect map;
 
@@ -33,6 +37,11 @@ class _Geo {
   /// when it lies among the others.
   late final Offset query;
   late final double clear, pop, thumb;
+
+  /// How tall the scan card is with its three steps waiting, the gap under it and the button.
+  static const double cardHeight = 258;
+  static const double buttonGap = 16;
+  static const double buttonHeight = 48;
 
   static const double bottomGap = 12;
   static const double pitch = 64;

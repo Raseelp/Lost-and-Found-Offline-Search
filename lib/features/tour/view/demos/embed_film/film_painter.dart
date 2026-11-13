@@ -10,6 +10,7 @@ class _FilmPainter extends CustomPainter {
     required this.small,
     required this.big,
     required this.clock,
+    this.fingerOnly = false,
   }) : super(repaint: clock);
 
   final _Geo geo;
@@ -18,6 +19,9 @@ class _FilmPainter extends CustomPainter {
   final Map<String, ui.Image> small;
   final Map<String, ui.Image> big;
   final ValueListenable<double> clock;
+
+  /// Draws only the finger, over the card and the bar, which the rest of the film is drawn under.
+  final bool fingerOnly;
 
   static final Map<String, TextPainter> _text = {};
 
@@ -65,6 +69,10 @@ class _FilmPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final t = clock.value;
+    if (fingerOnly) {
+      _finger(canvas, t);
+      return;
+    }
     final cam = geo.camera(t);
     _mat(canvas, t);
     _sweep(canvas, t, cam);
@@ -72,7 +80,6 @@ class _FilmPainter extends CustomPainter {
     _photos(canvas, size, t, cam);
     _words(canvas, t);
     _flights(canvas, t);
-    _finger(canvas, t);
     final fadeIn = 1 - _seg(t, 0, 0.5);
     final fadeOut = _seg(t, _Time.end - 1.2, _Time.end);
     final cover = math.max(fadeIn, fadeOut);
@@ -584,9 +591,9 @@ class _FilmPainter extends CustomPainter {
     }
   }
 
-  /// A finger that taps the chip, and later the search bar and its button.
+  /// A finger that taps the Start button, and later the search bar and its button.
   void _finger(Canvas canvas, double t) {
-    final chip = Offset(geo.w / 2, geo.startY);
+    final chip = Offset(geo.w / 2, geo.buttonY);
     final middle = _Geo.barTop + _Geo.barHeight / 2;
     final bar = Offset(geo.w * 0.34, middle);
     final send = Offset(geo.w - 33, middle);
