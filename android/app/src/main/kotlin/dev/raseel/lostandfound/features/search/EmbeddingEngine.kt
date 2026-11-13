@@ -26,6 +26,7 @@ import dev.raseel.lostandfound.features.library.ImageSource
 import dev.raseel.lostandfound.features.library.IndexedImage
 import dev.raseel.lostandfound.features.library.IndexedVideo
 import dev.raseel.lostandfound.features.library.LatestScan
+import dev.raseel.lostandfound.features.library.NewMedia
 import dev.raseel.lostandfound.features.library.RecentEmbeddedItem
 import dev.raseel.lostandfound.features.library.SafUtils
 import dev.raseel.lostandfound.features.library.ScanHandoff
@@ -279,12 +280,16 @@ class EmbeddingEngine(
      * Embeds the photos and videos of the device or of one folder that are not in the store yet, and reports progress.
      * Files already in the store are filtered out first, so a resumed scan jumps to the done count. The rest is
      * shuffled, because an interrupted scan would otherwise leave search with only the slice embedded first.
+     *
+     * With [only] set, it embeds just those files, in the order given and not shuffled, and lists nothing from the phone.
+     * That is how new files are indexed by themselves (see AutoIndex): the older ones are never looked at.
      */
     fun embedImages(
         mode: String,
         folderUriString: String?,
         folderId: String,
         contentMode: String = "both",
+        only: NewMedia? = null,
         onProgress: (ScanProgress) -> Unit
     ): ScanResult {
 
@@ -324,7 +329,11 @@ class EmbeddingEngine(
 
         val runtime = Runtime.getRuntime()
 
-        if (mode == "device") {
+        if (only != null) {
+            imageFiles = only.images
+            videoFiles = only.videos
+            label = "New photos and videos"
+        } else if (mode == "device") {
 
             AppLog.d(TAG, "embedImages: loading device images (scanImages=$scanImages)...")
             imageFiles = if (scanImages) {
@@ -388,7 +397,7 @@ class EmbeddingEngine(
 
         AppLog.d(TAG, "embedImages: reading existing hashes from store...")
         val existingHashes = try {
-            store.readAll().map { it.hash }.toHashSet().also {
+            (if (only != null) indexedHashes() else store.readAll().map { it.hash }.toHashSet()).also {
                 AppLog.d(TAG, "embedImages: loaded ${it.size} existing hashes, mem=${
                     (runtime.totalMemory() - runtime.freeMemory()) / 1_048_576}MB")
             }
@@ -471,7 +480,7 @@ class EmbeddingEngine(
                 return PendingChunk(toEmbed, futures)
             }
 
-            val chunks = newImages.shuffled().chunked(INFERENCE_BATCH_SIZE)
+            val chunks = (if (only != null) newImages else newImages.shuffled()).chunked(INFERENCE_BATCH_SIZE)
             var prefetched: PendingChunk? = null
 
             for (chunkIndex in chunks.indices) {
@@ -548,7 +557,7 @@ class EmbeddingEngine(
         }
 
         if (!isCancelled) {
-            for (video in newVideos.shuffled()) {
+            for (video in (if (only != null) newVideos else newVideos.shuffled())) {
 
                 if (isCancelled) {
                     if (batch.isNotEmpty()) commitBatch(batch)
@@ -1389,7 +1398,48 @@ class EmbeddingEngine(
         return recentPhotos to recentVideos
     }
 
+    /**
+     * The identity hash of every file in the index, for telling what is new. It is read without the embeddings, so a run
+     * in the background does not load the whole index into memory.
+     */
+    fun indexedHashes(): HashSet<Long> {
+        val out = HashSet<Long>()
+        if (store.scanMeta(0L) { key, _, _ -> out.add(key) } < 0) {
+            out.clear()
+            store.readAll().mapTo(out) { it.hash }
+        }
+        return out
+    }
+
+    /**
+     * Of the files with these identity hashes, the photos and the videos that are in the index, once each. It is read
+     * without the embeddings, like [indexedHashes].
+     */
+    fun indexedAmong(hashes: Set<Long>): Pair<List<IndexedImage>, List<IndexedVideo>> {
+        val photos = LinkedHashMap<Long, IndexedImage>()
+        val videos = LinkedHashMap<Long, IndexedVideo>()
+        val end = store.scanMeta(0L) { key, uri, video ->
+            if (key in hashes) {
+                if (video) videos.putIfAbsent(key, IndexedVideo(key, uri)) else photos.putIfAbsent(key, IndexedImage(key, uri))
+            }
+        }
+        if (end < 0) {
+            photos.clear()
+            videos.clear()
+            for (record in store.readAll()) {
+                if (record.hash !in hashes) continue
+                val video = record.videoUri
+                if (video != null) videos.putIfAbsent(record.hash, IndexedVideo(record.hash, video))
+                else photos.putIfAbsent(record.hash, IndexedImage(record.hash, record.imagePath))
+            }
+        }
+        return photos.values.toList() to videos.values.toList()
+    }
+
     fun clearAll() = store.clear()
+
+    /** The model that made an index the app had to drop, or 0 for none (see [EmbeddingStore.modelResetFrom]). */
+    fun modelResetFrom(): Int = store.modelResetFrom()
 
     /** The person has been told that the index was dropped for a new model. */
     fun clearModelReset() = store.clearModelReset()

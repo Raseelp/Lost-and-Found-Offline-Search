@@ -289,6 +289,26 @@ class SettingsScreen extends StatelessWidget {
                     },
                   ),
                   const SizedBox(height: AppSpacing.xl),
+                  const _GroupLabel('Indexing'),
+                  GetBuilder<SettingsController>(
+                    builder: (native) => _GroupCard(
+                      children: [
+                        _SettingsRow(
+                          icon: Icons.autorenew_rounded,
+                          title: 'Auto index new media',
+                          subtitle:
+                              'New ones are indexed by themselves, faces included. A big batch asks first.',
+                          trailing: Switch(
+                            value: native.autoIndexEnabled,
+                            onChanged: (on) async {
+                              await native.setAutoIndexEnabled(on);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
                   const _GroupLabel('Videos'),
                   GetBuilder<GridVideoController>(
                     builder: (videos) => _GroupCard(

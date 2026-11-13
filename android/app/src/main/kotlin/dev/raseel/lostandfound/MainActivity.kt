@@ -11,6 +11,7 @@ import dev.raseel.lostandfound.core.native.NativeExecutors
 import dev.raseel.lostandfound.features.collections.CollectionsChannel
 import dev.raseel.lostandfound.features.export.ExportChannel
 import dev.raseel.lostandfound.features.home.HomeChannel
+import dev.raseel.lostandfound.features.library.AutoIndex
 import dev.raseel.lostandfound.features.library.LibraryChannel
 import dev.raseel.lostandfound.features.library.SafPicker
 import dev.raseel.lostandfound.features.memories.MemoriesChannel
@@ -82,6 +83,7 @@ class MainActivity : FlutterActivity() {
         memories.noteTap(intent)
         if (savedInstanceState == null) home.noteTap(intent)
         try { MemoryScheduler.apply(applicationContext) } catch (_: Exception) {}
+        try { AutoIndex.start(applicationContext) } catch (_: Exception) {}
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = Color.TRANSPARENT

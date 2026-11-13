@@ -63,6 +63,7 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
           (m) => m.name == modeName,
           orElse: () => ContentMode.both,
         );
+        unawaited(LibraryService().setAutoIndexContent(selectedContentMode.name));
       }
 
       final lastRaw = prefs.getString(_lastPhotoKey);
@@ -97,11 +98,13 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
     super.onClose();
   }
 
-  /// Reads the latest scan again when the app comes back.
+  /// Reads the latest scan and the numbers of the library again when the app comes back, as new photos and videos may
+  /// have been indexed by themselves meanwhile.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(refreshLatestScan());
+      if (!isScanning) unawaited(refreshLibraryStats());
     }
   }
 
@@ -135,11 +138,32 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
     return fresh.isEmpty ? items : [...fresh, ...rest];
   }
 
+  /// When new photos and videos were last indexed by themselves, in milliseconds since 1970, or 0. The Library counts it
+  /// as a time of scanning.
+  int autoIndexedAtMs = 0;
+
+  /// Takes what the latest scan stored and what indexing by itself stored since. The scan's items replace the ones held
+  /// (a scan after it has started over), and the others are added to them.
   Future<void> refreshLatestScan() async {
-    final items = await LibraryService().takeLatestScan();
-    if (items.isEmpty) return;
-    latestScanUris = items.toSet();
-    update();
+    final service = LibraryService();
+    final items = await service.takeLatestScan();
+    final auto = await service.takeAutoIndexed();
+    final at = await service.autoIndexedAt();
+    var changed = false;
+    if (items.isNotEmpty) {
+      latestScanUris = items.toSet();
+      changed = true;
+    }
+    if (auto.isNotEmpty) {
+      latestScanUris = {...latestScanUris, ...auto};
+      changed = true;
+      refreshCollections();
+    }
+    if (at != autoIndexedAtMs) {
+      autoIndexedAtMs = at;
+      changed = true;
+    }
+    if (changed) update();
   }
 
   int total = 0;
@@ -738,6 +762,7 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
     totalFailed = 0;
     unawaited(_persistFailedByFolder());
     await LibraryService().clearEmbeddings();
+    autoIndexedAtMs = 0;
     await db.clearFolderList();
     await getAllFoldersList();
     await refreshLibraryStats();
@@ -868,5 +893,6 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
     selectedContentMode = contentMode;
     update();
     unawaited(persistString(_contentModeKey, contentMode.name));
+    unawaited(LibraryService().setAutoIndexContent(contentMode.name));
   }
 }

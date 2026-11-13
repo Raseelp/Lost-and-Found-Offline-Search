@@ -122,6 +122,7 @@ class LibraryChannel(activity: MainActivity) : FeatureChannel(activity) {
 
             "clearEmbeddings" -> {
                 embeddingEngine.clearAll()
+                AutoIndex.forgetLastIndexed(applicationContext)
                 result.success(true)
             }
 
@@ -160,6 +161,19 @@ class LibraryChannel(activity: MainActivity) : FeatureChannel(activity) {
                     runOnUiThread { result.success(items) }
                 }
             }
+
+            "takeAutoIndexed" -> {
+                faceCropExecutor.execute {
+                    val items = try {
+                        LatestScan.takeAuto(applicationContext)
+                    } catch (e: Throwable) {
+                        emptyList()
+                    }
+                    runOnUiThread { result.success(items) }
+                }
+            }
+
+            "autoIndexedAt" -> result.success(AutoIndex.lastIndexedMs(applicationContext))
 
             // No battery-optimization exemption is requested: Play policy allows it only for a short list of core
             // uses, and WorkManager restarts a killed scan.

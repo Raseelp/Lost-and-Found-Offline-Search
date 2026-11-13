@@ -183,7 +183,7 @@ class _YourDataScreenState extends State<YourDataScreen> {
           : collections.visible
                 .where((c) => collections.statsFor(c.id).count > 0)
                 .length,
-      lastScan: _lastScanTime(library.allIndexedFoldersList),
+      lastScan: _lastScanTime(library.allIndexedFoldersList, library.autoIndexedAtMs),
       failed: library.totalFailed,
       photoPictures: _photoPictures,
       videoPictures: _videoPictures,
@@ -209,11 +209,13 @@ class _YourDataScreenState extends State<YourDataScreen> {
   }
 }
 
-DateTime? _lastScanTime(List<IndexedFolder> folders) {
-  if (folders.isEmpty) return null;
-  final latest = folders
-      .map((f) => f.updatedAt)
-      .reduce((a, b) => a > b ? a : b);
+/// The latest of the times a folder was scanned and the time new photos and videos were last indexed by themselves
+/// ([autoIndexedAt], milliseconds since 1970, 0 for never).
+DateTime? _lastScanTime(List<IndexedFolder> folders, int autoIndexedAt) {
+  var latest = autoIndexedAt;
+  for (final folder in folders) {
+    if (folder.updatedAt > latest) latest = folder.updatedAt;
+  }
   if (latest <= 0) return null;
   return DateTime.fromMillisecondsSinceEpoch(latest);
 }

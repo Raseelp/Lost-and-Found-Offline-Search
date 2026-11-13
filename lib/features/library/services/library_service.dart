@@ -67,6 +67,35 @@ class LibraryService {
     }
   }
 
+  /// The items that indexing of new photos and videos by itself stored since the app last asked (given out once). Empty
+  /// when there are none, or on any failure.
+  Future<List<String>> takeAutoIndexed() async {
+    try {
+      return await nativeChannel.invokeListMethod<String>('takeAutoIndexed') ?? const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// When indexing by itself last stored something, in milliseconds since 1970, or 0.
+  Future<int> autoIndexedAt() async {
+    try {
+      return await nativeChannel.invokeMethod<int>('autoIndexedAt') ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Tells the native side what the manual scan is set to index ('both', 'images' or 'videos'), which indexing by itself
+  /// follows.
+  Future<void> setAutoIndexContent(String mode) async {
+    try {
+      await nativeChannel.invokeMethod('setAutoIndexContent', {'mode': mode});
+    } catch (_) {
+      // It keeps the last one it was given.
+    }
+  }
+
   Stream<Map<String, dynamic>> scanProgressStream() {
     return _progressChannel.receiveBroadcastStream().map(
       (event) => Map<String, dynamic>.from(event),
@@ -139,6 +168,11 @@ class LibraryService {
       ],
     );
   }
+
+  /// Whether new photos and videos are indexed by themselves (see AutoIndex on the native side). On until turned off.
+  Future<bool> autoIndexEnabled() async => await nativeChannel.invokeMethod<bool>('getAutoIndex') ?? true;
+
+  Future<void> setAutoIndexEnabled(bool value) => nativeChannel.invokeMethod('setAutoIndex', {'enabled': value});
 
   Future<int> getEmbeddingCountForFolder({required String folderId}) async {
     return await nativeChannel.invokeMethod<int>('getEmbeddingCountForFolder', {

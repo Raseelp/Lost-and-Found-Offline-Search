@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/widgets/confirm_dialog.dart';
 import 'package:lost_and_found/core/permissions/permission_prompt.dart';
+import 'package:lost_and_found/features/library/services/library_service.dart';
 import 'package:lost_and_found/features/memories/services/memories_service.dart';
 
 class SettingsController extends GetxController with WidgetsBindingObserver {
@@ -14,6 +15,7 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
   onInit() async {
     WidgetsBinding.instance.addObserver(this);
     unawaited(_loadIndexNudge());
+    unawaited(_loadAutoIndex());
     super.onInit();
   }
 
@@ -97,6 +99,35 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
   /// The note that asks to finish indexing (see IndexNudge): on until turned off. The switch lives natively, where
   /// the note is made; this mirrors it.
   bool indexNudgeEnabled = true;
+
+  /// Whether new photos and videos are indexed by themselves (see AutoIndex). The switch lives natively, where the work
+  /// is done; this mirrors it. On until turned off.
+  bool autoIndexEnabled = true;
+
+  Future<void> _loadAutoIndex() async {
+    try {
+      autoIndexEnabled = await LibraryService().autoIndexEnabled();
+      update();
+    } catch (_) {
+      // Stays on, the default.
+    }
+  }
+
+  /// Turns indexing of new photos and videos on or off. Turning it on asks for the notification permission (Android 13
+  /// and later), as a big batch is asked about in a notification and a medium one says that it is indexing. The choice is
+  /// kept whether or not it is given. Returns whether it is on.
+  Future<bool> setAutoIndexEnabled(bool on) async {
+    if (on) {
+      await askPermission(
+        AppPermission.notifications,
+        purpose: 'tell you when new photos are indexed, and ask before a big batch',
+      );
+    }
+    autoIndexEnabled = on;
+    update();
+    await LibraryService().setAutoIndexEnabled(on);
+    return on;
+  }
 
   Future<void> _loadIndexNudge() async {
     try {

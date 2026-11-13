@@ -466,6 +466,12 @@ class FaceScanner(private val context: Context, private val services: FaceServic
     private fun sameModels(stored: String?, current: String?): Boolean = ModelKeys.same(stored, current)
 
     /**
+     * Whether faces can be added to the people already stored without starting the grouping over: nothing is stored yet,
+     * or the stored key names the models in use. Unlike [usableModels] it changes nothing.
+     */
+    fun modelsMatchStored(): Boolean = ModelKeys.usable(services.store.getMeta(META_MODEL_KEY), services.engine.modelKey())
+
+    /**
      * Whether the viewer may look for faces with the models in use. A scan that has not got as far as saving the key
      * (stopped before its first batch of faces) leaves none, and then there are no people to clash with, so the key is
      * saved here and the models are used.

@@ -82,6 +82,10 @@
             android:name=".features.library.NotificationDismissReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".features.library.AutoIndexReceiver"
+            android:exported="false" />
+
         <!-- SAF Folder Picker Activity (NOT launcher) -->
         <activity
             android:name=".features.library.SafPickerActivity"

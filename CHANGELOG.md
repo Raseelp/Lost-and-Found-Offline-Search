@@ -55,6 +55,9 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   about how the app works, and links to the source code. The note above the scan has a first point about indexing first.
   The scan settings are folded into the Start button, and a stopped scan folds into a Paused row with a ring for each
   step. The tour's search film now starts with the scan card and its Start button. Settings > Help is now App tour.
+- New photos and videos are indexed by themselves, faces included, a minute after they arrive and when the battery is not
+  low. Up to 10 are indexed silently, up to 100 with a notification, and a bigger batch asks first with an Index button.
+  Only the new ones are indexed, never the older gaps. It can be turned off in Settings > Auto index new media.
 
 ### Changed
 - The Library scan is now three plain steps (reading photos and videos, finding people, search ready) with real numbers, replacing the chip that cut photos into patches and lifted faces out of them, which a tester found alarming after allowing photo access. The chip code is kept, commented out.

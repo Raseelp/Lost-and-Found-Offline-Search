@@ -185,5 +185,18 @@ class ScanWorker(
 
         /** Whether an indexing scan is running in this process. */
         fun isRunning(): Boolean = running.get() > 0
+
+        /**
+         * Runs [block] as the one indexing in this process, after any scan that is running has ended. A scan that starts
+         * meanwhile asks this to stop first (see [doWork]), so the two never index at once.
+         */
+        suspend fun <T> exclusive(block: suspend () -> T): T = scanMutex.withLock {
+            running.incrementAndGet()
+            try {
+                block()
+            } finally {
+                running.decrementAndGet()
+            }
+        }
     }
 }

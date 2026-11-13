@@ -6,6 +6,7 @@ import dev.raseel.lostandfound.BuildConfig
 import dev.raseel.lostandfound.MainActivity
 import dev.raseel.lostandfound.core.log.AppLog
 import dev.raseel.lostandfound.core.native.FeatureChannel
+import dev.raseel.lostandfound.features.library.AutoIndex
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
@@ -60,6 +61,18 @@ class SettingsChannel(activity: MainActivity) : FeatureChannel(activity) {
             }
 
             "androidSdk" -> result.success(Build.VERSION.SDK_INT)
+
+            "getAutoIndex" -> result.success(AutoIndex.enabled(applicationContext))
+
+            "setAutoIndex" -> {
+                AutoIndex.setEnabled(applicationContext, call.argument<Boolean>("enabled") ?: true)
+                result.success(true)
+            }
+
+            "setAutoIndexContent" -> {
+                AutoIndex.setContent(applicationContext, call.argument<String>("mode") ?: "both")
+                result.success(true)
+            }
 
             "getIndexNudge" -> result.success(IndexNudge.enabled(applicationContext))
 

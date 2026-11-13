@@ -14,6 +14,7 @@ object LatestScan {
     private const val TAG = "LatestScan"
     private const val RUNNING_FILE = "latest_scan_running.txt"
     private const val READY_FILE = "latest_scan_ready.txt"
+    private const val AUTO_FILE = "latest_auto_ready.txt"
 
     private val lock = Any()
 
@@ -22,10 +23,15 @@ object LatestScan {
     private val unwritten = ArrayList<String>()
     private var ready: List<String>? = null
 
+    /** What the runs of automatic indexing (see AutoIndex) stored since the app last took it. Kept apart from a scan's items. */
+    private var autoReady: List<String>? = null
+
     /** A scan starts. [resume] is true when the system restarted it, so it carries on with the same items. */
     fun begin(context: Context, resume: Boolean): Unit = synchronized(lock) {
         keys.clear()
         unwritten.clear()
+        autoReady = null
+        File(context.filesDir, AUTO_FILE).delete()
         val running = File(context.filesDir, RUNNING_FILE)
         if (resume && running.exists()) {
             try {
@@ -78,6 +84,51 @@ object LatestScan {
         keys.clear()
         unwritten.clear()
         running.delete()
+    }
+
+    /**
+     * A run of automatic indexing starts. It collects its items with [add] like a scan, but it never touches the running
+     * scan's file, so a scan that the system restarts later still finds its own items.
+     */
+    fun beginAuto(): Unit = synchronized(lock) {
+        keys.clear()
+        unwritten.clear()
+    }
+
+    /** The run has ended. What it stored is added to what the app has not taken yet, and is kept in a file of its own. */
+    fun finishAuto(context: Context): Unit = synchronized(lock) {
+        val items = keys.toList()
+        keys.clear()
+        unwritten.clear()
+        if (items.isEmpty()) return@synchronized
+        val file = File(context.filesDir, AUTO_FILE)
+        val before = autoReady ?: try {
+            if (file.exists()) file.readLines().filter { it.isNotEmpty() } else emptyList()
+        } catch (e: Exception) {
+            AppLog.w(TAG, "finishAuto: ${e.message}")
+            emptyList()
+        }
+        val all = LinkedHashSet<String>(before).apply { addAll(items) }.toList()
+        autoReady = all
+        try {
+            file.writeText(all.joinToString("\n"))
+        } catch (e: Exception) {
+            AppLog.w(TAG, "finishAuto: the list could not be saved (${e.message})")
+        }
+    }
+
+    /** What automatic indexing stored since the app last asked. They are not kept after this. */
+    fun takeAuto(context: Context): List<String> = synchronized(lock) {
+        val file = File(context.filesDir, AUTO_FILE)
+        val list = autoReady ?: try {
+            if (file.exists()) file.readLines().filter { it.isNotEmpty() } else emptyList()
+        } catch (e: Exception) {
+            AppLog.w(TAG, "takeAuto: ${e.message}")
+            emptyList()
+        }
+        autoReady = null
+        file.delete()
+        list
     }
 
     /** The latest scan's items, if the app has not taken them yet. They are not kept after this. */
