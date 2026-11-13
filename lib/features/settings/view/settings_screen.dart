@@ -30,6 +30,7 @@ import 'package:lost_and_found/core/widgets/new_tag.dart';
 import 'package:lost_and_found/features/update/controllers/update_controller.dart';
 import 'package:lost_and_found/features/update/models/update_info.dart';
 import 'package:lost_and_found/features/settings/controllers/settings_controller.dart';
+import 'package:lost_and_found/features/settings/view/auto_index_content.dart';
 import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 import 'package:lost_and_found/features/model_download/controllers/model_download_controller.dart';
 part 'settings_screen/shared.dart';
@@ -305,6 +306,11 @@ class SettingsScreen extends StatelessWidget {
                             },
                           ),
                         ),
+                        if (native.autoIndexEnabled)
+                          AutoIndexContentChoice(
+                            value: native.autoIndexContent,
+                            onChanged: native.setAutoIndexContent,
+                          ),
                       ],
                     ),
                   ),

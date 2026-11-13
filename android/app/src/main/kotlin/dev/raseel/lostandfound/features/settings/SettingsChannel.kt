@@ -69,6 +69,8 @@ class SettingsChannel(activity: MainActivity) : FeatureChannel(activity) {
                 result.success(true)
             }
 
+            "getAutoIndexContent" -> result.success(AutoIndex.content(applicationContext))
+
             "setAutoIndexContent" -> {
                 AutoIndex.setContent(applicationContext, call.argument<String>("mode") ?: "both")
                 result.success(true)

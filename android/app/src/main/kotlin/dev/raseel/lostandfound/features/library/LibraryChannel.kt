@@ -44,6 +44,7 @@ class LibraryChannel(activity: MainActivity) : FeatureChannel(activity) {
                         return@execute
                     }
 
+                    LastScanProgress.clear(applicationContext)
                     val request = OneTimeWorkRequestBuilder<ScanWorker>()
                         .setInputData(
                             workDataOf(
@@ -123,6 +124,8 @@ class LibraryChannel(activity: MainActivity) : FeatureChannel(activity) {
             "clearEmbeddings" -> {
                 embeddingEngine.clearAll()
                 AutoIndex.forgetLastIndexed(applicationContext)
+                AutoShown.clear(applicationContext)
+                LastScanProgress.clear(applicationContext)
                 result.success(true)
             }
 
@@ -174,6 +177,27 @@ class LibraryChannel(activity: MainActivity) : FeatureChannel(activity) {
             }
 
             "autoIndexedAt" -> result.success(AutoIndex.lastIndexedMs(applicationContext))
+
+            "lastScanProgress" -> result.success(LastScanProgress.read(applicationContext))
+
+            "takeAutoShown" -> {
+                faceCropExecutor.execute {
+                    val batch = try {
+                        AutoShown.take(applicationContext)
+                    } catch (e: Throwable) {
+                        AutoShownBatch(0, 0, emptyList())
+                    }
+                    runOnUiThread {
+                        result.success(
+                            mapOf(
+                                "photos" to batch.photos,
+                                "videos" to batch.videos,
+                                "items" to batch.items.map { mapOf("uri" to it.uri, "video" to it.video) },
+                            )
+                        )
+                    }
+                }
+            }
 
             // No battery-optimization exemption is requested: Play policy allows it only for a short list of core
             // uses, and WorkManager restarts a killed scan.

@@ -1,5 +1,10 @@
 part of '../library_tab.dart';
 
+/*
+The banner that was shown here for a scan that was still going the last time the app process existed but is not any
+more. The scan card shows such a scan as paused now, and its button picks it up again (see
+LibraryController.checkForInterruptedScan). The banner's code is kept, commented out.
+
 /// Shown in place of the usual scan buttons when a scan was still going the last time the app process existed but
 /// is not any more. See LibraryController._checkForInterruptedScan for how that is detected. Resuming picks up where
 /// it left off, because embedImages skips whatever it already finished, by hash, so this is a one-tap fix rather
@@ -92,3 +97,4 @@ class _InterruptedScanBanner extends StatelessWidget {
     );
   }
 }
+*/

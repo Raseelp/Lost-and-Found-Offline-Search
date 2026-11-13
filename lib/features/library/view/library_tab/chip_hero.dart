@@ -128,12 +128,18 @@ class _ChipHero extends StatelessWidget {
 */
 
 /// Starts indexing the way the Library's scan card does when its button is tapped: the whole phone (asking for the photos first if
-/// need be) or a folder to choose, as "Where to look" says. Nothing happens while a scan is already running.
+/// need be) or a folder to choose, as "Where to look" says. A scan of a folder that was interrupted is picked up again
+/// where it was, without choosing the folder again, while One folder is still the choice. Nothing happens while a scan is
+/// already running.
 Future<void> startIndexing(
   BuildContext context,
   LibraryController controller,
 ) async {
   if (controller.isScanning) return;
+  if (controller.interruptedScan != null && !controller.scanWholePhone) {
+    await controller.resumeInterruptedScan();
+    return;
+  }
   if (controller.scanWholePhone) {
     await _startDeviceScan(context, controller);
   } else {

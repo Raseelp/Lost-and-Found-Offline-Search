@@ -104,6 +104,7 @@ class ScanWorker(
                 )
                 if (progress.done && !isStopped) LatestScan.finish(applicationContext)
                 ScanForegroundService.pushProgress(map)
+                LastScanProgress.save(applicationContext, map)
 
                 val notification = ScanForegroundService.updateProgress(
                     applicationContext,
@@ -126,8 +127,8 @@ class ScanWorker(
         } catch (e: Exception) {
             AppLog.e(TAG, "doWork: embedImages failed: ${e.message}", e)
             if (!isStopped) LatestScan.finish(applicationContext)
-            if (thisRun == latestRun.get()) ScanForegroundService.pushProgress(
-                mapOf(
+            if (thisRun == latestRun.get()) {
+                val failed = mapOf(
                     "id" to folderId,
                     "total" to 0,
                     "processed" to 0,
@@ -138,7 +139,9 @@ class ScanWorker(
                     "path" to "",
                     "recentItems" to emptyList<Map<String, Any>>()
                 )
-            )
+                ScanForegroundService.pushProgress(failed)
+                LastScanProgress.save(applicationContext, failed)
+            }
             Result.failure()
         } finally {
             FaceFollower.closeForScan()

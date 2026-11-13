@@ -77,6 +77,35 @@ class LibraryService {
     }
   }
 
+  /// What indexing by itself stored since the app last asked (given out once): how many photos and videos, and a few of
+  /// them to show. All zero and no items when there is nothing, or on any failure.
+  Future<AutoIndexedBatch> takeAutoShown() async {
+    try {
+      final map = await nativeChannel.invokeMapMethod<String, dynamic>('takeAutoShown');
+      if (map == null) return const AutoIndexedBatch();
+      return AutoIndexedBatch(
+        photos: (map['photos'] as num?)?.toInt() ?? 0,
+        videos: (map['videos'] as num?)?.toInt() ?? 0,
+        items: [
+          for (final item in (map['items'] as List? ?? const []))
+            if (item is Map && item['uri'] is String) (uri: item['uri'] as String, video: item['video'] == true),
+        ],
+      );
+    } catch (_) {
+      return const AutoIndexedBatch();
+    }
+  }
+
+  /// The last progress the scan reported, kept by the native side, for when the scan ended or was cut short while the app
+  /// was away. Null when there is none, or on any failure.
+  Future<Map<String, dynamic>?> lastScanProgress() async {
+    try {
+      return await nativeChannel.invokeMapMethod<String, dynamic>('lastScanProgress');
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// When indexing by itself last stored something, in milliseconds since 1970, or 0.
   Future<int> autoIndexedAt() async {
     try {
@@ -86,8 +115,16 @@ class LibraryService {
     }
   }
 
-  /// Tells the native side what the manual scan is set to index ('both', 'images' or 'videos'), which indexing by itself
-  /// follows.
+  /// What auto indexing picks up: 'both' (the default), 'images' or 'videos'.
+  Future<String> autoIndexContent() async {
+    try {
+      return await nativeChannel.invokeMethod<String>('getAutoIndexContent') ?? 'both';
+    } catch (_) {
+      return 'both';
+    }
+  }
+
+  /// Sets what auto indexing picks up ('both', 'images' or 'videos').
   Future<void> setAutoIndexContent(String mode) async {
     try {
       await nativeChannel.invokeMethod('setAutoIndexContent', {'mode': mode});
@@ -189,4 +226,15 @@ class LibraryService {
   Future<void> clearEmbeddings() async {
     await nativeChannel.invokeMethod('clearEmbeddings');
   }
+}
+
+/// Photos and videos that were indexed by themselves: how many of each, and a few of them to show, newest first.
+class AutoIndexedBatch {
+  const AutoIndexedBatch({this.photos = 0, this.videos = 0, this.items = const []});
+
+  final int photos;
+  final int videos;
+  final List<({String uri, bool video})> items;
+
+  int get count => photos + videos;
 }

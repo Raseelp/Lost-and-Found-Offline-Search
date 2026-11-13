@@ -104,9 +104,14 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
   /// is done; this mirrors it. On until turned off.
   bool autoIndexEnabled = true;
 
+  /// What auto indexing picks up: 'both' (the default), 'images' or 'videos'. It belongs to auto indexing alone, and the
+  /// choice of the manual scan in the Library is separate.
+  String autoIndexContent = 'both';
+
   Future<void> _loadAutoIndex() async {
     try {
       autoIndexEnabled = await LibraryService().autoIndexEnabled();
+      autoIndexContent = await LibraryService().autoIndexContent();
       update();
     } catch (_) {
       // Stays on, the default.
@@ -127,6 +132,14 @@ class SettingsController extends GetxController with WidgetsBindingObserver {
     update();
     await LibraryService().setAutoIndexEnabled(on);
     return on;
+  }
+
+  /// Sets what auto indexing picks up. What arrived while another choice was on is not looked at again.
+  Future<void> setAutoIndexContent(String mode) async {
+    if (mode == autoIndexContent) return;
+    autoIndexContent = mode;
+    update();
+    await LibraryService().setAutoIndexContent(mode);
   }
 
   Future<void> _loadIndexNudge() async {

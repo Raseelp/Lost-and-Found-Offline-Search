@@ -12,6 +12,7 @@ import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/app_radius.dart';
 import 'package:lost_and_found/core/theme/app_spacing.dart';
 import 'package:lost_and_found/core/theme/floating_bar.dart';
+import 'package:lost_and_found/features/search/view/widgets/auto_indexed_card.dart';
 import 'package:lost_and_found/features/search/view/widgets/mention_input_field.dart';
 import 'package:lost_and_found/features/search/view/widgets/mention_text_controller.dart';
 import 'package:lost_and_found/features/search/view/widgets/search_filter_sheet.dart';
@@ -20,7 +21,7 @@ import 'package:lost_and_found/core/widgets/app_toast.dart';
 import 'package:lost_and_found/features/library/controllers/library_controller.dart';
 import 'package:lost_and_found/features/search/controllers/search_controller.dart';
 
-/// The Search tab: the search bar, the story rings and the results.
+/// The Search tab: the search bar, the story rings, the card about what was indexed by itself, and the results.
 ///
 /// It is one CustomScrollView and not a SingleChildScrollView with a Column, because the results grid must be a real
 /// sliver in the one scrollable to be virtualized (see [searchResultsSlivers]). Everything above it rides along as a
@@ -73,6 +74,11 @@ class SearchTab extends StatelessWidget {
             child: StoryRingsBar(controller: controller, compact: showResults),
           ),
         ),
+        if (library.autoIndexed.count > 0 && library.totalEmbeddings > 0)
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.base, AppSpacing.xl, showResults ? AppSpacing.base : 0),
+            sliver: SliverToBoxAdapter(child: AutoIndexedCard(batch: library.autoIndexed)),
+          ),
         if (showResults)
           ...searchResultsSlivers(search: controller, library: library)
         else

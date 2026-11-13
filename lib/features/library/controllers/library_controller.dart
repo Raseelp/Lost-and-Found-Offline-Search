@@ -36,7 +36,7 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
     await refreshLibraryStats();
     await _settings.checkBackgroundScanPermission();
     await _resumeActiveScanIfAny();
-    await _checkForInterruptedScan();
+    await checkForInterruptedScan();
     refreshCollections();
     unawaited(refreshLatestScan());
     super.onInit();
@@ -63,7 +63,6 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
           (m) => m.name == modeName,
           orElse: () => ContentMode.both,
         );
-        unawaited(LibraryService().setAutoIndexContent(selectedContentMode.name));
       }
 
       final lastRaw = prefs.getString(_lastPhotoKey);
@@ -138,9 +137,16 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
     return fresh.isEmpty ? items : [...fresh, ...rest];
   }
 
+  static const _autoShownKept = 24;
+
   /// When new photos and videos were last indexed by themselves, in milliseconds since 1970, or 0. The Library counts it
   /// as a time of scanning.
   int autoIndexedAtMs = 0;
+
+  /// What indexing by itself stored since the app was opened, for the card on the Search tab. It is taken from the native
+  /// side once, so it is held here for as long as the app stays open, and the next time the app is opened it holds only
+  /// what was stored in between. A few of the items are kept to show, newest first.
+  AutoIndexedBatch autoIndexed = const AutoIndexedBatch();
 
   /// Takes what the latest scan stored and what indexing by itself stored since. The scan's items replace the ones held
   /// (a scan after it has started over), and the others are added to them.
@@ -149,7 +155,16 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
     final items = await service.takeLatestScan();
     final auto = await service.takeAutoIndexed();
     final at = await service.autoIndexedAt();
+    final shown = await service.takeAutoShown();
     var changed = false;
+    if (shown.count > 0) {
+      autoIndexed = AutoIndexedBatch(
+        photos: autoIndexed.photos + shown.photos,
+        videos: autoIndexed.videos + shown.videos,
+        items: [...shown.items, ...autoIndexed.items].take(_autoShownKept).toList(),
+      );
+      changed = true;
+    }
     if (items.isNotEmpty) {
       latestScanUris = items.toSet();
       changed = true;
@@ -430,7 +445,7 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
     );
   }
 
-  /// Resumes a scan interrupted by the system killing the app mid-run (see [_checkForInterruptedScan]), with the same
+  /// Resumes a scan interrupted by the system killing the app mid-run (see [checkForInterruptedScan]), with the same
   /// folderId and uri as before and no picker. The picker can be skipped for a folder scan because SafPickerActivity
   /// takes a persistable URI permission grant when the folder is first picked, so it is still valid after an app
   /// restart.
@@ -632,16 +647,39 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
   /// the system killed it (see [_persistInterruptedScanMarker] for when the marker is written and cleared). Showing that
   /// as "tap to resume" turns a silent failure into a one-tap fix, because the embedImages() call already skips by hash
   /// whatever it finished before, so resuming picks up where it left off.
-  Future<void> _checkForInterruptedScan() async {
+  ///
+  /// The Library does not show that as a banner of its own. The scan card shows it as paused, where the scan got to, and
+  /// its button picks the scan up again. What the scan last reported is read from the native side. If that says the scan
+  /// ended after all (it finished, or was stopped, while the app was away), there is nothing to resume: the scan is
+  /// recorded as a scan that ended, as it would have been if the app had been open, and so is one that failed. A scan of a
+  /// folder leaves the choice of where to look on One folder, so that the button picks that folder up again.
+  @visibleForTesting
+  Future<void> checkForInterruptedScan() async {
     if (isScanning) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_interruptedScanKey);
       if (raw == null) return;
       final decoded = jsonDecode(raw) as Map;
-      interruptedScan = decoded.map(
-        (k, v) => MapEntry(k as String, v as String),
-      );
+      final marker = decoded.map((k, v) => MapEntry(k as String, v as String));
+
+      final last = await LibraryService().lastScanProgress();
+      final reached = last == null ? null : IndexedFolder.fromMap(last);
+      if (reached != null) {
+        if (reached.total > 0) scanResult = reached;
+        if (reached.done) {
+          await _clearInterruptedScanMarker();
+          update();
+          if (reached.total > 0 && reached.id.isNotEmpty) {
+            unawaited(
+              _finishScan(folderId: reached.id).catchError((Object e) => debugPrint('Failed to record the ended scan: $e')),
+            );
+          }
+          return;
+        }
+      }
+      interruptedScan = marker;
+      scanWholePhone = marker['mode'] != 'folder';
       update();
     } catch (e) {
       debugPrint('Failed to read interrupted-scan marker: $e');
@@ -763,6 +801,7 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
     unawaited(_persistFailedByFolder());
     await LibraryService().clearEmbeddings();
     autoIndexedAtMs = 0;
+    autoIndexed = const AutoIndexedBatch();
     await db.clearFolderList();
     await getAllFoldersList();
     await refreshLibraryStats();
@@ -893,6 +932,5 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
     selectedContentMode = contentMode;
     update();
     unawaited(persistString(_contentModeKey, contentMode.name));
-    unawaited(LibraryService().setAutoIndexContent(contentMode.name));
   }
 }

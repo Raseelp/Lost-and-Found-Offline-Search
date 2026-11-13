@@ -113,8 +113,8 @@ object AutoIndexRules {
  * up to the time the newest of them was added, and nothing that arrives later. The question is not asked again for a day
  * after it was swiped away, unless the batch has grown. When notifications cannot be shown, only the silent size is
  * indexed and a bigger batch is left to the manual scan. What is indexed follows the choice of photos, videos or both
- * made for the manual scan. The faces are found only in what a run indexed, and the face scan's catch-up over the whole
- * library is never started from here.
+ * made in Settings for auto indexing, and not the choice of the manual scan. The faces are found only in what a run
+ * indexed, and the face scan's catch-up over the whole library is never started from here.
  */
 object AutoIndex {
     const val ACTION_INDEX_NEW = "dev.raseel.lostandfound.INDEX_NEW"
@@ -141,7 +141,7 @@ object AutoIndex {
     private const val ENABLED = "enabled"
     private const val MARKER = "marker_added_s"
     private const val APPROVED_UNTIL = "approved_until_added_s"
-    private const val CONTENT = "content"
+    private const val CONTENT = "auto_content"
     private const val LAST_INDEXED = "last_indexed_ms"
     private const val ASKED_COUNT = "asked_count"
     private const val DISMISSED_AT = "ask_dismissed_at_ms"
@@ -153,7 +153,7 @@ object AutoIndex {
 
     fun enabled(context: Context): Boolean = prefs(context).getBoolean(ENABLED, true)
 
-    /** What the manual scan was set to index: "images", "videos" or "both". The app passes it on whenever it changes. */
+    /** What auto indexing picks up: "images", "videos" or "both", which is the default. It is chosen in Settings, and the choice of the manual scan has nothing to do with it. */
     fun content(context: Context): String = prefs(context).getString(CONTENT, "both").let { if (it == "images" || it == "videos") it else "both" }
 
     fun setContent(context: Context, value: String) {
@@ -301,7 +301,8 @@ object AutoIndex {
     /**
      * The files added at or after [since] seconds, and at or before [until], newest first. Nothing older is read from the
      * media library, and neither is a file that was last modified long before [since] (see [AutoIndexRules.modifiedFloor]).
-     * No permission for one kind gives none of that kind.
+     * No permission for one kind gives none of that kind. The numbers are written into the selection, which is safe because
+     * they are numbers, so that the comparison does not depend on how the library treats a bound text.
      */
     private fun rows(context: Context, images: Boolean, since: Long, until: Long?): List<Row> {
         val base = collection(images)
@@ -310,12 +311,11 @@ object AutoIndex {
         val modified = if (images) MediaStore.Images.Media.DATE_MODIFIED else MediaStore.Video.Media.DATE_MODIFIED
         val name = if (images) MediaStore.Images.Media.DISPLAY_NAME else MediaStore.Video.Media.DISPLAY_NAME
         val added = if (images) MediaStore.Images.Media.DATE_ADDED else MediaStore.Video.Media.DATE_ADDED
-        val floor = AutoIndexRules.modifiedFloor(since).toString()
-        val selection = if (until == null) "$added >= ? AND $modified >= ?" else "$added >= ? AND $modified >= ? AND $added <= ?"
-        val args = if (until == null) arrayOf(since.toString(), floor) else arrayOf(since.toString(), floor, until.toString())
+        val floor = AutoIndexRules.modifiedFloor(since)
+        val selection = if (until == null) "$added >= $since AND $modified >= $floor" else "$added >= $since AND $modified >= $floor AND $added <= $until"
         val out = ArrayList<Row>()
         try {
-            context.contentResolver.query(base, arrayOf(id, size, modified, name, added), selection, args, "$added DESC")?.use { cursor ->
+            context.contentResolver.query(base, arrayOf(id, size, modified, name, added), selection, null, "$added DESC")?.use { cursor ->
                 val idCol = cursor.getColumnIndexOrThrow(id)
                 val sizeCol = cursor.getColumnIndexOrThrow(size)
                 val modCol = cursor.getColumnIndexOrThrow(modified)
@@ -392,15 +392,23 @@ object AutoIndex {
         val app = context.applicationContext
         if (!enabled(app) && !force) return true
         val p = prefs(app)
-        if (!ScanEngineHolder.modelManager(app).areModelsReady() || !hasMediaAccess(app)) return true
-        if (!p.contains(MARKER)) {
-            p.edit().putLong(MARKER, nowSeconds()).apply()
+        if (!ScanEngineHolder.modelManager(app).areModelsReady() || !hasMediaAccess(app)) {
+            AppLog.i(TAG, "run: not yet, the models are not ready or the photos cannot be read")
             return true
         }
-        if (ScanWorker.isRunning()) return false
+        if (!p.contains(MARKER)) {
+            p.edit().putLong(MARKER, nowSeconds()).apply()
+            AppLog.i(TAG, "run: first time, new means from now on")
+            return true
+        }
+        if (ScanWorker.isRunning()) {
+            AppLog.i(TAG, "run: a scan is running, looking again later")
+            return false
+        }
 
         val engine = ScanEngineHolder.embeddingEngine(app)
         if (engine.modelResetFrom() != 0) {
+            AppLog.i(TAG, "run: the index waits to be made again, nothing is indexed by itself")
             advance(app, nowSeconds())
             return true
         }
@@ -422,7 +430,9 @@ object AutoIndex {
         }
 
         val found = findNew(app, engine, p.getLong(MARKER, 0L), content = content)
-        return when (AutoIndexRules.plan(found.count, canTell(app))) {
+        val plan = AutoIndexRules.plan(found.count, canTell(app))
+        AppLog.i(TAG, "run: ${found.images.size} new photos and ${found.videos.size} new videos since ${p.getLong(MARKER, 0L)} ($content), plan $plan")
+        return when (plan) {
             AutoPlan.NOTHING -> {
                 advance(app, found.newestAdded)
                 forgetAsk(app)
@@ -449,7 +459,8 @@ object AutoIndex {
     /**
      * Indexes exactly [found], in the order given, then finds the faces in what was indexed. The marker moves only when
      * all of it was done. A scan that is started meanwhile stops this (see [ScanWorker.doWork]), and then it is false.
-     * What it indexed is kept for the app to tag as new, and the time is kept for the Library.
+     * What it indexed is kept for the app to tag as new and to tell the person about, and the time is kept for the
+     * Library.
      */
     private fun index(app: Context, engine: EmbeddingEngine, found: NewMedia, content: String, stopped: () -> Boolean): Boolean {
         val loud = AutoIndexRules.plan(found.count) != AutoPlan.SILENT
@@ -467,8 +478,10 @@ object AutoIndex {
                 }
             }
             if (result.embedded > 0) prefs(app).edit().putLong(LAST_INDEXED, System.currentTimeMillis()).apply()
+            val (storedPhotos, storedVideos) = engine.indexedAmong(identityHashes(found))
+            AutoShown.add(app, storedPhotos.map { it.uri }, storedVideos.map { it.uri })
             if (halted()) return false
-            findFaces(app, engine, found, halted)
+            findFaces(app, storedPhotos, storedVideos, halted)
             if (halted()) return false
             advance(app, found.newestAdded)
             return true
@@ -480,27 +493,23 @@ object AutoIndex {
 
     /**
      * Finds the faces in the photos and videos that were just indexed, and in nothing else. The face scan's own catch-up
-     * over the whole library is not started, so the older ones are left alone. Which of the files are in the index is
-     * read without the embeddings.
+     * over the whole library is not started, so the older ones are left alone. [stored] and [storedVideos] are the files
+     * of the run that are in the index.
      *
      * It is left to the next face scan when the person stopped face search, when the face models are not the ones the
      * stored people were made with (finding faces then would throw those people away and start the grouping over, which
      * only a scan the person started may do), and when a face scan is running right now. A photo or video whose faces
      * were found already (a scan finished them while this waited) is not done again.
      */
-    private fun findFaces(app: Context, engine: EmbeddingEngine, found: NewMedia, halted: () -> Boolean) {
+    private fun findFaces(app: Context, stored: List<IndexedImage>, storedVideos: List<IndexedVideo>, halted: () -> Boolean) {
         if (FaceSettings.paused(app)) return
         try {
             val services = FaceServices.get(app)
             if (!services.engine.isReady() || !services.scanner.modelsMatchStored()) return
             if (FaceScanHub.running || FaceFollower.isArmed()) return
-            val wanted = HashSet<Long>()
-            for (image in found.images) wanted.add(HashUtils.identityHash(image.size, image.lastModified, image.name))
-            for (video in found.videos) wanted.add(HashUtils.identityHash(video.size, video.lastModified, video.name))
-            val (indexedPhotos, indexedVideos) = engine.indexedAmong(wanted)
             val finished = services.store.processedHashes()
-            val photos = indexedPhotos.filter { it.hash !in finished }
-            val videos = indexedVideos.filter { !services.store.isVideoDone(it.hash) }
+            val photos = stored.filter { it.hash !in finished }
+            val videos = storedVideos.filter { !services.store.isVideoDone(it.hash) }
             val scanVideos = FaceSettings.scanVideos(app)
             val abandoned = AtomicBoolean(false)
             val stop = { halted() || abandoned.get() }
@@ -553,6 +562,14 @@ object AutoIndex {
                 return
             }
         }
+    }
+
+    /** The identity hashes of the files of [found]. */
+    private fun identityHashes(found: NewMedia): HashSet<Long> {
+        val out = HashSet<Long>()
+        for (image in found.images) out.add(HashUtils.identityHash(image.size, image.lastModified, image.name))
+        for (video in found.videos) out.add(HashUtils.identityHash(video.size, video.lastModified, video.name))
+        return out
     }
 
     private fun number(n: Int): String = NumberFormat.getIntegerInstance().format(n)
@@ -683,9 +700,11 @@ class AutoIndexWorker(context: Context, params: WorkerParameters) : CoroutineWor
     override suspend fun doWork(): Result {
         val app = applicationContext
         val force = inputData.getBoolean(AutoIndex.KEY_FORCE, false)
+        AppLog.i("AutoIndex", "woken${if (force) " by the Index button" else ""}")
         AutoIndex.armNow(app)
         try {
             val finished = AutoIndex.run(app, force) { isStopped }
+            AppLog.i("AutoIndex", if (finished) "run finished" else "run not finished, looking again in 15 minutes")
             if (!finished) AutoIndex.checkNow(app, 15L)
         } catch (e: kotlinx.coroutines.CancellationException) {
             AutoIndex.checkNow(app, 15L)
