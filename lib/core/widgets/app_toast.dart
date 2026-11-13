@@ -6,7 +6,7 @@ import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/floating_bar.dart';
 import 'package:lost_and_found/core/theme/motion.dart';
 
-/// Shows every short message in the app ("Copied.", "Merged two people." with an Undo) as one light frosted card. A
+/// Shows every short message in the app ("Copied.", "Merged two people." with an Undo) as one dark frosted card. A
 /// message replaces the one on screen. It needs no BuildContext, so it can be called after a screen has gone. A
 /// message with a button shows the time left as a thin line that shrinks, and with "Remove animations" on nothing
 /// slides or shrinks.
@@ -94,6 +94,9 @@ class _ToastCard extends StatefulWidget {
 }
 
 class _ToastCardState extends State<_ToastCard> with TickerProviderStateMixin {
+  static const _radius = 16.0;
+  static const _glass = Color(0xC71A1D1C);
+
   /// The slide in and out.
   late final AnimationController _in = AnimationController(
     vsync: this,
@@ -163,73 +166,97 @@ class _ToastCardState extends State<_ToastCard> with TickerProviderStateMixin {
     final textTheme = Theme.of(context).textTheme;
     final showLine = widget.actionLabel != null && !calm(context);
 
-    final card = ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.86),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.hairline),
-            boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.16), blurRadius: 30, offset: const Offset(0, 10))],
-          ),
-          child: Stack(
-            children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(18, 12, widget.actionLabel == null ? 18 : 10, showLine ? 18 : 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        widget.message,
-                        style: textTheme.bodyMedium?.copyWith(fontSize: 15, height: 1.35, color: AppColors.ink),
-                      ),
-                    ),
-                    if (widget.actionLabel != null)
-                      TextButton(
-                        onPressed: () {
-                          if (_gone) return;
-                          _gone = true;
-                          widget.onGone();
-                          widget.onAction?.call();
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.primary,
-                          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          minimumSize: const Size(48, 40),
-                        ),
-                        child: Text(widget.actionLabel!),
-                      ),
-                  ],
+    final shape = BorderRadius.circular(_radius);
+    final card = Stack(
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(
+            child: ClipPath(
+              clipper: const _OutsideClipper(_radius),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: shape,
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.26), blurRadius: 30, offset: const Offset(0, 12))],
                 ),
               ),
-              if (showLine)
-                Positioned(
-                  left: 16,
-                  right: 16,
-                  bottom: 7,
-                  child: ExcludeSemantics(
-                    child: AnimatedBuilder(
-                      animation: _life,
-                      builder: (context, _) => Align(
-                        alignment: Alignment.centerLeft,
-                        child: FractionallySizedBox(
-                          widthFactor: (1 - _life.value).clamp(0.0, 1.0),
-                          child: Container(
-                            height: 3,
-                            decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(3)),
+            ),
+          ),
+        ),
+        ClipRRect(
+          borderRadius: shape,
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Container(
+              decoration: BoxDecoration(
+                color: _glass,
+                borderRadius: shape,
+                border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+              ),
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: 0,
+                    left: _radius - 4,
+                    right: _radius - 4,
+                    height: 1,
+                    child: ColoredBox(color: Colors.white.withValues(alpha: 0.12)),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(18, 12, widget.actionLabel == null ? 18 : 10, showLine ? 18 : 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.message,
+                            style: textTheme.bodyMedium?.copyWith(fontSize: 15, height: 1.35, color: Colors.white),
+                          ),
+                        ),
+                        if (widget.actionLabel != null)
+                          TextButton(
+                            onPressed: () {
+                              if (_gone) return;
+                              _gone = true;
+                              widget.onGone();
+                              widget.onAction?.call();
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.mediaAccent,
+                              textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              minimumSize: const Size(48, 40),
+                            ),
+                            child: Text(widget.actionLabel!),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (showLine)
+                    Positioned(
+                      left: 16,
+                      right: 16,
+                      bottom: 7,
+                      child: ExcludeSemantics(
+                        child: AnimatedBuilder(
+                          animation: _life,
+                          builder: (context, _) => Align(
+                            alignment: Alignment.centerLeft,
+                            child: FractionallySizedBox(
+                              widthFactor: (1 - _life.value).clamp(0.0, 1.0),
+                              child: Container(
+                                height: 3,
+                                decoration: BoxDecoration(color: AppColors.mediaAccent, borderRadius: BorderRadius.circular(3)),
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-            ],
+                ],
+              ),
+            ),
           ),
         ),
-      ),
+      ],
     );
 
     return Positioned(
@@ -268,4 +295,21 @@ class _ToastCardState extends State<_ToastCard> with TickerProviderStateMixin {
       ),
     );
   }
+}
+
+/// Everything outside the card's rounded box. The shadow is clipped to it, so it only shows around the card and does not
+/// darken the glass.
+class _OutsideClipper extends CustomClipper<Path> {
+  const _OutsideClipper(this.radius);
+
+  final double radius;
+
+  @override
+  Path getClip(Size size) => Path()
+    ..fillType = PathFillType.evenOdd
+    ..addRect(Rect.fromLTWH(-80, -80, size.width + 160, size.height + 160))
+    ..addRRect(RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)));
+
+  @override
+  bool shouldReclip(_OutsideClipper old) => old.radius != radius;
 }
