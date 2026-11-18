@@ -54,6 +54,10 @@ class IndexedFolder {
   /// does not persist it.
   final List<RecentEmbeddedItem> recentItems;
 
+  /// Milliseconds the scan says it has left, from live scan progress. Null when it cannot say yet, and when loaded from
+  /// the database.
+  final int? etaMs;
+
   const IndexedFolder({
     required this.id,
     required this.total,
@@ -67,6 +71,7 @@ class IndexedFolder {
     required this.done,
     this.updatedAt = 0,
     this.recentItems = const [],
+    this.etaMs,
   }) : activeMs = activeMs ?? elapsedMs;
 
   factory IndexedFolder.fromMap(Map<dynamic, dynamic> map) {
@@ -82,6 +87,7 @@ class IndexedFolder {
       processed: map['processed'] ?? 0,
       done: map['done'] ?? false,
       updatedAt: (map['updatedAt'] as num?)?.toInt() ?? 0,
+      etaMs: (map['etaMs'] as num?)?.toInt(),
       recentItems: (map['recentItems'] as List<dynamic>?)
               ?.map(
                 (e) => RecentEmbeddedItem.fromMap(Map<dynamic, dynamic>.from(e as Map)),

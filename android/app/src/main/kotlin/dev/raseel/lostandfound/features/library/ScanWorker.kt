@@ -91,6 +91,7 @@ class ScanWorker(
                     "skipped" to progress.skipped,
                     "failed" to progress.failed,
                     "done" to progress.done,
+                    "etaMs" to progress.etaMs,
                     "stopping" to (embeddingEngine.wasCancelled() && !progress.done),
                     "path" to progress.path,
                     "recentItems" to progress.recentItems.map {
@@ -117,6 +118,7 @@ class ScanWorker(
                     progress.videos,
                     progress.photosDone,
                     progress.videosDone,
+                    progress.etaMs,
                 )
                 ScanForegroundService.postIfActive(applicationContext, notification)
             }

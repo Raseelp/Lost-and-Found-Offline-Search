@@ -133,6 +133,7 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
   search model from the GitHub release, like release builds.
 
 ### Fixed
+- The time left while indexing is no longer far too short when a scan carries on or most of the library is already indexed, and it counts videos, which take longer than photos. The scan notification shows the same figure.
 - A scan that ended or was cut short while the app was closed now shows on the scan card as finished or paused, with how far it got, and its button picks it up again. The Indexing was interrupted banner is gone.
 - A screen reader can now choose a photo in the Then and now row and press the circles round a person's
   photo (each is one button, named by its words). The little films in the person bubbles keep their size

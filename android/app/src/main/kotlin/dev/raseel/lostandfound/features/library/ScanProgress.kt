@@ -17,7 +17,7 @@ data class ScanProgress(
     val elapsedMs: Long,
     /**
      * [elapsedMs] without the time spent waiting for the face scan to work through a batch just indexed (see
-     * ScanHandoff). Indexing's own speed is measured over this, and the time left is worked out from [elapsedMs].
+     * ScanHandoff). Indexing's own speed is measured over this.
      */
     val activeMs: Long = elapsedMs,
     val done: Boolean,
@@ -33,5 +33,7 @@ data class ScanProgress(
     val photos: Int = 0,
     val videos: Int = 0,
     val photosDone: Int = 0,
-    val videosDone: Int = 0
+    val videosDone: Int = 0,
+    /** The time the scan has left, in milliseconds, or -1 when it cannot say yet (see [ScanEta]). */
+    val etaMs: Long = ScanEta.UNKNOWN
 )

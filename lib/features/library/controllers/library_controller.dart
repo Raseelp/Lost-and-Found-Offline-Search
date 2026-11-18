@@ -827,18 +827,15 @@ class LibraryController extends GetxController with WidgetsBindingObserver {
     update();
   }
 
-  /// Milliseconds indexing has left at the speed so far; null until enough has been done for the figure to mean
-  /// something. It is based on the whole-scan average, because an estimate that jumps with every wobble of the recent
-  /// rate is more distracting than useful.
+  /// Milliseconds indexing has left, as the scan works it out (see ScanEta on the native side); null until enough has
+  /// been done for the figure to mean something. The scan counts only the files that really have to be indexed, and
+  /// times photos and videos apart, because the files that were indexed before are skipped in an instant and a video
+  /// takes many times as long as a photo. The number of items done and the time spent so far cannot tell those apart.
   int? get scanEtaMs {
     if (!isScanning) return null;
-    final total = scanResult.total;
-    final processed = scanResult.processed;
-    if (total <= 0 || processed < 20 || processed >= total) return null;
-    if (scanResult.elapsedMs < 8000) return null;
-
-    final msPerItem = scanResult.elapsedMs / processed;
-    return (msPerItem * (total - processed)).round();
+    final eta = scanResult.etaMs;
+    if (eta == null || eta <= 0 || scanResult.processed >= scanResult.total) return null;
+    return eta;
   }
 
   String? get scanEtaText {

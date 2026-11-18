@@ -28,6 +28,7 @@ import dev.raseel.lostandfound.features.library.IndexedVideo
 import dev.raseel.lostandfound.features.library.LatestScan
 import dev.raseel.lostandfound.features.library.NewMedia
 import dev.raseel.lostandfound.features.library.RecentEmbeddedItem
+import dev.raseel.lostandfound.features.library.ScanEta
 import dev.raseel.lostandfound.features.library.SafUtils
 import dev.raseel.lostandfound.features.library.ScanHandoff
 import dev.raseel.lostandfound.features.library.ScanProgress
@@ -77,6 +78,11 @@ class EmbeddingEngine(
         val videos = (processed - photos).coerceIn(0, kindVideos)
         return photos to videos
     }
+
+    /** The time this scan has left, from the files it really has to do (see [ScanEta]). */
+    private var eta = ScanEta()
+    private var photosWorked = 0
+    private var videosWorked = 0
 
     /** How long this scan has spent waiting for the photos it handed over (see [handOver]). */
     @Volatile
@@ -145,6 +151,9 @@ class EmbeddingEngine(
          * How many images go into one forward() call, and how many decode threads prepare tensors ahead of the
          * inference thread. Not measured on real devices yet, so they may need tuning.
          */
+        /** What a scan learns about how long a video takes beside a photo, for the next scan's estimate of the time left. */
+        private const val ETA_PREFS = "scan_eta"
+        private const val ETA_VIDEO_RATIO = "video_ratio"
         private const val INFERENCE_BATCH_SIZE = 4
         private const val PREP_THREAD_COUNT = 2
 
@@ -300,6 +309,9 @@ class EmbeddingEngine(
         kindPhotos = 0
         kindVideos = 0
         kindVideosKnown = 0
+        eta = ScanEta()
+        photosWorked = 0
+        videosWorked = 0
         clipTiming = ClipTiming()
         recentItems.clear()
         BenchLog.log {
@@ -442,6 +454,10 @@ class EmbeddingEngine(
 
         val batchSize = 10
         val batch = mutableListOf<EmbeddingRecord>()
+        eta.start(
+            System.currentTimeMillis(), newImages.size, newVideos.size,
+            context.getSharedPreferences(ETA_PREFS, Context.MODE_PRIVATE).getFloat(ETA_VIDEO_RATIO, ScanEta.VIDEO_PRIOR.toFloat()).toDouble(),
+        )
 
         val prepPool = Executors.newFixedThreadPool(PREP_THREAD_COUNT)
         try {
@@ -546,6 +562,8 @@ class EmbeddingEngine(
                 }
 
                 processed += chunk.size
+                photosWorked += chunk.size
+                eta.photosDone(photosWorked)
                 emitProgressIfNeeded(total, processed, embedded, skipped, failed, label, onProgress)
             }
 
@@ -555,6 +573,8 @@ class EmbeddingEngine(
         } finally {
             prepPool.shutdownNow()
         }
+
+        eta.photosOver(System.currentTimeMillis())
 
         if (!isCancelled) {
             for (video in (if (only != null) newVideos else newVideos.shuffled())) {
@@ -604,11 +624,17 @@ class EmbeddingEngine(
                 }
 
                 processed++
+                videosWorked++
+                eta.videosDone(videosWorked)
                 emitProgressIfNeeded(total, processed, embedded, skipped, failed, label, onProgress)
             }
         }
 
         if (batch.isNotEmpty()) commitBatch(batch)
+
+        eta.measuredVideoRatio(System.currentTimeMillis())?.let {
+            context.getSharedPreferences(ETA_PREFS, Context.MODE_PRIVATE).edit().putFloat(ETA_VIDEO_RATIO, it.toFloat()).apply()
+        }
 
         val elapsed = System.currentTimeMillis() - startTimeMs
         reportClip("scan end")
@@ -1255,6 +1281,7 @@ class EmbeddingEngine(
                     videos    = kindVideos,
                     photosDone = kindsDone(processed).first,
                     videosDone = kindsDone(processed).second,
+                    etaMs     = eta.leftMs(now),
                 )
             )
             lastEmit = now

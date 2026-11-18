@@ -14,7 +14,6 @@ import android.os.PowerManager
 import android.os.SystemClock
 import dev.raseel.lostandfound.MainActivity
 import io.flutter.plugin.common.EventChannel
-import kotlin.math.roundToLong
 
 /**
  * Process-wide hub for everything about a scan except the embedding work: the notification, the latest progress tick,
@@ -47,7 +46,9 @@ object ScanForegroundService {
         val photos: Int = 0,
         val videos: Int = 0,
         val photosDone: Int = 0,
-        val videosDone: Int = 0
+        val videosDone: Int = 0,
+        /** The time left, in milliseconds, or -1 when the scan cannot say yet (see ScanEta). */
+        val etaMs: Long = ScanEta.UNKNOWN
     )
 
     /**
@@ -199,9 +200,10 @@ object ScanForegroundService {
         photos: Int = 0,
         videos: Int = 0,
         photosDone: Int = 0,
-        videosDone: Int = 0
+        videosDone: Int = 0,
+        etaMs: Long = ScanEta.UNKNOWN
     ): Notification {
-        val snapshot = Snapshot(processed, total, embedded, elapsedMs, activeMs, photos, videos, photosDone, videosDone)
+        val snapshot = Snapshot(processed, total, embedded, elapsedMs, activeMs, photos, videos, photosDone, videosDone, etaMs)
         lastSnapshot = snapshot
         acquireWakeLock(context)
         return buildNotification(context, snapshot)
@@ -337,16 +339,10 @@ object ScanForegroundService {
         return PendingIntent.getActivity(context.applicationContext, 0, intent, flags)
     }
 
-    /**
-     * The time left, from the whole-scan average. It uses the same formula as the in-app bar's scanEtaText and is
-     * steadier than the instantaneous rate for an estimate.
-     */
+    /** The time left, as the scan works it out from the files it really has to do (see [ScanEta]), or null while it cannot say. */
     private fun etaLabel(snapshot: Snapshot): String? {
-        val (processed, total, _, elapsedMs) = snapshot
-        if (total <= 0 || processed <= 0 || processed >= total) return null
-        val msPerItem = elapsedMs.toDouble() / processed
-        val remainingMs = (msPerItem * (total - processed)).roundToLong()
-        return ScanNotification.duration(remainingMs)
+        if (snapshot.total <= 0 || snapshot.processed >= snapshot.total || snapshot.etaMs <= 0) return null
+        return ScanNotification.duration(snapshot.etaMs)
     }
 
     private fun createChannelIfNeeded(context: Context) {
