@@ -154,6 +154,8 @@ class EmbeddingEngine(
         /** What a scan learns about how long a video takes beside a photo, for the next scan's estimate of the time left. */
         private const val ETA_PREFS = "scan_eta"
         private const val ETA_VIDEO_RATIO = "video_ratio"
+        /** The most collections scored at once. */
+        private const val SCORE_THREADS_MAX = 3
         private const val INFERENCE_BATCH_SIZE = 4
         private const val PREP_THREAD_COUNT = 2
 
@@ -1232,13 +1234,31 @@ class EmbeddingEngine(
         return bestPerKey.values.sortedByDescending { it.score }
     }
 
-    /** Counts the members of each collection and picks a few cover items, in one read of the store. */
+    /**
+     * Counts the members of each collection and picks a few cover items, in one read of the store. Every collection
+     * is scored against every item, which is the work of the app's start with a big library, so a few collections are
+     * scored at once. A few threads, and not all the cores, because the phone is also drawing the app and warms up.
+     */
     fun scoreCollections(specs: List<CollectionSpec>): List<CollectionScore> {
         val records = store.readAll()
-        return specs.map { spec ->
+        val startedMs = android.os.SystemClock.elapsedRealtime()
+        fun score(spec: CollectionSpec): CollectionScore {
             val members = collectionMembers(records, spec)
-            CollectionScore(spec.id, members.size, members.take(6))
+            return CollectionScore(spec.id, members.size, members.take(6))
         }
+        val threads = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, SCORE_THREADS_MAX)
+        val scored = if (threads < 2 || specs.size < 4) {
+            specs.map(::score)
+        } else {
+            val pool = Executors.newFixedThreadPool(threads)
+            try {
+                specs.map { spec -> pool.submit(Callable { score(spec) }) }.map { it.get() }
+            } finally {
+                pool.shutdown()
+            }
+        }
+        AppLog.i(TAG, "scoreCollections: ${specs.size} collections over ${records.size} records in ${android.os.SystemClock.elapsedRealtime() - startedMs} ms on $threads threads")
+        return scored
     }
 
     fun collectionMembers(spec: CollectionSpec, limit: Int): List<SearchResult> {

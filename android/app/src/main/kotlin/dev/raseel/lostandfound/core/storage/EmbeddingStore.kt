@@ -15,7 +15,10 @@ class EmbeddingStore(private val context: Context) {
     private val storeFile: File =
         File(context.filesDir, "embeddings.bin")
 
-    /** Cache of the last readAll(); cleared on every write. */
+    /**
+     * Cache of the last readAll(). A write adds what it wrote to it, so that the file is not read again after every
+     * batch of a scan, and a change that rewrites the file clears it.
+     */
     @Volatile
     private var cachedRecords: List<EmbeddingRecord>? = null
 
@@ -125,7 +128,7 @@ class EmbeddingStore(private val context: Context) {
             ).use { out ->
                 writeRecord(out, record)
             }
-            cachedRecords = null
+            cachedRecords = cachedRecords?.plus(record)
             noteScanned()
         }
     }
@@ -145,7 +148,7 @@ class EmbeddingStore(private val context: Context) {
                     writeRecord(out, record)
                 }
             }
-            cachedRecords = null
+            cachedRecords = cachedRecords?.plus(records)
             noteScanned()
         }
     }
@@ -179,68 +182,27 @@ class EmbeddingStore(private val context: Context) {
     fun readAll(): List<EmbeddingRecord> = synchronized(lock) {
         cachedRecords?.let { return@synchronized it }
 
-        val records = mutableListOf<EmbeddingRecord>()
+        val records = ArrayList<EmbeddingRecord>()
+        val startedMs = android.os.SystemClock.elapsedRealtime()
 
         try {
-            DataInputStream(
-                BufferedInputStream(storeFile.inputStream())
-            ).use { input ->
-
-                val magic = input.readInt()
-                if (magic != MAGIC) throw IllegalStateException("Invalid embedding file header")
-
-                val version = input.readInt()
-                if (version != VERSION) {
-                    throw IllegalStateException("Unsupported embedding store version: $version")
+            java.io.RandomAccessFile(storeFile, "r").use { raf ->
+                val channel = raf.channel
+                val header = java.nio.ByteBuffer.allocate(HEADER_BYTES.toInt())
+                while (header.hasRemaining() && channel.read(header) >= 0) {
+                    // Fills the header. A file that ends before it is full is not a store.
                 }
-
-                val dim = input.readInt()
-                if (dim != EMBEDDING_DIM) throw IllegalStateException("Embedding dim mismatch")
-
-                val model = input.readInt()
+                if (header.hasRemaining()) throw IllegalStateException("Invalid embedding file header")
+                header.flip()
+                if (header.getInt() != MAGIC) throw IllegalStateException("Invalid embedding file header")
+                val version = header.getInt()
+                if (version != VERSION) throw IllegalStateException("Unsupported embedding store version: $version")
+                if (header.getInt() != EMBEDDING_DIM) throw IllegalStateException("Embedding dim mismatch")
+                val model = header.getInt()
                 if (model != MODEL_ID) throw IllegalStateException("Embedding model mismatch: $model")
 
-                while (input.available() > 0) {
-                    try {
-                        val pathLength = input.readInt()
-                        val pathBytes = ByteArray(pathLength)
-                        input.readFully(pathBytes)
-                        val path = String(pathBytes, Charsets.UTF_8)
-
-                        val folderIdLength = input.readInt()
-                        val folderIdBytes = ByteArray(folderIdLength)
-                        input.readFully(folderIdBytes)
-                        val folderId = String(folderIdBytes, Charsets.UTF_8)
-
-                        val hash = input.readLong()
-
-                        val videoUriLength = input.readInt()
-                        val videoUriBytes = ByteArray(videoUriLength)
-                        input.readFully(videoUriBytes)
-                        val videoUri = String(videoUriBytes, Charsets.UTF_8).ifEmpty { null }
-
-                        val timestampMs = input.readLong()
-
-                        val embedding = FloatArray(EMBEDDING_DIM)
-                        for (i in 0 until EMBEDDING_DIM) {
-                            embedding[i] = input.readFloat()
-                        }
-
-                        records.add(
-                            EmbeddingRecord(
-                                imagePath = path,
-                                hash = hash,
-                                embedding = embedding,
-                                folderId = folderId,
-                                videoUri = videoUri,
-                                timestampMs = timestampMs
-                            )
-                        )
-                    } catch (e: EOFException) {
-                        AppLog.w(TAG, "readAll: truncated trailing record, keeping ${records.size} good records")
-                        break
-                    }
-                }
+                val leftover = EmbeddingFileParser.readRecords(channel, EMBEDDING_DIM, records)
+                if (leftover > 0) AppLog.w(TAG, "readAll: truncated trailing record, keeping ${records.size} good records")
             }
         } catch (e: Exception) {
             AppLog.e(TAG, "readAll: store unreadable (${e.message}), resetting", e)
@@ -248,6 +210,7 @@ class EmbeddingStore(private val context: Context) {
             return@synchronized emptyList()
         }
 
+        AppLog.i(TAG, "readAll: ${records.size} records in ${android.os.SystemClock.elapsedRealtime() - startedMs} ms")
         cachedRecords = records
         records
     }
