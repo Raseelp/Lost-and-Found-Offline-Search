@@ -281,12 +281,11 @@ class MemoriesController extends GetxController with WidgetsBindingObserver {
   }
 
   /// Sends today's memory at once. Returns what happened, in words.
-  Future<String> sendTest() async {
+  Future<({String message, bool sent})> sendTest() async {
     try {
-      final message = await _memoriesService.memoryTest();
-      return message;
+      return await _memoriesService.memoryTest();
     } catch (e) {
-      return 'Could not make a memory: $e';
+      return (message: 'Could not make a memory: $e', sent: false);
     }
   }
 }

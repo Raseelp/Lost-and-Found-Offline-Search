@@ -11,7 +11,7 @@ class _NotificationsSection extends StatelessWidget {
       builder: (memories) {
         final s = memories.settings;
 
-        void say(String text) => AppToast.show(text);
+        void say(String text, {ToastKind? kind}) => AppToast.show(text, kind: kind);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -36,7 +36,10 @@ class _NotificationsSection extends StatelessWidget {
                     icon: Icons.send_rounded,
                     title: 'Send one now',
                     subtitle: 'See a different one each time.',
-                    onTap: () async => say(await memories.sendTest()),
+                    onTap: () async {
+                      final result = await memories.sendTest();
+                      say(result.message, kind: result.sent ? ToastKind.sent : null);
+                    },
                   ),
                 ],
                 GetBuilder<StoriesController>(

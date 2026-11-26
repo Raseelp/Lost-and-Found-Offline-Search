@@ -117,4 +117,4 @@ Future<void> _showBlocked(AppPermission what, int sdk, String? purpose) async {
   );
 }
 
-void _say(String message) => AppToast.show(message);
+void _say(String message) => AppToast.show(message, kind: ToastKind.warning);

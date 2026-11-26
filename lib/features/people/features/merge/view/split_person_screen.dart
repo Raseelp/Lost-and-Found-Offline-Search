@@ -51,7 +51,7 @@ class _SplitPersonScreenState extends State<SplitPersonScreen> {
     await _faces.splitPerson(widget.person, preview.second);
     if (!mounted) return;
     Navigator.of(context).pop();
-    AppToast.show('Separated into two people. Give each a name from their page.', duration: const Duration(seconds: 5));
+    AppToast.show('Separated into two people. Give each a name from their page.', kind: ToastKind.separated, duration: const Duration(seconds: 5));
   }
 
   @override

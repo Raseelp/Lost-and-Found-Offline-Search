@@ -217,4 +217,93 @@ void main() {
     await elapse(t, 500);
     await t.pumpWidget(const SizedBox());
   });
+
+  group('the icon of a kind', () {
+    final expected = <ToastKind, IconData>{
+      ToastKind.saved: Icons.bookmark_added_rounded,
+      ToastKind.copied: Icons.content_copy_rounded,
+      ToastKind.merged: Icons.call_merge_rounded,
+      ToastKind.separated: Icons.call_split_rounded,
+      ToastKind.sent: Icons.send_rounded,
+      ToastKind.upToDate: Icons.done_all_rounded,
+      ToastKind.nothingNew: Icons.schedule_rounded,
+      ToastKind.warning: Icons.warning_amber_rounded,
+      ToastKind.failure: Icons.error_rounded,
+    };
+
+    for (final entry in expected.entries) {
+      testWidgets('${entry.key.name} shows ${entry.value.codePoint.toRadixString(16)} in its colour', (t) async {
+        await t.pumpWidget(app());
+        AppToast.show('A message.', kind: entry.key);
+        await elapse(t, 500);
+        final icon = t.widget<Icon>(find.byIcon(entry.value));
+        expect(icon.color, entry.key.color);
+        await elapse(t, 6000);
+      });
+    }
+
+    test('every kind has its own glyph, so colour is not all that tells them apart', () {
+      final glyphs = ToastKind.values.map((k) => k.icon.codePoint).toSet();
+      expect(glyphs.length, ToastKind.values.length);
+    });
+
+    testWidgets('a message with no kind has no icon', (t) async {
+      await t.pumpWidget(app());
+      AppToast.show('Plain.');
+      await elapse(t, 500);
+      expect(find.byType(Icon), findsNothing);
+      expect(find.text('Plain.'), findsOneWidget);
+      await elapse(t, 6000);
+    });
+
+    testWidgets('the icon is left out of what a screen reader reads, and a failure is announced as an error', (t) async {
+      final handle = t.ensureSemantics();
+      await t.pumpWidget(app());
+      AppToast.show("Couldn't open the link.", kind: ToastKind.failure);
+      await elapse(t, 500);
+      expect(find.bySemanticsLabel(RegExp(r'^Error\. Couldn.t open the link\.')), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('bookmark|error_rounded|e000')), findsNothing);
+      await elapse(t, 6000);
+      handle.dispose();
+    });
+
+    testWidgets('a kind that says it itself is read as the message alone', (t) async {
+      final handle = t.ensureSemantics();
+      await t.pumpWidget(app());
+      AppToast.show('Logs copied.', kind: ToastKind.copied);
+      await elapse(t, 500);
+      expect(find.bySemanticsLabel('Logs copied.'), findsOneWidget);
+      await elapse(t, 6000);
+      handle.dispose();
+    });
+
+    testWidgets('with a button, an icon and large text, a long message still fits a narrow screen', (t) async {
+      t.view.physicalSize = const Size(640, 1136);
+      t.view.devicePixelRatio = 2;
+      addTearDown(t.view.reset);
+      await t.pumpWidget(GetMaterialApp(
+        builder: (c, child) => MediaQuery(data: MediaQuery.of(c).copyWith(textScaler: const TextScaler.linear(2)), child: child!),
+        home: const Scaffold(body: SizedBox.expand()),
+      ));
+      AppToast.show(
+        'Separated into two people. Give each a name from their page.',
+        kind: ToastKind.separated,
+        actionLabel: 'View',
+      );
+      await elapse(t, 500);
+      expect(t.takeException(), isNull);
+      final r = t.getRect(find.byType(Dismissible));
+      expect(r.left, greaterThanOrEqualTo(0));
+      expect(r.right, lessThanOrEqualTo(320));
+      await elapse(t, 9000);
+    });
+
+    testWidgets('with animations off the icon is there at once', (t) async {
+      await t.pumpWidget(app(calm: true));
+      AppToast.show('Merged two people.', kind: ToastKind.merged);
+      await t.pump();
+      expect(find.byIcon(Icons.call_merge_rounded), findsOneWidget);
+      await elapse(t, 6000);
+    });
+  });
 }

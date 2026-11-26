@@ -448,7 +448,7 @@ class _SourceButton extends StatelessWidget {
     } catch (_) {
       opened = false;
     }
-    if (!opened) AppToast.show("Couldn't open the link.");
+    if (!opened) AppToast.show("Couldn't open the link.", kind: ToastKind.failure);
   }
 
   /// The words are in a [Flexible], so with large text they wrap instead of running out of the button.

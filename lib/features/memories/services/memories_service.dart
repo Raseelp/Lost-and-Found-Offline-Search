@@ -72,11 +72,13 @@ class MemoriesService {
     }
   }
 
-  /// Sends today's memory at once, to see what it looks like. The message says what happened.
-  Future<String> memoryTest() async {
+  /// Sends today's memory at once, to see what it looks like. The message says what happened, and [sent] is whether a
+  /// memory was sent.
+  Future<({String message, bool sent})> memoryTest() async {
     final map = await nativeChannel.invokeMapMethod<String, dynamic>('memoryTest');
     final message = map?['message'] as String? ?? '';
-    return map?['sent'] != null ? 'Sent: $message' : message;
+    final sent = map?['sent'] != null;
+    return (message: sent ? 'Sent: $message' : message, sent: sent);
   }
 
   /// The home tab a tapped notification wants shown since this was last asked (taken once): the Library tab for the

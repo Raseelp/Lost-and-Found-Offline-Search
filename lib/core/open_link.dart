@@ -12,5 +12,5 @@ Future<void> openLink(String url) async {
   } catch (_) {
     opened = false;
   }
-  if (!opened) AppToast.show("Couldn't open the link.");
+  if (!opened) AppToast.show("Couldn't open the link.", kind: ToastKind.failure);
 }

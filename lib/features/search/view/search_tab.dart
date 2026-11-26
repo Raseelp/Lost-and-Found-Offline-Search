@@ -677,11 +677,12 @@ class _SaveCollectionButton extends StatelessWidget {
           name: name,
         );
         if (created == null) {
-          AppToast.show("Couldn't save that collection.");
+          AppToast.show("Couldn't save that collection.", kind: ToastKind.failure);
           return;
         }
         AppToast.show(
           'Saved ${created.name} as a collection.',
+          kind: ToastKind.saved,
           actionLabel: 'View',
           onAction: () {
             if (context.mounted) openCollectionScreen(context, collections, created);
@@ -706,6 +707,7 @@ class _SaveCollectionButton extends StatelessWidget {
         if (created == null) return;
         AppToast.show(
           'Saved ${created.name} as a collection.',
+          kind: ToastKind.saved,
           actionLabel: 'View',
           onAction: () {
             if (context.mounted) openCollectionScreen(context, collections, created);

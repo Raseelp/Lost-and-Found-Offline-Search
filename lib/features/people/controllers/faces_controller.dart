@@ -871,6 +871,7 @@ class FacesController extends GetxController {
     if (recordId <= 0) return;
     AppToast.show(
       'Merged two people.',
+      kind: ToastKind.merged,
       actionLabel: 'Undo',
       onAction: () => undoMerge(recordId),
       duration: const Duration(seconds: 8),

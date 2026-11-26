@@ -165,7 +165,7 @@ class StoryRingsBar extends StatelessWidget {
                                     refreshing: stories.refreshing,
                                     onTap: () async {
                                       final anything = await stories.refreshStories();
-                                      if (!anything) AppToast.show('Nothing new right now. Check back later.');
+                                      if (!anything) AppToast.show('Nothing new right now. Check back later.', kind: ToastKind.nothingNew);
                                     },
                                   )
                                 : const SizedBox.shrink(key: ValueKey('no-refresh')),

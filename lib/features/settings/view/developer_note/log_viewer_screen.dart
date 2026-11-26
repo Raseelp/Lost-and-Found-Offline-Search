@@ -19,7 +19,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
 
   Future<void> _copy(String text) async {
     await Clipboard.setData(ClipboardData(text: text));
-    AppToast.show('Logs copied.');
+    AppToast.show('Logs copied.', kind: ToastKind.copied);
   }
 
   @override

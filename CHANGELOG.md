@@ -6,6 +6,7 @@ Details of each feature are in [docs/](docs/); the full history is in `git log`.
 ## Unreleased
 
 ### Added
+- Short messages have an icon at the left that tells what kind of message it is: saved, copied, merged, separated, sent, up to date, nothing new, a warning or a failure. A screen reader says Warning or Error first for the last two.
 - A start animation: the icon's slider sweeps across, then a big lens grows out of it and opens the app. With
   Android's "Remove animations" on, it shows a still picture instead.
 - A new app icon: "lf" carved into a landscape that fills the whole icon, with a slider line through the f: the

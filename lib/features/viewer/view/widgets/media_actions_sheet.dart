@@ -41,17 +41,20 @@ class _MediaActionsSheet extends StatelessWidget {
   /// so its own context is gone by the time there is a result to report.
   final BuildContext feedbackContext;
 
-  void _showFeedback(String message) => AppToast.show(message);
+  void _showFeedback(String message, ToastKind? kind) => AppToast.show(message, kind: kind);
 
+  /// Runs [action] and says how it went. [successKind] is the icon of the good news, and a failure always has the icon
+  /// of a failure.
   Future<void> _run(
     BuildContext sheetContext,
     Future<bool> Function() action,
     String successMessage,
-    String failureMessage,
-  ) async {
+    String failureMessage, {
+    ToastKind? successKind,
+  }) async {
     Navigator.of(sheetContext).pop();
     final ok = await action();
-    _showFeedback(ok ? successMessage : failureMessage);
+    _showFeedback(ok ? successMessage : failureMessage, ok ? successKind : ToastKind.failure);
   }
 
   @override
@@ -88,6 +91,7 @@ class _MediaActionsSheet extends StatelessWidget {
                       await controller.saveFileCopy(uri: uri, isVideo: isVideo),
                   isVideo ? 'Video saved to Gallery.' : 'Photo saved to Gallery.',
                   "Couldn't save a copy.",
+                  successKind: ToastKind.saved,
                 ),
               ),
               if (!isVideo) ...[
@@ -111,6 +115,7 @@ class _MediaActionsSheet extends StatelessWidget {
                     () => controller.copyImageToClipboard(uri: uri),
                     'Copied.',
                     "Couldn't copy.",
+                    successKind: ToastKind.copied,
                   ),
                 ),
               ],

@@ -255,7 +255,7 @@ class _CollectionSheetState extends State<_CollectionSheet> {
       unawaited(
         controller.createPhotoCollection(name: name, uri: photo, contentMode: contentMode).then((made) {
           if (made == null) {
-            AppToast.show("That photo couldn't be read.");
+            AppToast.show("That photo couldn't be read.", kind: ToastKind.failure);
           }
         }),
       );
@@ -291,7 +291,7 @@ class _CollectionSheetState extends State<_CollectionSheet> {
       } else {
         unawaited(
           controller.changePhoto(c, uri: photo, name: name, contentMode: contentMode).then((read) {
-            if (!read) AppToast.show("That photo couldn't be read.");
+            if (!read) AppToast.show("That photo couldn't be read.", kind: ToastKind.failure);
           }),
         );
       }

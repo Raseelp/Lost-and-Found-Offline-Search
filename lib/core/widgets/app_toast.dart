@@ -6,20 +6,58 @@ import 'package:lost_and_found/core/theme/app_colors.dart';
 import 'package:lost_and_found/core/theme/floating_bar.dart';
 import 'package:lost_and_found/core/theme/motion.dart';
 
-/// Shows every short message in the app ("Copied.", "Merged two people." with an Undo) as one dark frosted card. A
-/// message replaces the one on screen. It needs no BuildContext, so it can be called after a screen has gone. A
-/// message with a button shows the time left as a thin line that shrinks, and with "Remove animations" on nothing
-/// slides or shrinks.
+/// The kind of a short message, which gives it its icon and the colour of the icon. A message with no kind has no icon.
+/// The shape of the icon differs from kind to kind as well as the colour, so the meaning does not rest on colour alone.
+enum ToastKind {
+  saved(Icons.bookmark_added_rounded, _ok),
+  copied(Icons.content_copy_rounded, _ok),
+  merged(Icons.call_merge_rounded, _ok),
+  separated(Icons.call_split_rounded, _ok),
+
+  /// A note was sent to the phone's notifications.
+  sent(Icons.send_rounded, _ok),
+
+  /// There was nothing to do, because everything is covered already.
+  upToDate(Icons.done_all_rounded, _info),
+
+  /// There is nothing to show yet.
+  nothingNew(Icons.schedule_rounded, _info),
+  warning(Icons.warning_amber_rounded, _warn),
+  failure(Icons.error_rounded, _err);
+
+  const ToastKind(this.icon, this.color);
+
+  final IconData icon;
+  final Color color;
+
+  /// What a screen reader says before the message, for the two kinds whose message does not always say it itself.
+  String get spoken => switch (this) {
+    ToastKind.warning => 'Warning. ',
+    ToastKind.failure => 'Error. ',
+    _ => '',
+  };
+}
+
+const Color _ok = AppColors.mediaAccent;
+const Color _info = Color(0xFF9CC6EA);
+const Color _warn = Color(0xFFF2BE5C);
+const Color _err = Color(0xFFFF8F7E);
+
+/// Shows every short message in the app ("Copied.", "Merged two people." with an Undo) as one dark frosted card, with an
+/// icon for its [ToastKind] at the left. A message replaces the one on screen. It needs no BuildContext, so it can be
+/// called after a screen has gone. A message with a button shows the time left as a thin line that shrinks, and with
+/// "Remove animations" on nothing slides or shrinks.
 class AppToast {
   const AppToast._();
 
   static OverlayEntry? _entry;
 
-  /// Shows [message]. With [actionLabel] and [onAction] it has a button and the time left is drawn as a line. The
-  /// card sits above the floating bar when the home screen shows with nothing on top of it, and at the bottom of the
-  /// screen anywhere else.
+  /// Shows [message], with the icon of [kind] when it has one. With [actionLabel] and [onAction] it has a button and the
+  /// time left is drawn as a line. The card sits above the floating bar when the home screen shows with nothing on top
+  /// of it, and at the bottom of the screen anywhere else.
   static void show(
     String message, {
+    ToastKind? kind,
     String? actionLabel,
     VoidCallback? onAction,
     Duration duration = const Duration(seconds: 4),
@@ -38,6 +76,7 @@ class AppToast {
     entry = OverlayEntry(
       builder: (context) => _ToastCard(
         message: message,
+        kind: kind,
         aboveBar: aboveBar,
         actionLabel: actionLabel,
         onAction: onAction,
@@ -73,6 +112,7 @@ class AppToast {
 class _ToastCard extends StatefulWidget {
   const _ToastCard({
     required this.message,
+    required this.kind,
     required this.aboveBar,
     required this.actionLabel,
     required this.onAction,
@@ -81,6 +121,7 @@ class _ToastCard extends StatefulWidget {
   });
 
   final String message;
+  final ToastKind? kind;
 
   /// The floating bar is under it: it sits above the bar rather than at the bottom of the screen.
   final bool aboveBar;
@@ -96,6 +137,10 @@ class _ToastCard extends StatefulWidget {
 class _ToastCardState extends State<_ToastCard> with TickerProviderStateMixin {
   static const _radius = 16.0;
   static const _glass = Color(0xC71A1D1C);
+
+  /// The icon is drawn on its own, with no disc behind it, in a box a little bigger than the glyph.
+  static const _iconBox = 28.0;
+  static const _iconSize = 26.0;
 
   /// The slide in and out.
   late final AnimationController _in = AnimationController(
@@ -202,12 +247,27 @@ class _ToastCardState extends State<_ToastCard> with TickerProviderStateMixin {
                     child: ColoredBox(color: Colors.white.withValues(alpha: 0.12)),
                   ),
                   Padding(
-                    padding: EdgeInsets.fromLTRB(18, 12, widget.actionLabel == null ? 18 : 10, showLine ? 18 : 12),
+                    padding: EdgeInsets.fromLTRB(
+                      widget.kind == null ? 18 : 14,
+                      12,
+                      widget.actionLabel == null ? 18 : 10,
+                      showLine ? 18 : 12,
+                    ),
                     child: Row(
                       children: [
+                        if (widget.kind != null) ...[
+                          ExcludeSemantics(
+                            child: SizedBox.square(
+                              dimension: _iconBox,
+                              child: Icon(widget.kind!.icon, size: _iconSize, color: widget.kind!.color),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
                         Expanded(
                           child: Text(
                             widget.message,
+                            semanticsLabel: '${widget.kind?.spoken ?? ''}${widget.message}',
                             style: textTheme.bodyMedium?.copyWith(fontSize: 15, height: 1.35, color: Colors.white),
                           ),
                         ),

@@ -118,7 +118,7 @@ class _DeveloperNoteScreenState extends State<DeveloperNoteScreen> with TickerPr
       picked = await SettingsService().pickReportFiles();
     } catch (_) {
       _picking = false;
-      AppToast.show("Couldn't open the file picker.");
+      AppToast.show("Couldn't open the file picker.", kind: ToastKind.failure);
       return;
     }
     _picking = false;
@@ -146,13 +146,13 @@ class _DeveloperNoteScreenState extends State<DeveloperNoteScreen> with TickerPr
       );
     } catch (_) {
       if (mounted) setState(() => _sendState = ReportSendState.idle);
-      AppToast.show("Couldn't open your email app.");
+      AppToast.show("Couldn't open your email app.", kind: ToastKind.failure);
       return;
     }
     if (!mounted) return;
     if (answer == 'no_mail_app') {
       setState(() => _sendState = ReportSendState.idle);
-      AppToast.show('No email app found. Opening GitHub instead.');
+      AppToast.show('No email app found. Opening GitHub instead.', kind: ToastKind.warning);
       await openLink(_issueUrl());
       return;
     }

@@ -206,7 +206,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// Runs the face scan over whatever was missed, with its progress on the tab, or says everything is already covered.
   Future<void> _updatePeople(FacesController faces) async {
     final started = await faces.syncFaces();
-    if (!started) AppToast.show('People are up to date.');
+    if (!started) AppToast.show('People are up to date.', kind: ToastKind.upToDate);
   }
 
   /// Shrinks the bar while a tab's list scrolls down. Only the tabs' own vertical lists count, not the horizontal chip

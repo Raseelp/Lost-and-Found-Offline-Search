@@ -32,7 +32,7 @@ class _BuildRowState extends State<_BuildRow> {
     final text = _text;
     if (text == null) return;
     await Clipboard.setData(ClipboardData(text: 'Lost & Found $text'));
-    AppToast.show('Build details copied.');
+    AppToast.show('Build details copied.', kind: ToastKind.copied);
   }
 
   @override

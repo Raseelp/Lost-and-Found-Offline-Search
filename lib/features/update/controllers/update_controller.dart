@@ -128,7 +128,7 @@ class UpdateController extends GetxController with WidgetsBindingObserver {
         await dismiss();
         return;
       default:
-        AppToast.show("Couldn't start the update. You can update in Google Play.");
+        AppToast.show("Couldn't start the update. You can update in Google Play.", kind: ToastKind.failure);
     }
     update();
   }
@@ -144,7 +144,7 @@ class UpdateController extends GetxController with WidgetsBindingObserver {
     try {
       await _service.complete();
     } catch (_) {
-      AppToast.show("Couldn't restart the app. Open it again to finish the update.");
+      AppToast.show("Couldn't restart the app. Open it again to finish the update.", kind: ToastKind.failure);
     }
   }
 }
